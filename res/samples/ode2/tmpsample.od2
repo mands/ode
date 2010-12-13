@@ -1,0 +1,27 @@
+simulate {
+  component: environment,
+  param: t,
+  from: 0,
+  to: 10,
+  step: 1,
+  sample: 1,
+  output: results
+  // others parameters to decide later
+}
+
+component environment(t) {
+  V = 1 * 2 + 3;
+  (x) = beta2(t);
+  //x = 2.0;
+  return (x)
+}
+
+// tests ode values and attributes
+component beta2(t) {
+    x = a;
+    // then need to name-mangle/create identifiers
+    a = ode { init: 0.0, delta: (1 + 1 - 1) };
+    //b = sde { init: 10.0, delta: 0, weiner: 1.0 };
+    return (t)
+}
+

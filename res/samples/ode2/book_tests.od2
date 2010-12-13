@@ -1,0 +1,46 @@
+simulate { component: ex1, param: t, from: 0, to: 1, step: 0.1, sample: 1, output: ex1a }
+simulate { component: ex1, param: t, from: 0, to: 1, step: 0.05, sample: 2, output: ex1b }
+simulate { component: ex1, param: t, from: 0, to: 1, step: 0.01, sample: 10, output: ex1c }
+simulate { component: ex1, param: t, from: 0, to: 1, step: 0.005, sample: 20, output: ex1d }
+
+simulate { component: ex2, param: t, from: 0, to: 1, step: 0.1, sample: 1, output: ex2a }
+simulate { component: ex2, param: t, from: 0, to: 1, step: 0.05, sample: 2, output: ex2b }
+simulate { component: ex2, param: t, from: 0, to: 1, step: 0.01, sample: 10, output: ex2c }
+simulate { component: ex2, param: t, from: 0, to: 1, step: 0.005, sample: 20, output: ex2d }
+
+simulate { component: ex3, param: t, from: 0, to: 1, step: 0.1, sample: 1, output: ex3a }
+simulate { component: ex3, param: t, from: 0, to: 1, step: 0.05, sample: 2, output: ex3b }
+simulate { component: ex3, param: t, from: 0, to: 1, step: 0.01, sample: 10, output: ex3c }
+simulate { component: ex3, param: t, from: 0, to: 1, step: 0.005, sample: 20, output: ex3d }
+
+simulate { component: ex4, param: t, from: 0, to: 200, step: 0.01, sample: 100, output: ex4 }
+
+// based on table 18-1, pg 169
+component ex1(t) {
+    y1 = ode { init: 2, delta: (y1 - t) };
+    return (t)
+}
+
+// based on table 18-2, pg 170
+component ex2(t) {
+    y2 = ode { init: 1, delta: y2 };
+    return (t)
+}
+
+// based on table 18-3, pg 171
+component ex3(t) {
+    y3 = ode { init: 0, delta: (pow(y3,2) + 1) };
+    return (t)
+}
+
+// Ornstein–Uhlenbeck process
+// http://en.wikipedia.org/wiki/Ornstein%E2%80%93Uhlenbeck_process
+component ex4(t) {
+    theta = 1;
+    mu = 20;
+    sigma = 10;
+
+    y4 = sde { init: 0.5, delta: (theta*(mu-y4)), weiner: sigma};
+    return (t)
+}
+

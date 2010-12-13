@@ -1,0 +1,22 @@
+syntax: glob
+ode2/dist
+ode3/dist
+*~
+*.o
+*.hi
+*.log
+*.bin
+
+# LLVM bitcode
+*.ll
+*.bc
+*.s
+
+# IDE files
+*.lkshf
+*.lkshs
+*.lkshw
+
+syntax: regexp
+.*\#.*\#$
+

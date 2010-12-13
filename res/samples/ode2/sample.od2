@@ -1,0 +1,57 @@
+simulate {
+  component: environment,
+  param: t,
+  from: 0,
+  to: 50,
+  step: 0.001,
+  sample: 1,
+  output: sample
+  // others parameters to decide later
+}
+
+component environment(t) {
+  (V) = membrane(t);
+  
+  return (t)
+}
+
+// inputs implicit
+component membrane(t) {
+  Cm = 1;
+  i_L = 0;
+
+  /* convert to nested if/elses, can check at compile if continous, etc.
+     requires adding boolean expressions and types to langauge */
+  i_Stim = piecewise {
+    t > 10 and t < 10.5 : 20,
+    t > 10.5 and t < 11 : 0.01,
+    default: 0
+  };
+
+  (i_K) = potassium_channel(t, V);
+  
+  V = ode {init: -75, delta: (-1 * (-1 * i_Stim + i_K + i_L) / Cm)};
+
+  // outputs
+  return (V)
+}
+
+component potassium_channel(t, V) {
+  // implicit components grouping
+  (n) = potassium_channel_n_gate(t, V);
+  E_R = -75;
+  g_K = 36;
+  E_K = E_R - 12;
+  i_K = g_K * pow(n,4) * (V - E_K);
+
+  return (i_K)
+}
+
+// should be first-class/nested component definitions - todo
+component potassium_channel_n_gate(t, V) {
+  alpha_n = (-1 * 0.01 * (V + 65)) / (exp((-1 * (V + 65)) / 10) - 1);
+  beta_n = 0.125 * exp((V+75) / 80);
+  n = ode {init: 0.325, delta: (alpha_n*(1-n) - (beta_n*n))};
+  return (n)
+}
+

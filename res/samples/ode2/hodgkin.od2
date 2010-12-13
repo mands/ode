@@ -1,0 +1,81 @@
+simulate {
+  component: environment,
+  param: t,
+  from: 0,
+  to: 50,
+  step: 0.1,
+  sample: 10,
+  output: hodgkin
+  // others parameters to decide later
+}
+
+component environment(t) {
+  (V) = membrane(t);
+  return (t)
+}
+
+// inputs implicit
+component membrane(t) {
+  Cm = 1;
+  E_R = -75;
+
+  i_Stim = piecewise {
+    t >= 10 and t <= 10.5 : 20,
+    default: 0
+  };
+
+  (i_K) = potassium_channel(t, V, E_R);
+  (i_Na) = sodium_channel(t, V, E_R);
+  (i_L) = leakage_current(V, E_R);
+  V = ode {init: -75, delta: (-1 * (-1 * i_Stim + i_Na + i_K + i_L) / Cm)};
+  // outputs
+  return (V)
+}
+
+component leakage_current(V, E_R) {
+  g_L = 0.3;
+  E_L = E_R + 10.613;
+  i_L = g_L * (V - E_L);
+  return (i_L)
+}
+
+component potassium_channel(t, V, E_R) {
+  // implicit components grouping
+  (n) = potassium_channel_n_gate(t, V);
+  g_K = 36;
+  E_K = E_R - 12;
+  i_K = g_K * pow(n,4) * (V - E_K);
+  return (i_K)
+}
+
+// should be first-class/nested component definitions - todo
+component potassium_channel_n_gate(t, V) {
+  alpha_n = (-1 * 0.01 * (V + 65)) / (exp((-1 * (V + 65)) / 10) - 1);
+  beta_n = 0.125 * exp((V+75) / 80);
+  n = ode {init: 0.325, delta: (alpha_n*(1-n) - (beta_n*n))};
+  return (n)
+}
+
+component sodium_channel(t, V, E_R) {
+  (m) = sodium_channel_m_gate(t, V);
+  (h) = sodium_channel_h_gate(t, V);
+  g_Na = 120;
+  E_Na = E_R + 115;
+  i_Na = g_Na * pow(m, 3) * h * (V - E_Na);
+  return (i_Na)
+}
+
+component sodium_channel_m_gate(t, V) { 
+  alpha_m = -1 * 0.1 * (V + 50) / (exp(-1 * (V + 50) / 10) - 1);
+  beta_m = 4 * exp(-1 * (V + 75) / 18);
+  m = ode {init: 0.05, delta: (alpha_m * (1 - m) - beta_m * m)};
+  return (m)
+}
+
+component sodium_channel_h_gate(t, V) {
+  alpha_h = 0.07 * exp(-1 * (V + 75) / 20);
+  beta_h = 1 / (exp(-1 * (V + 45) / 10) + 1);
+  h = ode {init: 0.6, delta: (alpha_h * (1 - h) - beta_h * h)};
+  return (h)
+}
+

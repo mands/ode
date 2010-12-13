@@ -1,0 +1,228 @@
+def model hodgkin_huxley_squid_axon_1952 as
+def unit millisecond as
+unit second {pref: milli};
+enddef;
+
+def unit per_millisecond as
+unit second {pref: milli, expo: -1};
+enddef;
+
+def unit millivolt as
+unit volt {pref: milli};
+enddef;
+
+def unit per_millivolt_millisecond as
+unit millivolt {expo: -1};
+unit second {pref: milli, expo: -1};
+enddef;
+
+def unit milliS_per_cm2 as
+unit siemens {pref: milli};
+unit metre {pref: centi, expo: -2};
+enddef;
+
+def unit microF_per_cm2 as
+unit farad {pref: micro};
+unit metre {pref: centi, expo: -2};
+enddef;
+
+def unit microA_per_cm2 as
+unit ampere {pref: micro};
+unit metre {pref: centi, expo: -2};
+enddef;
+
+def comp environment as
+var time: millisecond {pub: out};
+enddef;
+
+def comp membrane as
+var V: millivolt {init: -75, pub: out};
+var E_R: millivolt {init: -75, pub: out};
+var Cm: microF_per_cm2 {init: 1};
+var time: millisecond {pub: in};
+var i_Na: microA_per_cm2 {pub: in};
+var i_K: microA_per_cm2 {pub: in};
+var i_L: microA_per_cm2 {pub: in};
+var i_Stim: microA_per_cm2;
+
+def math as
+i_Stim = piecewise(
+case time >= 10 {unit: millisecond} and time <= 10.5 {unit: millisecond} then
+20 {unit: microA_per_cm2}
+else
+0 {unit: microA_per_cm2}
+);
+d(V)/d(time) = -((-(i_Stim) + i_Na + i_K + i_L)) / Cm;
+enddef;
+enddef;
+
+def comp sodium_channel as
+var i_Na: microA_per_cm2 {pub: out};
+var g_Na: milliS_per_cm2 {init: 120};
+var E_Na: millivolt;
+var time: millisecond {pub: in, priv: out};
+var V: millivolt {pub: in, priv: out};
+var E_R: millivolt {pub: in};
+var m: dimensionless {priv: in};
+var h: dimensionless {priv: in};
+
+def math as
+E_Na = E_R + 115 {unit: millivolt};
+i_Na = g_Na * power(m, 3 {unit: dimensionless}) * h * (V - E_Na);
+enddef;
+enddef;
+
+def comp sodium_channel_m_gate as
+var m: dimensionless {init: 0.05, pub: out};
+var alpha_m: per_millisecond;
+var beta_m: per_millisecond;
+var V: millivolt {pub: in};
+var time: millisecond {pub: in};
+
+def math as
+alpha_m = -(0.1 {unit: per_millivolt_millisecond}) * (V + 50 {unit: millivolt}) / (exp(-((V + 50 {unit: millivolt})) / 10 {unit: millivolt}) - 1 {unit: dimensionless});
+beta_m = 4 {unit: per_millisecond} * exp(-((V + 75 {unit: millivolt})) / 18 {unit: millivolt});
+d(m)/d(time) = alpha_m * (1 {unit: dimensionless} - m) - beta_m * m;
+enddef;
+enddef;
+
+def comp sodium_channel_h_gate as
+var h: dimensionless {init: 0.6, pub: out};
+var alpha_h: per_millisecond;
+var beta_h: per_millisecond;
+var V: millivolt {pub: in};
+var time: millisecond {pub: in};
+
+def math as
+alpha_h = 0.07 {unit: per_millisecond} * exp(-((V + 75 {unit: millivolt})) / 20 {unit: millivolt});
+beta_h = 1 {unit: per_millisecond} / (exp(-((V + 45 {unit: millivolt})) / 10 {unit: millivolt}) + 1 {unit: dimensionless});
+d(h)/d(time) = alpha_h * (1 {unit: dimensionless} - h) - beta_h * h;
+enddef;
+enddef;
+
+def comp potassium_channel as
+var i_K: microA_per_cm2 {pub: out};
+var g_K: milliS_per_cm2 {init: 36};
+var E_K: millivolt;
+var time: millisecond {pub: in, priv: out};
+var V: millivolt {pub: in, priv: out};
+var E_R: millivolt {pub: in};
+var n: dimensionless {priv: in};
+
+def math as
+E_K = E_R - 12 {unit: millivolt};
+i_K = g_K * power(n, 4 {unit: dimensionless}) * (V - E_K);
+enddef;
+enddef;
+
+def comp potassium_channel_n_gate as
+var n: dimensionless {init: 0.325, pub: out};
+var alpha_n: per_millisecond;
+var beta_n: per_millisecond;
+var V: millivolt {pub: in};
+var time: millisecond {pub: in};
+
+def math as
+alpha_n = -(0.01 {unit: per_millivolt_millisecond}) * (V + 65 {unit: millivolt}) / (exp(-((V + 65 {unit: millivolt})) / 10 {unit: millivolt}) - 1 {unit: dimensionless});
+beta_n = 0.125 {unit: per_millisecond} * exp((V + 75 {unit: millivolt}) / 80 {unit: millivolt});
+d(n)/d(time) = alpha_n * (1 {unit: dimensionless} - n) - beta_n * n;
+enddef;
+enddef;
+
+def comp leakage_current as
+var i_L: microA_per_cm2 {pub: out};
+var g_L: milliS_per_cm2 {init: 0.3};
+var E_L: millivolt;
+var time: millisecond {pub: in};
+var V: millivolt {pub: in};
+var E_R: millivolt {pub: in};
+
+def math as
+E_L = E_R + 10.613 {unit: millivolt};
+i_L = g_L * (V - E_L);
+enddef;
+enddef;
+
+def group as
+type containment;
+
+comp membrane incl
+comp sodium_channel incl
+comp sodium_channel_m_gate;
+comp sodium_channel_h_gate;
+endcomp;
+
+comp potassium_channel incl
+comp potassium_channel_n_gate;
+endcomp;
+
+comp leakage_current;
+endcomp;
+enddef;
+
+def group as
+type encapsulation;
+
+comp sodium_channel incl
+comp sodium_channel_m_gate;
+comp sodium_channel_h_gate;
+endcomp;
+
+comp potassium_channel incl
+comp potassium_channel_n_gate;
+endcomp;
+enddef;
+
+def map between membrane and environment for
+vars time and time;
+enddef;
+
+def map between sodium_channel and environment for
+vars time and time;
+enddef;
+
+def map between potassium_channel and environment for
+vars time and time;
+enddef;
+
+def map between leakage_current and environment for
+vars time and time;
+enddef;
+
+def map between membrane and sodium_channel for
+vars V and V;
+vars E_R and E_R;
+vars i_Na and i_Na;
+enddef;
+
+def map between membrane and potassium_channel for
+vars V and V;
+vars E_R and E_R;
+vars i_K and i_K;
+enddef;
+
+def map between membrane and leakage_current for
+vars V and V;
+vars E_R and E_R;
+vars i_L and i_L;
+enddef;
+
+def map between sodium_channel and sodium_channel_m_gate for
+vars m and m;
+vars time and time;
+vars V and V;
+enddef;
+
+def map between sodium_channel and sodium_channel_h_gate for
+vars h and h;
+vars time and time;
+vars V and V;
+enddef;
+
+def map between potassium_channel and potassium_channel_n_gate for
+vars n and n;
+vars time and time;
+vars V and V;
+enddef;
+enddef;
+

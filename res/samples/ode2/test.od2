@@ -1,0 +1,107 @@
+// test comments
+
+/* multi-line comments
+*
+*
+*/
+simulate {
+  component: environment,
+  param: t,
+  from: 0,
+  to: 50.0,
+  step: 0.001,
+  sample: 1
+  // others parameters to decide later
+}
+
+// tests formatting and numeric expressions
+component alpha(t) {
+    // multi-line expressions with comments
+    x = 32.01  /* comment */ / (4.0
+        * 2.0
+    );
+
+    y = 34.234;
+    z = 0.0000001;
+    // optional typing info for values, {type:val}
+    asdsa = 3434.0 + 23.0 * x + sin(3.4+23.4+z);
+    
+    return (3242.0+y+asdsa, y)
+    // res = (6803.258, 24.234)
+}
+
+// tests ode values and attributes
+component beta(t) {
+    a' { wrt: t, init: 45.3 } = 23.0;
+    b' { init: 45.3, wrt: s } = 23.0 * t;
+    return (a)
+}
+
+// tests sde values and attributes
+component beta2(t) {
+    ode a { wrt: t, init: 45.3 } = 23.0;
+    a { type : ode, wrt: t, init: 45.3} = 23.0;
+    b { type : sde, wrt: t, init: 45.3, weiner: 34 * a} = 23.0;
+
+    // then need to name-mangle/create identifiers
+    a = ode { wrt: t, init: 45.3, exp: 23.0 + t } + 3432.0
+    b = sde { wrt: t, init: 45.3, exp: 23.0 + t, weiner: 34 * a }
+
+}
+
+// tests ode values and attributes
+component beta2(t) {
+    // then need to name-mangle/create identifiers
+    a = ode { init: 0, exp: 1.0}
+    return (a)
+}
+
+// tests multiple args and return values from components
+component gamma(t) {
+    c = t + 1;
+    (a, b) = gamma1(t, c);    
+    return (a+b)
+}
+
+// return values from components
+component gamma1(t1, z) {
+    x = 3+z;
+    y = 4;
+    return (x, y)
+}
+
+// tests piecewise values
+component delta(t) {
+
+    // complicated, yet useless, piecewise statement
+    i_Stim = piecewise {
+        t < 1.0 or t <= 0.99 : 1.0,
+        t > 1.5 and (t > 2.0 or t >= 2.1): 2.0,
+        default : 3.0 // utilised when t between 1 and 2
+      } + 4.0;
+
+    return (i_Stim)
+}
+
+// tests model errors
+component epsilon(t, w) {
+    x = 1 / (4.0 * 2.0);
+    y = 3; //+ y;
+    z = 2;
+    a = 34 + 2; // * u;   
+    
+    // incorrect func calls
+    //b = sinX(2);
+    //c = sin(2,3);
+    //d = pow(1);
+    //e = pow(1,2,3);
+    return (x)//, s)
+}
+
+// tests function calls
+component zeta(t) {
+    x = max (0,1);
+    y = sin (1.0);
+    return (x + pow(2,4) + y)
+}
+
