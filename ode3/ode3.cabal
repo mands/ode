@@ -6,16 +6,16 @@ license: GPL-3
 license-file: LICENSE
 copyright: Copyright (C) 2010 Mandeep Gill
 maintainer: mangil@comlab.ox.ac.uk
-build-depends: base -any
+build-depends: base -any, directory -any, hslogger -any, mtl -any,
+               parsec -any
 stability: alpha
 homepage: http://www.comlab.ox.ac.uk/people/mangil/ode
 package-url:
 bug-reports: mailto:mangil@comlab.ox.ac.uk
 synopsis: Ode3 DSL and simulation environment
-description: An internal DSL used to describe mathematical models of single cells.
-             A simulation environment for such described models is provided.
-             Focus on efficently describing models in an internal DSL environment.
-             Hybrid models are supproted, currenlt by ODEs and SDEs however SSAs are planned.
+description: An external DSL used to describe stochastic-hyrbid models, a front-end to explicitly model ion channel dynamics of cardiac cells is provided.
+             A reference interpreter is provided alongside a high-perfromance JIT compilation scheme.
+             HPC implementation targets both CPUs and GPUs in parallel, heterogenous, environments.
 category: Languages
 author: Mandeep Gill
 tested-with:
@@ -34,6 +34,10 @@ ld-options:
 pkgconfig-depends:
 frameworks:
 c-sources:
+default-language:
+other-languages:
+default-extensions:
+other-extensions:
 extensions:
 extra-libraries:
 extra-lib-dirs:
@@ -41,7 +45,7 @@ includes:
 install-includes:
 include-dirs:
 hs-source-dirs: src
-other-modules:
+other-modules: Utilities IonParser
 ghc-prof-options:
 ghc-shared-options:
 ghc-options:

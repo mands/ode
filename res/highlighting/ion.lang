@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE language SYSTEM "language.dtd">
+<language id="ion" _name="Ion" version="2.0" _section="Scientific">
+  <metadata>
+    <property name="mimetypes">text/x-ion;text/x-ionsrc</property>
+    <property name="globs">*.ion</property>
+  </metadata>
+
+  <styles>
+    <style id="comment" _name="Comment" map-to="def:comment"/>
+    <style id="keyword" _name="Keyword" map-to="def:keyword"/>
+    <style id="type" _name="Data Type" map-to="def:type"/>
+<!--
+    <style id="string" _name="String" map-to="def:string"/>
+    <style id="type" _name="Data Type" map-to="def:type"/>
+    <style id="escaped-character" _name="Escaped Character" map-to="def:special-char"/>
+    <style id="preprocessor" _name="Preprocessor" map-to="def:preprocessor"/>
+    <style id="included-file" _name="Included File" map-to="def:string"/>
+    <style id="char" _name="Character" map-to="def:character"/>
+-->
+  </styles>
+
+  <definitions>
+    <context id="ion">
+      <include>
+        <context id="comment" style-ref="comment" end-at-line-end="true" class="comment" >
+          <start>//</start>
+        </context>
+
+        <context id="comment-multiline" style-ref="comment" class="comment" >
+            <start>/\*</start>
+            <end>\*/</end>
+        </context>
+
+        <context ref="def:decimal"/>
+        <context ref="def:float"/>
+        <context ref="def:string"/>
+        <context id="keywords" style-ref="keyword">
+          <keyword>channel</keyword>    
+        </context>
+
+        <context id="types" style-ref="type">
+          <keyword>channel_density</keyword>
+          <keyword>equilibrium_potential</keyword>
+          <keyword>subunits</keyword>
+          <keyword>open_states</keyword>                    
+          <keyword>states</keyword>
+          <keyword>rate</keyword>
+          <keyword>f_rate</keyword>
+          <keyword>r_rate</keyword>
+<!--
+          <keyword>double</keyword>
+-->
+        </context>
+      </include>
+    </context>
+  </definitions>        
+</language>
+
