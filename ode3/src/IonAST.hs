@@ -13,7 +13,7 @@
 -----------------------------------------------------------------------------
 
 module IonAST (
-IonModel(..), IonChannel(..), StateReaction(..)
+IonModel(..), IonChannel(..), StateReaction(..), Id
 ) where
 
 import Control.Monad.Error

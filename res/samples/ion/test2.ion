@@ -2,11 +2,22 @@ channel test {
   density : 1.0,
   equilibrium_potential : 3.0,
   subunits : 3
+  open_states : {A, V}
+  states : {
+  {A -> B, rate : 0.3},
+  {B -> C, rate : 0.4}
+  }
 }
 
 channel tes {
   density : 1.0,
   equilibrium_potential : 3.0,
   subunits : 3,
+  open_states : {B, D}
+  states : {
+  {A -> B, rate : 0.3},
+  {B -> C, rate : 0.4}
+  }
 }
+
 

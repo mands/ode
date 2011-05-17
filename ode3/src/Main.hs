@@ -36,7 +36,7 @@ main = do
     infoM "ode3.main" $ "Hello World from " ++ progName ++ "!"
 
     curDir <- getCurrentDirectory
-    putStrLn ("Running from " ++ curDir)
+    infoM "ode3.main" $ "Running from " ++ curDir
 
     -- get the input filename, better args handling needed
     args <- getArgs
