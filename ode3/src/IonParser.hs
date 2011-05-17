@@ -13,13 +13,13 @@
 -----------------------------------------------------------------------------
 
 module IonParser (
-ionParse,
+    ionParse,
 ) where
 
 -- using app-funcs - neater and more limited than monads, more func/decl not imperative like do-notation
 -- only need full power of monads when assigning a variable
 import Control.Applicative
-import Text.Parsec hiding (many)
+import Text.Parsec hiding (many, optional)
 import Text.Parsec.String
 import Text.Parsec.Expr
 import qualified Text.Parsec.Token as P
@@ -37,36 +37,34 @@ ionLangDef = javaStyle
             "states", "rate", "forward_rate", "reverse_rate"],
         -- unary ops and relational ops?
         -- do formatting operators count? e.g. :, {, }, ,, etc.
-        P.reservedOpNames = ["->", "<-", "<->", ":", "{", "}", ","]
+        P.reservedOpNames = ["->"] --, "<-", "<->", ":", "{", "}", ","]
     }
 
 lexer :: P.TokenParser ()
 lexer  = P.makeTokenParser ionLangDef
 
+-- thankfully, we don't need any expressions in this language
+
 -- For efficiency, we will bind all the used lexical parsers at toplevel.
 whiteSpace  = P.whiteSpace lexer
-lexeme      = P.lexeme lexer
-symbol      = P.symbol lexer
 natural     = P.natural lexer
 integer     = P.integer lexer
 float      = P.float lexer
 parens      = P.parens lexer
-semi        = P.semi lexer
 colon       = P.colon lexer
 comma       = P.comma lexer
 identifier  = P.identifier lexer
 reserved    = P.reserved lexer
 reservedOp  = P.reservedOp lexer
-commaSep    = P.commaSep lexer
-commaSep1   = P.commaSep1 lexer
 braces      = P.braces lexer
 
--- thankfully, we don't need any expressions in this language
+-- more flexible list separater, allows optional end comma as used for permulation lists
+listSep p = sepEndBy1 p comma
 
 -- | a parameterised single attribute parser for a given attriibute identifier
 -- TODO - fix the comma separated list of attribute, commaSep?
 -- attrib :: String -> Parser String
-attrib res p = reserved res *> colon *> p <* skipMany comma
+attrib res p = reserved res *> colon *> p <* optional comma
 
 -- only unidirectional reactions for now
 ionReaction :: Parser I.StateReaction
@@ -75,25 +73,23 @@ ionReaction = braces (I.StateReaction <$> identifier <*> (reservedOp "->" *> ide
 
 -- | Flexible perm parser for channel attributes - only prob is name, could place into the parser state
 ionChannelBody :: Parser I.IonChannel
-ionChannelBody =
-    permute (t  <$$> (attrib "density" float)
-                <||> (attrib "equilibrium_potential" float)
-                <||> (attrib "subunits" integer)
-                <||> (attrib "open_states" (braces (commaSep1 identifier)))
-                <||> (attrib "states" (braces (commaSep1 ionReaction)))
-            )
-  where
-    t d e s os ss = I.IonChannel "" d e s os ss
+ionChannelBody = permute (I.IonChannel ""
+                            <$$> (attrib "density" float)
+                            <||> (attrib "equilibrium_potential" float)
+                            <||> (attrib "subunits" integer)
+                            <||> (attrib "open_states" (braces (listSep identifier)))
+                            <||> (attrib "states" (braces (listSep ionReaction)))
+                            )
 
 ionChannelDef :: Parser I.IonChannel
 ionChannelDef = updateName <$> (reserved "channel" *> identifier) <*> braces ionChannelBody
   where
-    -- need to update the model with the name, maybe easier to use state or
-    updateName n model = model { I.name = n}
+    -- need to update the model with the name, maybe easier to use state or bind name outside the channel
+    updateName n model = model { I.name = n }
 
 -- | parser top level
 ionTop :: Parser [I.IonChannel]
-ionTop = many ionChannelDef <* eof
+ionTop = whiteSpace *> many1 ionChannelDef <* eof
 
 -- | parses the string and returns the result if sucessful
 -- | maybe move into main
