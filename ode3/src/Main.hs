@@ -61,4 +61,6 @@ compilerDriver fileName = do
 
     -- back in IO monad
     either (\err -> errorM "ode3.compilerDriver" err)
-        (\res -> infoM "ode3.compilerDriver" "No errors") parseRes
+        (\res -> infoM "ode3.compilerDriver" "No errors" >> print res) parseRes
+
+

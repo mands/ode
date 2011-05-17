@@ -1,4 +1,12 @@
-Hello 
+channel test {
+  density : 1.0,
+  equilibrium_potential : 3.0,
+  subunits : 3
+}
 
-
+channel tes {
+  density : 1.0,
+  equilibrium_potential : 3.0,
+  subunits : 3,
+}
 
