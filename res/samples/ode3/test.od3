@@ -9,9 +9,10 @@ component environment(t) {
 
 component environment(t, x, y) {
   // now add the body statements
-  a = 1.0;
+  a = 1.0 * (33.0 + 3.0);
   c = 34.0;
-  return (1.02, 23.0)
+  (f,f) = sdcdsf(3.0, 44.0 + 34.0);
+  return (1.02, c, 23.0)
 }
 
 // tests ode values and attributes

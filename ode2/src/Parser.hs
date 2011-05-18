@@ -104,7 +104,7 @@ term =
     <|> (identifier >>= (\id -> return (M.ValueRef id)))
     <?> "simple expression"
 
-caseAttribs = do
+    caseAttribs = do
         cases <- endBy caseExpr comma
         reserved "default"
         colon

@@ -24,7 +24,7 @@ module Core.Parser (
 ) where
 
 import Control.Applicative
-import Text.Parsec hiding (many, optional)
+import Text.Parsec hiding (many, optional, (<|>))
 import Text.Parsec.String
 import Text.Parsec.Expr
 import qualified Text.Parsec.Token as P
@@ -65,25 +65,45 @@ commaSep    = P.commaSep lexer
 commaSep1   = P.commaSep1 lexer
 braces      = P.braces lexer
 
--- comma sepated parameter list of identifiers, e.g. (a,b,c)
-paramList = parens $ commaSep identifier
+-- comma sepated parameter list of any parser, e.g. (a,b,c)
+paramList = parens . commaSep
 
-compExpr :: Parser C.Expr
-compExpr = C.Number <$> float
+-- expressions - use parsec experssion builder
+-- | a basic numeric expression
+compExpr  :: Parser C.Expr
+compExpr  =  buildExpressionParser exprOpTable compTerm <?> "expression"
 
-valueDef :: Parser C.CompStmt
-valueDef = C.ValueDef <$> identifier <*> (reservedOp "=" *> compExpr)
+--exprOpTable :: OperatorTable String () Identity C.Expr
+exprOpTable =
+    [[binary "*" C.Mul AssocLeft, binary "/" C.Div AssocLeft]
+    ,[binary "+" C.Add AssocLeft, binary "-" C.Sub AssocLeft]
+    ]
+  where
+    binary name binop assoc = Infix (reservedOp name *> pure (\a b -> C.BinExpr a binop b) <?> "operator") assoc
+    prefix name fun         = Prefix (reservedOp name *> fun)
 
+-- should ODEs be here - as terms or statements?
+-- | term - the value on either side of an operator
+compTerm :: Parser C.Expr
+compTerm =  parens compExpr
+            <|> C.Number <$> float
+            <|> try (C.FuncCall <$> identifier <*> paramList compExpr)
+            <|> C.ValueRef <$> identifier
+            <?> "term"
+
+-- | general statements allowed within a component body
 compStmt :: Parser C.CompStmt
-compStmt = valueDef
+compStmt =  C.CompCallDef <$> paramList identifier <*> (reservedOp "=" *> identifier) <*> paramList compExpr
+            <|> C.ValueDef <$> identifier <*> (reservedOp "=" *> compExpr)
+            <?> "statement"
 
 -- body is a list of statements and return expressions
 compBody :: Parser ([C.CompStmt], [C.Expr])
 compBody = (,)  <$> compStmt `endBy` semi
-                <*> (reserved "return" *> parens (commaSep compExpr))
+                <*> (reserved "return" *> paramList compExpr)
 
 compDef :: Parser C.Component
-compDef = uncurry   <$> (C.Component <$> (reserved "component" *> identifier) <*> paramList)
+compDef = uncurry   <$> (C.Component <$> (reserved "component" *> identifier) <*> paramList identifier)
                     <*> braces compBody
 
 coreTop :: Parser [C.Component]
