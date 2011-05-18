@@ -1,0 +1,24 @@
+/*
+component environment(t) {
+  V = 1 * 2 + 3;
+  (x) = beta2(t);
+  //x = 2.0;
+  return (x)
+}
+*/
+
+component environment(t, x, y) {
+  // now add the body statements
+  a = 1.0;
+  c = 34.0;
+  return (1.02, 23.0)
+}
+
+// tests ode values and attributes
+/*
+component beta2(t) {
+    x = a;
+    a = ode { init: 0.0, delta: (1 + 1 - 1) };
+    return (t)
+}
+*/

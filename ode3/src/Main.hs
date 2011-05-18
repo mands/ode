@@ -20,7 +20,8 @@ import System.Log.Logger
 import System.Log.Handler(close)
 import System.Log.Handler.Simple
 
-import IonParser
+import Ion.Parser
+import Core.Parser
 import Utilities
 
 main :: IO ()
@@ -46,7 +47,7 @@ main = do
     infoM "ode3.main" $ "ode3 parsing " ++ fileName
 
     -- start the compiler
-    output <- compilerDriver fileName
+    output <- coreParser fileName
 
     -- output to screen and quit
     -- putStrLn output
@@ -54,8 +55,8 @@ main = do
     --close filelogger
 
 -- | drives the compilation stae through monadic sequencing
-compilerDriver :: FilePath -> IO ()
-compilerDriver fileName = do
+ionParser :: FilePath -> IO ()
+ionParser fileName = do
     fileData <- readFile fileName
     let parseRes = ionParse fileName fileData
 
@@ -63,4 +64,12 @@ compilerDriver fileName = do
     either (\err -> errorM "ode3.compilerDriver" err)
         (\res -> infoM "ode3.compilerDriver" "No errors" >> print res) parseRes
 
+coreParser :: FilePath -> IO ()
+coreParser fileName = do
+    fileData <- readFile fileName
+    let parseRes = coreParse fileName fileData
+
+    -- back in IO monad
+    either (\err -> errorM "ode3.compilerDriver" err)
+        (\res -> infoM "ode3.compilerDriver" "No errors" >> print res) parseRes
 

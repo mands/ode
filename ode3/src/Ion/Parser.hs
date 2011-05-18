@@ -12,7 +12,7 @@
 --
 -----------------------------------------------------------------------------
 
-module IonParser (
+module Ion.Parser (
     ionParse,
 ) where
 
@@ -27,7 +27,7 @@ import Text.Parsec.Language( javaStyle )
 import Text.Parsec.Perm
 
 import Utilities
-import qualified IonAST as I
+import qualified Ion.AST as I
 
 -- hijack the javaStyle default definition, gives us a bunch of ready-made parsers
 ionLangDef = javaStyle

@@ -6,8 +6,8 @@ license: GPL-3
 license-file: LICENSE
 copyright: Copyright (C) 2010 Mandeep Gill
 maintainer: mangil@comlab.ox.ac.uk
-build-depends: parsec -any, mtl -any, hslogger -any,
-               directory -any, base -any
+build-depends: base -any, containers -any, directory -any,
+               hslogger -any, mtl -any, parsec -any
 stability: alpha
 homepage: http://www.comlab.ox.ac.uk/people/mangil/ode
 package-url:
@@ -45,7 +45,8 @@ includes:
 install-includes:
 include-dirs:
 hs-source-dirs: src
-other-modules: IonAST Utilities IonParser
+other-modules: Utilities Ion.Parser Ion.AST Ion.Interpret
+               Core.Parser Core.AST
 ghc-prof-options:
 ghc-shared-options:
 ghc-options:

@@ -3,7 +3,7 @@
 // cool, eh?!
 
 channel potassium {
-  channel_density : 1,
+  density : 1,
   equilibrium_potential : 1,
   subunits : 4,
   open_states : {A,B,C},

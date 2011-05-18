@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE language SYSTEM "language.dtd">
-<language id="ion" _name="Ion" version="2.0" _section="Scientific">
+<language id="ode3" _name="ODE3" version="2.0" _section="Scientific">		
   <metadata>
-    <property name="mimetypes">text/x-ion;text/x-ionsrc</property>
-    <property name="globs">*.ion</property>
+    <property name="mimetypes">text/x-ode3;text/x-ode3src</property>
+    <property name="globs">*.od3</property>
   </metadata>
 
   <styles>
@@ -21,7 +21,7 @@
   </styles>
 
   <definitions>
-    <context id="ion">
+    <context id="ode3">
       <include>
         <context id="comment" style-ref="comment" end-at-line-end="true" class="comment" >
           <start>//</start>
@@ -36,18 +36,14 @@
         <context ref="def:float"/>
         <context ref="def:string"/>
         <context id="keywords" style-ref="keyword">
-          <keyword>channel</keyword>    
+          <keyword>component</keyword>
+          <keyword>ode</keyword>
+          <keyword>return</keyword>
         </context>
 
         <context id="types" style-ref="type">
-          <keyword>density</keyword>
-          <keyword>equilibrium_potential</keyword>
-          <keyword>subunits</keyword>
-          <keyword>open_states</keyword>
-          <keyword>states</keyword>
-          <keyword>rate</keyword>
-          <keyword>f_rate</keyword>
-          <keyword>r_rate</keyword>
+          <keyword>init</keyword>
+          <keyword>delta</keyword>
 <!--
           <keyword>double</keyword>
 -->
