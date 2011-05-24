@@ -15,6 +15,7 @@
 
 import System.IO(stdout)
 import System.Environment(getArgs, getProgName)
+import System.Console.GetOpt
 import System.Directory(getCurrentDirectory)
 import System.Log.Logger
 import System.Log.Handler(close)
@@ -41,6 +42,9 @@ main = do
 
     -- get the input filename, better args handling needed
     args <- getArgs
+    let (flags, nonOpts, msgs) = getOpt RequireOrder options args
+    print flags
+
     let fileName = head args
 
     -- read the input file
@@ -53,6 +57,15 @@ main = do
     -- putStrLn output
     infoM "ode3.main" $ "Done"
     --close filelogger
+
+-- arg flag type
+data Flag = Version
+    deriving Show
+
+-- arg options
+options :: [OptDescr Flag]
+options = [ Option ['V'] ["version"] (NoArg Version) "Show version number" ]
+
 
 -- | drives the compilation stae through monadic sequencing
 ionParser :: FilePath -> IO ()

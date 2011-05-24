@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 --
--- Module      :  Ion.Interpret
+-- Module      :  Core.Interpret
 -- Copyright   :  Copyright (C) 2010 Mandeep Gill
 -- License     :  GPL (Just (Version {versionBranch = [3], versionTags = []}))
 --
@@ -12,7 +12,7 @@
 --
 -----------------------------------------------------------------------------
 
-module Ion.Interpret (
+module Core.Interpret (
 
 ) where
 

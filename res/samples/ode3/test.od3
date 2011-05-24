@@ -1,25 +1,35 @@
+// named, typed vals
+// types - floats/int/num?, bools (implicit), 
+component test(sa) {
+    // const val - let binding
+    // are val types inferred?
+    val c = 1.0; // num
+
 /*
-component environment(t) {
-  V = 1 * 2 + 3;
-  (x) = beta2(t);
-  //x = 2.0;
-  return (x)
-}
+    val d = c > 10; // bool
+    val d = t > 10 and t < 10.5; // bool
+    
+    val e = {
+      t > 10 and t < 10.5 : 20,
+      d : 10,
+      default: 0
+    }; // case type returning num;
 */
 
-component environment(t, x, y) {
-  // now add the body statements
-  a = 1.0 * (33.0 + 3.0);
-  c = 34.0;
-  (f,f) = sdcdsf(3.0, 44.0 + 34.0);
-  return (1.02, c, 23.0)
+    val x = sin(40.0) + test_1(a,d); // num from fun and comp call returning num
+    val y = 10 < (20 + 3.0) / 2 or 20 > 10;
+    init d, f = test_1(a,d); // comp call
+
+    // initial value - maybe species?
+    init c1 = 2.0;
+
+    // ode - can return () or float val?
+/*
+    ode c = {init: 0.0, delta: (1 + 1 - 1) };
+
+    // rre - can return () or (float, float)
+    rre f = {reaction: C1 -> C2, rate: alpha};
+*/    
+    return (c1,c2)
 }
 
-// tests ode values and attributes
-/*
-component beta2(t) {
-    x = a;
-    a = ode { init: 0.0, delta: (1 + 1 - 1) };
-    return (t)
-}
-*/

@@ -20,7 +20,7 @@
 
 -- export all defs
 module Core.AST (
-Model, Component(..), CompStmt(..), Expr(..), NumOp(..)
+Model, Component(..), CompStmt(..), Expr(..), ExprOp(..)
 ) where
 
 import Data.Map as Map
@@ -36,15 +36,23 @@ type Model = Map.Map Id Component
 data Component = Component { cName :: Id, cInputs :: [Id], cBody :: [CompStmt], cOutputs :: [Expr]} deriving Show
 
 -- value definitions
-data CompStmt   = ValueDef { vName :: Id, vValue :: Expr }
-                | CompCallDef {  ccOutputs :: [Id], ccName :: Id, ccInputs :: [Expr] }
+data CompStmt   = ValueDef { vName :: [Id], vValue :: Expr }
+                | InitValueDef { ivName :: [Id], ivValue :: Expr }
+                -- | CompCallDef {  ccOutputs :: [Id], ccName :: Id, ccInputs :: [Expr] }
+                | OdeDef { odeName :: Id, odeInit :: Double, odeExp :: Expr}
                 deriving Show
 
 -- represents basic arithmetic expressions
-data Expr   = BinExpr Expr NumOp Expr | Number Double
+data Expr   = BinExpr Expr ExprOp Expr | Number Double
             | FuncCall Id [Expr] | ValueRef Id
-            | ODE { i :: Id, odeInit :: Double, odeExp :: Expr}
             deriving Show
 
--- no piecewise stuff just yet
-data NumOp  = Add | Sub | Mul | Div deriving Show
+-- basic operators, both binary and unary needed
+-- unrary operators - Logical Not, Unary/Numerical Negation
+--data NumOp  = Add | Sub | Mul | Div | Mod deriving Show
+--data RelOp = LT | LE | GT | GE | EQ | NEQ deriving Show
+--data LogOp  = And | Or deriving Show
+
+data ExprOp =   Add | Sub | Mul | Div | Mod
+                | LT | LE | GT | GE | EQ | NEQ
+                | And | Or deriving Show

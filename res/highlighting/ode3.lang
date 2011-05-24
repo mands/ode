@@ -37,13 +37,19 @@
         <context ref="def:string"/>
         <context id="keywords" style-ref="keyword">
           <keyword>component</keyword>
-          <keyword>ode</keyword>
           <keyword>return</keyword>
+          <keyword>ode</keyword>          
+          <keyword>rre</keyword>
+          <keyword>val</keyword>
+          <keyword>init</keyword>          
         </context>
 
         <context id="types" style-ref="type">
           <keyword>init</keyword>
           <keyword>delta</keyword>
+          <keyword>rate</keyword>
+          <keyword>reaction</keyword>
+          <keyword>default</keyword>
 <!--
           <keyword>double</keyword>
 -->

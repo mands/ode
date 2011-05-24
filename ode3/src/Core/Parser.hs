@@ -38,10 +38,14 @@ import qualified Core.AST as C
 coreLangDef = javaStyle
     {
         -- add more later
-        P.reservedNames = ["component", "ode", "init", "delta", "return"],
+        P.reservedNames = ["component", "val", "init", "ode", "rre", "delta", "return"],
         -- unary ops and relational ops?
         -- do formatting operators count? e.g. :, {, }, ,, etc.
-        P.reservedOpNames = ["*","/","+","-", "="]
+        P.reservedOpNames = ["=",
+                            "*", "/", "%", "+", "-",
+                            "<", "<=", ">", ">=", "==", "!=",
+                            "&&", "||", "and", "or"
+                            ]
     }
 
 lexer :: P.TokenParser ()
@@ -65,6 +69,12 @@ commaSep    = P.commaSep lexer
 commaSep1   = P.commaSep1 lexer
 braces      = P.braces lexer
 
+-- number parser, parses most formats
+number :: Parser Double
+number =    try float
+            <|> fromIntegral <$> integer
+            <?> "number"
+
 -- comma sepated parameter list of any parser, e.g. (a,b,c)
 paramList = parens . commaSep
 
@@ -74,9 +84,15 @@ compExpr  :: Parser C.Expr
 compExpr  =  buildExpressionParser exprOpTable compTerm <?> "expression"
 
 --exprOpTable :: OperatorTable String () Identity C.Expr
+-- TODO - need to add unary and logical negation
+-- TODO - maybe add parens and commas to the expressions
 exprOpTable =
-    [[binary "*" C.Mul AssocLeft, binary "/" C.Div AssocLeft]
+    [[binary "*" C.Mul AssocLeft, binary "/" C.Div AssocLeft, binary "%" C.Mod AssocLeft]
     ,[binary "+" C.Add AssocLeft, binary "-" C.Sub AssocLeft]
+    ,[binary "<" C.LT AssocLeft, binary "<=" C.LE AssocLeft, binary ">" C.GT AssocLeft, binary ">=" C.GE AssocLeft]
+    ,[binary "==" C.EQ AssocLeft, binary "!=" C.NEQ AssocLeft]
+    ,[binary "&&" C.And AssocLeft, binary "and" C.And AssocLeft]
+    ,[binary "||" C.Or AssocLeft, binary "or" C.Or AssocLeft]
     ]
   where
     binary name binop assoc = Infix (reservedOp name *> pure (\a b -> C.BinExpr a binop b) <?> "operator") assoc
@@ -86,15 +102,17 @@ exprOpTable =
 -- | term - the value on either side of an operator
 compTerm :: Parser C.Expr
 compTerm =  parens compExpr
-            <|> C.Number <$> float
+            <|> C.Number <$> number
             <|> try (C.FuncCall <$> identifier <*> paramList compExpr)
             <|> C.ValueRef <$> identifier
             <?> "term"
 
 -- | general statements allowed within a component body
 compStmt :: Parser C.CompStmt
-compStmt =  C.CompCallDef <$> paramList identifier <*> (reservedOp "=" *> identifier) <*> paramList compExpr
-            <|> C.ValueDef <$> identifier <*> (reservedOp "=" *> compExpr)
+compStmt =  --C.CompCallDef <$> commaSep1 identifier <*> (reservedOp "=" *> identifier) <*> paramList compExpr
+            C.ValueDef <$> (reserved "val" *> commaSep1 identifier) <*> (reservedOp "=" *> compExpr)
+            <|> C.InitValueDef <$> (reserved "init" *> commaSep1 identifier) <*> (reservedOp "=" *> compExpr)
+            -- <|> C.OdeDef <$> (reserved "ode" *> identifier) <*> (reservedOp "=" *> compExpr)
             <?> "statement"
 
 -- body is a list of statements and return expressions

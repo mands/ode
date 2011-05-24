@@ -1,0 +1,139 @@
+/*
+component environment(t) {
+  V = 1 * 2 + 3;
+  (x) = beta2(t);
+  //x = 2.0;
+  return (x)
+}
+*/
+
+/* built-in vars
+** - t - time in every component
+** - cur - within an ode term
+** - stim? - within component
+*/
+
+component environment(x, y) {
+  // now add the body statements
+  a = 1.0 * (33.0 + 3.0);
+  c = 34.0 + t;
+
+  d = ode {init : 34, delta: cur + 1};
+
+  // mult-return vals
+  e, f = beta2(3.0, 44.0 + 34.0);
+  return (1.02, c, 23.0)
+
+}
+
+// tests ode values and attributes
+
+component beta2(a, b, d) {
+    
+    // standard val assignment - let bindings - used to shorten repeated sequences and hold temp vals
+    x = a;
+
+    // initial var declarations - maybe better syntax needed, these hold their value between subsequent calls and may be modified by ode/rre
+    // commands
+    // need multiple assignments for each var, and initial values for each val
+    // initial vals are separate as needed in multiple places
+    C1(0) = 0.0;
+    C2(0) = 3.0;
+    
+    c(0) = 0.0;
+    init c = 0;
+    //static c = 0;
+    //initial c = 0;
+
+    // potential ode syntax
+    ode {name : c, init: 0.0, delta: (1 + 1 - 1) };
+    c = ode {init: 0.0, delta: (1 + 1 - 1) };
+    //c' = 1 + 1 - 1 with init = 0.0;
+    //c' = 1 + 1 - 1 and c(0) = 0.0;
+    //c' = 1 + 1 - 1;
+
+    // odes are statments rather than terms - as are descructive
+    ode {c, delta: (1 + 1 - 1) };
+    ode {c, init: 0.0, delta: (1 + 1 - 1) };
+    //c = ode {delta: (1 + 1 - 1) };
+    
+    // defines a reaction between two previously defined vals
+    // must be separate statement as modifies two vals
+    // should scheme be overidable/in the REPL - if so then reactions need a name
+    rre {C1 -> C2, rate: alpha};
+    d = rre {C1 -> C2, rate: alpha, scheme: {propensity > 1.0 : ssa, default: tau}};
+    // C1 -> C2 {rate: alpha, scheme: {propensity > 1.0 : ssa, default: tau}};
+
+
+    // piecewise terms - always allowed - however recommeded to use REPL for setting discrete event stimulus
+    i_Stim = piecewise {
+      t > 10 and t < 10.5 : 20,
+      default: 0
+    };
+
+    return (C1, C2)
+}
+
+/*
+rre {C1 -> C2, rate: alpha, scheme: {propensity > 1.0 : ssa, default: tau}}
+rre {C2 -> C1, rate: beta, scheme: ssa}
+rre {C3 -> C4, rate: alpha, scheme: {population > 10 : ode, default: sde}}
+*/
+
+
+// named, typed vals
+// types - floats/int/num?, bools (implicit), 
+component test(sa) {
+    // const val - let binding
+    // are val types inferred?
+    val c = 1.0; // num
+    val d = c > 10; // bool
+    val d = t > 10 and t < 10.5; // bool
+    
+    val e = {
+      t > 10 and t < 10.5 : 20,
+      d : 10,
+      default: 0
+    } // case type returning num;
+    
+    val x = sin(40.0) + test_1(a,d); // num from fun and comp call returning num
+    init d, f = test_1(a,d); // comp call
+
+    // initial value - maybe species?
+    init c1 = 2.0;
+    
+    // ode - can return () or float val?
+    ode c = {init: 0.0, delta: (1 + 1 - 1) };
+
+    // rre - can return () or (float, float)
+    rre f = {C1 -> C2, rate: alpha};
+    
+    return (c1,c2)
+}
+
+
+// named, typed vals
+// types - floats, bools (implicit), 
+component test_1(sa) {
+    // const val - let binding
+    c : val{1.0};
+    d : val = c > 10;
+    e : val = t > 10 and t < 10.5;
+    
+    f : val = piecewise {
+      t > 10 and t < 10.5 : 20,
+      d : 10,
+      default: 0
+    };
+    
+    // initial value - maybe species?
+    c1 : init{2.0};
+    
+    // ode - can return () or float val?
+    c = ode {init: 0.0, delta: (1 + 1 - 1) };
+
+    // rre - can return () or (float, float)
+    f = rre {C1 -> C2, rate: alpha};
+}
+
+
