@@ -38,7 +38,10 @@ import qualified Core.AST as C
 coreLangDef = javaStyle
     {
         -- add more later
-        P.reservedNames = ["component", "val", "init", "ode", "rre", "delta", "return"],
+        P.reservedNames =   ["component", "return",
+                            "val", "init",
+                            "ode", "delta",
+                            "rre", "reaction", "rate"],
         -- unary ops and relational ops?
         -- do formatting operators count? e.g. :, {, }, ,, etc.
         P.reservedOpNames = ["=",
@@ -78,6 +81,11 @@ number =    try float
 -- comma sepated parameter list of any parser, e.g. (a,b,c)
 paramList = parens . commaSep
 
+-- | a parameterised single attribute parser for a given attriibute identifier
+-- TODO - fix the comma separated list of attribute, commaSep?
+-- attrib :: String -> Parser String
+attrib res p = reserved res *> colon *> p <* optional comma
+
 -- expressions - use parsec experssion builder
 -- | a basic numeric expression
 compExpr  :: Parser C.Expr
@@ -103,17 +111,44 @@ exprOpTable =
 compTerm :: Parser C.Expr
 compTerm =  parens compExpr
             <|> C.Number <$> number
-            <|> try (C.FuncCall <$> identifier <*> paramList compExpr)
+            <|> try (C.Call <$> identifier <*> paramList compExpr)
             <|> C.ValueRef <$> identifier
             <?> "term"
+
+
+{-
+TODO - File GHC/Parsec bug
+
+odeDef :: (Double -> C.Expr -> C.CompStmt) -> Parser C.CompStmt
+odeDef n = permute (n
+            <$$> (attrib "init" number)
+            <||> (attrib "delta" compExpr)
+            )
+
+            -- <|> ((C.OdeDef <$> (reserved "ode" *> identifier <* reservedOp "=" )) >>= (\n -> braces (odeDef n)))
+-}
+
+odeDef = permute (C.OdeDef ""
+            <$$> (attrib "init" number)
+            <||> (attrib "delta" compExpr)
+            )
+
+rreDef = permute (C.RreDef ""
+            <$$> (attrib "reaction" ((,) <$> identifier <*> (reservedOp "->" *> identifier)))
+            <||> (attrib "rate" compExpr)
+            )
 
 -- | general statements allowed within a component body
 compStmt :: Parser C.CompStmt
 compStmt =  --C.CompCallDef <$> commaSep1 identifier <*> (reservedOp "=" *> identifier) <*> paramList compExpr
             C.ValueDef <$> (reserved "val" *> commaSep1 identifier) <*> (reservedOp "=" *> compExpr)
             <|> C.InitValueDef <$> (reserved "init" *> commaSep1 identifier) <*> (reservedOp "=" *> compExpr)
-            -- <|> C.OdeDef <$> (reserved "ode" *> identifier) <*> (reservedOp "=" *> compExpr)
+            <|> updateOde <$> (reserved "ode" *> identifier) <*> (reservedOp "=" *> braces odeDef)
+            <|> updateRre <$> (reserved "rre" *> identifier) <*> (reservedOp "=" *> braces rreDef)
             <?> "statement"
+  where
+    updateOde n ode = ode {C.odeName = n}
+    updateRre n rre = rre {C.rreName = n}
 
 -- body is a list of statements and return expressions
 compBody :: Parser ([C.CompStmt], [C.Expr])

@@ -40,11 +40,12 @@ data CompStmt   = ValueDef { vName :: [Id], vValue :: Expr }
                 | InitValueDef { ivName :: [Id], ivValue :: Expr }
                 -- | CompCallDef {  ccOutputs :: [Id], ccName :: Id, ccInputs :: [Expr] }
                 | OdeDef { odeName :: Id, odeInit :: Double, odeExp :: Expr}
+                | RreDef { rreName :: Id, reaction :: (Id, Id), rate :: Expr}
                 deriving Show
 
 -- represents basic arithmetic expressions
 data Expr   = BinExpr Expr ExprOp Expr | Number Double
-            | FuncCall Id [Expr] | ValueRef Id
+            | Call Id [Expr] | ValueRef Id
             deriving Show
 
 -- basic operators, both binary and unary needed
