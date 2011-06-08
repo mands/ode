@@ -20,23 +20,39 @@
 
 -- export all defs
 module Core.AST (
-Model, Component(..), CompStmt(..), Expr(..), ExprOp(..)
+ModLocalId(..), Model, Module(..), ModuleElem(..), Component(..), ValueDef(..), CompStmt(..), Expr(..), ExprOp(..)
 ) where
 
 import Data.Map as Map
 
+type NumTy = Double -- needed?
 type Id = String
+data ModLocalId = LocalId Id | ModId Id Id deriving Show
 
 -- AST is basically a direct translation of the language syntax/file format
 
 -- top level model
-type Model = Map.Map Id Component
+type Model = Map.Map Id ModuleElem
+
+-- a module,
+-- should be split by complete and partial?
+data Module = Module {mName :: Id, mParams :: [Id], mBody :: [ModuleElem]} deriving Show
+
+data ModuleElem = ModuleElemComponent Component
+                | ModuleElemValue ValueDef
+                deriving Show
+
+-- a (constant? at least during simgle timestep) value defintion
+data ValueDef = ValueDef { vName :: [Id], vValue :: Expr } deriving Show
 
 -- each independent component, essentially function abstraction
-data Component = Component { cName :: Id, cInputs :: [Id], cBody :: [CompStmt], cOutputs :: [Expr]} deriving Show
+data Component  = Component { cName :: Id, cInputs :: [Id], cBody :: [CompStmt], cOutputs :: [Expr]}
+                | ComponentRef Id ModLocalId
+                deriving Show
+
 
 -- value definitions
-data CompStmt   = ValueDef { vName :: [Id], vValue :: Expr }
+data CompStmt   = CompValue ValueDef
                 | InitValueDef { ivName :: [Id], ivValue :: Expr }
                 -- | CompCallDef {  ccOutputs :: [Id], ccName :: Id, ccInputs :: [Expr] }
                 | OdeDef { odeName :: Id, odeInit :: Double, odeExp :: Expr}
@@ -44,8 +60,8 @@ data CompStmt   = ValueDef { vName :: [Id], vValue :: Expr }
                 deriving Show
 
 -- represents basic arithmetic expressions
-data Expr   = BinExpr Expr ExprOp Expr | Number Double
-            | Call Id [Expr] | ValueRef Id
+data Expr   = BinExpr Expr ExprOp Expr | Number Double | NumSeq Double Double Double
+            | Call ModLocalId [Expr] | ValueRef ModLocalId
             deriving Show
 
 -- basic operators, both binary and unary needed

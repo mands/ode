@@ -34,11 +34,11 @@ import Text.Parsec.Perm
 import Utilities
 import qualified Core.AST as C
 
--- hijack the javaStyle default definition, gives us a bunch of ready-made parsers
+-- hijack the javaStyle default definition, gives us a bunch of ready-made parsers/behaviours
 coreLangDef = javaStyle
     {
         -- add more later
-        P.reservedNames =   ["component", "return",
+        P.reservedNames =   ["module", "component", "return",
                             "val", "init",
                             "ode", "delta",
                             "rre", "reaction", "rate"],
@@ -60,7 +60,7 @@ lexeme      = P.lexeme lexer
 symbol      = P.symbol lexer
 natural     = P.natural lexer
 integer     = P.integer lexer
-float      = P.float lexer
+float       = P.float lexer
 parens      = P.parens lexer
 semi        = P.semi lexer
 colon       = P.colon lexer
@@ -71,12 +71,26 @@ reservedOp  = P.reservedOp lexer
 commaSep    = P.commaSep lexer
 commaSep1   = P.commaSep1 lexer
 braces      = P.braces lexer
+brackets    = P.brackets lexer
+dot         = P.dot lexer
 
 -- number parser, parses most formats
 number :: Parser Double
 number =    try float
             <|> fromIntegral <$> integer
             <?> "number"
+
+-- parses a upper case identifier
+upperIdentifier :: Parser String
+upperIdentifier = (:) <$> upper <*> option "" identifier <?> "upper case module name"
+
+moduleIdentifier :: Parser C.ModLocalId
+moduleIdentifier  = C.ModId <$> upperIdentifier <*> (dot *> identifier)
+
+-- used when either a local or module id is allowed e.g. A.x or x
+modLocalIdentifier :: Parser C.ModLocalId
+modLocalIdentifier  = try moduleIdentifier
+                    <|> C.LocalId <$> identifier
 
 -- comma sepated parameter list of any parser, e.g. (a,b,c)
 paramList = parens . commaSep
@@ -106,15 +120,20 @@ exprOpTable =
     binary name binop assoc = Infix (reservedOp name *> pure (\a b -> C.BinExpr a binop b) <?> "operator") assoc
     prefix name fun         = Prefix (reservedOp name *> fun)
 
+termNumSeq :: Parser C.Expr
+termNumSeq = createSeq <$> float <*> (comma *> float) <*> (symbol ".." *> float)
+  where
+    createSeq a b c = C.NumSeq a (b-a) c
+
 -- should ODEs be here - as terms or statements?
 -- | term - the value on either side of an operator
 compTerm :: Parser C.Expr
 compTerm =  parens compExpr
             <|> C.Number <$> number
-            <|> try (C.Call <$> identifier <*> paramList compExpr)
-            <|> C.ValueRef <$> identifier
+            <|> try (brackets termNumSeq)
+            <|> try (C.Call <$> modLocalIdentifier <*> paramList compExpr)
+            <|> C.ValueRef <$> modLocalIdentifier
             <?> "term"
-
 
 {-
 TODO - File GHC/Parsec bug
@@ -128,6 +147,7 @@ odeDef n = permute (n
             -- <|> ((C.OdeDef <$> (reserved "ode" *> identifier <* reservedOp "=" )) >>= (\n -> braces (odeDef n)))
 -}
 
+
 odeDef = permute (C.OdeDef ""
             <$$> (attrib "init" number)
             <||> (attrib "delta" compExpr)
@@ -138,10 +158,14 @@ rreDef = permute (C.RreDef ""
             <||> (attrib "rate" compExpr)
             )
 
+
+valueDef :: Parser C.ValueDef
+valueDef = C.ValueDef <$> (reserved "val" *> commaSep1 identifier) <*> (reservedOp "=" *> compExpr)
+
 -- | general statements allowed within a component body
 compStmt :: Parser C.CompStmt
 compStmt =  --C.CompCallDef <$> commaSep1 identifier <*> (reservedOp "=" *> identifier) <*> paramList compExpr
-            C.ValueDef <$> (reserved "val" *> commaSep1 identifier) <*> (reservedOp "=" *> compExpr)
+            C.CompValue <$> valueDef
             <|> C.InitValueDef <$> (reserved "init" *> commaSep1 identifier) <*> (reservedOp "=" *> compExpr)
             <|> updateOde <$> (reserved "ode" *> identifier) <*> (reservedOp "=" *> braces odeDef)
             <|> updateRre <$> (reserved "rre" *> identifier) <*> (reservedOp "=" *> braces rreDef)
@@ -156,16 +180,27 @@ compBody = (,)  <$> compStmt `endBy` semi
                 <*> (reserved "return" *> paramList compExpr)
 
 compDef :: Parser C.Component
-compDef = uncurry   <$> (C.Component <$> (reserved "component" *> identifier) <*> paramList identifier)
-                    <*> braces compBody
+compDef =   try (uncurry   <$> (C.Component <$> (reserved "component" *> identifier) <*> paramList identifier)
+                    <*> braces compBody)
+            <|> C.ComponentRef <$> (reserved "component" *> identifier) <*> (reservedOp "=" *> moduleIdentifier)
 
-coreTop :: Parser [C.Component]
-coreTop = whiteSpace *> many1 compDef <* eof
+-- parse the body of a module
+moduleBody :: Parser C.ModuleElem
+moduleBody =    C.ModuleElemComponent <$> compDef
+                <|> C.ModuleElemValue <$> valueDef
+
+moduleDef :: Parser C.Module
+moduleDef = C.Module    <$> (reserved "module" *> upperIdentifier)
+                        <*> paramList upperIdentifier
+                        <*> braces (many1 moduleBody)
+
+coreTop :: Parser [C.Module]
+coreTop = whiteSpace *> many1 moduleDef <* eof
 
 -- | parses the string and returns the result if sucessful
 -- | maybe move into main
 -- | TODO - switch to bytestring
-coreParse :: FilePath -> String -> MExcept [C.Component]
+coreParse :: FilePath -> String -> MExcept [C.Module]
 coreParse fileName fileData =
     -- do  parseRes <- parseFromFile odeMain fileName
     case parseRes of

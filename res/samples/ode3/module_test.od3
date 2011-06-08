@@ -1,0 +1,36 @@
+module A() {
+
+  //val openVal = 3;
+
+  component c1(x, y) {
+    return (x+y)
+  }
+
+}
+
+module Test(A, B) {
+
+  component alpha(x) {
+    val a = 1.0; // num    
+    return (a)
+  }
+
+  component gamma(x) {
+    val c = 50 + [1.0, 1.4..2.0]; // num
+    return (c)
+  }
+
+}
+
+module FTest(A) {
+  component beta(x) {
+    val b = A.c; // nums allowed?
+    val b1 = A.c1(2, 3);
+    return (b)
+  }
+
+  val x = A.openVal + 20.0
+
+  component y = A.c1
+}
+
