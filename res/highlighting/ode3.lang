@@ -36,12 +36,14 @@
         <context ref="def:float"/>
         <context ref="def:string"/>
         <context id="keywords" style-ref="keyword">
+          <keyword>open</keyword>
+          <keyword>module</keyword>
           <keyword>component</keyword>
           <keyword>return</keyword>
           <keyword>ode</keyword>          
           <keyword>rre</keyword>
           <keyword>val</keyword>
-          <keyword>init</keyword>          
+          <keyword>init</keyword>
         </context>
 
         <context id="types" style-ref="type">

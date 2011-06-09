@@ -58,6 +58,7 @@ lexer  = P.makeTokenParser coreLangDef
 whiteSpace  = P.whiteSpace lexer
 lexeme      = P.lexeme lexer
 symbol      = P.symbol lexer
+stringLiteral = P.stringLiteral lexer
 natural     = P.natural lexer
 integer     = P.integer lexer
 float       = P.float lexer
@@ -82,14 +83,14 @@ number =    try float
 
 -- parses a upper case identifier
 upperIdentifier :: Parser String
-upperIdentifier = (:) <$> upper <*> option "" identifier <?> "upper case module name"
+upperIdentifier = (:) <$> lexeme upper <*> option "" identifier <?> "uppercase identifier"
 
-moduleIdentifier :: Parser C.ModLocalId
-moduleIdentifier  = C.ModId <$> upperIdentifier <*> (dot *> identifier)
+moduleElemIdentifier :: Parser C.ModLocalId
+moduleElemIdentifier  = C.ModId <$> upperIdentifier <*> (dot *> identifier)
 
 -- used when either a local or module id is allowed e.g. A.x or x
 modLocalIdentifier :: Parser C.ModLocalId
-modLocalIdentifier  = try moduleIdentifier
+modLocalIdentifier  = try moduleElemIdentifier
                     <|> C.LocalId <$> identifier
 
 -- comma sepated parameter list of any parser, e.g. (a,b,c)
@@ -147,7 +148,6 @@ odeDef n = permute (n
             -- <|> ((C.OdeDef <$> (reserved "ode" *> identifier <* reservedOp "=" )) >>= (\n -> braces (odeDef n)))
 -}
 
-
 odeDef = permute (C.OdeDef ""
             <$$> (attrib "init" number)
             <||> (attrib "delta" compExpr)
@@ -176,31 +176,40 @@ compStmt =  --C.CompCallDef <$> commaSep1 identifier <*> (reservedOp "=" *> iden
 
 -- body is a list of statements and return expressions
 compBody :: Parser ([C.CompStmt], [C.Expr])
-compBody = (,)  <$> compStmt `endBy` semi
+compBody = (,)  <$> many compStmt --compStmt `endBy` lexeme newline --
                 <*> (reserved "return" *> paramList compExpr)
 
 compDef :: Parser C.Component
 compDef =   try (uncurry   <$> (C.Component <$> (reserved "component" *> identifier) <*> paramList identifier)
                     <*> braces compBody)
-            <|> C.ComponentRef <$> (reserved "component" *> identifier) <*> (reservedOp "=" *> moduleIdentifier)
+            <|> C.ComponentRef <$> (reserved "component" *> identifier) <*> (reservedOp "=" *> moduleElemIdentifier)
 
 -- parse the body of a module
 moduleBody :: Parser C.ModuleElem
 moduleBody =    C.ModuleElemComponent <$> compDef
                 <|> C.ModuleElemValue <$> valueDef
 
-moduleDef :: Parser C.Module
-moduleDef = C.Module    <$> (reserved "module" *> upperIdentifier)
-                        <*> paramList upperIdentifier
-                        <*> braces (many1 moduleBody)
+-- parse a chain/tree of module applications
+moduleAppParams :: Parser C.ModuleAppParams
+moduleAppParams = C.ModuleAppParams <$> upperIdentifier <*> optionMaybe (paramList moduleAppParams)
 
-coreTop :: Parser [C.Module]
-coreTop = whiteSpace *> many1 moduleDef <* eof
+-- parse a module, either an entire definition/abstraction or an application
+moduleDef :: Parser C.Module
+moduleDef = try (C.ModuleAbs <$> (reserved "module" *> upperIdentifier)
+                <*> optionMaybe (paramList upperIdentifier) <*> braces (many1 moduleBody))
+            <|> C.ModuleApp <$> (reserved "module" *> upperIdentifier) <*> (reservedOp "=" *> moduleAppParams)
+            <?> "module definition"
+
+moduleOpen :: Parser C.ModOpen
+moduleOpen = reserved "open" *> stringLiteral
+
+coreTop :: Parser C.Model
+coreTop = C.Model <$> (whiteSpace *> many moduleOpen) <*> many1 moduleDef <* eof
 
 -- | parses the string and returns the result if sucessful
 -- | maybe move into main
 -- | TODO - switch to bytestring
-coreParse :: FilePath -> String -> MExcept [C.Module]
+coreParse :: FilePath -> String -> MExcept C.Model
 coreParse fileName fileData =
     -- do  parseRes <- parseFromFile odeMain fileName
     case parseRes of

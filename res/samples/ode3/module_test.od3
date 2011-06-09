@@ -1,4 +1,6 @@
-module A() {
+open "hello.od3"
+
+module A {
 
   //val openVal = 3;
 
@@ -11,21 +13,22 @@ module A() {
 module Test(A, B) {
 
   component alpha(x) {
-    val a = 1.0; // num    
-    return (a)
+    val a = 1.0 // num
+    val x = 3.0 
+    return (a + B.c)
   }
 
   component gamma(x) {
-    val c = 50 + [1.0, 1.4..2.0]; // num
+    val c = 50 + [1.0, 1.4..2.0] // num
     return (c)
   }
-
 }
 
 module FTest(A) {
+
   component beta(x) {
-    val b = A.c; // nums allowed?
-    val b1 = A.c1(2, 3);
+    val b = A.c // nums allowed?
+    val b1 = A.c1(2, 3)
     return (b)
   }
 
@@ -33,4 +36,10 @@ module FTest(A) {
 
   component y = A.c1
 }
+
+// functor application
+module Base = FTest(Aa, B(C))
+
+// do we allow this - i.e make module application a closed process and creation of wrapper functors - not for now...
+//module Base(A, B) = FTest(A(), B(C()))
 

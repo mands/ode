@@ -20,29 +20,38 @@
 
 -- export all defs
 module Core.AST (
-ModLocalId(..), Model, Module(..), ModuleElem(..), Component(..), ValueDef(..), CompStmt(..), Expr(..), ExprOp(..)
+Model(..),
+ModOpen, ModLocalId(..), Module(..), ModuleAppParams(..), ModuleElem(..),
+Component(..), ValueDef(..), CompStmt(..), Expr(..), ExprOp(..)
 ) where
 
 import Data.Map as Map
 
 type NumTy = Double -- needed?
 type Id = String
+type ModOpen = String
 data ModLocalId = LocalId Id | ModId Id Id deriving Show
 
 -- AST is basically a direct translation of the language syntax/file format
 
 -- top level model
-type Model = Map.Map Id ModuleElem
+--type Model = Map.Map Id ModuleElem
+data Model = Model [ModOpen] [Module] deriving Show
 
--- a module,
+-- module
 -- should be split by complete and partial?
-data Module = Module {mName :: Id, mParams :: [Id], mBody :: [ModuleElem]} deriving Show
+data Module = ModuleAbs Id (Maybe [Id]) [ModuleElem]
+            | ModuleApp Id ModuleAppParams
+            deriving Show
+
+data ModuleAppParams = ModuleAppParams Id (Maybe [ModuleAppParams]) deriving Show
 
 data ModuleElem = ModuleElemComponent Component
                 | ModuleElemValue ValueDef
                 deriving Show
 
--- a (constant? at least during simgle timestep) value defintion
+-- value defintion
+-- constant? at least during simgle timestep
 data ValueDef = ValueDef { vName :: [Id], vValue :: Expr } deriving Show
 
 -- each independent component, essentially function abstraction
@@ -65,7 +74,7 @@ data Expr   = BinExpr Expr ExprOp Expr | Number Double | NumSeq Double Double Do
             deriving Show
 
 -- basic operators, both binary and unary needed
--- unrary operators - Logical Not, Unary/Numerical Negation
+-- unary operators - Logical Not, Unary/Numerical Negation
 --data NumOp  = Add | Sub | Mul | Div | Mod deriving Show
 --data RelOp = LT | LE | GT | GE | EQ | NEQ deriving Show
 --data LogOp  = And | Or deriving Show
