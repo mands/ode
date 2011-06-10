@@ -11,10 +11,12 @@
 -- | Parser for the Core Ode3 language, used to describe stochastic-hybrid systesm comprising of
 -- | chemical kinetic reactions and ODEs only (for now)
 -- | TO ADD
--- | * module system
+-- | * module system - DONE!
 -- | * SDEs?
 -- | * units?
 -- | * types
+-- | * first-class/nested component definitions?
+-- | * sub-modules?
 -- | * many more...
 --
 -----------------------------------------------------------------------------
@@ -27,7 +29,7 @@ import Control.Applicative
 import Text.Parsec hiding (many, optional, (<|>))
 import Text.Parsec.String
 import Text.Parsec.Expr
-import qualified Text.Parsec.Token as P
+import qualified Text.Parsec.Token as T
 import Text.Parsec.Language( javaStyle )
 import Text.Parsec.Perm
 
@@ -38,42 +40,45 @@ import qualified Core.AST as C
 coreLangDef = javaStyle
     {
         -- add more later
-        P.reservedNames =   ["module", "component", "return",
+        T.reservedNames =   ["module", "component", "return",
                             "val", "init",
                             "ode", "delta",
-                            "rre", "reaction", "rate"],
+                            "rre", "reaction", "rate",
+                            "default"],
         -- unary ops and relational ops?
-        -- do formatting operators count? e.g. :, {, }, ,, etc.
-        P.reservedOpNames = ["=",
+        -- do formatting operators count? e.g. :, {, }, ,, ..,  etc.
+        -- NO - they are symbols to aid parsiing and have no meaning in the language itself...
+        T.reservedOpNames = ["=",
                             "*", "/", "%", "+", "-",
                             "<", "<=", ">", ">=", "==", "!=",
-                            "&&", "||", "and", "or"
-                            ]
+                            "&&", "||", "and", "or", "!", "not"
+                            ],
+        T.caseSensitive = True
     }
 
-lexer :: P.TokenParser ()
-lexer  = P.makeTokenParser coreLangDef
+lexer :: T.TokenParser ()
+lexer  = T.makeTokenParser coreLangDef
 
 -- For efficiency, we will bind all the used lexical parsers at toplevel.
-whiteSpace  = P.whiteSpace lexer
-lexeme      = P.lexeme lexer
-symbol      = P.symbol lexer
-stringLiteral = P.stringLiteral lexer
-natural     = P.natural lexer
-integer     = P.integer lexer
-float       = P.float lexer
-parens      = P.parens lexer
-semi        = P.semi lexer
-colon       = P.colon lexer
-comma       = P.comma lexer
-identifier  = P.identifier lexer
-reserved    = P.reserved lexer
-reservedOp  = P.reservedOp lexer
-commaSep    = P.commaSep lexer
-commaSep1   = P.commaSep1 lexer
-braces      = P.braces lexer
-brackets    = P.brackets lexer
-dot         = P.dot lexer
+whiteSpace  = T.whiteSpace lexer
+lexeme      = T.lexeme lexer
+symbol      = T.symbol lexer
+stringLiteral = T.stringLiteral lexer
+natural     = T.natural lexer
+integer     = T.integer lexer
+float       = T.float lexer
+parens      = T.parens lexer
+semi        = T.semi lexer
+colon       = T.colon lexer
+comma       = T.comma lexer
+identifier  = T.identifier lexer
+reserved    = T.reserved lexer
+reservedOp  = T.reservedOp lexer
+commaSep    = T.commaSep lexer
+commaSep1   = T.commaSep1 lexer
+braces      = T.braces lexer
+brackets    = T.brackets lexer
+dot         = T.dot lexer
 
 -- number parser, parses most formats
 number :: Parser Double
@@ -82,16 +87,20 @@ number =    try float
             <?> "number"
 
 -- parses a upper case identifier
-upperIdentifier :: Parser String
-upperIdentifier = (:) <$> lexeme upper <*> option "" identifier <?> "uppercase identifier"
+rawModIdentifier :: Parser String
+rawModIdentifier = (:) <$> upper <*> many alphaNum <?> "module identifier"
 
+modIdentifier :: Parser String
+modIdentifier = lexeme rawModIdentifier
+
+-- parses a module element reference, e.g. A.x
 moduleElemIdentifier :: Parser C.ModLocalId
-moduleElemIdentifier  = C.ModId <$> upperIdentifier <*> (dot *> identifier)
+moduleElemIdentifier  = lexeme (C.ModId <$> rawModIdentifier <*> (char '.' *> identifier))
 
 -- used when either a local or module id is allowed e.g. A.x or x
 modLocalIdentifier :: Parser C.ModLocalId
-modLocalIdentifier  = try moduleElemIdentifier
-                    <|> C.LocalId <$> identifier
+modLocalIdentifier =    try moduleElemIdentifier
+                        <|> C.LocalId <$> identifier <?> "local or module identifier"
 
 -- comma sepated parameter list of any parser, e.g. (a,b,c)
 paramList = parens . commaSep
@@ -110,7 +119,9 @@ compExpr  =  buildExpressionParser exprOpTable compTerm <?> "expression"
 -- TODO - need to add unary and logical negation
 -- TODO - maybe add parens and commas to the expressions
 exprOpTable =
-    [[binary "*" C.Mul AssocLeft, binary "/" C.Div AssocLeft, binary "%" C.Mod AssocLeft]
+    [
+    [prefix "-" C.Neg, prefix "!" C.Not, prefix "not" C.Not]
+    ,[binary "*" C.Mul AssocLeft, binary "/" C.Div AssocLeft, binary "%" C.Mod AssocLeft]
     ,[binary "+" C.Add AssocLeft, binary "-" C.Sub AssocLeft]
     ,[binary "<" C.LT AssocLeft, binary "<=" C.LE AssocLeft, binary ">" C.GT AssocLeft, binary ">=" C.GE AssocLeft]
     ,[binary "==" C.EQ AssocLeft, binary "!=" C.NEQ AssocLeft]
@@ -118,23 +129,28 @@ exprOpTable =
     ,[binary "||" C.Or AssocLeft, binary "or" C.Or AssocLeft]
     ]
   where
-    binary name binop assoc = Infix (reservedOp name *> pure (\a b -> C.BinExpr a binop b) <?> "operator") assoc
-    prefix name fun         = Prefix (reservedOp name *> fun)
+    binary name binop assoc = Infix (reservedOp name *> pure (\a b -> C.BinExpr binop a b) <?> "binary operator") assoc
+    prefix name unop         = Prefix (reservedOp name *> pure (\a -> C.UnExpr unop a) <?> "unary operator")
 
-termNumSeq :: Parser C.Expr
-termNumSeq = createSeq <$> float <*> (comma *> float) <*> (symbol ".." *> float)
+numSeqTerm :: Parser C.Expr
+numSeqTerm = createSeq <$> float <*> (comma *> float) <*> (symbol ".." *> float) <?> "numerical sequence"
   where
     createSeq a b c = C.NumSeq a (b-a) c
+
+piecewiseTerm :: Parser C.Expr
+piecewiseTerm = C.Piecewise <$> (endBy1 ((,) <$> compExpr <*> (colon *> compExpr)) comma)
+                            <*> (reserved "default" *> colon *> compExpr)
 
 -- should ODEs be here - as terms or statements?
 -- | term - the value on either side of an operator
 compTerm :: Parser C.Expr
 compTerm =  parens compExpr
             <|> C.Number <$> number
-            <|> try (brackets termNumSeq)
+            <|> try (brackets numSeqTerm)
+            <|> try (braces piecewiseTerm)
             <|> try (C.Call <$> modLocalIdentifier <*> paramList compExpr)
             <|> C.ValueRef <$> modLocalIdentifier
-            <?> "term"
+            <?> "valid term"
 
 {-
 TODO - File GHC/Parsec bug
@@ -144,23 +160,21 @@ odeDef n = permute (n
             <$$> (attrib "init" number)
             <||> (attrib "delta" compExpr)
             )
-
             -- <|> ((C.OdeDef <$> (reserved "ode" *> identifier <* reservedOp "=" )) >>= (\n -> braces (odeDef n)))
 -}
 
 odeDef = permute (C.OdeDef ""
             <$$> (attrib "init" number)
             <||> (attrib "delta" compExpr)
-            )
+            ) <?> "ode definition"
 
 rreDef = permute (C.RreDef ""
             <$$> (attrib "reaction" ((,) <$> identifier <*> (reservedOp "->" *> identifier)))
             <||> (attrib "rate" compExpr)
-            )
-
+            ) <?> "rre definition"
 
 valueDef :: Parser C.ValueDef
-valueDef = C.ValueDef <$> (reserved "val" *> commaSep1 identifier) <*> (reservedOp "=" *> compExpr)
+valueDef = C.ValueDef   <$> (reserved "val" *> commaSep1 identifier) <*> (reservedOp "=" *> compExpr)
 
 -- | general statements allowed within a component body
 compStmt :: Parser C.CompStmt
@@ -169,7 +183,7 @@ compStmt =  --C.CompCallDef <$> commaSep1 identifier <*> (reservedOp "=" *> iden
             <|> C.InitValueDef <$> (reserved "init" *> commaSep1 identifier) <*> (reservedOp "=" *> compExpr)
             <|> updateOde <$> (reserved "ode" *> identifier) <*> (reservedOp "=" *> braces odeDef)
             <|> updateRre <$> (reserved "rre" *> identifier) <*> (reservedOp "=" *> braces rreDef)
-            <?> "statement"
+            <?> "valid component statement"
   where
     updateOde n ode = ode {C.odeName = n}
     updateRre n rre = rre {C.rreName = n}
@@ -180,25 +194,35 @@ compBody = (,)  <$> many compStmt --compStmt `endBy` lexeme newline --
                 <*> (reserved "return" *> paramList compExpr)
 
 compDef :: Parser C.Component
-compDef =   try (uncurry   <$> (C.Component <$> (reserved "component" *> identifier) <*> paramList identifier)
-                    <*> braces compBody)
-            <|> C.ComponentRef <$> (reserved "component" *> identifier) <*> (reservedOp "=" *> moduleElemIdentifier)
+compDef = do
+    cName <- reserved "component" *> identifier
+    compParse cName
+  where
+    compParse cName =
+        C.ComponentRef <$> pure cName <*> (reservedOp "=" *> moduleElemIdentifier)
+        <|> (uncurry <$> (C.Component <$> pure cName <*> paramList identifier) <*> braces compBody)
+        <?> "component definition"
 
 -- parse the body of a module
 moduleBody :: Parser C.ModuleElem
 moduleBody =    C.ModuleElemComponent <$> compDef
                 <|> C.ModuleElemValue <$> valueDef
+                <?> "component or value defintion"
 
 -- parse a chain/tree of module applications
 moduleAppParams :: Parser C.ModuleAppParams
-moduleAppParams = C.ModuleAppParams <$> upperIdentifier <*> optionMaybe (paramList moduleAppParams)
+moduleAppParams = C.ModuleAppParams <$> modIdentifier <*> optionMaybe (paramList moduleAppParams)
 
 -- parse a module, either an entire definition/abstraction or an application
 moduleDef :: Parser C.Module
-moduleDef = try (C.ModuleAbs <$> (reserved "module" *> upperIdentifier)
-                <*> optionMaybe (paramList upperIdentifier) <*> braces (many1 moduleBody))
-            <|> C.ModuleApp <$> (reserved "module" *> upperIdentifier) <*> (reservedOp "=" *> moduleAppParams)
-            <?> "module definition"
+moduleDef = do
+    mName <- reserved "module" *> modIdentifier
+    modParse mName
+  where
+    modParse mName =
+        C.ModuleApp <$> pure mName <*> (reservedOp "=" *> moduleAppParams)
+        <|> C.ModuleAbs <$> pure mName <*> optionMaybe (paramList modIdentifier) <*> braces (many1 moduleBody)
+        <?> "module definition"
 
 moduleOpen :: Parser C.ModOpen
 moduleOpen = reserved "open" *> stringLiteral

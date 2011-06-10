@@ -22,7 +22,7 @@
 module Core.AST (
 Model(..),
 ModOpen, ModLocalId(..), Module(..), ModuleAppParams(..), ModuleElem(..),
-Component(..), ValueDef(..), CompStmt(..), Expr(..), ExprOp(..)
+Component(..), ValueDef(..), CompStmt(..), Expr(..), BinOp(..), UnOp(..),
 ) where
 
 import Data.Map as Map
@@ -69,8 +69,8 @@ data CompStmt   = CompValue ValueDef
                 deriving Show
 
 -- represents basic arithmetic expressions
-data Expr   = BinExpr Expr ExprOp Expr | Number Double | NumSeq Double Double Double
-            | Call ModLocalId [Expr] | ValueRef ModLocalId
+data Expr   = BinExpr BinOp Expr Expr | UnExpr UnOp Expr | Number Double | NumSeq Double Double Double
+            | Call ModLocalId [Expr] | ValueRef ModLocalId | Piecewise [(Expr, Expr)] Expr
             deriving Show
 
 -- basic operators, both binary and unary needed
@@ -79,6 +79,8 @@ data Expr   = BinExpr Expr ExprOp Expr | Number Double | NumSeq Double Double Do
 --data RelOp = LT | LE | GT | GE | EQ | NEQ deriving Show
 --data LogOp  = And | Or deriving Show
 
-data ExprOp =   Add | Sub | Mul | Div | Mod
+data BinOp =   Add | Sub | Mul | Div | Mod
                 | LT | LE | GT | GE | EQ | NEQ
                 | And | Or deriving Show
+
+data UnOp = Not | Neg deriving Show

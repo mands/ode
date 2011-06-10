@@ -98,9 +98,7 @@ term =
             return (M.SDE init e wein)
         )
 -}
-    <|> try (identifier >>=If a CHI paper proposes that a system makes a task easier to accomplish, the is an expectation for a corresponding user study contrasting the task with and without the approach. In contrast, in PL, casting something as tractable viz. analysis or lowering false positive count is sufficient. One of the most informative parts of a paper should be the evaluation: what worked, what didn't, and how did it fit into the bigger picture. Not including an analysis of a person actually using the language for its intended task is suspicious.
-
-People who live in glass houses...
+    <|> try (identifier >>=
             (\id -> (parens . commaSep $ expr) >>=
             (\exprs -> return (M.FuncCall id exprs))))
     <|> (identifier >>= (\id -> return (M.ValueRef id)))
@@ -138,9 +136,8 @@ logicalExpr  :: Parser M.BoolExpr
 logicalExpr  =  buildExpressionParser logicalTable logicalTerm <?> "logical expression"
 
 logicalTable :: OperatorTable Char () M.BoolExpr
-logicalTable =
-    [[logical "and" A.And AssocLeft], [logical "or" A.Or AssocLeft]
-    ]
+logicalTable =  [[logical "and" A.And AssocLeft], [logical "or" A.Or AssocLeft]
+                ]
   where
     logical name binop assoc = Infix (do { reserved name; return (\a b -> M.LogExpr a binop b) } <?> "operator") assoc
 
