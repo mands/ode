@@ -1,5 +1,4 @@
 /* Test model for the Original HH model 
-** - try to use as many new techniques as possible
 */
 
 module HodgkinHuxley {

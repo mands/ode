@@ -18,20 +18,22 @@ IonModel(..), IonChannel(..), StateReaction(..), Id
 
 import Control.Monad.Error
 
--- need to change?
+-- |identifier - is converted later on
 type Id = String
 
 -- can switch within the hpc implemenations as needed, also need bools?
 --type NumTy = Double
 --type IntTy = Int
 
--- switch to map indexed by channel name
+-- |top level model, maybe switch to map indexed by channel name
 type IonModel = [IonChannel]
 
+-- |description of an individual ion channel, containing all relevent information
 data IonChannel = IonChannel {  name :: Id, density :: Double, equilibrium_potential :: Double, subunits :: Integer,
                                 open_states :: [Id], states :: [StateReaction]}
                 deriving Show
 
--- only consider uni-directional reactions for now
+-- |description of the state-change reaction within an ion-channel
+-- we only consider uni-directional reactions for now
 data StateReaction  = StateReaction {stateA :: Id, stateB :: Id, rate :: Double}
                     deriving Show

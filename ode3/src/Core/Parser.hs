@@ -36,7 +36,7 @@ import Text.Parsec.Perm
 import Utilities
 import qualified Core.AST as C
 
--- hijack the javaStyle default definition, gives us a bunch of ready-made parsers/behaviours
+-- |hijack the javaStyle default definition, gives us a bunch of ready-made parsers/behaviours
 coreLangDef = javaStyle
     {
         -- add more later
@@ -51,7 +51,7 @@ coreLangDef = javaStyle
         T.reservedOpNames = ["=",
                             "*", "/", "%", "+", "-",
                             "<", "<=", ">", ">=", "==", "!=",
-                            "&&", "||", "and", "or", "!", "not"
+                            "&&", "||", "!", "and", "or", "not"
                             ],
         T.caseSensitive = True
     }
@@ -80,44 +80,44 @@ braces      = T.braces lexer
 brackets    = T.brackets lexer
 dot         = T.dot lexer
 
--- number parser, parses most formats
+-- |number parser, parses most formats
 number :: Parser Double
 number =    try float
             <|> fromIntegral <$> integer
             <?> "number"
 
--- parses a upper case identifier
-rawModIdentifier :: Parser String
-rawModIdentifier = (:) <$> upper <*> many alphaNum <?> "module identifier"
+-- |parses a upper case identifier
+upperIdentifier :: Parser String
+upperIdentifier = (:) <$> upper <*> many alphaNum <?> "module identifier"
 
+-- |lexeme parser for module identifier
 modIdentifier :: Parser String
-modIdentifier = lexeme rawModIdentifier
+modIdentifier = lexeme upperIdentifier
 
--- parses a module element reference, e.g. A.x
-moduleElemIdentifier :: Parser C.ModLocalId
-moduleElemIdentifier  = lexeme (C.ModId <$> rawModIdentifier <*> (char '.' *> identifier))
+-- |parses a module element reference, e.g. A.x
+modElemIdentifier :: Parser C.ModLocalId
+modElemIdentifier  = lexeme (C.ModId <$> upperIdentifier <*> (char '.' *> identifier))
 
--- used when either a local or module id is allowed e.g. A.x or x
+-- |parse either a local or module id e.g. A.x or x
 modLocalIdentifier :: Parser C.ModLocalId
-modLocalIdentifier =    try moduleElemIdentifier
+modLocalIdentifier =    try modElemIdentifier
                         <|> C.LocalId <$> identifier <?> "local or module identifier"
 
--- comma sepated parameter list of any parser, e.g. (a,b,c)
+-- |comma sepated parameter list of any parser, e.g. (a,b,c)
 paramList = parens . commaSep
 
--- | a parameterised single attribute parser for a given attriibute identifier
+-- |a parameterised single attribute parser for a given attriibute identifier
 -- TODO - fix the comma separated list of attribute, commaSep?
 -- attrib :: String -> Parser String
 attrib res p = reserved res *> colon *> p <* optional comma
 
--- expressions - use parsec experssion builder
--- | a basic numeric expression
+-- |a basic numeric expression, using parsec expression builder
 compExpr  :: Parser C.Expr
 compExpr  =  buildExpressionParser exprOpTable compTerm <?> "expression"
 
---exprOpTable :: OperatorTable String () Identity C.Expr
--- TODO - need to add unary and logical negation
--- TODO - maybe add parens and commas to the expressions
+-- |Expression operator precedence table
+-- TODO - add parens and commas to the expressions?
+-- exprOpTable :: OperatorTable String () Identity C.Expr
 exprOpTable =
     [
     [prefix "-" C.Neg, prefix "!" C.Not, prefix "not" C.Not]
@@ -132,8 +132,10 @@ exprOpTable =
     binary name binop assoc = Infix (reservedOp name *> pure (\a b -> C.BinExpr binop a b) <?> "binary operator") assoc
     prefix name unop         = Prefix (reservedOp name *> pure (\a -> C.UnExpr unop a) <?> "unary operator")
 
+-- |parser for a numerical sequence, e.g. [a, b .. c]
+-- where a is the start, b is the next element, and c is the stop
 numSeqTerm :: Parser C.Expr
-numSeqTerm = createSeq <$> float <*> (comma *> float) <*> (symbol ".." *> float) <?> "numerical sequence"
+numSeqTerm = createSeq <$> number <*> (comma *> number) <*> (symbol ".." *> number) <?> "numerical sequence"
   where
     createSeq a b c = C.NumSeq a (b-a) c
 
@@ -141,8 +143,8 @@ piecewiseTerm :: Parser C.Expr
 piecewiseTerm = C.Piecewise <$> (endBy1 ((,) <$> compExpr <*> (colon *> compExpr)) comma)
                             <*> (reserved "default" *> colon *> compExpr)
 
+-- |parse a term - the value on either side of an operator
 -- should ODEs be here - as terms or statements?
--- | term - the value on either side of an operator
 compTerm :: Parser C.Expr
 compTerm =  parens compExpr
             <|> C.Number <$> number
@@ -163,20 +165,24 @@ odeDef n = permute (n
             -- <|> ((C.OdeDef <$> (reserved "ode" *> identifier <* reservedOp "=" )) >>= (\n -> braces (odeDef n)))
 -}
 
+-- |parse an ode attribute definition
 odeDef = permute (C.OdeDef ""
             <$$> (attrib "init" number)
             <||> (attrib "delta" compExpr)
             ) <?> "ode definition"
 
+-- |parse a rre attribute definition
 rreDef = permute (C.RreDef ""
             <$$> (attrib "reaction" ((,) <$> identifier <*> (reservedOp "->" *> identifier)))
             <||> (attrib "rate" compExpr)
             ) <?> "rre definition"
 
+-- |parse a value definition
+-- e.g., val x = expr
 valueDef :: Parser C.ValueDef
 valueDef = C.ValueDef   <$> (reserved "val" *> commaSep1 identifier) <*> (reservedOp "=" *> compExpr)
 
--- | general statements allowed within a component body
+-- |parser for the statements allowed within a component body
 compStmt :: Parser C.CompStmt
 compStmt =  --C.CompCallDef <$> commaSep1 identifier <*> (reservedOp "=" *> identifier) <*> paramList compExpr
             C.CompValue <$> valueDef
@@ -188,32 +194,33 @@ compStmt =  --C.CompCallDef <$> commaSep1 identifier <*> (reservedOp "=" *> iden
     updateOde n ode = ode {C.odeName = n}
     updateRre n rre = rre {C.rreName = n}
 
--- body is a list of statements and return expressions
+-- |parser for the component body, a list of statements and return expressions
 compBody :: Parser ([C.CompStmt], [C.Expr])
 compBody = (,)  <$> many compStmt --compStmt `endBy` lexeme newline --
                 <*> (reserved "return" *> paramList compExpr)
 
+-- |parser for defining a component, where either a defintion or module parameter component may follow
 compDef :: Parser C.Component
 compDef = do
     cName <- reserved "component" *> identifier
     compParse cName
   where
     compParse cName =
-        C.ComponentRef <$> pure cName <*> (reservedOp "=" *> moduleElemIdentifier)
+        C.ComponentRef <$> pure cName <*> (reservedOp "=" *> modElemIdentifier)
         <|> (uncurry <$> (C.Component <$> pure cName <*> paramList identifier) <*> braces compBody)
         <?> "component definition"
 
--- parse the body of a module
+-- |parse the body of a module
 moduleBody :: Parser C.ModuleElem
 moduleBody =    C.ModuleElemComponent <$> compDef
                 <|> C.ModuleElemValue <$> valueDef
                 <?> "component or value defintion"
 
--- parse a chain/tree of module applications
+-- |parse a chain/tree of module applications
 moduleAppParams :: Parser C.ModuleAppParams
 moduleAppParams = C.ModuleAppParams <$> modIdentifier <*> optionMaybe (paramList moduleAppParams)
 
--- parse a module, either an entire definition/abstraction or an application
+-- |parse a module, either an entire definition/abstraction or an application
 moduleDef :: Parser C.Module
 moduleDef = do
     mName <- reserved "module" *> modIdentifier
@@ -224,15 +231,17 @@ moduleDef = do
         <|> C.ModuleAbs <$> pure mName <*> optionMaybe (paramList modIdentifier) <*> braces (many1 moduleBody)
         <?> "module definition"
 
-moduleOpen :: Parser C.ModOpen
+-- |parse the open directive
+moduleOpen :: Parser C.FileOpen
 moduleOpen = reserved "open" *> stringLiteral
 
+-- |top level parser for a file
 coreTop :: Parser C.Model
 coreTop = C.Model <$> (whiteSpace *> many moduleOpen) <*> many1 moduleDef <* eof
 
--- | parses the string and returns the result if sucessful
--- | maybe move into main
--- | TODO - switch to bytestring
+-- |parses the string and returns the result if sucessful
+-- maybe move into main
+-- TODO - switch to bytestring?
 coreParse :: FilePath -> String -> MExcept C.Model
 coreParse fileName fileData =
     -- do  parseRes <- parseFromFile odeMain fileName

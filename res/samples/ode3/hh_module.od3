@@ -1,0 +1,135 @@
+/* Test model for the Original HH model 
+** use modules to abstract model components
+*/
+
+// put params of interest here - can inc num sequences
+module HHParams {
+    // :: Num
+    val e_R = [-75, -70 .. 0]
+  
+    // stimulus current is independent from model
+    // :: Num
+    val i_stim = {
+        t >= 10 and t <= 10.5 : 20, // :: Bool
+        default: 0
+    }
+}
+
+module PotassiumChannel {
+
+    // :: (Num, Num) -> Num
+    component potassium_channel(v, e_R) {
+        val n = potassium_channel_n_gate(V) // :: Num
+        val g_K = 36 // :: Num
+        val e_K = e_R - 12 // :: Num
+        val i_K = g_K * pow(n,4) * (v - e_K) // :: Num
+        return (i_K)
+    }
+
+    // :: Num -> Num
+    component potassium_channel_n_gate(v) {
+        val alpha_n = (-0.01 * (v + 65)) / (exp(-(v + 65) / 10) - 1) // :: Num
+        val beta_n = 0.125 * exp((v + 75) / 80) // :: Num
+        ode n = {init: 0.325, delta: (alpha_n*(1-n) - (beta_n*n))} // :: Num/Ode
+        return (n)
+    }
+}
+
+module SodiumChannel {
+
+    // :: (Num, Num) -> Num
+    component sodium_channel(v, e_R) {
+        val m = sodium_channel_m_gate(v) // :: Num
+        val h = sodium_channel_h_gate(v) // :: Num
+        val g_Na = 120 // :: Num
+        val e_Na = e_R + 115 // :: Num
+        val i_Na = g_Na * pow(m, 3) * h * (V - E_Na) // :: Num
+        return (i_Na)
+    }
+
+    // :: Num -> Num
+    component sodium_channel_m_gate(v) { 
+        val alpha_m = -0.1 * (v + 50) / (exp(-(v + 50) / 10) - 1)  // :: Num
+        val beta_m = 4 * exp(-(V + 75) / 18) // :: Num
+        ode m = {init: 0.05, delta: (alpha_m * (1 - m) - beta_m * m)} // :: Num/Ode
+        return (m)
+    }
+
+    // :: Num -> Num
+    component sodium_channel_h_gate(t, v) {
+        val alpha_h = 0.07 * exp(-(v + 75) / 20) // :: Num
+        val beta_h = 1 / (exp(-(v + 45) / 10) + 1) // :: Num
+        ode h = {init: 0.6, delta: (alpha_h * (1 - h) - beta_h * h)} // :: Num/Ode
+        return (h)
+    }
+}
+
+module HodgkinHuxleyF(Params, PotChan, SodChan) {
+
+    // :: Num -> ()
+    component membrane() {
+        val cm = 1 // :: Num
+        // calling module values
+        val e_R = Params.e_R // e_R :: Num, mod_val :: Num
+        val i_Stim = Params.i_Stim // i_Stim :: Num, mod_val :: Num
+
+        // calling module components, rest of module remains hidden
+        val i_K = PotChan.potassium_channel(v, e_R) // i_K :: Num, mod_comp :: (Num, Num) -> Num
+        val i_Na = SodChan.sodium_channel(v, e_R) // i_Na :: Num, mod_comp :: (Num, Num) -> Num
+        val i_L = leakage_current(v, e_R) // :: Num
+
+        ode v = {init: -75, delta: -(-i_Stim + i_Na + i_K + i_L) / cm} // :: Num/Ode
+
+        return ()
+    }
+
+    // :: (Num, Num) -> Num
+    component leakage_current(v, e_R) {
+        val g_L = 0.3 // :: Num
+        val e_L = e_R + 10.613 // :: Num
+        val i_L = g_L * (v - r_L) // :: Num
+        return (i_L)
+    }
+}
+
+// functor application
+module HodgkinHuxley = HodgkinHuxleyF(HHParams, PotassiumChannel, SodiumChannel)
+
+/*
+Module Types/Signatures
+
+HodgkinHuxley :: {
+  membrane :: () -> ()
+  lekage_current :: (Num, Num) -> Num
+}
+
+HodgkinHuxleyF :: (A, B, C) -> HodgkinHuxley
+  where
+    A :: {
+      e_R :: Num
+      i_Stim :: Num
+    }
+    B :: {
+      potassium_channel :: (Num, Num) -> Num    
+    }
+    C :: {
+      sodium_channel :: (Num, Num) -> Num
+    }
+
+SodiumChannel :: {
+    sodium_channel :: (Num, Num) -> Num
+    sodium_channel_m_gate :: Num -> Num
+    sodium_channel_h_gate :: Num -> Num
+}
+
+PotassiumChannel :: {
+  potassium_channel :: (Num, Num) -> Num
+  potassium_channel_n_gate :: Num -> Num
+}
+
+HHParams :: {
+  e_R :: Num  
+  i_Stim :: Num
+}
+*/
+

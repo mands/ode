@@ -25,6 +25,7 @@ import Ion.Parser
 import Core.Parser
 import Utilities
 
+-- |main entry funtion
 main :: IO ()
 main = do
     updateGlobalLogger rootLoggerName (setLevel DEBUG)
@@ -58,16 +59,15 @@ main = do
     infoM "ode3.main" $ "Done"
     --close filelogger
 
--- arg flag type
+-- |argument flag types
 data Flag = Version
     deriving Show
 
--- arg options
+-- |argument options
 options :: [OptDescr Flag]
 options = [ Option ['V'] ["version"] (NoArg Version) "Show version number" ]
 
-
--- | drives the compilation stae through monadic sequencing
+-- |drives the ion language compilation state through monadic sequencing
 ionParser :: FilePath -> IO ()
 ionParser fileName = do
     fileData <- readFile fileName
@@ -77,6 +77,7 @@ ionParser fileName = do
     either (\err -> errorM "ode3.compilerDriver" err)
         (\res -> infoM "ode3.compilerDriver" "No errors" >> print res) parseRes
 
+-- |drives the core language compilation state through monadic sequencing
 coreParser :: FilePath -> IO ()
 coreParser fileName = do
     fileData <- readFile fileName
