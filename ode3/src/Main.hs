@@ -22,10 +22,15 @@ import System.Log.Handler(close)
 import System.Log.Handler.Simple
 
 import Ion.Parser
+import qualified Ion.AST as I
+
 import Ode.Parser
 import qualified Ode.AST as O
+import Ode.Desugarer
+
 import qualified Core.AST as C
 import qualified CoreANF.AST as CA
+
 import Utilities
 
 -- |main entry funtion
@@ -47,18 +52,18 @@ main = do
     -- get the input filename, better args handling needed
     args <- getArgs
     let (flags, nonOpts, msgs) = getOpt RequireOrder options args
-    print flags
+    -- print flags
 
     let fileName = head args
 
     -- read the input file
-    infoM "ode3.main" $ "ode3 parsing " ++ fileName
+    infoM "ode3.main" $ "parsing " ++ fileName
 
     -- start the compiler
-    output <- odeParser fileName
+    odeParser fileName
+    -- res <- odeParser fileName
 
-    -- output to screen and quit
-    -- putStrLn output
+
     infoM "ode3.main" $ "Done"
     --close filelogger
 
@@ -74,24 +79,21 @@ options = [ Option ['V'] ["version"] (NoArg Version) "Show version number" ]
 ionParser :: FilePath -> IO ()
 ionParser fileName = do
     fileData <- readFile fileName
-    let parseRes = ionParse fileName fileData
+    let res = ionParse fileName fileData
 
-    -- back in IO monad
     either (\err -> errorM "ode3.ionParser" err)
-        (\res -> infoM "ode3.ionParser" "No errors" >> print res) parseRes
+        (\res -> infoM "ode3.ionParser" "No errors" >> print res) res
 
 -- |drives the core language compilation state through monadic sequencing
-odeParser :: FilePath -> IO ()
+odeParser :: FilePath -> IO (Maybe C.Model)
 odeParser fileName = do
     fileData <- readFile fileName
-    let parseRes =
+    let res = (odeParse fileName fileData) >>= desugar
 
-    let res = (odeParse fileName fileData) >>=
-
-    -- back in IO monad
-    either (\err -> errorM "ode3.odeParser" err)
-        (\res -> infoM "ode3.odeParser" "No errors" >> print res) parseRes
-
+    -- back in IO monad, report any error message(s)
+    either
+        (\err -> errorM "ode3.odeParser" err >> return Nothing)
+        (\res -> infoM "ode3.odeParser" "No errors" >> infoM "ode3.odeParser" (show res) >> return (Just res)) res
 
 -- |driver for the core language front-end of the compiler
 -- will effectively run the front-end pipeline within the Error monad
