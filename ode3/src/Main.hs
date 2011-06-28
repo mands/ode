@@ -23,6 +23,9 @@ import System.Log.Handler.Simple
 
 import Ion.Parser
 import Ode.Parser
+import qualified Ode.AST as O
+import qualified Core.AST as C
+import qualified CoreANF.AST as CA
 import Utilities
 
 -- |main entry funtion
@@ -52,7 +55,7 @@ main = do
     infoM "ode3.main" $ "ode3 parsing " ++ fileName
 
     -- start the compiler
-    output <- coreParser fileName
+    output <- odeParser fileName
 
     -- output to screen and quit
     -- putStrLn output
@@ -74,16 +77,35 @@ ionParser fileName = do
     let parseRes = ionParse fileName fileData
 
     -- back in IO monad
-    either (\err -> errorM "ode3.compilerDriver" err)
-        (\res -> infoM "ode3.compilerDriver" "No errors" >> print res) parseRes
+    either (\err -> errorM "ode3.ionParser" err)
+        (\res -> infoM "ode3.ionParser" "No errors" >> print res) parseRes
 
 -- |drives the core language compilation state through monadic sequencing
-coreParser :: FilePath -> IO ()
-coreParser fileName = do
+odeParser :: FilePath -> IO ()
+odeParser fileName = do
     fileData <- readFile fileName
-    let parseRes = odeParse fileName fileData
+    let parseRes =
+
+    let res = (odeParse fileName fileData) >>=
 
     -- back in IO monad
-    either (\err -> errorM "ode3.compilerDriver" err)
-        (\res -> infoM "ode3.compilerDriver" "No errors" >> print res) parseRes
+    either (\err -> errorM "ode3.odeParser" err)
+        (\res -> infoM "ode3.odeParser" "No errors" >> print res) parseRes
 
+
+-- |driver for the core language front-end of the compiler
+-- will effectively run the front-end pipeline within the Error monad
+-- requires calling reorderer, renamer, typechecker, converter/interpreter
+coreDriver :: C.Model -> CA.Model
+coreDriver oModel = undefined
+
+-- |driver for the middle-end of the compiler
+-- will run the middle-end of the compiler using the ANF/lowerlevel FIR - AST to be determined
+-- basically runs a sequence of optimisations over the model, will some checking/valdiation/simulation
+-- to check optimisation results
+coreANFDriver = undefined
+
+-- |driver for the back-end of the compiler
+-- takes a final optimised model in the low-level AST, and runs the code-generation backend, either through
+-- an interpreter, LLVM CPU, or OpenCL
+codeGenDriver = undefined

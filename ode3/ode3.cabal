@@ -45,10 +45,10 @@ includes:
 install-includes:
 include-dirs:
 hs-source-dirs: src
-other-modules: CoreANF.Interpreter CoreANF.Optimiser CoreANF.AST
-               CoreANF.Converter Utilities Core.Reorderer Core.AST Core.Renamer
-               Core.TypeChecker Core.Interpreter Core.Desugarer Ode.AST
-               Ode.Interpret Ode.Parser Ion.AST Ion.Parser
+other-modules: Utilities Core.Reorderer Core.AST Core.Renamer
+               Core.TypeChecker Core.Interpreter Core.Desugarer CoreANF.AST
+               CoreANF.Optimiser CoreANF.Interpreter CoreANF.Converter Ode.AST
+               Ode.Parser Ion.AST Ion.Parser
 ghc-prof-options:
 ghc-shared-options:
 ghc-options:

@@ -11,7 +11,7 @@
 -- |A lower-level desuagred AST that represents the mian language features
 -- is parameterised by the types of values
 -- a reference interpreter exists that may execute on the type-checked Core AST
---
+-- bascially the lambda-calculus style IR
 -----------------------------------------------------------------------------
 
 module Core.AST (
@@ -19,4 +19,4 @@ Model
 ) where
 
 
-type Model :: [Int]
+type Model =  [Int]

@@ -17,4 +17,4 @@ Model
 ) where
 
 
-type Model :: [Int]
+type Model = [Int]
