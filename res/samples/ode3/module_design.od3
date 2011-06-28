@@ -1,0 +1,55 @@
+// TODO
+// how does top-level work
+// how is module initaliation done/base module
+// how does module replacement/calling/sub done
+// are complete modules neccarry to start simulaiton?
+
+// are functors fully closed??
+// or do we allow module creation outside a functor
+// i.e. is this allowed? NO
+//open Gamma;
+
+// every file must be in a module - call base by default
+// however need way of importing refs to files from other modeuls into current
+open "Gamma.od3";
+
+// module application
+// - also allowed from REPL?
+module Base = Beta(Alpha, Gamma);
+
+// circular refs not allowed
+module Test = Alpha(Beta);
+
+
+module Alpha {
+
+  component test(sa) {
+      val c = 1.0; // num
+      val x = sin(40.0) + test_1(a,d); // num from fun and comp call returning num
+      init c1 = 2.0;
+
+      return (c1,c2)
+  }
+}
+
+module Beta (A, G) {
+
+  // includes ? not yet
+  // imports all defs of A into current module
+  // include A
+
+  // are components closed or open with FVs?
+  // do we allow this...
+  val a = 45.5;
+
+  // test import
+  
+  component s = A.s;
+
+  component test(sa) {
+      val x = A.x + a;
+      return (c1,c2)
+  }
+  
+}
+

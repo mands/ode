@@ -1,0 +1,59 @@
+// main repl interface/commands
+>> open "gamma.od3"
+Loaded modules:
+  Gamma
+
+>> open "test.od3"
+Loaded modules:
+  Alpha
+Partial modules:
+  Beta(A, B)
+
+>> list
+Loaded modules:
+  Gamma
+  Alpha
+Partial modules:
+  Beta(A, B)
+
+>> type Gamma
+module Gamma {
+// depends if open components allowed
+//  w :: undefined
+//  x :: bool
+//  y :: int
+  z :: component (bool, int) -> (int, int)  
+}
+
+// can only load/open, instantiate and rename modules from REPL
+// allows creation of the simulation environment but nothing more
+>> module Base = Beta(Alpha, Gamma)
+Instantiated module Base
+Loaded modules:
+  Base
+  Alpha
+  Gamma
+Partial modules:
+  Beta(A, B)
+>> module Test = Alpha
+Instantiated module Base
+Loaded modules:
+  Base
+  Alpha (syn : Test)
+  Gamma
+Partial modules:
+  Beta(A, B)
+
+// mutliple params
+// handled at the module level, as this is level of independent simulations anyway
+>> module T = T1(T2)
+Instantiated module T
+Loaded modules:
+  T (var:6)
+  T2 (var:3)
+Partial modules:
+  T1 (var:2)
+
+// start a simulation
+>> run {entry: Base.main, start: 0, stop: 10, step: 0.01}
+

@@ -26,6 +26,18 @@ component environment(x, y) {
 
 }
 
+
+// multi-param vars
+component environment(x, y) {
+  // now add the body statements
+  a = [1, 2]; // simple list of vals
+  b = [1..3]; // integer increment
+  c = [1, 3..10]; // list of values with step size equal to (e2-e1) upto e3
+  d = 34.0 + a;
+
+  return (a, c)
+}
+
 // tests ode values and attributes
 
 component beta2(a, b, d) {
@@ -116,7 +128,7 @@ component test(sa) {
 // types - floats, bools (implicit), 
 component test_1(sa) {
     // const val - let binding
-    c : val{1.0};
+    c = val{1.0};
     d : val = c > 10;
     e : val = t > 10 and t < 10.5;
     
