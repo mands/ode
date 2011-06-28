@@ -1,15 +1,15 @@
 -----------------------------------------------------------------------------
 --
 -- Module      :  Core.AST
--- Copyright   :  Copyright (C) 2010 Mandeep Gill
+-- Copyright   :  Copyright (C) 2010-2012 Mandeep Gill
 -- License     :  GPL (Just (Version {versionBranch = [3], versionTags = []}))
 --
 -- Maintainer  :  mangil@comlab.ox.ac.uk
 -- Stability   :  alpha
 -- Portability :
 --
--- |AST describing the Core language from a model/file perspective, unsure if need to create a
--- further, functional, lower, ExecutableAST level?
+-- |AST describing the Ode language from a model/file perspective,
+-- is then converted to a further, functional, lower, Core level
 -- simplified AST - no simulation constuctions, only (named?) components
 -- AST is basically a direct translation of the language syntax/file format
 -- TODO
@@ -19,8 +19,7 @@
 -- * add chemical reactions support
 -----------------------------------------------------------------------------
 
-
-module Core.AST (
+module Ode.AST (
     Model(..),
     FileOpen, ModLocalId(..), Module(..), ModuleAppParams(..), ModuleElem(..),
     Component(..), ValueDef(..), CompStmt(..), Expr(..), BinOp(..), UnOp(..),
@@ -72,8 +71,8 @@ data CompStmt   = CompValue ValueDef
                 | InitValueDef { ivName :: [Id], ivValue :: Expr }
                 | OdeDef { odeName :: Id, odeInit :: Double, odeExp :: Expr}
                 | RreDef { rreName :: Id, reaction :: (Id, Id), rate :: Expr}
+                -- CompCallDef {  ccOutputs :: [Id], ccName :: Id, ccInputs :: [Expr] }
                 deriving Show
-                -- | CompCallDef {  ccOutputs :: [Id], ccName :: Id, ccInputs :: [Expr] }
 
 -- |tree for basic arithmetic expressions, these are recursive and may include
 -- binarry and unary opertors, literal numbers, number sequences ([a,b..c]),

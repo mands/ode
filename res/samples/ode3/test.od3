@@ -19,7 +19,7 @@ component test(sa) {
 /*
     val x = sin(40.0) + test_1(a,d); // num from fun and comp call returning num
     val y = 10 < (20 + 3.0) / 2 or 20 > 10;
-    init d, f = test_1(a,d); // comp call
+    init d, f = test_1(a,d); // comp call``
 
     // initial value - maybe species?
     init c1 = 2.0;

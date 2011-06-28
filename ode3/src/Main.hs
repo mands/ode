@@ -1,7 +1,7 @@
 -----------------------------------------------------------------------------
 --
 -- Module      :  Main
--- Copyright   :  Copyright (C) 2010 Mandeep Gill
+-- Copyright   :  Copyright (C) 2010-2012 Mandeep Gill
 -- License     :  GPL (Just (Version {versionBranch = [3], versionTags = []}))
 
 --
@@ -22,7 +22,7 @@ import System.Log.Handler(close)
 import System.Log.Handler.Simple
 
 import Ion.Parser
-import Core.Parser
+import Ode.Parser
 import Utilities
 
 -- |main entry funtion
@@ -81,7 +81,7 @@ ionParser fileName = do
 coreParser :: FilePath -> IO ()
 coreParser fileName = do
     fileData <- readFile fileName
-    let parseRes = coreParse fileName fileData
+    let parseRes = odeParse fileName fileData
 
     -- back in IO monad
     either (\err -> errorM "ode3.compilerDriver" err)

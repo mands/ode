@@ -4,7 +4,7 @@ cabal-version: -any
 build-type: Simple
 license: GPL-3
 license-file: LICENSE
-copyright: Copyright (C) 2010 Mandeep Gill
+copyright: Copyright (C) 2010-2012 Mandeep Gill
 maintainer: mangil@comlab.ox.ac.uk
 build-depends: base -any, containers -any, directory -any,
                hslogger -any, mtl -any, parsec -any
@@ -45,8 +45,10 @@ includes:
 install-includes:
 include-dirs:
 hs-source-dirs: src
-other-modules: Core.Interpret Utilities Ion.Parser Ion.AST
-               Core.Parser Core.AST
+other-modules: CoreANF.Interpreter CoreANF.Optimiser CoreANF.AST
+               CoreANF.Converter Utilities Core.Reorderer Core.AST Core.Renamer
+               Core.TypeChecker Core.Interpreter Core.Desugarer Ode.AST
+               Ode.Interpret Ode.Parser Ion.AST Ion.Parser
 ghc-prof-options:
 ghc-shared-options:
 ghc-options:
