@@ -9,6 +9,9 @@
 -- Portability :
 --
 -- |A represetnation of the Core AST in Administrative Normal Form (ANF)
+-- sohuld this also be in SSA form/FIR/??
+-- should contain menstructions, single statments/ops only?
+-- check Appel book
 --
 -----------------------------------------------------------------------------
 

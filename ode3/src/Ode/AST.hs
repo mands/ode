@@ -34,11 +34,13 @@ type Id = String
 -- |filepath created by open directive
 type FileOpen = String
 -- |identifier that may be local to current block or refer to a module parameter
-data ModLocalId = LocalId Id | ModId Id Id deriving Show
+data ModLocalId = LocalId Id | ModId Id Id
+                deriving Show
 
 --type Model = Map.Map Id ModuleElem
 -- |top level model
-data Model = Model [FileOpen] [Module] deriving Show
+data Model  = Model [FileOpen] [Module]
+            deriving Show
 
 -- |module
 -- should this be split by complete and partial/functors?
@@ -47,7 +49,8 @@ data Module = ModuleAbs Id (Maybe [Id]) [ModuleElem]
             deriving Show
 
 -- |tree indicating module parameters for application of a functor
-data ModuleAppParams = ModuleAppParams Id (Maybe [ModuleAppParams]) deriving Show
+data ModuleAppParams    = ModuleAppParams Id (Maybe [ModuleAppParams])
+                        deriving Show
 
 -- |elements allowed within a module, basically components or top-level constant values
 data ModuleElem = ModuleElemComponent Component
@@ -84,9 +87,11 @@ data Expr   = BinExpr BinOp Expr Expr | UnExpr UnOp Expr | Number Double | NumSe
             deriving Show
 
 -- |basic binary expression operators
-data BinOp =   Add | Sub | Mul | Div | Mod
-                | LT | LE | GT | GE | EQ | NEQ
-                | And | Or deriving Show
+data BinOp  = Add | Sub | Mul | Div | Mod
+            | LT | LE | GT | GE | EQ | NEQ
+            | And | Or
+            deriving Show
 
 -- |basic unary expression operators
-data UnOp = Not | Neg deriving Show
+data UnOp   = Not | Neg
+            deriving Show
