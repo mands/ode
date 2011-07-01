@@ -85,7 +85,7 @@ ionParser fileName = do
         (\res -> infoM "ode3.ionParser" "No errors" >> print res) res
 
 -- |drives the core language compilation state through monadic sequencing
-odeParser :: FilePath -> IO (Maybe C.Model)
+odeParser :: FilePath -> IO (Maybe (C.Model C.Id))
 odeParser fileName = do
     fileData <- readFile fileName
     let res = (odeParse fileName fileData) >>= desugar
@@ -98,7 +98,7 @@ odeParser fileName = do
 -- |driver for the core language front-end of the compiler
 -- will effectively run the front-end pipeline within the Error monad
 -- requires calling reorderer, renamer, typechecker, converter/interpreter
-coreDriver :: C.Model -> CA.Model
+coreDriver :: C.Model C.Id -> CA.Model
 coreDriver oModel = undefined
 
 -- |driver for the middle-end of the compiler

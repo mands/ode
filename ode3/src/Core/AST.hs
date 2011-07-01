@@ -16,7 +16,7 @@
 -----------------------------------------------------------------------------
 
 module Core.AST (
-Model
+Model, Id
 ) where
 
 import Data.Map as Map
@@ -25,7 +25,7 @@ import Data.Map as Map
 type Id = String
 
 -- |Top level Core model
-type Model =  [Int]
+type Model b =  Map Id (Top b)
 
 -- |Basic \-Calc
 -- not used - just for reference
@@ -57,36 +57,37 @@ data LExpr      = LVar Id
                 deriving Show
 
 -- |Main model elements - maybe move these into a Map indexed by Id
-data Top    = TopLet Id Expr -- binding, expr
-            | TopAbs Id Id Expr -- binding, abs name, expr
+data Top b  = TopLet b (Expr b)    -- binding, expr
+            | TopAbs b b (Expr b) -- binding, abs name, expr
             deriving Show
 
 -- | Main body of a \c-calc expression
--- is modified in order to disallow nested functions, HOF, currying, anony functions and more
--- is extended from defualt \-calc to support literals (inc. numbers, bools), pairs, and built-in operators (effectily Vars)
+-- is parameterised by the binding type b - used for RdrNames/Ids, Uniques, Uniques+Types
+-- is restricted from default \-calc to disallow nested functions, HOF, currying, anony functions and more
+-- is extended from default \-calc to support literals (inc. numbers, bools), pairs, and built-in operators (effectily Vars)
 -- disabling currying means that all functions take only a single parameter, and evalute to an expression,
 -- thus to pass/return multiple values simple used pair consing
-data Expr   = Var Id            -- a reference to any let-defined expressions
-                                -- could potentially ref to a top-level abs but unlikely, would be optimised
+data Expr b = Var b                    -- a reference to any let-defined expressions
+                                        -- could potentially ref to a top-level abs but unlikely, would be optimised
 
-            | Lit Literal       -- basic built-in constant literals
+            | Lit Literal               -- basic built-in constant literals
 
-            | App Id Expr       -- name of top-level func, expression to apply
-                                -- by using an Id instead of Expr we effecitively disallow anon-funcs and HOF, we can only
-                                -- call top-level variables that may then be applied
+            | App b (Expr b)           -- name of top-level func, expression to apply
+                                        -- by using an Id instead of Expr we effecitively disallow anon-funcs and HOF, we can only
+                                        -- call top-level variables that may then be applied
 
-            | Let Id Expr Expr  -- basic let within sub-expression
+            | Let b (Expr b) (Expr b)  -- basic let within sub-expression
 
-            | Op Op Expr        -- is basically identical to App - however is used to refer to built-in/run-time functions
+            | Op Op (Expr b)    -- is basically identical to App - however is used to refer to built-in/run-time functions
                                 -- we could but don't curry as would like to apply same optimsations to both sys/user functions
                                 -- instead pass pair-cons of expressions
 
-            | If Expr Expr Expr -- standard if construct, used to apply piecewise/case constructs
+            | If (Expr b) (Expr b) (Expr b) -- standard if construct, used to apply piecewise/case constructs
 
-            | Pair Expr Expr    -- cons expressions into a Pair/Product construct, can nest abritarily to create n-Tuples
-                                -- how do we unpack??
-                                -- can use pattern matching in the front-end/Ode lang, convert it to list of (top-)lets using
-                                -- fst/snd Op functions over the recustive Pair definition
+            | Pair (Expr b) (Expr b)    -- cons expressions into a Pair/Product construct, can nest abritarily to create n-Tuples
+                                        -- how do we unpack??
+                                        -- can use pattern matching in the front-end/Ode lang, convert it to list of (top-)lets using
+                                        -- fst/snd Op functions over the recustive Pair definition
 
             -- now add the simulation stuff!
             deriving Show

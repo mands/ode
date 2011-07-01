@@ -17,9 +17,10 @@ module Ode.Desugarer (
 desugar
 ) where
 
+import qualified Data.Map as Map
 import Utilities
 import qualified Ode.AST as O
 import qualified Core.AST as C
 
-desugar :: O.Model -> MExcept C.Model
-desugar oModel = return [4]
+desugar :: O.Model -> MExcept (C.Model C.Id)
+desugar oModel = return Map.empty
