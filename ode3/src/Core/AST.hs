@@ -21,37 +21,83 @@ Model
 
 import Data.Map as Map
 
-
 -- |Identifier - basicially RdrName - needs to become parameterised
 type Id = String
-
 
 -- |Top level Core model
 type Model =  [Int]
 
--- |Main model elements - maybe move these into a Map
-data TopLevel   = TopVal Id Expr
-                | TopFunc Id Func
+-- |Basic \-Calc
+-- not used - just for reference
+-- Positives
+-- * Simple, and unified expression and top-level
+-- * known basic optimisations, is a known quantity with huge amount of literature
+-- * beautiful and expressive
+-- Negatives
+-- * Allows only single argument for Abstractions, thus result to currying, pair-consing, or tuples for fixed arity funcs
+--   (and lists for mult-values, unknown arity expressions)
+--   Thus have discord between input params, that are curried, and output params, that would be tuples for mult-vals
+--   Currying requires closure creation and optimisation, expensive and complicated while are not expressed in front-end language
+--   (tho may make type-cechking easier)
+-- * It allows HOF, closures and anonymous functions, the increased flexability/power of these are not required/supported in the front-end
+--   and add additional complexity and flexability
+-- * It makes it harder to see actual structure of program, need to apply the AST to tell what it's doing,
+--   for instance is Apply to a anon func, a local-let func, or a top-level let func?
+-- * People modify/extend the \-calc all the time for specific use cases - that is novel in itself and worth it
 
--- |Main \-calc function abstraction
-data Func   = Abs Id Func
-            | Expr Expr
---            |  App Id Id
---            | Let Id Expr Func -- lets can only be to expressions, not function defintinos
+data LTop       = LTopLet Id LExpr
 
--- | Main body of a \-calc expression
--- is separated in order to disallow nested functions, HOF, and more
-data Expr   = Let Id Expr Expr
-            | App Id [Expr]
-            | Op Op [Expr]
-            | Number [Double] -- numbers may be single or a list of possibles for sens analysis
-            | If Expr Expr Expr
-            | MultVal [Expr]
-            -- now add the simulation stuff
+data LExpr      = LVar Id
+                | LLit Literal
+                | LAbs Id LExpr
+                | LApp LExpr LExpr
+                | LLet Id LExpr LExpr
+                | LPair LExpr LExpr
+                | LOp Op
+                deriving Show
+
+-- |Main model elements - maybe move these into a Map indexed by Id
+data Top    = TopLet Id Expr -- binding, expr
+            | TopAbs Id Id Expr -- binding, abs name, expr
             deriving Show
 
--- |built-in operators - basically any operators that may be expressed directly as hardware instructions
+-- | Main body of a \c-calc expression
+-- is modified in order to disallow nested functions, HOF, currying, anony functions and more
+-- is extended from defualt \-calc to support literals (inc. numbers, bools), pairs, and built-in operators (effectily Vars)
+-- disabling currying means that all functions take only a single parameter, and evalute to an expression,
+-- thus to pass/return multiple values simple used pair consing
+data Expr   = Var Id            -- a reference to any let-defined expressions
+                                -- could potentially ref to a top-level abs but unlikely, would be optimised
+
+            | Lit Literal       -- basic built-in constant literals
+
+            | App Id Expr       -- name of top-level func, expression to apply
+                                -- by using an Id instead of Expr we effecitively disallow anon-funcs and HOF, we can only
+                                -- call top-level variables that may then be applied
+
+            | Let Id Expr Expr  -- basic let within sub-expression
+
+            | Op Op Expr        -- is basically identical to App - however is used to refer to built-in/run-time functions
+                                -- we could but don't curry as would like to apply same optimsations to both sys/user functions
+                                -- instead pass pair-cons of expressions
+
+            | If Expr Expr Expr -- standard if construct, used to apply piecewise/case constructs
+
+            | Pair Expr Expr    -- cons expressions into a Pair/Product construct, can nest abritarily to create n-Tuples
+                                -- how do we unpack??
+                                -- can use pattern matching in the front-end/Ode lang, convert it to list of (top-)lets using
+                                -- fst/snd Op functions over the recustive Pair definition
+
+            -- now add the simulation stuff!
+            deriving Show
+
+-- |Atomic, core values, will eventually become atomic args during ANF conversion
+data Literal =  Num Double | NumSeq [Double] | Boolean Bool
+                deriving Show
+
+-- |built-in operators - basically any operators that may be expressed directly as hardware instructions or sys/built-ins
 data Op = Add | Sub | Mul | Div | Mod
         | LT | LE | GT | GE | EQ | NEQ
         | And | Or | Not
+        | Fst | Snd
         deriving Show
