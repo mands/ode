@@ -16,7 +16,7 @@
 -----------------------------------------------------------------------------
 
 module Core.AST (
-Model, Id
+Model, Id, Top(..), Expr(..)
 ) where
 
 import Data.Map as Map
@@ -25,6 +25,8 @@ import Data.Map as Map
 type Id = String
 
 -- |Top level Core model
+-- need to make sure this is an ordered map so we keep the evaluation order correct
+-- maybe use number and Id to index/key
 type Model b =  Map Id (Top b)
 
 -- |Basic \-Calc
@@ -88,6 +90,13 @@ data Expr b = Var b                    -- a reference to any let-defined express
                                         -- how do we unpack??
                                         -- can use pattern matching in the front-end/Ode lang, convert it to list of (top-)lets using
                                         -- fst/snd Op functions over the recustive Pair definition
+                                        -- how do we force only consing of pairs into n-Tuples?
+                                            -- use a list? - but then could have lists-of-lists
+                                            -- create own data-type
+                                            -- don't worry about it and maybe change later?
+
+            | Tuple [Expr b]            -- NOT IMPLEMENTED...
+                                        -- just a test, could be used instead of pairs, makes some ops easier
 
             -- now add the simulation stuff!
             deriving Show
@@ -100,5 +109,5 @@ data Literal =  Num Double | NumSeq [Double] | Boolean Bool
 data Op = Add | Sub | Mul | Div | Mod
         | LT | LE | GT | GE | EQ | NEQ
         | And | Or | Not
-        | Fst | Snd
+        | Fst | Snd | Unpack Int -- used for unpacking values from Pairs/Tuples
         deriving Show
