@@ -44,12 +44,15 @@ desugar (O.Model files modules) = return a
 -- |desugar a top-level value constant(s)
 -- need to thread thru our error and state monads
 desugarModElems :: (C.Model C.Id) -> O.ModuleElem -> (C.Model C.Id)
-desugarModElems map (O.ModuleElemValue (O.ValueDef ids value)) = map''
+desugarModElems map (O.ModuleElemValue (O.ValueDef ids value)) =
+    if (isSingleElem ids)
+        then Map.insert (singleElem ids) (C.TopLet (singleElem ids) (dsExpr value)) map
+        else multMap'
   where
-    -- call standard expression desugarer for the top-level let
-    map' = Map.insert tmpName (C.TopLet tmpName (dsExpr value)) map
+    -- call standard expression desugarer for the top-level let of a packed value
+    multMap = Map.insert tmpName (C.TopLet tmpName (dsExpr value)) map
     -- now expand the pattern to create the list of sub-lets
-    (map'', _) = foldl createTopIds (map', 0) ids
+    (multMap', _) = foldl createTopIds (multMap, 0) ids
     -- creates an Op that represnets the unpacking of a specific tuple value to a bound id
     createTopIds (map, n) id = (Map.insert tmpName (C.TopLet tmpName (C.Op (C.Unpack n) (C.Var tmpName))) map, n+1)
 
@@ -62,21 +65,22 @@ desugarModElems map (O.ModuleElemComponent (O.Component name ins body outs)) = m
 -- | desugars and converts a component into a \c abstraction
 -- not in tail-call form, could blow out the stack, but unlikely
 desugarComp :: C.Id -> [O.Id] -> [O.CompStmt] -> [O.Expr] -> (C.Expr C.Id)
-desugarComp name ins body outs = dsCompIns ins 0
+desugarComp name ins body outs = if (isSingleElem ins) then dsCompBody body else dsCompIns ins 0
   where
-    -- extract the input params
-    -- a custom fold over the ins
-    -- need to check if ins are single or tuple, assume for now all elements (to comps) are tupled
+    -- unpack the input params, a custom fold over the multiple ins
     dsCompIns [] _ = dsCompBody body
     dsCompIns (x:xs) n = C.Let x (C.Op (C.Unpack n) (C.Var name)) (dsCompIns xs (n+1))
 
     -- process the body by pattern-matching on the statement types
     dsCompBody [] = dsCompOuts outs
     -- very similar to top-level value def - need to handle single elem diff to mult
-    dsCompBody ((O.CompValue (O.ValueDef ids e)):xs) = C.Let tmpName (dsExpr e) (dsCompBodyVal ids 0)
+    dsCompBody ((O.CompValue (O.ValueDef ids e)):xs) =
+        if (isSingleElem ids)
+            then C.Let (singleElem ids) (dsExpr e) (dsCompBody xs)
+            else C.Let tmpName (dsExpr e) (dsCompBodyVals ids 0)
       where
-        dsCompBodyVal [] _ = dsCompBody xs
-        dsCompBodyVal (id:ids) n = C.Let id (C.Op (C.Unpack n) (C.Var tmpName)) (dsCompBodyVal ids (n+1))
+        dsCompBodyVals [] _ = dsCompBody xs
+        dsCompBodyVals (id:ids) n = C.Let id (C.Op (C.Unpack n) (C.Var tmpName)) (dsCompBodyVals ids (n+1))
 
     -- we ignore for now
     dsCompBody ((O.InitValueDef ids e):xs) = undefined
@@ -84,6 +88,7 @@ desugarComp name ins body outs = dsCompIns ins 0
     dsCompBody ((O.RreDef id (from, to) e):xs) = undefined
 
     dsCompOuts outs = C.Tuple $ map dsExpr outs
+
 
 -- |Expression desugarer - basically a big pattern amtch on all possible types
 -- should prob enable warnings to pick up all unmatched patterns
@@ -107,17 +112,17 @@ dsExpr (O.Piecewise cases e) = dsIf cases
 -- convert call to a app, need to convert ins/args into a tuple first
 dsExpr (O.Call (O.LocalId id) exprs) = C.App id arg
   where
-    arg = if (isSingleExpr exprs)
-            then dsExpr $ singleExpr exprs
+    arg = if (isSingleElem exprs)
+            then dsExpr $ singleElem exprs
             else C.Tuple $ map dsExpr exprs
 
 -- any unknown/unimplemented paths - mainly modules for now
 dsExpr _ = undefined
 
 -- |Simple test to see if an expression contains only a single element or is a packed tuple
-isSingleExpr es = length es == 1
+isSingleElem es = length es == 1
 -- |Retrieve the single expression within a tuple, may cause exception
-singleExpr es = head es
+singleElem es = head es
 
 -- |simple patttern matching convertor, boring but gotta be done...
 binOps :: O.BinOp -> C.Op
