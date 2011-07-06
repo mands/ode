@@ -87,17 +87,16 @@ desugarComp name ins body outs = if (isSingleElem ins) then dsCompBody body else
     dsCompBody ((O.OdeDef id init e):xs) = undefined
     dsCompBody ((O.RreDef id (from, to) e):xs) = undefined
 
-    dsCompOuts outs = C.Tuple $ map dsExpr outs
-
+    dsCompOuts outs = if (isSingleElem outs)
+        then dsExpr $ singleElem outs
+        else C.Tuple $ map dsExpr outs
 
 -- |Expression desugarer - basically a big pattern amtch on all possible types
 -- should prob enable warnings to pick up all unmatched patterns
 dsExpr :: O.Expr -> C.Expr C.Id
 dsExpr (O.UnExpr O.Not e) = C.Op C.Not $ dsExpr e
-
 -- convert unary negation into (* -1)
 dsExpr (O.UnExpr O.Neg e) = C.Op C.Mul $ C.Tuple [C.Lit (C.Num (-1)), dsExpr e]
-
 dsExpr (O.BinExpr op a b) = C.Op (binOps op) $ C.Tuple [dsExpr a, dsExpr b]
 dsExpr (O.Number n) = C.Lit (C.Num n)
 dsExpr (O.NumSeq a b c) = C.Lit (C.NumSeq $ enumFromThenTo a b c)
