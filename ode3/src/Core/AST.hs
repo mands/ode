@@ -16,7 +16,7 @@
 -----------------------------------------------------------------------------
 
 module Core.AST (
-Model, Id, Top(..), Expr(..)
+Model, Id, Top(..), Expr(..), Op(..), Literal(..)
 ) where
 
 import Data.Map as Map
@@ -110,4 +110,5 @@ data Op = Add | Sub | Mul | Div | Mod
         | LT | LE | GT | GE | EQ | NEQ
         | And | Or | Not
         | Fst | Snd | Unpack Int -- used for unpacking values from Pairs/Tuples
+        | Nop -- not used?
         deriving Show

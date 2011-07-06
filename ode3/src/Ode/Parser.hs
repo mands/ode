@@ -137,7 +137,7 @@ exprOpTable =
 numSeqTerm :: Parser O.Expr
 numSeqTerm = createSeq <$> number <*> (comma *> number) <*> (symbol ".." *> number) <?> "numerical sequence"
   where
-    createSeq a b c = O.NumSeq a (b-a) c
+    createSeq a b c = O.NumSeq a b c -- (b-a) c
 
 piecewiseTerm :: Parser O.Expr
 piecewiseTerm = O.Piecewise <$> (endBy1 ((,) <$> compExpr <*> (colon *> compExpr)) comma)

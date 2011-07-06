@@ -42,19 +42,95 @@ desugar (O.Model files modules) = return a
 
 
 -- |desugar a top-level value constant(s)
+-- need to thread thru our error and state monads
 desugarModElems :: (C.Model C.Id) -> O.ModuleElem -> (C.Model C.Id)
-desugarModElems map (O.ModuleElemValue v) = map'
+desugarModElems map (O.ModuleElemValue (O.ValueDef ids value)) = map''
   where
-    -- need to create a list of lets from the list of ids
-    res = C.TopLet tmpName (desugarExpr value)
+    -- call standard expression desugarer for the top-level let
+    map' = Map.insert tmpName (C.TopLet tmpName (dsExpr value)) map
+    -- now expand the pattern to create the list of sub-lets
+    (map'', _) = foldl createTopIds (map', 0) ids
+    -- creates an Op that represnets the unpacking of a specific tuple value to a bound id
+    createTopIds (map, n) id = (Map.insert tmpName (C.TopLet tmpName (C.Op (C.Unpack n) (C.Var tmpName))) map, n+1)
 
-    -- then call standard expression desugarer
+-- |desugar a top level component
+desugarModElems map (O.ModuleElemComponent (O.Component name ins body outs)) = map'
+  where
+    map' = Map.insert name topAbs map
+    topAbs = C.TopAbs name tmpName (desugarComp tmpName ins body outs)
 
+-- | desugars and converts a component into a \c abstraction
+-- not in tail-call form, could blow out the stack, but unlikely
+desugarComp :: C.Id -> [O.Id] -> [O.CompStmt] -> [O.Expr] -> (C.Expr C.Id)
+desugarComp name ins body outs = dsCompIns ins 0
+  where
+    -- extract the input params
+    -- a custom fold over the ins
+    -- need to check if ins are single or tuple, assume for now all elements (to comps) are tupled
+    dsCompIns [] _ = dsCompBody body
+    dsCompIns (x:xs) n = C.Let x (C.Op (C.Unpack n) (C.Var name)) (dsCompIns xs (n+1))
 
+    -- process the body by pattern-matching on the statement types
+    dsCompBody [] = dsCompOuts outs
+    -- very similar to top-level value def - need to handle single elem diff to mult
+    dsCompBody ((O.CompValue (O.ValueDef ids e)):xs) = C.Let tmpName (dsExpr e) (dsCompBodyVal ids 0)
+      where
+        dsCompBodyVal [] _ = dsCompBody xs
+        dsCompBodyVal (id:ids) n = C.Let id (C.Op (C.Unpack n) (C.Var tmpName)) (dsCompBodyVal ids (n+1))
 
-    ids = O.vName v
-    value = O.vValue v
-    map' = map
+    -- we ignore for now
+    dsCompBody ((O.InitValueDef ids e):xs) = undefined
+    dsCompBody ((O.OdeDef id init e):xs) = undefined
+    dsCompBody ((O.RreDef id (from, to) e):xs) = undefined
 
-desugarExpr :: O.Expr -> C.Expr C.Id
-desugarExpr = undefined
+    dsCompOuts outs = C.Tuple $ map dsExpr outs
+
+-- |Expression desugarer - basically a big pattern amtch on all possible types
+-- should prob enable warnings to pick up all unmatched patterns
+dsExpr :: O.Expr -> C.Expr C.Id
+dsExpr (O.UnExpr O.Not e) = C.Op C.Not $ dsExpr e
+
+-- convert unary negation into (* -1)
+dsExpr (O.UnExpr O.Neg e) = C.Op C.Mul $ C.Tuple [C.Lit (C.Num (-1)), dsExpr e]
+
+dsExpr (O.BinExpr op a b) = C.Op (binOps op) $ C.Tuple [dsExpr a, dsExpr b]
+dsExpr (O.Number n) = C.Lit (C.Num n)
+dsExpr (O.NumSeq a b c) = C.Lit (C.NumSeq $ enumFromThenTo a b c)
+dsExpr (O.ValueRef (O.LocalId id)) = C.Var id
+
+-- create nested set of ifs for piecewise expression
+dsExpr (O.Piecewise cases e) = dsIf cases
+  where
+    dsIf [] = dsExpr e
+    dsIf ((testExpr, runExpr):xs) = C.If (dsExpr testExpr) (dsExpr runExpr) (dsIf xs)
+
+-- convert call to a app, need to convert ins/args into a tuple first
+dsExpr (O.Call (O.LocalId id) exprs) = C.App id arg
+  where
+    arg = if (isSingleExpr exprs)
+            then dsExpr $ singleExpr exprs
+            else C.Tuple $ map dsExpr exprs
+
+-- any unknown/unimplemented paths - mainly modules for now
+dsExpr _ = undefined
+
+-- |Simple test to see if an expression contains only a single element or is a packed tuple
+isSingleExpr es = length es == 1
+-- |Retrieve the single expression within a tuple, may cause exception
+singleExpr es = head es
+
+-- |simple patttern matching convertor, boring but gotta be done...
+binOps :: O.BinOp -> C.Op
+binOps O.Add = C.Add
+binOps O.Sub = C.Sub
+binOps O.Mul = C.Mul
+binOps O.Div = C.Div
+binOps O.Mod = C.Mod
+binOps O.LT = C.LT
+binOps O.LE = C.LE
+binOps O.GT = C.GT
+binOps O.GE = C.GE
+binOps O.EQ = C.EQ
+binOps O.NEQ = C.NEQ
+binOps O.And = C.And
+binOps O.Or = C.Or

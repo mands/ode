@@ -22,7 +22,7 @@
 module Ode.AST (
     Model(..),
     FileOpen, ModLocalId(..), Module(..), ModuleAppParams(..), ModuleElem(..),
-    Component(..), ValueDef(..), CompStmt(..), Expr(..), BinOp(..), UnOp(..),
+    Component(..), ValueDef(..), CompStmt(..), Expr(..), BinOp(..), UnOp(..), Id
 ) where
 
 import Data.Map as Map
