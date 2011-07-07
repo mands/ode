@@ -1,0 +1,28 @@
+module Test {
+    // :: Num
+    val e_R = [-75, -70 .. -60]
+  
+    // stimulus current is independent from model
+    // :: Num
+    val i_stim = {
+        t >= 10 and t <= 10.5 : 20, // :: Bool
+        default: 0
+    }
+
+    val a,b = Hello(c)
+
+    component c1(x, y) {
+        return (x+y)
+    }
+
+    component membrane() {
+        val Cm = 1
+
+        val i_K = potassium_channel(V, E_R)
+        val i_K1, i_K2 = potassium_channel1(V, E_R)
+
+        return (i_K + 2)
+    }
+
+}
+ 

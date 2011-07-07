@@ -26,7 +26,7 @@ import qualified Text.Parsec.Token as P
 import Text.Parsec.Language( javaStyle )
 import Text.Parsec.Perm
 
-import Utilities
+import Utils.Utils
 import qualified Ion.AST as I
 
 -- |hijack the javaStyle default definition, gives us a bunch of ready-made parsers

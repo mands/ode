@@ -95,8 +95,7 @@ data Expr b = Var b                    -- a reference to any let-defined express
                                             -- create own data-type
                                             -- don't worry about it and maybe change later?
 
-            | Tuple [Expr b]            -- NOT IMPLEMENTED...
-                                        -- just a test, could be used instead of pairs, makes some ops easier
+            | Tuple [Expr b]            -- just a test, could be used instead of pairs, makes some ops easier
 
             -- now add the simulation stuff!
             deriving Show

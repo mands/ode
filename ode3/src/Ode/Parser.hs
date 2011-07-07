@@ -33,7 +33,7 @@ import qualified Text.Parsec.Token as T
 import Text.Parsec.Language( javaStyle )
 import Text.Parsec.Perm
 
-import Utilities
+import Utils.Utils
 import qualified Ode.AST as O
 
 -- |hijack the javaStyle default definition, gives us a bunch of ready-made parsers/behaviours

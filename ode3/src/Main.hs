@@ -31,7 +31,7 @@ import Ode.Desugarer
 import qualified Core.AST as C
 import qualified CoreANF.AST as CA
 
-import Utilities
+import Utils.Utils
 
 -- |main entry funtion
 main :: IO ()

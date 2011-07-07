@@ -12,7 +12,7 @@
 --
 -----------------------------------------------------------------------------
 
-module Utilities (
+module Utils.Utils (
 MExcept
 ) where
 
