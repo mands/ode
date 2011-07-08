@@ -19,7 +19,7 @@ desugar
 
 import qualified Data.Map as Map
 import Control.Monad
-import Control.Monad.Error
+import Control.Monad.Error as E
 import Control.Monad.Trans
 import Utils.Utils
 import Utils.MonadSupply
@@ -28,7 +28,9 @@ import qualified Core.AST as C
 
 -- We need a supply of unique Ids
 -- supply type, transformed with Error/Except Monad
+-- have to (lift throwError) as didn't create a newtype with auto-Deriving
 type TmpSupply = SupplyT C.Id MExcept
+throw x = lift $ E.throwError x
 
 evalSupplyVars x = evalSupplyT x $ map (\x -> tmpPrefix ++ x) vars
   where
@@ -59,19 +61,18 @@ desugarModElems :: (C.Model C.Id) -> O.ModuleElem -> TmpSupply (C.Model C.Id)
 desugarModElems map (O.ModuleElemValue (O.ValueDef ids value)) =
     if (isSingleElem ids)
         then do
-            v <- dsExpr value
-            return $ Map.insert (singleElem ids) (C.TopLet (singleElem ids) v) map
+            v' <- dsExpr value
+            return $ Map.insert (singleElem ids) (C.TopLet (singleElem ids) v') map
         else do
     -- call standard expression desugarer for the top-level let of a packed value
-            v <- dsExpr value
+            v' <- dsExpr value
             tN <- supply
-            let multMap = Map.insert tN (C.TopLet tN v) map
+            let multMap = Map.insert tN (C.TopLet tN v') map
             -- now expand the pattern to create the list of sub-lets
             let (multMap', _, _) = foldl createTopIds (multMap, 0, tN) ids
             return multMap'
   where
     -- creates an Op that represnets the unpacking of a specific tuple value to a bound id
-    --createTopIds :: (C.Model C.Id, Int) -> O.Id -> TmpSupply (C.Model C.Id, Int)
     createTopIds (map, n, tN) id = (Map.insert id (C.TopLet id (C.Op (C.Unpack n) (C.Var tN))) map, n+1, tN)
 
 -- |desugar a top level component
@@ -90,19 +91,14 @@ desugarComp name ins body outs = if (isSingleElem ins)
   where
     -- unpack the input params, a custom fold over the multiple ins
     dsCompIns [] _ = dsCompBody body
-    dsCompIns (x:xs) n = do
-        i <- dsCompIns xs (n+1)
-        return $ C.Let x (C.Op (C.Unpack n) (C.Var name)) i
+    dsCompIns (x:xs) n = liftM (C.Let x (C.Op (C.Unpack n) (C.Var name))) $ dsCompIns xs (n+1)
 
     -- process the body by pattern-matching on the statement types
     dsCompBody [] = dsCompOuts outs
     -- very similar to top-level value def - need to handle single elem diff to mult
     dsCompBody ((O.CompValue (O.ValueDef ids e)):xs) =
         if (isSingleElem ids)
-            then do
-                e' <- dsExpr e
-                xs' <- dsCompBody xs
-                return $ C.Let (singleElem ids) e' xs'
+            then liftM2 (C.Let (singleElem ids)) (dsExpr e) (dsCompBody xs)
             else do
                 e' <- dsExpr e
                 tN <- supply
