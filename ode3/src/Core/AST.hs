@@ -15,11 +15,14 @@
 -- should be a functor with fmap defined
 -----------------------------------------------------------------------------
 
+{-# LANGUAGE TypeSynonymInstances #-} --, FlexibleInstances #-}
+
 module Core.AST (
 Model, Id, Top(..), Expr(..), Op(..), Literal(..)
 ) where
 
 import Data.Map as Map
+import Utils.Utils
 
 -- |Identifier - basicially RdrName - needs to become parameterised
 type Id = String
@@ -111,3 +114,86 @@ data Op = Add | Sub | Mul | Div | Mod
         | Fst | Snd | Unpack Int -- used for unpacking values from Pairs/Tuples
         | Nop -- not used?
         deriving Show
+
+
+
+
+
+-- create a few typeclasss instances
+
+-- |Standard functor defintion, could be derived automatically but still...
+-- only applicable for the binding parameter, so maybe useless
+-- could be used to determine bindings/fv, etc.
+instance Functor Expr where
+    fmap f (Var a) = Var (f a)
+    fmap f (Lit a) = Lit a
+    fmap f (App x e) = App (f x) (fmap f e)
+    fmap f (Let x e1 e2) = Let (f x) (fmap f e1) (fmap f e2)
+    fmap f (Op op e) = Op op (fmap f e)
+    fmap f (If e1 e2 e3) = If (fmap f e1) (fmap f e2) (fmap f e3)
+    fmap f (Pair e1 e2) = Pair (fmap f e1) (fmap f e2)
+    fmap f (Tuple es) = Tuple (Prelude.map (\e -> fmap f e) es)
+
+instance PrettyPrint Op where
+    prettyPrint Add = "+"
+    prettyPrint Sub = "-"
+    prettyPrint Mul = "*"
+    prettyPrint Div = "/"
+    prettyPrint Mod = "%"
+
+    prettyPrint Core.AST.LT = "<"
+    prettyPrint LE = "<="
+    prettyPrint Core.AST.GT = ">"
+    prettyPrint GE = ">="
+    prettyPrint Core.AST.EQ = "=="
+    prettyPrint NEQ = "!="
+
+    prettyPrint And = "&&"
+    prettyPrint Or = "!!"
+    prettyPrint Not = "!"
+
+    prettyPrint Fst = ".1"
+    prettyPrint Snd = ".2"
+    prettyPrint (Unpack a) = "!!" ++ show a
+
+    prettyPrint Nop = "NOP"
+
+instance PrettyPrint Literal where
+    prettyPrint (Num a) = show a
+    prettyPrint (NumSeq a) = show a
+    prettyPrint (Boolean a) = show a
+
+instance PrettyPrint Id where
+    prettyPrint id = show id
+
+instance (Show a) => PrettyPrint (Top a) where
+    prettyPrint (TopLet x expr) = "let " ++ show x ++ " = " ++ prettyPrint expr
+    prettyPrint (TopAbs x arg expr) = show x ++ " = \\" ++ show arg ++ ". " ++ prettyPrint expr
+
+instance (Show a) => PrettyPrint (Expr a) where
+    prettyPrint (Var x) = show x
+    prettyPrint (Lit x) = case x of
+                            Num y -> show y
+                            NumSeq ys -> show ys
+                            Boolean b -> show b
+
+    prettyPrint (App x expr) = show x ++ prettyPrint expr
+
+    prettyPrint (Let x bindExpr inExpr) = "let " ++ show x ++ " = " ++ prettyPrint bindExpr ++ " in \n" ++ prettyPrint inExpr
+
+    prettyPrint (Op op expr) = prettyPrint op ++ prettyPrint expr
+    prettyPrint (If ifExpr tExpr fExpr) = "if (" ++ prettyPrint ifExpr ++ ") then " ++ prettyPrint tExpr ++ " else " ++
+                                            prettyPrint fExpr
+
+    prettyPrint (Pair e1 e2) = "(" ++ prettyPrint e1 ++ ", " ++ prettyPrint e2 ++ ")"
+
+    prettyPrint (Tuple es) = "(" ++ tuples ++ ")"
+      where
+        tuples = concat . Prelude.map (\e -> (prettyPrint e) ++ ", ") $ es
+
+--type Model b =  Map Id (Top b)
+instance (Show a) => PrettyPrint (Model a) where
+    prettyPrint model = unlines . Prelude.map (\e -> prettyPrint e) $ Map.elems model
+
+
+

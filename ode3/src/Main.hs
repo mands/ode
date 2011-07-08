@@ -29,6 +29,8 @@ import qualified Ode.AST as O
 import Ode.Desugarer
 
 import qualified Core.AST as C
+import qualified Core.PrettyPrint as Cp
+
 import qualified CoreANF.AST as CA
 
 import Utils.Utils
@@ -93,7 +95,9 @@ odeParser fileName = do
     -- back in IO monad, report any error message(s)
     either
         (\err -> errorM "ode3.odeParser" err >> return Nothing)
-        (\res -> infoM "ode3.odeParser" "No errors" >> infoM "ode3.odeParser" (show res) >> return (Just res)) res
+        (\res -> infoM "ode3.odeParser" "No errors" >> infoM "ode3.odeParser" (show res) >>
+            infoM "ode3.odeParser" (prettyPrint res) >>
+            return (Just res)) res
 
 -- |driver for the core language front-end of the compiler
 -- will effectively run the front-end pipeline within the Error monad

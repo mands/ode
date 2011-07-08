@@ -13,7 +13,7 @@
 -----------------------------------------------------------------------------
 
 module Utils.Utils (
-MExcept
+MExcept, PrettyPrint(..)
 ) where
 
 import Control.Monad
@@ -33,3 +33,7 @@ foldlMaybe f xs = msum (map f xs)
 -- this is a freaking monad!! :) - the Maybe or Either/Error Monad!!
 runEither :: (b -> Either a c) -> Either a b -> Either a c
 runEither f val = either (\err -> Left err) (\res -> f res) val
+
+-- |pretty-printing class for viewing, not machine-readable like Show
+class PrettyPrint a where
+    prettyPrint :: a -> String
