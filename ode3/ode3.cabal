@@ -7,7 +7,7 @@ license-file: LICENSE
 copyright: Copyright (C) 2010-2012 Mandeep Gill
 maintainer: mangil@comlab.ox.ac.uk
 build-depends: base -any, containers -any, directory -any,
-               hslogger -any, mtl -any, parsec -any
+               fgl -any, hslogger -any, mtl -any, parsec -any
 stability: alpha
 homepage: http://www.comlab.ox.ac.uk/people/mangil/ode
 package-url:
@@ -45,10 +45,10 @@ includes:
 install-includes:
 include-dirs:
 hs-source-dirs: src
-other-modules: Utils.Utils Utils.MonadUnique Utils.MonadSupply
-               Ode.Desugarer Core.Reorderer Core.AST Core.Renamer Core.TypeChecker
-               Core.Interpreter CoreANF.AST CoreANF.Optimiser CoreANF.Interpreter
-               CoreANF.Converter Ode.AST Ode.Parser Ion.AST Ion.Parser
+other-modules: Core.Reorderer Core.AST Core.Renamer
+               Core.TypeChecker Core.Interpreter Utils.MonadSupply Utils.Utils
+               CoreANF.AST CoreANF.Optimiser CoreANF.Interpreter CoreANF.Converter
+               Ode.AST Ode.Desugarer Ode.Parser Ion.AST Ion.Parser
 ghc-prof-options:
 ghc-shared-options:
 ghc-options:

@@ -20,6 +20,7 @@ import System.Directory(getCurrentDirectory)
 import System.Log.Logger
 import System.Log.Handler(close)
 import System.Log.Handler.Simple
+import Control.Monad.Trans
 
 import Ion.Parser
 import qualified Ion.AST as I
@@ -29,7 +30,7 @@ import qualified Ode.AST as O
 import Ode.Desugarer
 
 import qualified Core.AST as C
-import qualified Core.PrettyPrint as Cp
+import qualified Core.Reorderer as Cr
 
 import qualified CoreANF.AST as CA
 
@@ -62,8 +63,10 @@ main = do
     infoM "ode3.main" $ "parsing " ++ fileName
 
     -- start the compiler
-    odeParser fileName
-    -- res <- odeParser fileName
+    --(odeParser fileName) >>= coreDriver
+    -- need to create a maybeT transformer - ignore for now
+    resA <- odeParser fileName
+    maybe (return Nothing) coreDriver resA
 
 
     infoM "ode3.main" $ "Done"
@@ -102,8 +105,14 @@ odeParser fileName = do
 -- |driver for the core language front-end of the compiler
 -- will effectively run the front-end pipeline within the Error monad
 -- requires calling reorderer, renamer, typechecker, converter/interpreter
-coreDriver :: C.Model C.Id -> CA.Model
-coreDriver oModel = undefined
+coreDriver :: C.Model C.Id -> IO (Maybe (C.Model C.Id)) -- should return CA.Model
+coreDriver oModel = processRes
+  where
+    res = Cr.reorder oModel
+    processRes = either
+        (\err -> errorM "ode3.coreDriver" err >> return Nothing)
+        (\res -> infoM "ode3.coreDriver" "No errors" >> infoM "ode3.coreDriver" (show res) >> return (Just res)) res
+
 
 -- |driver for the middle-end of the compiler
 -- will run the middle-end of the compiler using the ANF/lowerlevel FIR - AST to be determined

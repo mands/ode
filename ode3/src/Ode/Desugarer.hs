@@ -35,7 +35,7 @@ throw x = lift $ E.throwError x
 evalSupplyVars x = evalSupplyT x $ map (\x -> tmpPrefix ++ x) vars
   where
     vars = [replicate k ['A'..'Z'] | k <- [1..]] >>= sequence
-    tmpPrefix = "tmp"
+    tmpPrefix = "des"
 
 --tmpName = "tmpName"
 -- |desugar function takes an ODE model representaiton and converts it into a lower-level Core AST

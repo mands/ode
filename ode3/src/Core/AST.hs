@@ -26,6 +26,9 @@ import Utils.Utils
 
 -- |Identifier - basicially RdrName - needs to become parameterised
 type Id = String
+-- |NewIdentifier - holds both a (parameterised) identifier and a string that represetns the (closest) original/source variable
+data NewId a = NewId a String
+
 
 -- |Top level Core model
 -- need to make sure this is an ordered map so we keep the evaluation order correct
