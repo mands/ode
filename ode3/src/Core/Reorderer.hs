@@ -168,15 +168,57 @@ procExprNode (topVar, topElem) (expNode, ExprNodeLabel expVar exp) =
 
 -- |Sorts the top and expressiosn graphs, returning an ordererd map representation of the model
 -- also checks for recursive definitions at either level
-sortGraphs :: TopGraph -> TopMap -> [(C.Id, C.Expr C.Id)]
+sortGraphs :: TopGraph -> TopMap -> [(C.Id, C.Top C.Id)]
 sortGraphs tg tm = trace (show res) []
   where
-    res = sortTop
-    topCheck = all (== 1) . map length . scc $ tg
-    sortTop = if topCheck then topsort' tg else map (\n -> fromJust $ lab tg n) (nodes tg)
+    res = sortExpr
+
+    -- TODO - throw error if check fails
+    sortTop = if sccCheck tg then topsort' tg else topsort' tg
 
     -- need to map over elems in sort top, extract the topmapElem, then sort the exprgraph and regen the top expr
-    sortExpr = undefined
+    sortExpr = map sortExpr' sortTop
+
+    -- TODO - throw error if check fails
+    sortExpr' topVar = if exprCheck then (topVar, rE) else (topVar, rE)
+      where
+        topElem = (Map.!) tm topVar
+        exprCheck = sccCheck (rExprGraph topElem)
+        rE = reconExpr (rTopExpr topElem) (topsort' $ rExprGraph topElem) (rBaseExpr topElem)
+
+    -- |function to check for stronglyConnComp within a graph, i.e. any recursive calls
+    sccCheck = all (== 1) . map length . scc
+
+    reconExpr :: TopExpr ->  [ExprNodeLabel] -> (C.Expr C.Id) -> C.Top C.Id
+    reconExpr top lets base = case top of
+        LTopLet i -> C.TopLet i (reconLets lets)
+        LTopAbs i a ->  C.TopAbs i a (reconLets lets)
+      where
+        reconLets [] = base
+        reconLets ((ExprNodeLabel i e):xs) = C.Let i e (reconLets xs)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
