@@ -13,11 +13,7 @@
 -- At the same time the reorderer tests for cyclic dependenceis between value
 -- definitions and in function calls
 -- Can issue errors due to user defined model
--- TODO
--- need to reconstruct the expressions again after sorting
--- what data structure to hold insertion-ordered map
---   for now use assoc-list
---   later conv to newtype of hash/int map combined with a sequence
+-- TODO - error monad
 -----------------------------------------------------------------------------
 
 module Core.Reorderer (
@@ -39,7 +35,6 @@ import Utils.Utils
 -- define the types we need for our graphs
 -- need a topgraph and a topmap - place them both in a state monad and done
 type TopGraph = Gr C.Id ()
---type TopGraph = Gr TopNodeLabel ()
 data TopExpr = LTopLet C.Id | LTopAbs C.Id C.Id deriving Show
 
 type ExprGraph = Gr ExprNodeLabel ()
@@ -54,18 +49,20 @@ data TopMapElem = TopMapElem {  rTopNode :: Int, rTopExpr :: TopExpr, rBaseExpr 
 
 -- state monad
 data ReorderState = ReorderState { rTopGraph :: TopGraph, rTopMap :: TopMap}
-type GraphStateM = State ReorderState
+type GraphStateM = StateT ReorderState MExcept
 
 reorder :: C.Model C.Id -> MExcept (C.Model C.Id)
-reorder cModel = (trace (show topGraph ++ "\n") (trace (Map.showTree topMap) (trace (show topGraph' ++ "\n") (trace (Map.showTree topMap') Right res))))
+reorder cModel = do
+    -- build the dependency graphs
+    (topGraph', topMap') <- procDepGraphs topGraph topMap
+    -- now we need to sort the graphs and reconstruct the expressions
+    sortModel <- sortGraphs topGraph' topMap'
+
+    --return (trace (show topGraph ++ "\n") (trace (Map.showTree topMap) (trace (show topGraph' ++ "\n") (trace (Map.showTree topMap') Right Map.empty))))
+
+    return Map.empty
   where
 
-    res = if (length sortModel == 0) then cModel else cModel
-    -- now we need to sort the graphs and reconstruct the expressions
-    sortModel = sortGraphs topGraph' topMap'
-
-    -- build the dependency graphs
-    (topGraph', topMap') = procDepGraphs topGraph topMap
     topGraph = createTopGraph cModel topMap
     topMap = createTopMap cModel
 
@@ -79,7 +76,6 @@ createTopGraph cModel topMap = mkGraph topGraphNodes []
     convGTop (C.TopLet i exp) = (rTopNode $ (Map.!) topMap i, i)
     convGTop (C.TopAbs i a exp) = (rTopNode $ (Map.!) topMap i, i)
 
-
 -- |need to build the TopMap, can use the model to do this
 -- fold over the elements, creating a new topmap thru accumulation
 -- TODO - cleanup
@@ -88,7 +84,6 @@ createTopMap :: C.Model C.Id -> TopMap
 createTopMap cModel = topMap
   where
     (_, topMap) = Map.mapAccum createTopMapElem [1..] cModel
-
 
     createTopMapElem (x:xs) (C.TopLet i exp) = (xs, TopMapElem { rTopNode = x, rTopExpr = LTopLet i, rBaseExpr = baseExpr, rExprMap = map, rExprGraph = createExprGraph exp})
       where
@@ -110,10 +105,12 @@ createTopMap cModel = topMap
 
 -- |New method - map over the elems in the topmap, updating the graphs as required
 -- TODO - fix use of mapM and assoc to use mapWithKey and lift the monads after
-procDepGraphs :: TopGraph -> TopMap -> (TopGraph, TopMap)
-procDepGraphs tg tm = (rTopGraph rs, Map.fromList tm')
+--      - OR, use the graph map/fold functions
+procDepGraphs :: TopGraph -> TopMap -> MExcept (TopGraph, TopMap)
+procDepGraphs tg tm = do
+    (tm', rs) <- runStateT procDepGraphs' (ReorderState tg tm)
+    return (rTopGraph rs, Map.fromList tm')
   where
-    (tm', rs) = runState procDepGraphs' (ReorderState tg tm)
     procDepGraphs' = mapM procTopElem (Map.assocs tm)
     procTopElem (topVar, topElem) = foldM procExprNode (topVar, topElem) (labNodes . rExprGraph $ topElem)
 
@@ -168,8 +165,8 @@ procExprNode (topVar, topElem) (expNode, ExprNodeLabel expVar exp) =
 
 -- |Sorts the top and expressiosn graphs, returning an ordererd map representation of the model
 -- also checks for recursive definitions at either level
-sortGraphs :: TopGraph -> TopMap -> [(C.Id, C.Top C.Id)]
-sortGraphs tg tm = trace (show res) []
+sortGraphs :: TopGraph -> TopMap -> MExcept [(C.Id, C.Top C.Id)]
+sortGraphs tg tm = trace (show res) (Right [])
   where
     res = sortExpr
 

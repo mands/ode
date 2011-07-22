@@ -26,12 +26,15 @@ import Utils.Utils
 
 -- |Identifier - basicially RdrName - needs to become parameterised
 type Id = String
--- |NewIdentifier - holds both a (parameterised) identifier and a string that represetns the (closest) original/source variable
+-- |NewIdentifier - holds both a (parameterised) identifier and a string that represetns the (closest) original/source variable -
+-- TODO - change to newtype
 data NewId a = NewId a String
 
 
 -- |Top level Core model
 -- need to make sure this is an ordered map so we keep the evaluation order correct
+-- TODO - change the rep to an assoc list for now
+--   later conv to newtype of hash/int map combined with a sequence
 -- maybe use number and Id to index/key
 type Model b =  Map Id (Top b)
 
@@ -75,6 +78,7 @@ data Top b  = TopLet b (Expr b)    -- binding, expr
 -- is extended from default \-calc to support literals (inc. numbers, bools), pairs, and built-in operators (effectily Vars)
 -- disabling currying means that all functions take only a single parameter, and evalute to an expression,
 -- thus to pass/return multiple values simple used pair consing
+-- TODO - should this be a GADT??
 data Expr b = Var b                    -- a reference to any let-defined expressions
                                         -- could potentially ref to a top-level abs but unlikely, would be optimised
 
