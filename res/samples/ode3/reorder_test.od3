@@ -1,0 +1,26 @@
+module Test {
+
+
+    component W(q) {
+
+        val zD = yD + xD + Z
+
+        val xD = X + q
+
+        val yD = 3 + xD + Y(2)
+
+        return (xD + yD + zD)
+
+    }
+
+
+    val X = 1
+
+    val Z = 2
+
+    component Y(r) {
+        return (r)
+    }
+
+}
+

@@ -13,7 +13,8 @@
 -- Very few primitive types are allowed and user defiend compound types disallowed - hence should be simple
 -- Allowed types are, Numerical (Float/Int), Boolean, Function, n-Pair, Ode, and Reaction
 -- Can issue errors due to user defined model
---
+-- TODO
+-- Use GADTs to enforce terms of correct types (can we do this in earlier expr AST?)
 -----------------------------------------------------------------------------
 
 module Core.TypeChecker (
