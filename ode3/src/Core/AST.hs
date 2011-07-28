@@ -15,18 +15,28 @@
 -- should be a functor with fmap defined
 -----------------------------------------------------------------------------
 
-{-# LANGUAGE TypeSynonymInstances #-} --, FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances, MultiParamTypeClasses, FlexibleInstances, FunctionalDependencies  #-}
+
+-- {-#LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
 
 module Core.AST (
-Model, Id, Top(..), Expr(..), Op(..), Literal(..)
+Id,
+ModelMap(..), Model, ListModel, OrdModel, getOrdMap, getOrdSeq,
+Top(..), Expr(..), Op(..), Literal(..),
 ) where
 
-import Data.Map as Map
+import qualified Data.Map as Map
+import qualified Data.IntMap as IntMap
+import qualified Data.Sequence as Seq
+import qualified Data.List as List
+import qualified Data.Foldable as DF
+import qualified Data.Traversable as DT
+import Data.Maybe (fromJust, isJust)
 import Utils.Utils
 
 -- |Identifier - basicially RdrName - needs to become parameterised
 type Id = String
--- |NewIdentifier - holds both a (parameterised) identifier and a string that represetns the (closest) original/source variable -
+-- |NewIdentifier - holds both a (parameterised) identifier and a string that represetns the (closest) original/source variable
 -- TODO - change to newtype
 data NewId a = NewId a String
 
@@ -36,7 +46,162 @@ data NewId a = NewId a String
 -- TODO - change the rep to an assoc list for now
 --   later conv to newtype of hash/int map combined with a sequence
 -- maybe use number and Id to index/key
-type Model b =  Map Id (Top b)
+type Model b =  Map.Map b (Top b)
+
+type ListModel b = [(b, Top b)]
+
+--data OrdModel b = OrdModel { ordMap :: IntMap.IntMap b, ordSeq :: Seq.Seq b }
+data IOrdModel b = IOrdModel { ordMap :: Map.Map b (Top b), ordSeq :: Seq.Seq b } deriving Show
+
+-- Newtype test - is it needed in this case - type classes should be enough with escape hatch if neccessary
+newtype OrdModel b = OrdModel { getOrdModel :: IOrdModel b } deriving Show
+getOrdMap :: OrdModel b -> Map.Map b (Top b)
+getOrdMap om = ordMap . getOrdModel $ om
+
+getOrdSeq :: OrdModel b -> Seq.Seq b
+getOrdSeq om = ordSeq . getOrdModel $ om
+
+-- |standard typeclass for a top-level model map structure
+-- most functions cribbed from Data.Map
+-- add more as needed, only basic essential funcs here, rest acessible via escape hatch to direct map
+-- need to make instance of Traversable and Foldable
+class ModelMap a b | a -> b where
+    -- |Perform a direct lookup for given binding, throw error if not found
+    (!) :: (Ord b) => a -> b -> Top b
+    -- |return the topval within a Maybe for the given binding
+    lookup :: (Ord b) => b -> a -> Maybe (Top b) -- keep same order args as Data.Map (even tho wrong)
+    -- |Check if the binding is within the model
+    member :: (Ord b) => b -> a -> Bool
+    -- |Create an empty model
+    empty :: a
+    -- |Create a new model from a single top-binding
+    singleton :: b -> (Top b) -> a
+    -- |Insert the binding into the model, taking into account the insertion order
+    insert :: (Ord b) => b -> (Top b) -> a -> a
+    -- |Delete the binding from the model
+    delete :: (Ord b) => b -> a -> a
+    -- |if elem exists, run the function over the topval, if returns Just then update, if None then delete
+    update :: (Ord b) => (Top b -> Maybe (Top b)) -> b -> a -> a
+    -- |Map over elements in order independent manner,
+    -- does not allow for chaning the types of the binding
+    -- should this then run fmap over the internal elems?
+    map :: (Top b -> Top b) -> a -> a
+    -- |Fold over the elements, taking into account the ordering
+    fold :: (Ord b) => (Top b -> c -> c) -> c -> a -> c
+    -- |The top-level elements in the model
+    elems :: (Ord b) => a -> [Top b]
+    -- |The top-level bindings in the model
+    keys :: a -> [b]
+    -- |An association-list repsentation of the model
+    toList :: (Ord b) => a -> [(b, Top b)] -- this may be ordered depending on the type of model
+    -- |Convert an assoication list binding/top-elem into a model
+    fromList :: Ord b => [(b, Top b)] -> a -- this initial ordering may be retained
+
+-- |Basic wrapper around Data.Map
+instance ModelMap (Model b) b where
+    (!) m b = m Map.! b
+    lookup b m = Map.lookup b m
+    member b m = Map.member b m
+    empty = Map.empty
+    singleton b v = Map.singleton b v
+    insert b v m = Map.insert b v m
+    delete b m = Map.delete b m
+    update f b m = Map.update f b m
+    map f m = Map.map f m -- Map.map (\v -> fmap f v) m
+    fold f z m = Map.fold f z m
+    elems m = Map.elems m
+    keys m = Map.keys m
+    toList m = Map.toList m
+    fromList xs = Map.fromList xs
+
+-- |this model rep holds insertion order correctly but is inefficent (O(N))on lookups
+-- the order is stored from left-to-right within the list, with ealier ordered elems coming first within the list
+instance ModelMap (ListModel b) b where
+    (!) m b = fromJust $ List.lookup b m
+    lookup b m = List.lookup b m
+    member b m = isJust $ List.lookup b m
+    empty = []
+    singleton b v = (b,v) : []
+
+   -- if already exsists use existing insertion order, else add at the tail of list
+    insert b v m = maybe insert' update' mInd
+      where
+        update' i = let (hd', tl') = splitAt i m
+                    in hd' ++ ((b, v) : (tail tl'))
+        insert' = m ++ [(b,v)]
+        mInd = List.elemIndex b (keys m)
+
+    delete b m = maybe m delete' mInd
+      where
+        mInd = List.elemIndex b (keys m)
+        delete' i = let (hd', tl') = splitAt i m
+                    in hd' ++ (tail tl')
+
+    update f b m = if member b m then update' (f (m!b)) else m
+      where
+        update' (Just v) = insert b v m
+        update' Nothing = delete b m
+
+    map f m = List.map (\(b, v) -> (b, f v)) m
+    fold f z m = List.foldl (\z (b, v) -> f v z) z m -- do a left fold as in order
+    elems m = List.map snd m
+    keys m = List.map fst m
+    toList = id
+    fromList = id
+
+-- |Optimised OrdModel that uses both a map and a seq to hold the ordering of elements
+instance ModelMap (OrdModel b) b where
+    (!) m b = (getOrdMap m) Map.! b
+    lookup b m = Map.lookup b (getOrdMap m)
+    member b m = Map.member b (getOrdMap m)
+    empty = OrdModel $ IOrdModel Map.empty Seq.empty
+    singleton b v = OrdModel $ IOrdModel (Map.singleton b v) (Seq.singleton b)
+    insert b v m = OrdModel $ IOrdModel map' seq'
+      where
+        map' = Map.insert b v (getOrdMap m)
+        seq' = if member b m -- if already in model
+            then Seq.update ind b (getOrdSeq m)  -- then update in cur pos
+            else (getOrdSeq m) Seq.|> b -- else append to end of seq
+        ind = fromJust $ Seq.elemIndexL b (getOrdSeq m)
+
+    delete b m = OrdModel $ IOrdModel map' seq'
+      where
+        map' = Map.delete b (getOrdMap m)
+        seq' = if member b m
+            then hd' Seq.>< (Seq.drop 1 tl')
+            else getOrdSeq m
+        ind = fromJust $ Seq.elemIndexL b (getOrdSeq m)
+        (hd', tl') = Seq.splitAt ind (getOrdSeq m)
+
+    update f b m = if member b m then update' (f (m!b)) else m
+      where
+        update' (Just v) = insert b v m
+        update' Nothing = delete b m
+
+    map f m = OrdModel $ IOrdModel map' (getOrdSeq m)
+      where
+        map' = Map.map f (getOrdMap m)
+
+    fold f z m = DF.foldl' f' z (getOrdSeq m)
+      where
+        f' z' b = f (m!b) z'
+
+    elems m = List.map snd (toList m)
+
+    keys m = DF.toList (getOrdSeq m)
+
+    toList m = List.map (\b -> (b, m!b)) (keys m)
+
+    fromList xs = DF.foldl' (\m (b, v) -> insert b v m) empty xs
+
+-- |Basic instances
+instance DF.Foldable OrdModel where
+    foldr f z m = DF.foldr f z (getOrdSeq m)
+
+--    foldr f z m = DF.foldr f' z (getOrdSeq m)
+--      where
+--        f' :: Top a -> b -> b
+--        f' b z' = f ((getOrdMap m) Map.! b) z'
 
 -- |Basic \-Calc
 -- not used - just for reference
@@ -123,14 +288,15 @@ data Op = Add | Sub | Mul | Div | Mod
         deriving Show
 
 
-
-
-
 -- create a few typeclasss instances
 
 -- |Standard functor defintion, could be derived automatically but still...
 -- only applicable for the binding parameter, so maybe useless
 -- could be used to determine bindings/fv, etc.
+instance Functor Top where
+    fmap f (TopLet x expr) = TopLet (f x) (fmap f expr)
+    fmap f (TopAbs x arg expr) = TopAbs (f x) (f arg) (fmap f expr)
+
 instance Functor Expr where
     fmap f (Var a) = Var (f a)
     fmap f (Lit a) = Lit a
@@ -139,7 +305,7 @@ instance Functor Expr where
     fmap f (Op op e) = Op op (fmap f e)
     fmap f (If e1 e2 e3) = If (fmap f e1) (fmap f e2) (fmap f e3)
     fmap f (Pair e1 e2) = Pair (fmap f e1) (fmap f e2)
-    fmap f (Tuple es) = Tuple (Prelude.map (\e -> fmap f e) es)
+    fmap f (Tuple es) = Tuple (List.map (\e -> fmap f e) es)
 
 instance PrettyPrint Op where
     prettyPrint Add = "+"

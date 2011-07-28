@@ -30,7 +30,8 @@ import qualified Ode.AST as O
 import Ode.Desugarer
 
 import qualified Core.AST as C
-import qualified Core.Reorderer as Cr
+import Core.Reorderer (reorder)
+import Core.Renamer (rename)
 
 import qualified CoreANF.AST as CA
 
@@ -105,10 +106,10 @@ odeParser fileName = do
 -- |driver for the core language front-end of the compiler
 -- will effectively run the front-end pipeline within the Error monad
 -- requires calling reorderer, renamer, typechecker, converter/interpreter
-coreDriver :: C.Model C.Id -> IO (Maybe (C.Model C.Id)) -- should return CA.Model
+coreDriver :: C.Model C.Id -> IO (Maybe (C.OrdModel Int)) -- should return CA.Model
 coreDriver oModel = processRes
   where
-    res = Cr.reorder oModel
+    res = reorder oModel >>= rename
     processRes = either
         (\err -> errorM "ode3.coreDriver" err >> return Nothing)
         (\res -> infoM "ode3.coreDriver" "No errors" >> infoM "ode3.coreDriver" (show res) >> return (Just res)) res

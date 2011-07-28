@@ -13,7 +13,6 @@
 --
 -----------------------------------------------------------------------------
 
--- {-# OPTIONS_GHC -fglasgow-exts #-}
 {-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, FlexibleInstances, GeneralizedNewtypeDeriving #-}
 module Utils.MonadSupply
     (SupplyT,

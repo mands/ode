@@ -34,6 +34,25 @@ foldlMaybe f xs = msum (map f xs)
 runEither :: (b -> Either a c) -> Either a b -> Either a c
 runEither f val = either (\err -> Left err) (\res -> f res) val
 
+-- Monad testing
+-- try to create an equiv foldM - using only list fold to get a hold on it
+-- does it need a monoid - perhaps - to initialise and then combine the results - again list is okay
+myFoldM :: Monad m => (a -> b -> m a) -> a -> [b] -> m a
+myFoldM mF z xs = foldl f' (return z) xs
+  where
+--    f' :: Monad m => m a -> b -> m a
+    f' mV x = mV >>= (\v -> mF v x)
+--    f' mV x = join $ liftM2 mF mV (return x)
+
 -- |pretty-printing class for viewing, not machine-readable like Show
 class PrettyPrint a where
     prettyPrint :: a -> String
+
+
+
+
+
+
+
+
+
