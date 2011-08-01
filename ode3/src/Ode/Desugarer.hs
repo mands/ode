@@ -8,7 +8,7 @@
 -- Stability   :  alpha
 -- Portability :
 --
--- |Desugarer - takes an Ode AST and desguars and converts into the Core langauge AST
+-- | Desugarer - takes an Ode AST and desguars and converts into the Core langauge AST
 -- Can issue errors due to user defined model
 --
 -----------------------------------------------------------------------------
@@ -38,7 +38,7 @@ evalSupplyVars x = evalSupplyT x $ map (\x -> tmpPrefix ++ x) vars
     tmpPrefix = "des"
 
 --tmpName = "tmpName"
--- |desugar function takes an ODE model representaiton and converts it into a lower-level Core AST
+-- | desugar function takes an ODE model representaiton and converts it into a lower-level Core AST
 -- we only concern ourselves with single module models for now
 desugar :: O.Model -> MExcept (C.Model C.Id)
 desugar (O.Model files modules) = a
@@ -56,7 +56,7 @@ desugar (O.Model files modules) = a
                             otherwise -> False)
                         $ modules
 
--- |desugar a top-level value constant(s)
+-- | desugar a top-level value constant(s)
 desugarModElems :: (C.Model C.Id) -> O.ModuleElem -> TmpSupply (C.Model C.Id)
 desugarModElems map (O.ModuleElemValue (O.ValueDef ids value)) =
     if (isSingleElem ids)
@@ -75,18 +75,20 @@ desugarModElems map (O.ModuleElemValue (O.ValueDef ids value)) =
     -- creates an Op that represnets the unpacking of a specific tuple value to a bound id
     createTopIds (map, n, tN) id = (Map.insert id (C.TopLet id (C.Op (C.Unpack n) (C.Var tN))) map, n+1, tN)
 
--- |desugar a top level component
+-- | desugar a top level component
 desugarModElems map (O.ModuleElemComponent (O.Component name ins body outs)) = do
-    tmpBind <- supply
-    v <- desugarComp tmpBind ins body outs
-    let topAbs = C.TopAbs name tmpBind v
+    -- create a new tmpArg only if multiple elems
+    arg <- if (isSingleElem ins) then return (singleElem ins) else supply
+    --tmpBind <- supply
+    v <- desugarComp arg ins body outs
+    let topAbs = C.TopAbs name arg v
     return $ Map.insert name topAbs map
 
 -- | desugars and converts a component into a \c abstraction
 -- not in tail-call form, could blow out the stack, but unlikely
 desugarComp :: C.Id -> [O.Id] -> [O.CompStmt] -> [O.Expr] -> TmpSupply (C.Expr C.Id)
 desugarComp name ins body outs = if (isSingleElem ins)
-    then dsCompBody body
+    then dsCompBody body -- error here for single elem
     else dsCompIns ins 0
   where
     -- unpack the input params, a custom fold over the multiple ins
@@ -117,7 +119,7 @@ desugarComp name ins body outs = if (isSingleElem ins)
 
     dsCompOuts outs = packElems outs
 
--- |Expression desugarer - basically a big pattern amtch on all possible types
+-- | Expression desugarer - basically a big pattern amtch on all possible types
 -- should prob enable warnings to pick up all unmatched patterns
 dsExpr :: O.Expr -> TmpSupply (C.Expr C.Id)
 dsExpr (O.UnExpr O.Not e) = liftM (C.Op C.Not) (dsExpr e)

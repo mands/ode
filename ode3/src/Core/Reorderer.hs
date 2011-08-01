@@ -16,11 +16,15 @@
 -- TODO - error monad
 -----------------------------------------------------------------------------
 
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 module Core.Reorderer (
 reorder
 ) where
 
 import Control.Monad.State
+import Control.Monad.Error
+
 import qualified Data.Map as Map
 import Debug.Trace -- love this shit!
 import Control.Applicative
@@ -50,24 +54,24 @@ data TopMapElem = TopMapElem {  rTopNode :: Int, rTopExpr :: TopExpr, rBaseExpr 
 -- state monad
 data ReorderState = ReorderState { rTopGraph :: TopGraph, rTopMap :: TopMap}
 type GraphStateM = StateT ReorderState MExcept
+newtype GraphStateMa a = GraphStateMa { runReorder :: StateT ReorderState (MExcept) a }
+    deriving (Monad, MonadState ReorderState, MonadError String)
 
-reorder :: C.Model C.Id -> MExcept (C.Model C.Id)
+reorder :: C.Model C.Id -> MExcept (C.OrdModel C.Id)
 reorder cModel = do
     -- build the dependency graphs
     (topGraph', topMap') <- procDepGraphs topGraph topMap
     -- now we need to sort the graphs and reconstruct the expressions
     sortModel <- sortGraphs topGraph' topMap'
-
-    --return (trace (show topGraph ++ "\n") (trace (Map.showTree topMap) (trace (show topGraph' ++ "\n") (trace (Map.showTree topMap') Right Map.empty))))
-
-    return Map.empty
+    let sortModel' = C.fromList sortModel
+    --return (trace (show topGraph ++ "\n") (trace (Map.showTree topMap) (trace (show topGraph' ++ "\n") (trace (Map.showTree topMap') sortModel'))))
+    --return (trace (show sortModel) (trace (show sortModel') sortModel'))
+    return sortModel'
   where
-
     topGraph = createTopGraph cModel topMap
     topMap = createTopMap cModel
 
-
--- |The main top-level graph
+-- | The main top-level graph
 createTopGraph :: C.Model C.Id -> TopMap -> TopGraph
 createTopGraph cModel topMap = mkGraph topGraphNodes []
   where
@@ -76,7 +80,7 @@ createTopGraph cModel topMap = mkGraph topGraphNodes []
     convGTop (C.TopLet i exp) = (rTopNode $ (Map.!) topMap i, i)
     convGTop (C.TopAbs i a exp) = (rTopNode $ (Map.!) topMap i, i)
 
--- |need to build the TopMap, can use the model to do this
+-- | need to build the TopMap, can use the model to do this
 -- fold over the elements, creating a new topmap thru accumulation
 -- TODO - cleanup
 -- TODO should check here for duplicated ids and throw errors
@@ -108,21 +112,21 @@ createTopMap cModel = topMap
 --      - OR, use the graph map/fold functions
 procDepGraphs :: TopGraph -> TopMap -> MExcept (TopGraph, TopMap)
 procDepGraphs tg tm = do
-    (tm', rs) <- runStateT procDepGraphs' (ReorderState tg tm)
+    (tm', rs) <- runStateT (runReorder procDepGraphs') (ReorderState tg tm)
     return (rTopGraph rs, Map.fromList tm')
   where
     procDepGraphs' = mapM procTopElem (Map.assocs tm)
     procTopElem (topVar, topElem) = foldM procExprNode (topVar, topElem) (labNodes . rExprGraph $ topElem)
 
 -- |Process an individual expression node within the given expression graph eg
-procExprNode :: (C.Id, TopMapElem) -> LNode ExprNodeLabel -> GraphStateM (C.Id, TopMapElem)
+procExprNode :: (C.Id, TopMapElem) -> LNode ExprNodeLabel -> GraphStateMa (C.Id, TopMapElem)
 procExprNode (topVar, topElem) (expNode, ExprNodeLabel expVar exp) =
     procExpr (rExprGraph topElem) exp >>= (\eg -> return (topVar, topElem {rExprGraph = eg}))
 
   where
-    -- |Process an individual expression by pattern match over the possibilities
+    -- | Process an individual expression by pattern match over the possibilities
     -- note - we have already removed all lets from the expressiong so no defs possible
-    procExpr :: ExprGraph -> C.Expr C.Id -> GraphStateM ExprGraph
+    procExpr :: ExprGraph -> C.Expr C.Id -> GraphStateMa ExprGraph
     procExpr eg (C.Var useVar) = updateGraphDep eg useVar -- create a link in the graph from def to use
     procExpr eg (C.App useVar exp) = (updateGraphDep eg useVar) >>= (\eg -> procExpr eg exp)  -- create a link in the graph from def to use
 
@@ -133,7 +137,7 @@ procExprNode (topVar, topElem) (expNode, ExprNodeLabel expVar exp) =
     procExpr eg _ = return eg -- ignore anything else
 
     -- main function that updates the graph with new edges
-    updateGraphDep :: ExprGraph ->  C.Id -> GraphStateM ExprGraph
+    updateGraphDep :: ExprGraph ->  C.Id -> GraphStateMa ExprGraph
     updateGraphDep eg useVar =
         -- get the usage's def node from the useVar within the cur elem exprmap
         case (Map.lookup useVar (rExprMap topElem)) of
@@ -151,7 +155,9 @@ procExprNode (topVar, topElem) (expNode, ExprNodeLabel expVar exp) =
             topMap <- liftM rTopMap get
             case (Map.lookup useVar topMap) of
                 Just useTopElem -> checkTopDep' useTopElem
-                Nothing -> return eg -- TODO - should throwError if lookup fails
+                -- TODO - should throwError if lookup fails
+                -- THIS ISN'T RIGHT - need to also check the final expressino for vars
+                Nothing -> throwError ("Referenced variable " ++ useVar ++ " not found") -- return eg
           where
             checkTopDep' useTopElem = do
                 s <- get
@@ -163,10 +169,10 @@ procExprNode (topVar, topElem) (expNode, ExprNodeLabel expVar exp) =
 
 
 
--- |Sorts the top and expressiosn graphs, returning an ordererd map representation of the model
+-- | Sorts the top and expressiosn graphs, returning an ordererd map representation of the model
 -- also checks for recursive definitions at either level
 sortGraphs :: TopGraph -> TopMap -> MExcept [(C.Id, C.Top C.Id)]
-sortGraphs tg tm = trace (show res) (Right [])
+sortGraphs tg tm = (Right res)
   where
     res = sortExpr
 
@@ -183,7 +189,7 @@ sortGraphs tg tm = trace (show res) (Right [])
         exprCheck = sccCheck (rExprGraph topElem)
         rE = reconExpr (rTopExpr topElem) (topsort' $ rExprGraph topElem) (rBaseExpr topElem)
 
-    -- |function to check for stronglyConnComp within a graph, i.e. any recursive calls
+    -- | function to check for stronglyConnComp within a graph, i.e. any recursive calls
     sccCheck = all (== 1) . map length . scc
 
     reconExpr :: TopExpr ->  [ExprNodeLabel] -> (C.Expr C.Id) -> C.Top C.Id

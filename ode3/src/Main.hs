@@ -37,7 +37,7 @@ import qualified CoreANF.AST as CA
 
 import Utils.Utils
 
--- |main entry funtion
+-- | main entry funtion
 main :: IO ()
 main = do
     updateGlobalLogger rootLoggerName (setLevel DEBUG)
@@ -73,15 +73,15 @@ main = do
     infoM "ode3.main" $ "Done"
     --close filelogger
 
--- |argument flag types
+-- | argument flag types
 data Flag = Version
     deriving Show
 
--- |argument options
+-- | argument options
 options :: [OptDescr Flag]
 options = [ Option ['V'] ["version"] (NoArg Version) "Show version number" ]
 
--- |drives the ion language compilation state through monadic sequencing
+-- | drives the ion language compilation state through monadic sequencing
 ionParser :: FilePath -> IO ()
 ionParser fileName = do
     fileData <- readFile fileName
@@ -90,7 +90,7 @@ ionParser fileName = do
     either (\err -> errorM "ode3.ionParser" err)
         (\res -> infoM "ode3.ionParser" "No errors" >> print res) res
 
--- |drives the core language compilation state through monadic sequencing
+-- | drives the core language compilation state through monadic sequencing
 odeParser :: FilePath -> IO (Maybe (C.Model C.Id))
 odeParser fileName = do
     fileData <- readFile fileName
@@ -100,10 +100,10 @@ odeParser fileName = do
     either
         (\err -> errorM "ode3.odeParser" err >> return Nothing)
         (\res -> infoM "ode3.odeParser" "No errors" >> infoM "ode3.odeParser" (show res) >>
-            infoM "ode3.odeParser" (prettyPrint res) >>
+            --infoM "ode3.odeParser" (prettyPrint res) >>
             return (Just res)) res
 
--- |driver for the core language front-end of the compiler
+-- | driver for the core language front-end of the compiler
 -- will effectively run the front-end pipeline within the Error monad
 -- requires calling reorderer, renamer, typechecker, converter/interpreter
 coreDriver :: C.Model C.Id -> IO (Maybe (C.OrdModel Int)) -- should return CA.Model
@@ -115,13 +115,13 @@ coreDriver oModel = processRes
         (\res -> infoM "ode3.coreDriver" "No errors" >> infoM "ode3.coreDriver" (show res) >> return (Just res)) res
 
 
--- |driver for the middle-end of the compiler
+-- | driver for the middle-end of the compiler
 -- will run the middle-end of the compiler using the ANF/lowerlevel FIR - AST to be determined
 -- basically runs a sequence of optimisations over the model, will some checking/valdiation/simulation
 -- to check optimisation results
 coreANFDriver = undefined
 
--- |driver for the back-end of the compiler
+-- | driver for the back-end of the compiler
 -- takes a final optimised model in the low-level AST, and runs the code-generation backend, either through
 -- an interpreter, LLVM CPU, or OpenCL
 codeGenDriver = undefined
