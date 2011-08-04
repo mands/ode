@@ -21,7 +21,15 @@ module Core.TypeChecker (
 typeCheck
 ) where
 
+import qualified Data.Map as Map
 import qualified Core.AST as C
 
-reorder :: C.Model -> Int
-reorder cModel = 3
+
+typeCheck :: C.OrdModel Int -> C.OrdModel Int
+typeCheck cModel = C.empty
+
+-- Easy-HM -
+-- run a pass over the model, collecting all elems into a multi-map of possible types
+-- then map over the multi-map, for each eleemnt unifiying the possible types and making sure they match
+-- eventually have a single type for each elem, add to the binding sites and all is good
+newtype TypeMap = Map.Map Int C.TType

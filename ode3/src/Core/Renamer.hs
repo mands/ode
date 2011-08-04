@@ -15,6 +15,8 @@
 --
 -----------------------------------------------------------------------------
 
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 module Core.Renamer (
 rename
 ) where
@@ -26,6 +28,7 @@ import Debug.Trace -- love this shit!
 
 import Control.Monad
 import Control.Monad.State
+import Control.Monad.Error
 import Data.Maybe (fromJust)
 
 import qualified Core.AST as C
@@ -33,7 +36,10 @@ import Utils.Utils
 import Utils.MonadSupply
 
 -- we need a supply of uniques, use monad supply again but with user-start param
-type UniqueIntSupply = SupplyT Int (State ExprBinds)
+--newtype IntSupply a = IntSupply { runIntSupply :: SupplyT Int (StateT ExprBinds (MExcept)) a }
+--    deriving (Monad, MonadSupply Int)
+--type IntSupply = SupplyT Int (StateT ExprBinds (MExcept))
+type IntSupply = SupplyT Int (State ExprBinds)
 
 -- main types
 newtype ExprBinds = ExprBinds (Map.Map C.Id Int) deriving Show
@@ -45,34 +51,30 @@ newtype TopBinds =  TopBinds (Map.Map C.Id Int) deriving Show
 rename :: C.OrdModel C.Id -> MExcept (C.OrdModel Int)
 rename cModel = Right renModel
   where
-
-    -- try build a quick ordered model using C.Id
-    -- oModel :: C.OrdModel C.Id
-    -- oModel = C.fromList $ C.toList cModel
-
-    -- dummy model consisting of just 1
-    -- m' = DF.foldr mInsert C.empty $ C.getOrdSeq oModel
-    -- mInsert :: C.Top C.Id -> C.OrdModel Int -> C.OrdModel Int
-    -- mInsert v m = C.insert 1 (fmap (\_ -> 1) v) m
-
     renModel = renTop cModel
-    -- then map over each expr, using the topmap, converting lets and building a new scopemap
-    -- as traversing expr, as order is fixed this should be ok
+
+-- then map over each expr, using the topmap, converting lets and building a new scopemap
+-- as traversing expr, as order is fixed this should be ok
 
 -- |Need to build a conversion map of the top values first
-renTop :: C.OrdModel C.Id -> C.OrdModel Int
-renTop model = model' -- topBinds
+renTop :: C.OrdModel C.Id -> (C.OrdModel Int)
+renTop model = model'
   where
     ((_, model'), uniqs) = evalState (runSupplyT mModel [1..]) (ExprBinds Map.empty)
+--renTop model = do
+--    ((_, model'), uniqs) <- evalState (runSupplyT mModel [1..]) (ExprBinds Map.empty)
+--    return model'
+
+--model' -- topBinds
 
     m = (C.getOrdSeq model)
 
-    mModel = DF.foldlM convTopBind (TopBinds Map.empty, C.empty) (trace (show m) m)
+    mModel = DF.foldlM convTopBind (TopBinds Map.empty, C.empty) m -- (trace (show m) m)
 
-    convTopBind :: (TopBinds, C.OrdModel Int) -> C.Top C.Id -> UniqueIntSupply (TopBinds, C.OrdModel Int)
+    convTopBind :: (TopBinds, C.OrdModel Int) -> C.Top C.Id -> IntSupply (TopBinds, C.OrdModel Int)
     convTopBind (TopBinds map, model) (C.TopLet b e) = do
         b' <- supply
-        let x = trace (show b') b'
+        let x = b' --trace (show b') b'
         let map' = TopBinds $ Map.insert b b' map
         -- reset exprbinds
         lift $ put (ExprBinds Map.empty)
@@ -84,7 +86,7 @@ renTop model = model' -- topBinds
 
     convTopBind (TopBinds map, model) (C.TopAbs b arg e) = do
         b' <- supply
-        let x = trace (show b') b'
+        let x = b' --trace (show b') b'
         let map' = TopBinds $ Map.insert b b' map
         arg' <- supply
         --let map'' = Map.insert map'
@@ -96,7 +98,7 @@ renTop model = model' -- topBinds
         return (map', model')
 
 -- | Basic traverse over the expression structure - make into Data.Traversable
-renExpr :: TopBinds -> C.Expr C.Id -> UniqueIntSupply (C.Expr Int)
+renExpr :: TopBinds -> C.Expr C.Id -> IntSupply (C.Expr Int)
 
 -- never called
 --renExpr tB _ = undefined
@@ -140,14 +142,18 @@ renExpr tB (C.Tuple exprs) = liftM C.Tuple $ DT.mapM (\e -> renExpr tB e) exprs
 
 -- | Monadic binding lookup,
 -- TODO - refactor
-bLookup :: C.Id -> TopBinds -> UniqueIntSupply Int
+bLookup :: C.Id -> TopBinds -> IntSupply Int
 bLookup v (TopBinds tB) = do
     (ExprBinds eB) <- lift get
-    let m = trace (show v) (trace (show eB) (trace (show tB) (Map.lookup v eB)))
+    let m = Map.lookup v eB -- trace (show v) (trace (show eB) (trace (show tB) (Map.lookup v eB)))
     case m of
         Just x -> return x
-        Nothing -> return $ tB Map.! v -- this should never throw an error, if so something has gone wrong!
+        -- This should never throw an error (reorderer now catches all unknown variable references)
+        -- maybe (renError ("Referenced variable " ++ v ++ " not found")) (\x -> return x) (Map.lookup v tB)
+        Nothing -> return $ tB Map.! v
 
+--renError :: String -> IntSupply a
+--renError s = lift . lift $ throwError s
 
 -- PROB - these don't work, just use state monad instead
 -- prob is the ExprBinds, which need to be carried and updating thru the bindings/threading
@@ -161,7 +167,7 @@ bLookup v (TopBinds tB) = do
 exprAp :: (Monad m) => (b -> c) -> m (a, b) -> m (a, c)
 exprAp f m = m >>= (\(eB, e) -> return (eB, f e))
 
-pairExpr :: ExprBinds -> UniqueIntSupply (C.Expr Int) -> UniqueIntSupply (ExprBinds, C.Expr Int)
+pairExpr :: ExprBinds -> IntSupply (C.Expr Int) -> IntSupply (ExprBinds, C.Expr Int)
 --pairM :: UniqueIntSupply ExprBinds -> UniqueIntSupply (C.Expr Int) -> UniqueIntSupply (ExprBinds, C.Expr Int)
 pairExpr a b = pairM (return a) b
 

@@ -118,17 +118,25 @@ data Op = Add | Sub | Mul | Div | Mod
         | Nop -- not used?
         deriving Show
 
--- |Identifier - basicially RdrName - needs to become parameterised
+-- | Identifier - basicially RdrName - needs to become parameterised
 type Id = String
--- |NewIdentifier - holds both a (parameterised) identifier and a string that represetns the (closest) original/source variable
 -- TODO - change to newtype
+-- |NewIdentifier - holds both a (parameterised) identifier and a string that represetns the (closest) original/source variable
 data NewId a = NewId a String
 
--- |Top level Core model
+-- TODO - use a GADT, stop tuples of tuples being allowed,
+-- | Types
+data TType =    TUnknown -- should this be a maybe?
+                | TBool
+                | TFloat
+                | TArr TType TType
+                | TTuple [TType] -- don't want to allow tuples of tuples
+                deriving (Show, Eq)
+
+
+-- TODO -- maybe use number and Id to index/key
+-- | Top level Core model
 -- need to make sure this is an ordered map so we keep the evaluation order correct
--- TODO - change the rep to an assoc list for now
---   later conv to newtype of hash/int map combined with a sequence
--- maybe use number and Id to index/key
 type Model b =  Map.Map b (Top b)
 
 type ListModel b = [(b, Top b)]

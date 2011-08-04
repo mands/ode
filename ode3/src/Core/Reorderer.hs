@@ -26,6 +26,7 @@ import Control.Monad.State
 import Control.Monad.Error
 
 import qualified Data.Map as Map
+import qualified Data.Traversable as DT
 import Debug.Trace -- love this shit!
 import Control.Applicative
 import Data.Graph.Inductive
@@ -33,6 +34,7 @@ import qualified Data.Graph.Inductive.Example as E
 import Data.Graph.Inductive.Tree -- maybe swtich to PatriciaTree implementation?
 import Data.Graph.Inductive.Query.DFS
 import Data.Maybe (fromJust)
+
 import qualified Core.AST as C
 import Utils.Utils
 
@@ -64,8 +66,6 @@ reorder cModel = do
     -- now we need to sort the graphs and reconstruct the expressions
     sortModel <- sortGraphs topGraph' topMap'
     let sortModel' = C.fromList sortModel
-    --return (trace (show topGraph ++ "\n") (trace (Map.showTree topMap) (trace (show topGraph' ++ "\n") (trace (Map.showTree topMap') sortModel'))))
-    --return (trace (show sortModel) (trace (show sortModel') sortModel'))
     return sortModel'
   where
     topGraph = createTopGraph cModel topMap
@@ -107,9 +107,10 @@ createTopMap cModel = topMap
     convGExpr (C.Let i e1 e2) = (ExprNodeLabel i e1) : (convGExpr e2)
     convGExpr _ = []
 
--- |New method - map over the elems in the topmap, updating the graphs as required
+
 -- TODO - fix use of mapM and assoc to use mapWithKey and lift the monads after
 --      - OR, use the graph map/fold functions
+-- |New method - map over the elems in the topmap, updating the graphs as required
 procDepGraphs :: TopGraph -> TopMap -> MExcept (TopGraph, TopMap)
 procDepGraphs tg tm = do
     (tm', rs) <- runStateT (runReorder procDepGraphs') (ReorderState tg tm)
@@ -117,15 +118,26 @@ procDepGraphs tg tm = do
   where
     procDepGraphs' = mapM procTopElem (Map.assocs tm)
     procTopElem (topVar, topElem) = foldM procExprNode (topVar, topElem) (labNodes . rExprGraph $ topElem)
+        >>= procBaseExpr
+
+    -- | Creates dependencies for the let expressions within an expression
+    procExprNode :: (C.Id, TopMapElem) -> LNode ExprNodeLabel -> GraphStateMa (C.Id, TopMapElem)
+    procExprNode (topVar, topElem) (expNode, ExprNodeLabel expVar exp) =
+        procExprN topElem (rExprGraph topElem) (Just expNode) exp >>= (\eg -> return (topVar, topElem {rExprGraph = eg}))
+
+    -- | Creates dependencies for the base expression within an expression
+    procBaseExpr :: (C.Id, TopMapElem) -> GraphStateMa (C.Id, TopMapElem)
+    procBaseExpr (topVar, topElem) = procExprN topElem eg Nothing baseExpr >>= (\eg -> return (topVar, topElem {rExprGraph = eg}))
+      where
+        baseExpr = rBaseExpr topElem
+        eg = rExprGraph topElem
 
 -- |Process an individual expression node within the given expression graph eg
-procExprNode :: (C.Id, TopMapElem) -> LNode ExprNodeLabel -> GraphStateMa (C.Id, TopMapElem)
-procExprNode (topVar, topElem) (expNode, ExprNodeLabel expVar exp) =
-    procExpr (rExprGraph topElem) exp >>= (\eg -> return (topVar, topElem {rExprGraph = eg}))
-
+procExprN :: TopMapElem -> ExprGraph -> Maybe Node -> (C.Expr C.Id) -> GraphStateMa ExprGraph
+procExprN topElem eg mENode exp = procExpr eg exp
   where
+    -- NOTE - we have already removed all lets from the expressiong so no defs possible
     -- | Process an individual expression by pattern match over the possibilities
-    -- note - we have already removed all lets from the expressiong so no defs possible
     procExpr :: ExprGraph -> C.Expr C.Id -> GraphStateMa ExprGraph
     procExpr eg (C.Var useVar) = updateGraphDep eg useVar -- create a link in the graph from def to use
     procExpr eg (C.App useVar exp) = (updateGraphDep eg useVar) >>= (\eg -> procExpr eg exp)  -- create a link in the graph from def to use
@@ -136,13 +148,14 @@ procExprNode (topVar, topElem) (expNode, ExprNodeLabel expVar exp) =
     procExpr eg (C.Tuple exps) = foldM (\eg exp -> procExpr eg exp) eg exps
     procExpr eg _ = return eg -- ignore anything else
 
-    -- main function that updates the graph with new edges
+    -- | main function that updates the graph with new edges
     updateGraphDep :: ExprGraph ->  C.Id -> GraphStateMa ExprGraph
     updateGraphDep eg useVar =
         -- get the usage's def node from the useVar within the cur elem exprmap
         case (Map.lookup useVar (rExprMap topElem)) of
             -- add a dependency edge from the defUse to the current node
-            Just useDefNode -> return $ addDep useDefNode expNode eg
+            -- if current expNode exists, i.e. is not a baseExpr
+            Just useDefNode -> return $ maybe eg (\eNode -> addDep useDefNode eNode eg) mENode --return $ addDep useDefNode mENode eg
             Nothing ->
                 -- check to see if is the arg within an abs
                 case (rTopExpr topElem) of
@@ -150,14 +163,13 @@ procExprNode (topVar, topElem) (expNode, ExprNodeLabel expVar exp) =
                     -- if not, check the toplevel
                     _ -> checkTopDep
       where
-        -- look in the top level for the expression instead
+        -- | look in the top level for the expression instead
         checkTopDep = do
             topMap <- liftM rTopMap get
             case (Map.lookup useVar topMap) of
                 Just useTopElem -> checkTopDep' useTopElem
-                -- TODO - should throwError if lookup fails
-                -- THIS ISN'T RIGHT - need to also check the final expressino for vars
-                Nothing -> throwError ("Referenced variable " ++ useVar ++ " not found") -- return eg
+                -- throwError if lookup fails
+                Nothing -> throwError ("a Referenced variable " ++ useVar ++ " not found") -- return eg
           where
             checkTopDep' useTopElem = do
                 s <- get
@@ -165,25 +177,23 @@ procExprNode (topVar, topElem) (expNode, ExprNodeLabel expVar exp) =
                 put (s { rTopGraph = tg' }) -- put the updated tg back into StateM
                 return eg -- return the unmodified eg
 
+        -- | add a dependency from n1 to n2 within the graph g
         addDep n1 n2 g = insEdge (n1, n2, ()) g
-
 
 
 -- | Sorts the top and expressiosn graphs, returning an ordererd map representation of the model
 -- also checks for recursive definitions at either level
 sortGraphs :: TopGraph -> TopMap -> MExcept [(C.Id, C.Top C.Id)]
-sortGraphs tg tm = (Right res)
-  where
-    res = sortExpr
-
-    -- TODO - throw error if check fails
-    sortTop = if sccCheck tg then topsort' tg else topsort' tg
+sortGraphs tg tm = do
+    sortTop <- if sccCheck tg then return (topsort' tg)
+        -- TODO - need to determine the names of the elements
+        else throwError "Found recursive relationship between top-level elements"
 
     -- need to map over elems in sort top, extract the topmapElem, then sort the exprgraph and regen the top expr
-    sortExpr = map sortExpr' sortTop
-
-    -- TODO - throw error if check fails
-    sortExpr' topVar = if exprCheck then (topVar, rE) else (topVar, rE)
+    DT.mapM sortExpr sortTop
+  where
+    sortExpr topVar = if exprCheck then return (topVar, rE)
+        else throwError ("Found recursive relationship between expressions within " ++ topVar)
       where
         topElem = (Map.!) tm topVar
         exprCheck = sccCheck (rExprGraph topElem)
@@ -192,6 +202,7 @@ sortGraphs tg tm = (Right res)
     -- | function to check for stronglyConnComp within a graph, i.e. any recursive calls
     sccCheck = all (== 1) . map length . scc
 
+    -- | Reconstructs an expression from the list of lets and the baseExpr
     reconExpr :: TopExpr ->  [ExprNodeLabel] -> (C.Expr C.Id) -> C.Top C.Id
     reconExpr top lets base = case top of
         LTopLet i -> C.TopLet i (reconLets lets)
@@ -199,18 +210,6 @@ sortGraphs tg tm = (Right res)
       where
         reconLets [] = base
         reconLets ((ExprNodeLabel i e):xs) = C.Let i e (reconLets xs)
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
