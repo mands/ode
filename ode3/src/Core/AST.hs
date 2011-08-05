@@ -20,7 +20,7 @@
 -- {-#LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
 
 module Core.AST (
-Id,
+Id, TType(..),
 ModelMap(..), Model, ListModel, OrdModel, getOrdMap, getOrdSeq,
 Top(..), Expr(..), Op(..), Literal(..),
 ) where
@@ -126,12 +126,12 @@ data NewId a = NewId a String
 
 -- TODO - use a GADT, stop tuples of tuples being allowed,
 -- | Types
-data TType =    TUnknown -- should this be a maybe?
+data TType =    TUnknown -- TODO - should this be a maybe?
                 | TBool
                 | TFloat
                 | TArr TType TType
                 | TTuple [TType] -- don't want to allow tuples of tuples
-                deriving (Show, Eq)
+                deriving (Show, Eq, Ord)
 
 
 -- TODO -- maybe use number and Id to index/key
