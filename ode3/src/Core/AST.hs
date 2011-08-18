@@ -21,7 +21,7 @@
 
 module Core.AST (
 Id, TType(..),
-ModelMap(..), Model, ListModel, OrdModel, getOrdMap, getOrdSeq,
+ModelMap(..), Model, ListModel, OrdModel, getOrdMap, getOrdSeq, putOrdMap, putOrdSeq,
 Top(..), Expr(..), Op(..), Literal(..),
 ) where
 
@@ -126,11 +126,12 @@ data NewId a = NewId a String
 
 -- TODO - use a GADT, stop tuples of tuples being allowed,
 -- | Types
-data TType =    TUnknown -- TODO - should this be a maybe?
+data TType b =  TUnknown -- TODO - should this be a maybe?
+                | TRef b
                 | TBool
                 | TFloat
-                | TArr TType TType
-                | TTuple [TType] -- don't want to allow tuples of tuples
+                | TArr (TType b) (TType b)
+                | TTuple [TType b] -- don't want to allow tuples of tuples
                 deriving (Show, Eq, Ord)
 
 
