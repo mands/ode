@@ -107,7 +107,7 @@ odeParser fileName = do
 -- | driver for the core language front-end of the compiler
 -- will effectively run the front-end pipeline within the Error monad
 -- requires calling reorderer, renamer, typechecker, converter/interpreter
-coreDriver :: C.Model C.Id -> IO (Maybe (C.OrdModel Int)) -- should return CA.Model
+coreDriver :: C.Model C.Id -> IO (Maybe (C.OrdModel C.TypedId)) -- should return CA.Model
 coreDriver oModel = processRes
   where
     res = reorder oModel >>= rename >>= typeCheck

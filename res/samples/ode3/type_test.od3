@@ -6,7 +6,7 @@ module Test {
 
     val X = inc(3)
 
-    //val Y = X
+//    val Y = X and X
 
     //val Z = Y + X + 23 
 

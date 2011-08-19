@@ -17,11 +17,14 @@
 -- Use GADTs to enforce terms of correct types (can we do this in earlier expr AST?)
 -----------------------------------------------------------------------------
 
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 module Core.TypeChecker (
 typeCheck
 ) where
 
 import qualified Data.Map as Map
+import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import qualified Data.Foldable as DF
 import qualified Data.Traversable as DT
@@ -39,12 +42,16 @@ import Utils.Utils
 --newtype TypeMap = TypeMap (Map.Map Int [C.TType])
 -- type TypeMap = Map.Map Int (Set.Set C.TType)
 type Type = C.TType Int
-type TypeMap = Map.Map Int ([Type])
-type TypeState = State TypeMap
+type TypesMap = Map.Map Int ([Type])
+type TypesState = State TypesMap
+
+type TypeMap = Map.Map Int Type
+newtype TypeStateError a = TypeStateError { runTypeCheck :: StateT TypeMap (MExcept) a }
+    deriving (Monad, MonadState TypeMap, MonadError String)
 
 
 -- | Add a type contraint for the paritcular var, if it doesn't exsist create a new entry, else cons to the list
-addConstraint :: Int -> Type -> TypeState ()
+addConstraint :: Int -> Type -> TypesState ()
 addConstraint i t = do
     tM <- get
     let tM' = Map.alter ins' i tM
@@ -58,16 +65,28 @@ addConstraint i t = do
 -- run a pass over the model, collecting all elems into a multi-map of possible types
 -- then map over the multi-map, for each element unifying the possible types and making sure they match
 -- eventually have a single type for each elem, add to the binding sites and all is good
-typeCheck :: C.OrdModel Int -> MExcept (C.OrdModel Int)
-typeCheck cModel = cModel'
+typeCheck :: C.OrdModel Int -> MExcept (C.OrdModel C.TypedId)
+typeCheck cModel = do
+    checkedTypeMap <- check cModel unifiedTypeMap
+    return $ typeModel cModel checkedTypeMap
   where
-    tM = constrain cModel
-    tM' = unify cModel tM
-    cModel' = check cModel tM'
+    typesMap = constrain cModel
+    unifiedTypeMap = unify cModel typesMap
+
+-- | run a map over the model replacing all bindings with typemap equiv
+typeModel :: C.OrdModel Int -> TypeMap -> C.OrdModel C.TypedId
+typeModel cModel tM = trace (show tM) cModel'
+  where
+    cModel' = DF.foldl createModel C.empty newSeq
+    newSeq = fmap convBinding (C.getOrdSeq cModel)
+    convBinding t = fmap (\i -> C.TypedId i (tM Map.! i)) t
+    createModel m topExpr = C.insert b v m
+      where
+        (b, v) = C.getTopBinding topExpr
 
 
 -- | Create the set of contraints for a particular type of a var by updateing the typemap
-constrain :: C.OrdModel Int -> TypeMap
+constrain :: C.OrdModel Int -> TypesMap
 constrain cModel = tM --DF.foldl consTop Map.empty (C.getOrdSeq cModel)
   where
     tM = execState topM Map.empty -- we only care about the topmap at this stage
@@ -154,7 +173,7 @@ getOpType op inType = case op of
         (hd, tl) = splitAt i . replicate i $ C.TUnknown
 
 -- | Unify, if possible, the constraints on an var to generate a single type instance
-unify :: C.OrdModel Int -> TypeMap -> Map.Map Int Type
+unify :: C.OrdModel Int -> TypesMap -> TypeMap
 unify cModel tM = trace (show $ C.getOrdSeq cModel) (trace (show tM) (trace (show tM') tM'))
   where
     (refMap, tM') = Map.mapAccumWithKey unifyTypes Map.empty tM
@@ -191,8 +210,6 @@ unify cModel tM = trace (show $ C.getOrdSeq cModel) (trace (show tM) (trace (sho
 
         -- TODO - refs
 
-
-
         -- ignore unknowns
         --unifyType' oldType (C.TRef i) = oldType
         unifyType' C.TUnknown newType = newType
@@ -202,56 +219,82 @@ unify cModel tM = trace (show $ C.getOrdSeq cModel) (trace (show tM) (trace (sho
         unifyType' _ _ = C.TUnknown
 
 
-
 -- TODO - not sure if this is fully needed, maybe the unify pass will make these checks redudent
 -- | Reconstruct and type-check, final pass that uses unified information to infer the final types for all variables and type checks the resultant model
-check :: C.OrdModel Int -> Map.Map Int Type -> MExcept (C.OrdModel Int)
-check cModel tM = cModel'
+check :: C.OrdModel Int -> TypeMap -> MExcept TypeMap
+check cModel uTM = checkedMap
   where
+    checkedMap = execStateT (runTypeCheck typeMapM) Map.empty
+    typeMapM = DF.mapM_ checkTop (C.getOrdSeq cModel)
 
-    -- tM = execState topM Map.empty -- we only care about the topmap at this stage
-    cModel' = DT.mapM checkTop (C.getOrdSeq cModel) >>= (\ordSeq -> Right $ C.putOrdSeq (trace (show tM) (trace (show ordSeq) ordSeq)) cModel)
+    checkTop :: C.Top Int -> TypeStateError ()
+    -- i will be return type of e
+    checkTop (C.TopLet i e) = do
+        retT <- checkExp e
+        -- we check the return type here (is this needed?)
+        let uT = uTM Map.! i
+        if not (uT == C.TUnknown) && not (retT == uT)
+            then throwError (printf "(TopLet) %i return type error - expected %s, found %s" i (show uT) (show retT))
+            else return ()
+        -- add to the final typemap
+        fM <- get
+        let fM' = Map.insert i retT fM
+        put fM'
 
-    checkTop :: C.Top Int -> MExcept (C.Top Int)
-    -- i will be return type of e when e is found
-    checkTop (C.TopLet i e) = checkExp e >> (return $ C.TopLet i e)
-    -- i will be arr from arg type and return type of e when both is found
-    checkTop (C.TopAbs i arg e) = checkExp e >> (return $ C.TopAbs i arg e)
+    -- i will be arr from arg type and return type of e
+    checkTop (C.TopAbs i arg e) = do
+        retT <- checkExp e
+        -- we can only check the return type here (is this needed?)
+        let absT@(C.TArr fromT toT) = uTM Map.! i
+        let argT = uTM Map.! arg
+        if not (argT == fromT) -- TODO - is this check correct?
+            then throwError (printf "(Abs) arg type error - expected %s, found %s" i (show argT) (show fromT))
+            else return ()
+        if not (toT == C.TUnknown) && not (retT == toT) -- TODO - is this check correct?
+            then throwError (printf "(Abs) %i return type error - expected %s, found %s" i (show toT) (show retT))
+            else return ()
+        -- add to the final typemap
+        fM <- get
+        let fM' = Map.insert i absT fM
+        let fM'' = Map.insert arg argT fM'
+        put fM''
 
     -- these functions should all return the type of the expression - it may be TUnknown
-    checkExp :: C.Expr Int -> MExcept Type
-    checkExp (C.Var i) = return $ Map.findWithDefault C.TUnknown i tM  -- do we pass in the potential type so can addConstraint here
+    checkExp :: C.Expr Int -> TypeStateError Type
+    checkExp (C.Var i) = findType i --Map.findWithDefault C.TUnknown i uM  -- do we pass in the potential type so can addConstraint here
 
     -- need to return the type of the literal
     checkExp (C.Lit l) = return $ getLitType l
 
     -- i will be type of e1, will return type of e2
     checkExp (C.Let i e1 e2) = do
-        let iType = Map.findWithDefault C.TUnknown i tM
+        iType <- findType i -- TODO - will this ever be in fTM?
         e1Type <- checkExp e1
         if iType == e1Type
-            then checkExp e2
+            then return ()
             else throwError (printf "(Let) Variable %u type mismatch - expected %s, found %s" i (show iType) (show e1Type))
+        fM <- get
+        let fM' = Map.insert i iType fM
+        put fM'
+        checkExp e2
 
     -- e needs to be same type as i input, which returns type of i
     checkExp (C.App i e) = do
-        let (C.TArr fromT toT) = tM Map.! i
+        (C.TArr fromT toT) <- findType i
         eType <- checkExp e
         if fromT == eType then return toT
             else throwError (printf "(App) %i Input type mismatch - expected %s, found %s " i (show fromT) (show eType))
 
     -- returns a tuple of the types of the contained elements
     checkExp (C.Tuple es) = liftM C.TTuple $ DT.mapM checkExp es
---
---
+
     -- all e needs to be the same type as the op input, returns op output
     checkExp (C.Op op e) = do
         let (C.TArr fromT toT) = (getOpType op C.TUnknown)
         eType <- checkExp e
         if fromT == eType then return toT
-            else throwError (printf "(Op) %s type mismatch - expected %s, found %s" (show op) (show fromT) (show toT))
+            else throwError (printf "(Op) %s type mismatch - expected %s, found %s" (show op) (show fromT) (show eType))
 
---
     -- eB must be bool, eT == eF, return type is same as eT/eF
     checkExp (C.If eB eT eF) = do
         eBType <- checkExp eB
@@ -265,10 +308,10 @@ check cModel tM = cModel'
 
     checkExp _ = return C.TUnknown
 
-
-
-
-
-
+    findType :: Int -> TypeStateError (C.TType Int)
+    findType i = do
+        -- check the final TM first
+        fTM <- get
+        return $ Map.findWithDefault (uTM Map.! i) i fTM
 
 

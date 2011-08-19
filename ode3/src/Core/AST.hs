@@ -20,8 +20,8 @@
 -- {-#LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
 
 module Core.AST (
-Id, TType(..),
-ModelMap(..), Model, ListModel, OrdModel, getOrdMap, getOrdSeq, putOrdMap, putOrdSeq,
+Id, TType(..), TypedId(..),
+ModelMap(..), Model, ListModel, OrdModel, getOrdMap, getOrdSeq, putOrdMap, putOrdSeq, getTopBinding,
 Top(..), Expr(..), Op(..), Literal(..),
 ) where
 
@@ -31,6 +31,7 @@ import qualified Data.Sequence as Seq
 import qualified Data.List as List
 import qualified Data.Foldable as DF
 import qualified Data.Traversable as DT
+import Data.Functor
 import Data.Maybe (fromJust, isJust)
 import Utils.Utils
 
@@ -121,8 +122,12 @@ data Op = Add | Sub | Mul | Div | Mod
 -- | Identifier - basicially RdrName - needs to become parameterised
 type Id = String
 -- TODO - change to newtype
--- |NewIdentifier - holds both a (parameterised) identifier and a string that represetns the (closest) original/source variable
-data NewId a = NewId a String
+-- |NewIdentifier - holds both a (parameterised) identifier and a string that represetns the (closest) original/source variable and line num
+data NewId a = NewId a String Int
+
+data TypedId = TypedId Int (TType Int)
+    deriving (Show, Eq, Ord)
+
 
 -- TODO - use a GADT, stop tuples of tuples being allowed,
 -- | Types
@@ -319,6 +324,15 @@ instance ModelMap (OrdModel b) b where
 -- |Standard functor defintion, could be derived automatically but still...
 -- only applicable for the binding parameter, so maybe useless
 -- could be used to determine bindings/fv, etc.
+
+-- Again can't do for same reason as above, model holds b, seq holds (Top b) - not compatible
+--instance Functor OrdModel where
+    -- need to fmap over the sequence, then recreate the orig structure using insert with a fold
+--    fmap f model = model
+--      where
+--        newSeq = fmap f (getOrdSeq model)
+
+
 instance Functor Top where
     fmap f (TopLet x expr) = TopLet (f x) (fmap f expr)
     fmap f (TopAbs x arg expr) = TopAbs (f x) (f arg) (fmap f expr)
