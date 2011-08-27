@@ -85,7 +85,7 @@ typeModel cModel tM = trace (show tM) cModel'
         (b, v) = C.getTopBinding topExpr
 
 
--- | Create the set of contraints for a particular type of a var by updateing the typemap
+-- | Create the set of contraints for a particular type of a var by updating the typemap
 constrain :: C.OrdModel Int -> TypesMap
 constrain cModel = tM --DF.foldl consTop Map.empty (C.getOrdSeq cModel)
   where
@@ -174,14 +174,14 @@ getOpType op inType = case op of
 
 -- | Unify, if possible, the constraints on an var to generate a single type instance
 unify :: C.OrdModel Int -> TypesMap -> TypeMap
-unify cModel tM = trace (show $ C.getOrdSeq cModel) (trace (show tM) (trace (show tM') tM'))
+unify cModel tM = trace (show $ C.getOrdSeq cModel) (trace (show tM) (trace (show tM') (trace (show tM'') tM'')))
   where
     (refMap, tM') = Map.mapAccumWithKey unifyTypes Map.empty tM
+    tM'' = processRefs tM'
 
     -- for each binding, try to unify the list of types - ignore refs for now
     unifyTypes :: TypeMap -> Int -> [Type] -> (TypeMap, Type)
     unifyTypes refTypeMap key types = (refTypeMap, unifyType types)
-
 
     unifyType :: [Type] -> Type
     unifyType types = foldl1 unifyType' types
@@ -190,16 +190,14 @@ unify cModel tM = trace (show $ C.getOrdSeq cModel) (trace (show tM) (trace (sho
         unifyType' :: Type -> Type -> Type
 
         -- concrete types override all
-        unifyType' _ C.TFloat = C.TFloat
         unifyType' C.TFloat _ = C.TFloat
-        unifyType' _ C.TBool = C.TBool
+        unifyType' _ C.TFloat = C.TFloat
         unifyType' C.TBool _ = C.TBool
+        unifyType' _ C.TBool = C.TBool
 
         -- arrow type
         unifyType' oldArr@(C.TArr oldFromT oldToT) newArr@(C.TArr newFromT newToT) =
             C.TArr (unifyType' oldFromT newFromT) (unifyType' oldToT newToT)
-        --unifyType' _ newArr@(C.TArr fromT toT) = newArr
-
 
         -- tuple type -
         unifyType' (C.TTuple oldTs) (C.TTuple newTs) = C.TTuple $ zipWith unifyType' oldTs' newTs'
@@ -208,15 +206,33 @@ unify cModel tM = trace (show $ C.getOrdSeq cModel) (trace (show tM) (trace (sho
             oldTs' = if length oldTs < length newTs then oldTs ++ replicate (length newTs - length oldTs) C.TUnknown else oldTs
             newTs' = if length newTs < length oldTs then newTs ++ replicate (length oldTs - length newTs) C.TUnknown else newTs
 
-        -- TODO - refs
+        -- refs
+        -- these should only ever be called from an abs/tuple unpacking, so that we can pass refs downward to later uses
+        -- follow the ref -
+        -- TODO - need to check for self-refs
+        unifyType' (C.TRef i) newType = unifyType' (unifyType $ tM Map.! i) newType
+        unifyType' oldType (C.TRef i) = unifyType' oldType (unifyType $ tM Map.! i)
 
         -- ignore unknowns
-        --unifyType' oldType (C.TRef i) = oldType
         unifyType' C.TUnknown newType = newType
         unifyType' oldType C.TUnknown = oldType
 
         -- catch all others
         unifyType' _ _ = C.TUnknown
+
+    -- Takes a typemap and traverse all refs to obtain a final typemap that may be used within checking
+    -- for now is inefficent as doesn't cache ref traversals - TODO fix this
+    processRefs :: TypeMap -> TypeMap
+    processRefs tM = Map.map processRef tM
+      where
+        processRef :: Type -> Type
+        processRef (C.TRef i) = lookupRef i
+        processRef (C.TTuple ts) = C.TTuple $ map processRef ts
+        processRef (C.TArr (C.TRef i) toT) = processRef $ C.TArr (lookupRef i) toT
+        processRef (C.TArr fromT (C.TRef i)) = processRef $ C.TArr fromT (lookupRef i)
+        -- for any other type return as is
+        processRef t = t
+        lookupRef i = processRef $ tM Map.! i
 
 
 -- TODO - not sure if this is fully needed, maybe the unify pass will make these checks redudent
@@ -288,6 +304,17 @@ check cModel uTM = checkedMap
     -- returns a tuple of the types of the contained elements
     checkExp (C.Tuple es) = liftM C.TTuple $ DT.mapM checkExp es
 
+
+    -- special behaviour for unpacking - we can't check the type just yet
+    checkExp (C.Op (C.Unpack i) e) = do
+        eType <- checkExp e
+        case eType of
+            C.TTuple _ -> return ()
+            _ -> throwError (printf "(Op) Unpack type mismatch - expected TTuple, found %s" (show eType))
+        let (C.TTuple ts) = eType
+        if i < length ts then return ()
+            else throwError (printf "(Op) Unpack number mismatch - tuple size %i, index %i" (length ts) i)
+        return (ts !! i)
     -- all e needs to be the same type as the op input, returns op output
     checkExp (C.Op op e) = do
         let (C.TArr fromT toT) = (getOpType op C.TUnknown)

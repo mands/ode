@@ -1,19 +1,36 @@
 module Test {
 
+
+// test Float -> Float
+/* 
     component inc(x) {
         return (x + 1)
     }
 
     val X = inc(3)
-
-//    val Y = X and X
-
-    //val Z = Y + X + 23 
-
-    //val W = inc(5) + 2
+    val Y = X + X
+    val Z = Y + X + 23 
+    val W = inc(5) + 2
 
     // what the fuck!
     // val Z = Y + X + Z
+*/
+	
+// test (Float, Float) -> Float
+/*
+    component add(x, y) {
+        return (x + y)
+    }
 
+    val X = add(3, 4)
+*/
+	
+// test (Float, Float) -> (Float, Float)
+    component addsub(x, y) {
+        return (x + y, x - y)
+    }
+
+    val X,Y = addsub(3, 4)
+	// val Y,Z = X
 }
 

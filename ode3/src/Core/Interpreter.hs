@@ -20,4 +20,3 @@ import qualified Core.AST as CA
 
 interpret :: CA.Model -> Int
 interpret cAST = 1
-
