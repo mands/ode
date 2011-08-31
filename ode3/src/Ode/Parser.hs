@@ -44,7 +44,8 @@ coreLangDef = javaStyle
                             "val", "init",
                             "ode", "delta",
                             "rre", "reaction", "rate",
-                            "default"],
+                            "default",
+                            "true", "false"],
         -- unary ops and relational ops?
         -- do formatting operators count? e.g. :, {, }, ,, ..,  etc.
         -- NO - they are symbols to aid parsiing and have no meaning in the language itself...
@@ -139,6 +140,11 @@ numSeqTerm = createSeq <$> number <*> (comma *> number) <*> (symbol ".." *> numb
   where
     createSeq a b c = O.NumSeq a b c -- (b-a) c
 
+--boolTerm :: Parser Bool
+--boolTerm =  try <$> reserved "true" *> True
+--            <|> reserved "false"  *> False
+--            <?> "boolean"
+
 piecewiseTerm :: Parser O.Expr
 piecewiseTerm = O.Piecewise <$> (endBy1 ((,) <$> compExpr <*> (colon *> compExpr)) comma)
                             <*> (reserved "default" *> colon *> compExpr)
@@ -148,6 +154,7 @@ piecewiseTerm = O.Piecewise <$> (endBy1 ((,) <$> compExpr <*> (colon *> compExpr
 compTerm :: Parser O.Expr
 compTerm =  parens compExpr
             <|> O.Number <$> number
+--            <|> O.Boolean <$> boolTerm
             <|> try (brackets numSeqTerm)
             <|> try (braces piecewiseTerm)
             <|> try (O.Call <$> modLocalIdentifier <*> paramList compExpr)

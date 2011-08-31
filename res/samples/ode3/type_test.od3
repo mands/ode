@@ -1,6 +1,19 @@
 module Test {
+// test Float
+/*
+	val X = 3
 
-
+	component id(x) {
+		return (x+1)
+	}
+*/
+// test Let var
+    component let(x) {
+	    val y = x + 1
+		val z = y and x
+		return (x+y)
+	}
+	
 // test Float -> Float
 /* 
     component inc(x) {
@@ -26,11 +39,14 @@ module Test {
 */
 	
 // test (Float, Float) -> (Float, Float)
+/*
     component addsub(x, y) {
         return (x + y, x - y)
     }
 
     val X,Y = addsub(3, 4)
 	// val Y,Z = X
+*/
 }
 
+	

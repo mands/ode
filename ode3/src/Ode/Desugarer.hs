@@ -137,6 +137,7 @@ dsExpr (O.BinExpr op a b) = do
 
 dsExpr (O.Number n) = return $ C.Lit (C.Num n)
 dsExpr (O.NumSeq a b c) = return $ C.Lit (C.NumSeq $ enumFromThenTo a b c)
+dsExpr (O.Boolean b) = return $ C.Lit (C.Boolean b)
 dsExpr (O.ValueRef (O.LocalId id)) = return $ C.Var id
 
 -- create nested set of ifs for piecewise expression

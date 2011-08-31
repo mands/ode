@@ -82,7 +82,7 @@ data CompStmt   = CompValue ValueDef
 -- calls to local/module components and run-time functions
 -- refernces to existing values, piecewise terms
 -- expressions are may be multiple types, these are determined later on
-data Expr   = BinExpr BinOp Expr Expr | UnExpr UnOp Expr | Number Double | NumSeq Double Double Double
+data Expr   = BinExpr BinOp Expr Expr | UnExpr UnOp Expr | Number Double | NumSeq Double Double Double | Boolean Bool
             | Call ModLocalId [Expr] | ValueRef ModLocalId | Piecewise [(Expr, Expr)] Expr
             deriving Show
 
