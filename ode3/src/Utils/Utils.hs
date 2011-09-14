@@ -13,7 +13,7 @@
 -----------------------------------------------------------------------------
 
 module Utils.Utils (
-MExcept, PrettyPrint(..)
+MExcept, PrettyPrint(..), mapFst, mapSnd
 ) where
 
 import Control.Monad
@@ -43,6 +43,12 @@ myFoldM mF z xs = foldl f' (return z) xs
 --    f' :: Monad m => m a -> b -> m a
     f' mV x = mV >>= (\v -> mF v x)
 --    f' mV x = join $ liftM2 mF mV (return x)
+
+mapFst :: (a -> b) -> (a, c) -> (b, c)
+mapFst f (x,y) = (f x,y)
+mapSnd :: (a -> b) -> (c, a) -> (c, b)
+mapSnd f (x,y) = (x,f y)
+
 
 -- |pretty-printing class for viewing, not machine-readable like Show
 class PrettyPrint a where

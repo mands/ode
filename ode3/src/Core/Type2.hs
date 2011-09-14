@@ -52,6 +52,8 @@ typeCheck cModel = trace (show tCons) (trace (show tCons') (return cModel))
     tCons = constrain cModel
     tCons' = unify tCons
 
+-- do we store within the typeEnv a type for each individual variable or for each unified bindings?
+-- let's try both?
 type TypeEnv = Map.Map Int Type
 type TypeCons = Set.Set (Type, Type)
 type TypeConsM = SupplyT Int (State TypeCons)
@@ -65,6 +67,25 @@ addConstraint t1 t2 = do
 newTypevar :: TypeConsM Type
 newTypevar = liftM TVar supply
 
+--consBind :: C.Bind Int -> Type -> TypeEnv -> TypeEnv
+--consBind b t tEnv = Map.insert b t tEnv
+--consBind (C.MultiBind bs) (TTuple ts) tEnv = foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv (zip bs ts)
+
+--consBind (C.SingleBind b) t tEnv = Map.insert b t tEnv
+--consBind (C.MultiBind bs) (TTuple ts) tEnv = foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv (zip bs ts)
+-- this shouldn't happen
+--consBind (C.MultiBind bs) t tEnv = trace ("shit\n" ++ (show bs)) (trace (show t) (trace (show tEnv) undefined))
+
+-- | Adds a set of constraints for linking a multibind to a TVar
+multiBindConstraint :: C.Bind Int -> Type -> TypeEnv -> TypeConsM TypeEnv
+multiBindConstraint (C.MultiBind bs) (TVar v) tEnv = do
+    -- create the new tvars for each binding
+    bTs <- mapM (\_ -> newTypevar) bs
+    -- add the constaint
+    addConstraint (TTuple bTs) (TVar v)
+    -- add the tvars to the type map
+    DF.foldlM (\tEnv (b, bT) -> return $ Map.insert b bT tEnv) tEnv (zip bs bTs)
+
 constrain :: C.OrdModel Int -> TypeCons
 constrain cModel = trace (show tEnv) consSet
   where
@@ -73,12 +94,21 @@ constrain cModel = trace (show tEnv) consSet
     consM :: TypeConsM TypeEnv
     consM = DF.foldlM consTop Map.empty (C.getOrdSeq cModel)
 
-    consTop tEnv (C.TopLet i e) = do
+    consTop tEnv (C.TopLet (C.SingleBind b) e) = do
         (eT, tEnv') <- consExpr tEnv e
         -- extend and return tEnv
-        return $ Map.insert i eT tEnv'
+        return $ Map.insert b eT tEnv'
 
-    consTop tEnv (C.TopAbs i arg e) = do
+    consTop tEnv (C.TopLet (C.MultiBind bs) e) = do
+        (eT, tEnv') <- consExpr tEnv e
+        -- extend and return tEnv
+        -- return $ Map.insert i eT tEnv'
+        case eT of
+            (TTuple ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv' (zip bs ts)
+            (TVar v) -> multiBindConstraint (C.MultiBind bs) (TVar v) tEnv'
+            _ -> trace ("toplet shit\n" ++ (show bs)) (trace (show eT) (trace (show tEnv') undefined))
+
+    consTop tEnv (C.TopAbs (C.SingleBind b) (C.SingleBind arg) e) = do
         fromT <- newTypevar
         -- extend the tEnv
         let tEnv' = Map.insert arg fromT tEnv
@@ -86,7 +116,7 @@ constrain cModel = trace (show tEnv) consSet
         -- add a constraint?
 
         -- extend and return tEnv
-        return $ Map.insert i (TArr fromT toT) tEnv''
+        return $ Map.insert b (TArr fromT toT) tEnv''
 
 
     -- | map over the expression elements, creating constraints as needed,
@@ -106,13 +136,31 @@ constrain cModel = trace (show tEnv) consSet
         return (toT, tEnv')
 
     -- TODO - do we need to return the new tEnv here?
-    consExpr tEnv (C.Let v e1 e2) = do
+    consExpr tEnv (C.Let (C.SingleBind b) e1 e2) = do
         (e1T, tEnv') <- consExpr tEnv e1
         -- extend tEnv with new env
-        let tEnv'' = Map.insert v e1T tEnv'
+        let tEnv'' = Map.insert b e1T tEnv'
         consExpr tEnv'' e2
         -- add constraint ?
         -- return e2T
+
+    consExpr tEnv (C.Let (C.MultiBind bs) e1 e2) = do
+        (e1T, tEnv') <- consExpr tEnv e1
+        -- extend tEnv with new env
+        tEnv'' <- case e1T of
+            (TTuple ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv' (zip bs ts)
+            (TVar v) -> multiBindConstraint (C.MultiBind bs) (TVar v) tEnv'
+            _ -> trace ("let shit\n" ++ (show bs)) (trace (show e1T) (trace (show tEnv') undefined))
+        consExpr tEnv'' e2
+
+
+    -- override behaviour for unpack op
+--    consExpr tEnv (C.Op (C.Unpack i) e) = do
+--        let fromT = getOpType op
+--        toT <- newTypevar
+--        (eT, tEnv') <- consExpr tEnv e
+--        addConstraint fromT eT
+--        return (toT, tEnv')
 
     consExpr tEnv (C.Op op e) = do
         let (TArr fromT toT) = getOpType op
@@ -135,7 +183,7 @@ constrain cModel = trace (show tEnv) consSet
         consTuple (eTs, tEnv) = (TTuple (reverse eTs), tEnv)
 
     -- other exprs
-    consExpr tEnv _ = return (TFloat, tEnv)
+    consExpr tEnv _ = undefined --return (TFloat, tEnv)
 
 
 getLitType :: C.Literal -> Type
@@ -198,33 +246,37 @@ unify tCons = snd $ u (tCons, Map.empty)
         | not (occursCheck y x) = (subStack y x tCons, subMap y x tMap)
 
     -- composite types
-    uCon (TArr x1 x2, TArr y1 y2) st = unionState (uCon (x1, y1) st) (uCon (x2, y2) st)
+    uCon (TArr x1 x2, TArr y1 y2) st = uCon (x2, y2) (uCon (x1, y1) st)
 
-    uCon (TTuple xs, TTuple ys) st = foldl1 unionState $ zipWith (\x y -> uCon (x, y) st) xs ys
+    uCon (TTuple xs, TTuple ys) st = foldl (\st (x, y) -> uCon (x, y) st) st (zip xs ys)
 
     uCon (x, y) st = trace (show (x, y, st)) undefined -- throwError here!
 
-    -- unions the consSet and subsMap
-    unionState (tCons1, tMap1) (tCons2, tMap2) = (Set.union tCons1 tCons2, Map.union tMap1 tMap2)
-
-    -- replaces all occurances of tvar x with y in tCons
+    -- replaces all occurances of tVar x with y in tCons
     subStack x y tCons = Set.map subTCon tCons
       where
         subTCon (a, b) = (subTTerm x y a, subTTerm x y b)
 
-    -- replaces all occurances of tvar x with y in tMap
+    -- replaces all occurances of tVar x with y in tMap
     subMap x@(TVar xId) y tMap = Map.insert xId y tMap'
       where
         tMap' = Map.map (subTTerm x y) tMap
 
     -- checks that tVar x does not exist in tTerm t, stop recursive substitions
-    occursCheck x (TTuple ts) = any (occursCheck x) ts
-    occursCheck x (TArr fromT toT) = (occursCheck x fromT) || (occursCheck x toT)
+    occursCheck x t@(TTuple ts)
+        | t == x = True
+        | otherwise = any (occursCheck x) ts
+    occursCheck x t@(TArr fromT toT)
+        | t == x = True
+        | otherwise = (occursCheck x fromT) || (occursCheck x toT)
     occursCheck x t = if t == x then True else False
 
-    -- replaces all occurances of x with y in the tTerm
-    subTTerm x y (TTuple ts) = TTuple $ map (subTTerm x y) ts
-    subTTerm x y (TArr fromT toT) = TArr (subTTerm x y fromT) (subTTerm x y toT)
+    -- replaces all occurances of x with y in the tTerm t
+    subTTerm x y t@(TTuple ts)
+        | t == x = y
+        | otherwise = TTuple $ map (subTTerm x y) ts
+    subTTerm x y t@(TArr fromT toT)
+        | t == x = y
+        | otherwise = TArr (subTTerm x y fromT) (subTTerm x y toT)
     subTTerm x y t = if t == x then y else t
-
 

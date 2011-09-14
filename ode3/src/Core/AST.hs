@@ -20,7 +20,8 @@
 -- {-#LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
 
 module Core.AST (
-Id, TType(..), TypedId(..),
+Id, Bind(..), -- TType(..), TypedId(..),
+
 ModelMap(..), Model, ListModel, OrdModel, getOrdMap, getOrdSeq, putOrdMap, putOrdSeq, getTopBinding,
 Top(..), Expr(..), Op(..), Literal(..),
 ) where
@@ -65,8 +66,9 @@ data LExpr      = LVar Id
                 deriving Show
 
 -- |Main model elements - maybe move these into a Map indexed by Id
-data Top b  = TopLet b (Expr b)    -- binding, expr
-            | TopAbs b b (Expr b) -- binding, abs name, expr
+-- TODO - GADT this
+data Top b  = TopLet (Bind b) (Expr b)    -- binding, expr
+            | TopAbs (Bind b) (Bind b) (Expr b) -- binding, abs name, expr
             deriving Show
 
 -- | Main body of a \c-calc expression
@@ -85,7 +87,8 @@ data Expr b = Var b                    -- a reference to any let-defined express
                                         -- by using an Id instead of Expr we effecitively disallow anon-funcs and HOF, we can only
                                         -- call top-level variables that may then be applied
 
-            | Let b (Expr b) (Expr b)  -- basic let within sub-expression
+            | Let (Bind b) (Expr b) (Expr b)  -- basic let within sub-expression
+                                        -- test to try multi-lets within an expressino - handles unpacking with context
 
             | Op Op (Expr b)    -- is basically identical to App - however is used to refer to built-in/run-time functions
                                 -- we could but don't curry as would like to apply same optimsations to both sys/user functions
@@ -122,40 +125,44 @@ data Op = Add | Sub | Mul | Div | Mod
 -- | Identifier - basicially RdrName - needs to become parameterised
 type Id = String
 -- TODO - change to newtype
--- |NewIdentifier - holds both a (parameterised) identifier and a string that represetns the (closest) original/source variable and line num
+-- | NewIdentifier - holds both a (parameterised) identifier and a string that represetns the (closest) original/source variable and line num
 data NewId a = NewId a String Int
 
-data TypedId = TypedId Int (TType Int)
+--data TypedId = TypedId Int (TType Int)
+--    deriving (Show, Eq, Ord)
+
+-- TODO - override auto deriving typeclass
+data Bind b = SingleBind b | MultiBind [b]
     deriving (Show, Eq, Ord)
+
+-- Don't use this - not correct approach
+--instance (Eq b) => Eq (Bind b) where
+--    (==) (SingleBind a) (SingleBind b) = a == b
+--    (==) (MultiBind as) (MultiBind bs) = as == bs
+--    (==) (SingleBind a) (MultiBind bs) = a `elem` bs
+--    (==) (MultiBind as) (SingleBind b) = b `elem` as
 
 
 -- TODO - use a GADT, stop tuples of tuples being allowed,
 -- | Types
-data TType b =  TUnknown -- TODO - should this be a maybe?
-                | TRef b
-                | TBool
-                | TFloat
-                | TArr (TType b) (TType b)
-                | TTuple [TType b] -- don't want to allow tuples of tuples
-                deriving (Show, Eq, Ord)
 
 
 -- TODO -- maybe use number and Id to index/key
 -- | Top level Core model
 -- need to make sure this is an ordered map so we keep the evaluation order correct
-type Model b =  Map.Map b (Top b)
+type Model b =  Map.Map (Bind b) (Top b)
 
-type ListModel b = [(b, Top b)]
+type ListModel b = [(Bind b, Top b)]
 
 --data OrdModel b = OrdModel { ordMap :: IntMap.IntMap b, ordSeq :: Seq.Seq b }
-data IOrdModel b = IOrdModel { ordMap :: Map.Map b Int, ordSeq :: Seq.Seq (Top b) } deriving Show
+data IOrdModel b = IOrdModel { ordMap :: Map.Map (Bind b) Int, ordSeq :: Seq.Seq (Top b) } deriving Show
 
 -- Newtype test - is it needed in this case - type classes should be enough with escape hatch if neccessary
 newtype OrdModel b = OrdModel { getOrdModel :: IOrdModel b } deriving Show
-getOrdMap :: OrdModel b -> Map.Map b Int
+getOrdMap :: OrdModel b -> Map.Map (Bind b) Int
 getOrdMap om = ordMap . getOrdModel $ om
 
-putOrdMap :: Map.Map b Int -> OrdModel b -> OrdModel b
+putOrdMap :: Map.Map (Bind b) Int -> OrdModel b -> OrdModel b
 putOrdMap map m = OrdModel $ IOrdModel map (getOrdSeq m)
 
 getOrdSeq :: OrdModel b -> Seq.Seq (Top b)
@@ -164,8 +171,9 @@ getOrdSeq om = ordSeq . getOrdModel $ om
 putOrdSeq :: Seq.Seq (Top b) -> OrdModel b -> OrdModel b
 putOrdSeq seq m = OrdModel $ IOrdModel (getOrdMap m) seq
 
-getTopBinding :: Top b -> (b, Top b)
+getTopBinding :: Top b -> (Bind b, Top b)
 getTopBinding t@(TopLet b _) = (b,t)
+-- TODO - should abs be wrapped in a bind?
 getTopBinding t@(TopAbs b _ _) = (b,t)
 
 
@@ -173,23 +181,23 @@ getTopBinding t@(TopAbs b _ _) = (b,t)
 -- most functions cribbed from Data.Map
 -- add more as needed, only basic essential funcs here, rest acessible via escape hatch to direct map
 -- need to make instance of Traversable and Foldable
-class ModelMap a b | a -> b where
+class ModelMap a b | a -> b where -- a is the Data Strcuture, b is the Bind Type Variable
     -- | Perform a direct lookup for given binding, throw error if not found
-    (!) :: (Ord b) => a -> b -> Top b
+    (!) :: (Ord b) => a -> (Bind b) -> Top b
     -- | return the topval within a Maybe for the given binding
-    lookup :: (Ord b) => b -> a -> Maybe (Top b) -- keep same order args as Data.Map (even tho wrong)
+    lookup :: (Ord b) => (Bind b) -> a -> Maybe (Top b) -- keep same order args as Data.Map (even tho wrong)
     -- | Check if the binding is within the model
-    member :: (Ord b) => b -> a -> Bool
+    member :: (Ord b) => (Bind b) -> a -> Bool
     -- | Create an empty model
     empty :: a
     -- | Create a new model from a single top-binding
-    singleton :: b -> (Top b) -> a
+    singleton :: (Bind b) -> (Top b) -> a
     -- | Insert the binding into the model, taking into account the insertion order
-    insert :: (Ord b) => b -> (Top b) -> a -> a
+    insert :: (Ord b) => (Bind b) -> (Top b) -> a -> a
     -- | Delete the binding from the model
-    delete :: (Ord b) => b -> a -> a
+    delete :: (Ord b) => (Bind b) -> a -> a
     -- | if elem exists, run the function over the topval, if returns Just then update, if None then delete
-    update :: (Ord b) => (Top b -> Maybe (Top b)) -> b -> a -> a
+    update :: (Ord b) => (Top b -> Maybe (Top b)) -> (Bind b) -> a -> a
     -- | Map over elements in order independent manner,
     -- does not allow for chaning the types of the binding
     -- should this then run fmap over the internal elems?
@@ -200,11 +208,11 @@ class ModelMap a b | a -> b where
     -- | The top-level elements in the model
     elems :: (Ord b) => a -> [Top b]
     -- | The top-level bindings in the model
-    keys  :: (Ord b) => a -> [b]
+    keys  :: (Ord b) => a -> [Bind b]
     -- | An association-list repsentation of the model
-    toList :: (Ord b) => a -> [(b, Top b)] -- this may be ordered depending on the type of model
+    toList :: (Ord b) => a -> [(Bind b, Top b)] -- this may be ordered depending on the type of model
     -- | Convert an assoication list binding/top-elem into a model
-    fromList :: Ord b => [(b, Top b)] -> a -- this initial ordering may be retained
+    fromList :: Ord b => [(Bind b, Top b)] -> a -- this initial ordering may be retained
 
 
 -- create a few typeclasss instances
@@ -331,17 +339,19 @@ instance ModelMap (OrdModel b) b where
 --    fmap f model = model
 --      where
 --        newSeq = fmap f (getOrdSeq model)
-
+instance Functor Bind where
+    fmap f (SingleBind b) = SingleBind $ f b
+    fmap f (MultiBind b) = MultiBind $ map f b
 
 instance Functor Top where
-    fmap f (TopLet x expr) = TopLet (f x) (fmap f expr)
-    fmap f (TopAbs x arg expr) = TopAbs (f x) (f arg) (fmap f expr)
+    fmap f (TopLet b expr) = TopLet (fmap f b) (fmap f expr)
+    fmap f (TopAbs b arg expr) = TopAbs (fmap f b) (fmap f arg) (fmap f expr)
 
 instance Functor Expr where
     fmap f (Var a) = Var (f a)
     fmap f (Lit a) = Lit a
     fmap f (App x e) = App (f x) (fmap f e)
-    fmap f (Let x e1 e2) = Let (f x) (fmap f e1) (fmap f e2)
+    fmap f (Let b e1 e2) = Let (fmap f b) (fmap f e1) (fmap f e2)
     fmap f (Op op e) = Op op (fmap f e)
     fmap f (If e1 e2 e3) = If (fmap f e1) (fmap f e2) (fmap f e3)
     fmap f (Pair e1 e2) = Pair (fmap f e1) (fmap f e2)

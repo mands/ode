@@ -29,6 +29,7 @@ import Debug.Trace -- love this shit!
 import Control.Monad
 import Control.Monad.State
 import Control.Monad.Error
+import Control.Applicative
 import Data.Maybe (fromJust)
 
 import qualified Core.AST as C
@@ -49,12 +50,26 @@ newtype TopBinds =  TopBinds (Map.Map C.Id Int) deriving Show
 -- I don't think this function can ever fail
 -- eventually will take/return the higest bound int within the model
 rename :: C.OrdModel C.Id -> MExcept (C.OrdModel Int)
-rename cModel = Right renModel
+rename cModel = trace (show renModel) (Right renModel)
   where
     renModel = renTop cModel
 
 -- then map over each expr, using the topmap, converting lets and building a new scopemap
 -- as traversing expr, as order is fixed this should be ok
+
+convBind :: C.Bind C.Id -> Map.Map C.Id Int -> IntSupply (C.Bind Int, Map.Map C.Id Int)
+convBind (C.SingleBind b) map = do
+    b' <- supply
+    let map' = Map.insert b b' map
+    return (C.SingleBind b', map')
+
+convBind (C.MultiBind bs) map = liftM (mapFst (C.MultiBind . reverse)) $ DF.foldlM t ([], map) bs
+  where
+    t (bs', map) b = do
+        b' <- supply
+        let map' = Map.insert b b' map
+        return (b':bs', map')
+
 
 -- |Need to build a conversion map of the top values first
 renTop :: C.OrdModel C.Id -> (C.OrdModel Int)
@@ -73,29 +88,28 @@ renTop model = model'
 
     convTopBind :: (TopBinds, C.OrdModel Int) -> C.Top C.Id -> IntSupply (TopBinds, C.OrdModel Int)
     convTopBind (TopBinds map, model) (C.TopLet b e) = do
-        b' <- supply
-        let x = b' --trace (show b') b'
-        let map' = TopBinds $ Map.insert b b' map
+        (b', map') <- convBind b map
+        --trace (show b') b'
+        let map'' = TopBinds $ map'
         -- reset exprbinds
         lift $ put (ExprBinds Map.empty)
         -- should traverse over the expression here
-        expr' <- renExpr map' e
-
+        expr' <- renExpr map'' e
         let model' = C.insert b' (C.TopLet b' expr') model
-        return (map', model')
+        return (map'', model')
 
     convTopBind (TopBinds map, model) (C.TopAbs b arg e) = do
-        b' <- supply
-        let x = b' --trace (show b') b'
-        let map' = TopBinds $ Map.insert b b' map
-        arg' <- supply
+        (b', map') <- convBind b map
+        --trace (show b') b'
+        let map'' = TopBinds $ map'
+        (arg', exprMap) <- convBind arg Map.empty
         --let map'' = Map.insert map'
         -- reset exprbinds
-        lift $ put (ExprBinds $ Map.singleton arg arg')
+        lift $ put (ExprBinds $ exprMap)
         -- should traverse over the expression here
-        expr' <- renExpr map' e
+        expr' <- renExpr map'' e
         let model' = C.insert b' (C.TopAbs b' arg' expr') model
-        return (map', model')
+        return (map'', model')
 
 -- | Basic traverse over the expression structure - make into Data.Traversable
 renExpr :: TopBinds -> C.Expr C.Id -> IntSupply (C.Expr Int)
@@ -114,14 +128,16 @@ renExpr tB (C.App b expr) = liftM2 C.App v' expr'
 
 -- need to create a new binding and keep processing
 renExpr tB (C.Let b bExpr expr) = do
-    -- get a unique id
-    b' <- supply
     -- process the binding bExpr with the existing eB
     bExpr' <- renExpr tB bExpr
     -- get the exprBinds
     (ExprBinds eB) <- lift get
+
+    -- get the unique ids
+    (b', eB') <- convBind b eB
+
     -- add new binding
-    let eB' = Map.insert b b' eB
+--    let eB' = Map.insert b b' eB
     -- put the new binding backend
     lift $ put (ExprBinds eB')
     -- process the main expr

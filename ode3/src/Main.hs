@@ -32,7 +32,7 @@ import Ode.Desugarer
 import qualified Core.AST as C
 import Core.Reorderer (reorder)
 import Core.Renamer (rename)
-import Core.TypeChecker (typeCheck)
+--import Core.TypeChecker (typeCheck)
 import qualified Core.Type2 as T2
 
 import qualified CoreANF.AST as CA
@@ -70,7 +70,6 @@ main = do
     -- need to create a maybeT transformer - ignore for now
     resA <- odeParser fileName
     maybe (return Nothing) coreDriver resA
-
 
     infoM "ode3.main" $ "Done"
     --close filelogger
