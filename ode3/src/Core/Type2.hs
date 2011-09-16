@@ -78,7 +78,7 @@ newTypevar = liftM TVar supply
 
 -- | Adds a set of constraints for linking a multibind to a TVar
 multiBindConstraint :: C.Bind Int -> Type -> TypeEnv -> TypeConsM TypeEnv
-multiBindConstraint (C.MultiBind bs) (TVar v) tEnv = do
+multiBindConstraint (C.LetBind bs) (TVar v) tEnv = do
     -- create the new tvars for each binding
     bTs <- mapM (\_ -> newTypevar) bs
     -- add the constaint
@@ -94,21 +94,22 @@ constrain cModel = trace (show tEnv) consSet
     consM :: TypeConsM TypeEnv
     consM = DF.foldlM consTop Map.empty (C.getOrdSeq cModel)
 
-    consTop tEnv (C.TopLet (C.SingleBind b) e) = do
-        (eT, tEnv') <- consExpr tEnv e
-        -- extend and return tEnv
-        return $ Map.insert b eT tEnv'
+--    consTop tEnv (C.TopLet (C.SingleBind b) e) = do
+--        (eT, tEnv') <- consExpr tEnv e
+--        -- extend and return tEnv
+--        return $ Map.insert b eT tEnv'
 
-    consTop tEnv (C.TopLet (C.MultiBind bs) e) = do
+    consTop tEnv (C.TopLet (C.LetBind bs) e) = do
         (eT, tEnv') <- consExpr tEnv e
         -- extend and return tEnv
         -- return $ Map.insert i eT tEnv'
         case eT of
             (TTuple ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv' (zip bs ts)
-            (TVar v) -> multiBindConstraint (C.MultiBind bs) (TVar v) tEnv'
+            (TVar v) | (length bs > 1) -> multiBindConstraint (C.LetBind bs) (TVar v) tEnv'
+            t | length bs == 1 -> return $ Map.insert (head bs) eT tEnv'
             _ -> trace ("toplet shit\n" ++ (show bs)) (trace (show eT) (trace (show tEnv') undefined))
 
-    consTop tEnv (C.TopAbs (C.SingleBind b) (C.SingleBind arg) e) = do
+    consTop tEnv (C.TopAbs (C.AbsBind b) arg e) = do
         fromT <- newTypevar
         -- extend the tEnv
         let tEnv' = Map.insert arg fromT tEnv
@@ -136,31 +137,23 @@ constrain cModel = trace (show tEnv) consSet
         return (toT, tEnv')
 
     -- TODO - do we need to return the new tEnv here?
-    consExpr tEnv (C.Let (C.SingleBind b) e1 e2) = do
-        (e1T, tEnv') <- consExpr tEnv e1
-        -- extend tEnv with new env
-        let tEnv'' = Map.insert b e1T tEnv'
-        consExpr tEnv'' e2
-        -- add constraint ?
-        -- return e2T
+--    consExpr tEnv (C.Let (C.SingleBind b) e1 e2) = do
+--        (e1T, tEnv') <- consExpr tEnv e1
+--        -- extend tEnv with new env
+--        let tEnv'' = Map.insert b e1T tEnv'
+--        consExpr tEnv'' e2
+--        -- add constraint ?
+--        -- return e2T
 
-    consExpr tEnv (C.Let (C.MultiBind bs) e1 e2) = do
+    consExpr tEnv (C.Let (C.LetBind bs) e1 e2) = do
         (e1T, tEnv') <- consExpr tEnv e1
         -- extend tEnv with new env
         tEnv'' <- case e1T of
             (TTuple ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv' (zip bs ts)
-            (TVar v) -> multiBindConstraint (C.MultiBind bs) (TVar v) tEnv'
+            (TVar v) | (length bs > 1) -> multiBindConstraint (C.LetBind bs) (TVar v) tEnv'
+            t | length bs == 1 -> return $ Map.insert (head bs) e1T tEnv'
             _ -> trace ("let shit\n" ++ (show bs)) (trace (show e1T) (trace (show tEnv') undefined))
         consExpr tEnv'' e2
-
-
-    -- override behaviour for unpack op
---    consExpr tEnv (C.Op (C.Unpack i) e) = do
---        let fromT = getOpType op
---        toT <- newTypevar
---        (eT, tEnv') <- consExpr tEnv e
---        addConstraint fromT eT
---        return (toT, tEnv')
 
     consExpr tEnv (C.Op op e) = do
         let (TArr fromT toT) = getOpType op
@@ -250,7 +243,7 @@ unify tCons = snd $ u (tCons, Map.empty)
 
     uCon (TTuple xs, TTuple ys) st = foldl (\st (x, y) -> uCon (x, y) st) st (zip xs ys)
 
-    uCon (x, y) st = trace (show (x, y, st)) undefined -- throwError here!
+    uCon (x, y) st = trace ("type error\n" ++ show (x, y, st)) undefined -- throwError here!
 
     -- replaces all occurances of tVar x with y in tCons
     subStack x y tCons = Set.map subTCon tCons

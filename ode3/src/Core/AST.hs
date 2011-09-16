@@ -16,8 +16,7 @@
 -----------------------------------------------------------------------------
 
 {-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, FunctionalDependencies  #-}
-
--- {-#LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
+{-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
 
 module Core.AST (
 Id, Bind(..), -- TType(..), TypedId(..),
@@ -65,11 +64,12 @@ data LExpr      = LVar Id
                 | LOp Op
                 deriving Show
 
+-- TODO - could we use the Bind type to unify both b and [b], or use GADTs and type-classes for extra type-safety
 -- |Main model elements - maybe move these into a Map indexed by Id
--- TODO - GADT this
-data Top b  = TopLet (Bind b) (Expr b)    -- binding, expr
-            | TopAbs (Bind b) (Bind b) (Expr b) -- binding, abs name, expr
-            deriving Show
+data Top b :: * where
+    TopLet :: (Bind b) -> (Expr b) -> Top b    -- binding, expr
+    TopAbs :: (Bind b) -> b -> (Expr b) -> Top b -- binding, abs name, expr
+    deriving Show
 
 -- | Main body of a \c-calc expression
 -- is parameterised by the binding type b - used for RdrNames/Ids, Uniques, Uniques+Types
@@ -118,7 +118,7 @@ data Literal =  Num Double | NumSeq [Double] | Boolean Bool
 data Op = Add | Sub | Mul | Div | Mod
         | LT | LE | GT | GE | EQ | NEQ
         | And | Or | Not
-        | Fst | Snd | Unpack Int -- used for unpacking values from Pairs/Tuples
+        -- | Fst | Snd | Unpack Int -- used for unpacking values from Pairs/Tuples
         | Nop -- not used?
         deriving Show
 
@@ -131,21 +131,9 @@ data NewId a = NewId a String Int
 --data TypedId = TypedId Int (TType Int)
 --    deriving (Show, Eq, Ord)
 
--- TODO - override auto deriving typeclass
-data Bind b = SingleBind b | MultiBind [b]
+-- could entually optimise this and make more type-safe but this works for now
+data Bind b = AbsBind b | LetBind [b]
     deriving (Show, Eq, Ord)
-
--- Don't use this - not correct approach
---instance (Eq b) => Eq (Bind b) where
---    (==) (SingleBind a) (SingleBind b) = a == b
---    (==) (MultiBind as) (MultiBind bs) = as == bs
---    (==) (SingleBind a) (MultiBind bs) = a `elem` bs
---    (==) (MultiBind as) (SingleBind b) = b `elem` as
-
-
--- TODO - use a GADT, stop tuples of tuples being allowed,
--- | Types
-
 
 -- TODO -- maybe use number and Id to index/key
 -- | Top level Core model
@@ -340,12 +328,12 @@ instance ModelMap (OrdModel b) b where
 --      where
 --        newSeq = fmap f (getOrdSeq model)
 instance Functor Bind where
-    fmap f (SingleBind b) = SingleBind $ f b
-    fmap f (MultiBind b) = MultiBind $ map f b
+    fmap f (AbsBind b) = AbsBind $ f b
+    fmap f (LetBind b) = LetBind $ map f b
 
 instance Functor Top where
     fmap f (TopLet b expr) = TopLet (fmap f b) (fmap f expr)
-    fmap f (TopAbs b arg expr) = TopAbs (fmap f b) (fmap f arg) (fmap f expr)
+    fmap f (TopAbs b arg expr) = TopAbs (fmap f b) (f arg) (fmap f expr)
 
 instance Functor Expr where
     fmap f (Var a) = Var (f a)
@@ -375,9 +363,9 @@ instance PrettyPrint Op where
     prettyPrint Or = "!!"
     prettyPrint Not = "!"
 
-    prettyPrint Fst = ".1"
-    prettyPrint Snd = ".2"
-    prettyPrint (Unpack a) = "!!" ++ show a
+--    prettyPrint Fst = ".1"
+--    prettyPrint Snd = ".2"
+--    prettyPrint (Unpack a) = "!!" ++ show a
 
     prettyPrint Nop = "NOP"
 

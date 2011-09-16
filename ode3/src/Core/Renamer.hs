@@ -58,18 +58,17 @@ rename cModel = trace (show renModel) (Right renModel)
 -- as traversing expr, as order is fixed this should be ok
 
 convBind :: C.Bind C.Id -> Map.Map C.Id Int -> IntSupply (C.Bind Int, Map.Map C.Id Int)
-convBind (C.SingleBind b) map = do
+convBind (C.AbsBind b) map = do
     b' <- supply
     let map' = Map.insert b b' map
-    return (C.SingleBind b', map')
+    return (C.AbsBind b', map')
 
-convBind (C.MultiBind bs) map = liftM (mapFst (C.MultiBind . reverse)) $ DF.foldlM t ([], map) bs
+convBind (C.LetBind bs) map = liftM (mapFst (C.LetBind . reverse)) $ DF.foldlM t ([], map) bs
   where
     t (bs', map) b = do
         b' <- supply
         let map' = Map.insert b b' map
         return (b':bs', map')
-
 
 -- |Need to build a conversion map of the top values first
 renTop :: C.OrdModel C.Id -> (C.OrdModel Int)
@@ -102,8 +101,8 @@ renTop model = model'
         (b', map') <- convBind b map
         --trace (show b') b'
         let map'' = TopBinds $ map'
-        (arg', exprMap) <- convBind arg Map.empty
-        --let map'' = Map.insert map'
+        arg' <- supply
+        let exprMap = Map.singleton arg arg'
         -- reset exprbinds
         lift $ put (ExprBinds $ exprMap)
         -- should traverse over the expression here

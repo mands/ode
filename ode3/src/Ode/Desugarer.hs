@@ -59,14 +59,15 @@ desugar (O.Model files modules) = a
 -- | desugar a top-level value constant(s)
 desugarModElems :: (C.Model C.Id) -> O.ModuleElem -> TmpSupply (C.Model C.Id)
 desugarModElems map (O.ModuleElemValue (O.ValueDef ids value)) =
-    if (isSingleElem ids)
-        then do
+--    if (isSingleElem ids)
+--        then do
+--            v' <- dsExpr value
+--            let sB = C.SingleBind $ singleElem ids
+--            return $ C.insert sB (C.TopLet sB v') map
+--        else do
+        do
             v' <- dsExpr value
-            let sB = C.SingleBind $ singleElem ids
-            return $ C.insert sB (C.TopLet sB v') map
-        else do
-            v' <- dsExpr value
-            let mB = C.MultiBind ids
+            let mB = C.LetBind ids
             return $ C.insert mB (C.TopLet mB v') map
 
 
@@ -77,9 +78,9 @@ desugarModElems map (O.ModuleElemValue (O.ValueDef ids value)) =
 --            -- now expand the pattern to create the list of sub-lets
 --            let (multMap', _, _) = foldl createTopIds (multMap, 0, tN) ids
 --            return multMap'
-  where
-    -- creates an Op that represnets the unpacking of a specific tuple value to a bound id
-    createTopIds (map, n, tN) id = (C.insert id (C.TopLet id (C.Op (C.Unpack n) (C.Var tN))) map, n+1, tN)
+--  where
+--    -- creates an Op that represnets the unpacking of a specific tuple value to a bound id
+--    createTopIds (map, n, tN) id = (C.insert id (C.TopLet id (C.Op (C.Unpack n) (C.Var tN))) map, n+1, tN)
 
 -- | desugar a top level component
 desugarModElems map (O.ModuleElemComponent (O.Component name ins body outs)) = do
@@ -87,38 +88,38 @@ desugarModElems map (O.ModuleElemComponent (O.Component name ins body outs)) = d
     arg <- if (isSingleElem ins) then return (singleElem ins) else supply
     --tmpBind <- supply
     v <- desugarComp arg ins body outs
-    let topAbs = C.TopAbs (C.SingleBind name) (C.SingleBind arg) v
-    return $ C.insert (C.SingleBind name) topAbs map
+    let topAbs = C.TopAbs (C.AbsBind name) arg v
+    return $ C.insert (C.AbsBind name) topAbs map
 
 -- | desugars and converts a component into a \c abstraction
 -- not in tail-call form, could blow out the stack, but unlikely
 desugarComp :: C.Id -> [O.Id] -> [O.CompStmt] -> [O.Expr] -> TmpSupply (C.Expr C.Id)
 desugarComp name ins body outs = if (isSingleElem ins)
-    then dsCompBody body -- error here for single elem
-    else dsCompIns ins 0
+        then dsCompBody body -- error here for single elem
+        else dsCompIns ins 0
   where
     -- unpack the input params, a custom fold over the multiple ins
     --dsCompIns [] _ = dsCompBody body
     -- dsCompIns (x:xs) n = liftM (C.Let x (C.Op (C.Unpack n) (C.Var name))) $ dsCompIns xs (n+1)
-    dsCompIns bs _ = liftM (C.Let (C.MultiBind bs) (C.Var name)) $ dsCompBody body
+    dsCompIns bs _ = liftM (C.Let (C.LetBind bs) (C.Var name)) $ dsCompBody body
 
     -- process the body by pattern-matching on the statement types
     dsCompBody [] = dsCompOuts outs
     -- very similar to top-level value def - need to handle single elem diff to mult
-    dsCompBody ((O.CompValue (O.ValueDef ids e)):xs) =
-        if (isSingleElem ids)
-            then liftM2 (C.Let (C.SingleBind $ singleElem ids)) (dsExpr e) (dsCompBody xs)
-            else liftM2 (C.Let (C.MultiBind ids)) (dsExpr e) (dsCompBody xs)
+    dsCompBody ((O.CompValue (O.ValueDef ids e)):xs) = liftM2 (C.Let (C.LetBind ids)) (dsExpr e) (dsCompBody xs)
+--        if (isSingleElem ids)
+--            then liftM2 (C.Let (C.SingleBind $ singleElem ids)) (dsExpr e) (dsCompBody xs)
+--            else liftM2 (C.Let (C.MultiBind ids)) (dsExpr e) (dsCompBody xs)
 --            else do
 --                e' <- dsExpr e
 --                tN <- supply
 --                xs' <- dsCompBodyVals ids 0 tN
 --                return $ C.Let tN e' xs'
-      where
-        dsCompBodyVals [] _ _ = dsCompBody xs
-        dsCompBodyVals (id:ids) n tN = do
-            ids' <- (dsCompBodyVals ids (n+1) tN)
-            return $ C.Let id (C.Op (C.Unpack n) (C.Var tN)) ids'
+--      where
+--        dsCompBodyVals [] _ _ = dsCompBody xs
+--        dsCompBodyVals (id:ids) n tN = do
+--            ids' <- (dsCompBodyVals ids (n+1) tN)
+--            return $ C.Let id (C.Op (C.Unpack n) (C.Var tN)) ids'
 
     -- we ignore for now
     dsCompBody ((O.InitValueDef ids e):xs) = lift $ throwError "test"

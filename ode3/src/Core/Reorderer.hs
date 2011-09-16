@@ -42,7 +42,7 @@ import Utils.Utils
 -- need a topgraph and a topmap - place them both in a state monad and done
 type TopGraph = Gr (C.Bind C.Id) ()
 -- TODO - GADT this
-data TopExpr = LTopLet (C.Bind C.Id) | LTopAbs (C.Bind C.Id) (C.Bind C.Id) deriving Show
+data TopExpr = LTopLet (C.Bind C.Id) | LTopAbs (C.Bind C.Id) C.Id deriving Show
 
 type ExprGraph = Gr ExprNodeLabel ()
 data ExprNodeLabel = ExprNodeLabel (C.Bind C.Id) (C.Expr C.Id) deriving Show
@@ -103,10 +103,10 @@ createTopMap cModel = trace (show topMap) topMap
       where
         (baseExpr, map) = (createExprMap [1..] exp)
 
-    createExprMap (x:xs) (C.Let (C.SingleBind b) e1 e2) = (baseExpr, Map.insert b x map')
-      where
-        (baseExpr, map') = (createExprMap xs e2)
-    createExprMap (x:xs) (C.Let (C.MultiBind bs) e1 e2) = (baseExpr, foldl (\map' b -> Map.insert b x map') map' bs)
+--    createExprMap (x:xs) (C.Let (C.SingleBind b) e1 e2) = (baseExpr, Map.insert b x map')
+--      where
+--        (baseExpr, map') = (createExprMap xs e2)
+    createExprMap (x:xs) (C.Let (C.LetBind bs) e1 e2) = (baseExpr, foldl (\map' b -> Map.insert b x map') map' bs)
       where
         (baseExpr, map') = (createExprMap xs e2)
 
@@ -121,8 +121,8 @@ createTopMap cModel = trace (show topMap) topMap
 createTopBindMap :: TopMap -> TopBindMap
 createTopBindMap topMap = trace (show res) res
   where
-    createElem map bind@(C.SingleBind b) = Map.insert b bind map
-    createElem map bind@(C.MultiBind bs) = foldl (\map b -> Map.insert b bind map) map bs
+    createElem map bind@(C.AbsBind b) = Map.insert b bind map
+    createElem map bind@(C.LetBind bs) = foldl (\map b -> Map.insert b bind map) map bs
     res = foldl createElem Map.empty (Map.keys topMap)
 
 
@@ -182,7 +182,7 @@ procExprN topElem eg mENode exp = procExpr eg exp
             Nothing ->
                 -- check to see if is the arg within an abs
                 case (rTopExpr topElem) of
-                    LTopAbs _ arg -> if (arg == (C.SingleBind useVar)) then return eg else checkTopDep
+                    LTopAbs _ arg -> if (arg == useVar) then return eg else checkTopDep
                     -- if not, check the toplevel
                     _ -> checkTopDep
       where

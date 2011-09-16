@@ -1,27 +1,19 @@
 module Test {
 
-// test Float
+   component addsub(x, y) {
+        return (x + y, x - y)
+    }
 
+    val X,Y = addsub(3, 4)
+
+// test basic top lets
 /*
 	val X = 3
 	val Y = 3 + 3
 	val Z = 3 > 0 and Y > X
-
-	component inc(x) {
-		return (x+1)
-	}
 */
 
-// test Let var
-/*
-    component let(x) {
-	    val y = x + 1
-		//val z = y and x
-		return (x+y)
-	}
-*/
-	
-// test Float -> Float
+// test component - Float -> Float
 /* 
     component inc(x) {
         return (x + 1)
@@ -35,7 +27,16 @@ module Test {
     // what the fuck!
     // val Z = Y + X + Z
 */
+
+// test component-local lets
+/*
+    component let(x) {
+	    val y = x + 1
+		return (x+y)
+	}
+*/
 	
+// more complicated components
 // test (Float, Float) -> Float
 /*
     component add(x, y) {
@@ -53,5 +54,14 @@ module Test {
 
     val X,Y = addsub(3, 4)
 	// val Y,Z = X
+*/
+
+// component-local type error
+/*
+    component let(x) {
+	    val y = x + 1
+		val z = x and y
+		return (x+y)
+	}
 */
 }
