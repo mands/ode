@@ -19,8 +19,7 @@
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
 
 module Core.AST (
-Id, Bind(..), -- TType(..), TypedId(..),
-
+Id, Bind(..), Type(..), TypedId(..), travTypes,
 ModelMap(..), Model, ListModel, OrdModel, getOrdMap, getOrdSeq, putOrdMap, putOrdSeq, getTopBinding,
 Top(..), Expr(..), Op(..), Literal(..),
 ) where
@@ -128,8 +127,25 @@ type Id = String
 -- | NewIdentifier - holds both a (parameterised) identifier and a string that represetns the (closest) original/source variable and line num
 data NewId a = NewId a String Int
 
---data TypedId = TypedId Int (TType Int)
---    deriving (Show, Eq, Ord)
+
+-- | Types
+data Type :: * where
+    -- TUnknown :: Type -- TODO - remove
+    TVar :: Int -> Type
+    TBool :: Type
+    TFloat :: Type
+    TArr :: Type -> Type -> Type
+    TTuple :: [Type] -> Type -- don't want to allow tuples of tuples
+    deriving (Show, Eq, Ord)
+
+travTypes :: Type -> (Type -> Type) -> Type
+travTypes (TArr fromT toT) f = TArr (travTypes fromT f) (travTypes toT f)
+travTypes (TTuple ts) f = TTuple $ map f ts
+travTypes t f = f t
+
+
+data TypedId = TypedId Int Type
+    deriving (Show, Eq, Ord)
 
 -- could entually optimise this and make more type-safe but this works for now
 data Bind b = AbsBind b | LetBind [b]

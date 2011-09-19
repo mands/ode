@@ -106,7 +106,7 @@ createTopMap cModel = trace (show topMap) topMap
 --    createExprMap (x:xs) (C.Let (C.SingleBind b) e1 e2) = (baseExpr, Map.insert b x map')
 --      where
 --        (baseExpr, map') = (createExprMap xs e2)
-    createExprMap (x:xs) (C.Let (C.LetBind bs) e1 e2) = (baseExpr, foldl (\map' b -> Map.insert b x map') map' bs)
+    createExprMap (x:xs) (C.Let (C.LetBind bs) e1 e2) = (baseExpr, foldl (\map b -> Map.insert b x map) map' bs)
       where
         (baseExpr, map') = (createExprMap xs e2)
 
