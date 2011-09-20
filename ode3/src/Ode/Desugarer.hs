@@ -29,7 +29,7 @@ import qualified Core.AST as C
 -- We need a supply of unique Ids
 -- supply type, transformed with Error/Except Monad
 -- have to (lift throwError) as didn't create a newtype with auto-Deriving
-type TmpSupply = SupplyT C.Id MExcept
+type TmpSupply = SupplyT C.SrcId MExcept
 throw x = lift $ E.throwError x
 
 evalSupplyVars x = evalSupplyT x $ map (\x -> tmpPrefix ++ x) vars
@@ -40,7 +40,7 @@ evalSupplyVars x = evalSupplyT x $ map (\x -> tmpPrefix ++ x) vars
 --tmpName = "tmpName"
 -- | desugar function takes an ODE model representaiton and converts it into a lower-level Core AST
 -- we only concern ourselves with single module models for now
-desugar :: O.Model -> MExcept (C.Model C.Id)
+desugar :: O.Model -> MExcept (C.Model C.SrcId)
 desugar (O.Model files modules) = a
   where
     -- use the supply monad to generate unique names
@@ -57,7 +57,7 @@ desugar (O.Model files modules) = a
                         $ modules
 
 -- | desugar a top-level value constant(s)
-desugarModElems :: (C.Model C.Id) -> O.ModuleElem -> TmpSupply (C.Model C.Id)
+desugarModElems :: (C.Model C.SrcId) -> O.ModuleElem -> TmpSupply (C.Model C.SrcId)
 desugarModElems map (O.ModuleElemValue (O.ValueDef ids value)) =
 --    if (isSingleElem ids)
 --        then do
@@ -93,7 +93,7 @@ desugarModElems map (O.ModuleElemComponent (O.Component name ins body outs)) = d
 
 -- | desugars and converts a component into a \c abstraction
 -- not in tail-call form, could blow out the stack, but unlikely
-desugarComp :: C.Id -> [O.Id] -> [O.CompStmt] -> [O.Expr] -> TmpSupply (C.Expr C.Id)
+desugarComp :: C.SrcId -> [O.Id] -> [O.CompStmt] -> [O.Expr] -> TmpSupply (C.Expr C.SrcId)
 desugarComp name ins body outs = if (isSingleElem ins)
         then dsCompBody body -- error here for single elem
         else dsCompIns ins 0
@@ -130,7 +130,7 @@ desugarComp name ins body outs = if (isSingleElem ins)
 
 -- | Expression desugarer - basically a big pattern amtch on all possible types
 -- should prob enable warnings to pick up all unmatched patterns
-dsExpr :: O.Expr -> TmpSupply (C.Expr C.Id)
+dsExpr :: O.Expr -> TmpSupply (C.Expr C.SrcId)
 dsExpr (O.UnExpr O.Not e) = liftM (C.Op C.Not) (dsExpr e)
 
 -- convert unary negation into (* -1)

@@ -17,6 +17,7 @@
 -----------------------------------------------------------------------------
 
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+-- {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
 
 module Core.Reorderer (
 reorder
@@ -40,21 +41,26 @@ import Utils.Utils
 
 -- define the types we need for our graphs
 -- need a topgraph and a topmap - place them both in a state monad and done
-type TopGraph = Gr (C.Bind C.Id) ()
--- TODO - GADT this
-data TopExpr = LTopLet (C.Bind C.Id) | LTopAbs (C.Bind C.Id) C.Id deriving Show
+type TopGraph = Gr (C.Bind C.SrcId) ()
+data TopExpr = LTopLet (C.Bind C.SrcId) | LTopAbs (C.Bind C.SrcId) C.SrcId  deriving Show
+
+--data TopExpr :: *
+--  where
+--    LTopLet :: (C.Bind C.SrcId) -> TopExpr
+--    LTopAbs :: (C.Bind C.SrcId) -> C.SrcId -> TopExpr
+--    deriving Show
 
 type ExprGraph = Gr ExprNodeLabel ()
-data ExprNodeLabel = ExprNodeLabel (C.Bind C.Id) (C.Expr C.Id) deriving Show
+data ExprNodeLabel = ExprNodeLabel (C.Bind C.SrcId) (C.Expr C.SrcId) deriving Show
 
 -- for a top-level id, -> node int, baseexpr, (exprmap - varid -> (node int)), exprgraph
 -- we need some maps to hold the non-let body of an expr
-type TopMap = Map.Map (C.Bind C.Id) TopMapElem
+type TopMap = Map.Map (C.Bind C.SrcId) TopMapElem
 -- a two-stage binding map to map individual binds - need to abstract this datastructure out
-type TopBindMap = Map.Map C.Id (C.Bind C.Id)
+type TopBindMap = Map.Map C.SrcId (C.Bind C.SrcId)
 
-data TopMapElem = TopMapElem {  rTopNode :: Int, rTopExpr :: TopExpr, rBaseExpr :: (C.Expr C.Id),
-                                rExprMap :: Map.Map C.Id Int, rExprGraph :: ExprGraph }
+data TopMapElem = TopMapElem {  rTopNode :: Int, rTopExpr :: TopExpr, rBaseExpr :: (C.Expr C.SrcId),
+                                rExprMap :: Map.Map C.SrcId Int, rExprGraph :: ExprGraph }
                                 deriving Show
 
 -- state monad
@@ -63,7 +69,7 @@ type GraphStateM = StateT ReorderState MExcept
 newtype GraphStateMa a = GraphStateMa { runReorder :: StateT ReorderState (MExcept) a }
     deriving (Monad, MonadState ReorderState, MonadError String)
 
-reorder :: C.Model C.Id -> MExcept (C.OrdModel C.Id)
+reorder :: C.Model C.SrcId -> MExcept (C.OrdModel C.SrcId)
 reorder cModel = do
     -- build the dependency graphs
     (topGraph', topMap') <- procDepGraphs topGraph topMap topBindMap
@@ -77,7 +83,7 @@ reorder cModel = do
     topBindMap = createTopBindMap topMap
 
 -- | The main top-level graph
-createTopGraph :: C.Model C.Id -> TopMap -> TopGraph
+createTopGraph :: C.Model C.SrcId -> TopMap -> TopGraph
 createTopGraph cModel topMap = mkGraph topGraphNodes []
   where
     -- get list of top-graph nodes - need to make sure this matches up with TopMap
@@ -86,11 +92,10 @@ createTopGraph cModel topMap = mkGraph topGraphNodes []
     convGTop (C.TopLet i exp) = (rTopNode $ topMap Map.! i, i)
     convGTop (C.TopAbs i a exp) = (rTopNode $ topMap Map.! i, i)
 
+-- TODO should check here for duplicated ids and throw errors
 -- | need to build the TopMap, can use the model to do this
 -- fold over the elements, creating a new topmap thru accumulation
--- TODO - cleanup
--- TODO should check here for duplicated ids and throw errors
-createTopMap :: C.Model C.Id -> TopMap
+createTopMap :: C.Model C.SrcId -> TopMap
 createTopMap cModel = trace (show topMap) topMap
   where
     (_, topMap) = Map.mapAccum createTopMapElem [1..] cModel
@@ -103,9 +108,6 @@ createTopMap cModel = trace (show topMap) topMap
       where
         (baseExpr, map) = (createExprMap [1..] exp)
 
---    createExprMap (x:xs) (C.Let (C.SingleBind b) e1 e2) = (baseExpr, Map.insert b x map')
---      where
---        (baseExpr, map') = (createExprMap xs e2)
     createExprMap (x:xs) (C.Let (C.LetBind bs) e1 e2) = (baseExpr, foldl (\map b -> Map.insert b x map) map' bs)
       where
         (baseExpr, map') = (createExprMap xs e2)
@@ -138,30 +140,23 @@ procDepGraphs tg tm tbm = do
     procTopElem (topVar, topElem) = foldM procExprNode (topVar, topElem) (labNodes . rExprGraph $ topElem) >>= procBaseExpr
 
     -- | Creates dependencies for the let expressions within an expression
-    procExprNode :: (C.Bind C.Id, TopMapElem) -> LNode ExprNodeLabel -> GraphStateMa (C.Bind C.Id, TopMapElem)
+    procExprNode :: (C.Bind C.SrcId, TopMapElem) -> LNode ExprNodeLabel -> GraphStateMa (C.Bind C.SrcId, TopMapElem)
     procExprNode (topVar, topElem) (expNode, ExprNodeLabel expVar exp) =
         procExprN topElem (rExprGraph topElem) (Just expNode) exp >>= (\eg -> return (topVar, topElem {rExprGraph = eg}))
 
     -- | Creates dependencies for the base expression within an expression
-    procBaseExpr :: (C.Bind C.Id, TopMapElem) -> GraphStateMa (C.Bind C.Id, TopMapElem)
+    procBaseExpr :: (C.Bind C.SrcId, TopMapElem) -> GraphStateMa (C.Bind C.SrcId, TopMapElem)
     procBaseExpr (topVar, topElem) =
         procExprN topElem (rExprGraph topElem) Nothing (rBaseExpr topElem) >>= (\eg -> return (topVar, topElem {rExprGraph = eg}))
 
--- TODO - we need to look a single var ref within both SingleBind and MultiBind
--- could
---topBindLookup :: C.Id -> Map.Map (C.Bind C.Id) Int -> GraphStateMa (Maybe TopMapElem)
-topBindLookup v m = do
-    s <- get
-    let bindVar = (rTopBindMap s) Map.! v
-    return $ Map.lookup bindVar m
 
 -- | Process an individual expression node within the given expression graph eg
-procExprN :: TopMapElem -> ExprGraph -> Maybe Node -> (C.Expr C.Id) -> GraphStateMa ExprGraph
+procExprN :: TopMapElem -> ExprGraph -> Maybe Node -> (C.Expr C.SrcId) -> GraphStateMa ExprGraph
 procExprN topElem eg mENode exp = procExpr eg exp
   where
     -- NOTE - we have already removed all lets from the expressiong so no defs possible
     -- | Process an individual expression by pattern match over the possibilities
-    procExpr :: ExprGraph -> C.Expr C.Id -> GraphStateMa ExprGraph
+    procExpr :: ExprGraph -> C.Expr C.SrcId -> GraphStateMa ExprGraph
     procExpr eg (C.Var useVar) = updateGraphDep eg useVar -- create a link in the graph from def to use
     procExpr eg (C.App useVar exp) = (updateGraphDep eg useVar) >>= (\eg -> procExpr eg exp)  -- create a link in the graph from def to use
 
@@ -171,14 +166,20 @@ procExprN topElem eg mENode exp = procExpr eg exp
     procExpr eg (C.Tuple exps) = foldM (\eg exp -> procExpr eg exp) eg exps
     procExpr eg _ = return eg -- ignore anything else
 
+    -- helper function
+    topBindLookup v m = do
+        s <- get
+        let bindVar = (rTopBindMap s) Map.! v
+        return $ Map.lookup bindVar m
+
     -- | main function that updates the graph with new edges
-    updateGraphDep :: ExprGraph -> C.Id -> GraphStateMa ExprGraph
+    updateGraphDep :: ExprGraph -> C.SrcId -> GraphStateMa ExprGraph
     updateGraphDep eg useVar = do
         -- get the usage's def node from the useVar within the cur elem exprmap
         case (Map.lookup useVar (rExprMap topElem)) of
             -- add a dependency edge from the defUse to the current node
             -- if current expNode exists, i.e. is not a baseExpr
-            Just useDefNode -> return $ maybe eg (\eNode -> addDep useDefNode eNode eg) mENode --return $ addDep useDefNode mENode eg
+            Just useDefNode -> return $ maybe eg (\eNode -> addDep useDefNode eNode eg) mENode
             Nothing ->
                 -- check to see if is the arg within an abs
                 case (rTopExpr topElem) of
@@ -193,7 +194,7 @@ procExprN topElem eg mENode exp = procExpr eg exp
             case topNode of
                 Just useTopElem -> checkTopDep' useTopElem
                 -- throwError if lookup fails
-                Nothing -> throwError ("(a) Referenced variable " ++ (show useVar) ++ " not found") -- return eg
+                Nothing -> throwError ("(a) Referenced variable " ++ (show useVar) ++ " not found")
           where
             checkTopDep' useTopElem = do
                 s <- get
@@ -207,7 +208,7 @@ procExprN topElem eg mENode exp = procExpr eg exp
 
 -- | Sorts the top and expressiosn graphs, returning an ordererd map representation of the model
 -- also checks for recursive definitions at either level
-sortGraphs :: TopGraph -> TopMap -> MExcept [(C.Bind C.Id, C.Top C.Id)]
+sortGraphs :: TopGraph -> TopMap -> MExcept [(C.Bind C.SrcId, C.Top C.SrcId)]
 sortGraphs tg tm = do
     sortTop <- if sccCheck tg then return (topsort' tg)
         -- TODO - need to determine the names of the elements
@@ -227,16 +228,11 @@ sortGraphs tg tm = do
     sccCheck = all (== 1) . map length . scc
 
     -- | Reconstructs an expression from the list of lets and the baseExpr
-    reconExpr :: TopExpr ->  [ExprNodeLabel] -> (C.Expr C.Id) -> C.Top C.Id
+    reconExpr :: TopExpr ->  [ExprNodeLabel] -> (C.Expr C.SrcId) -> C.Top C.SrcId
     reconExpr top lets base = case top of
         LTopLet i -> C.TopLet i (reconLets lets)
         LTopAbs i a ->  C.TopAbs i a (reconLets lets)
       where
         reconLets [] = base
         reconLets ((ExprNodeLabel i e):xs) = C.Let i e (reconLets xs)
-
-
-
-
-
 

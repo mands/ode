@@ -3,8 +3,7 @@ module Test {
    component addsub(x, y) {
         return (x + y, x - y)
     }
-
-    val X,Y = addsub(3, 4)
+    val Xa,Ya = addsub(3, 4)
 
 // test basic top lets
 /*

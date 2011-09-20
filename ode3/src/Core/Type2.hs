@@ -34,6 +34,11 @@ import Utils.Utils
 import Utils.MonadSupply
 
 
+type TypeEnv = Map.Map Int C.Type
+type TypeCons = Set.Set (C.Type, C.Type)
+type TypeConsM = SupplyT Int (State TypeCons)
+
+
 typeCheck :: C.OrdModel Int -> MExcept (C.OrdModel C.TypedId)
 typeCheck cModel = do
     let (tEnv, tCons) = constrain cModel
@@ -41,14 +46,27 @@ typeCheck cModel = do
     let tEnv' = subTVars tEnv tVarMap
     let cModel' = typeModel cModel tEnv'
     trace (show tEnv') (return cModel')
---    checkedTypeMap <- check cModel unifiedTypeMap
---    return $ typeModel cModel checkedTypeMap
 
--- do we store within the typeEnv a type for each individual variable or for each unified bindings?
--- let's try both?
-type TypeEnv = Map.Map Int C.Type
-type TypeCons = Set.Set (C.Type, C.Type)
-type TypeConsM = SupplyT Int (State TypeCons)
+
+-- | use the TVar map to undate the type enviroment and substitute all TVars
+subTVars :: TypeEnv -> Map.Map Int C.Type -> TypeEnv
+subTVars tEnv tVarMap = Map.map (\t -> C.travTypes t updateType) tEnv
+  where
+    updateType (C.TVar i) = tVarMap Map.! i
+    updateType t = t
+
+
+-- | run a map over the model replacing all bindings with typemap equiv
+typeModel :: C.OrdModel Int -> TypeEnv -> C.OrdModel C.TypedId
+typeModel cModel tM = trace (show tM) cModel'
+  where
+    cModel' = DF.foldl createModel C.empty newSeq
+    newSeq = fmap convBinding (C.getOrdSeq cModel)
+    convBinding t = fmap (\i -> C.TypedId i (tM Map.! i)) t
+    createModel m topExpr = C.insert b v m
+      where
+        (b, v) = C.getTopBinding topExpr
+
 
 addConstraint :: C.Type -> C.Type -> TypeConsM ()
 addConstraint t1 t2 = do
@@ -58,15 +76,6 @@ addConstraint t1 t2 = do
 
 newTypevar :: TypeConsM C.Type
 newTypevar = liftM C.TVar supply
-
---consBind :: C.Bind Int -> Type -> TypeEnv -> TypeEnv
---consBind b t tEnv = Map.insert b t tEnv
---consBind (C.MultiBind bs) (TTuple ts) tEnv = foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv (zip bs ts)
-
---consBind (C.SingleBind b) t tEnv = Map.insert b t tEnv
---consBind (C.MultiBind bs) (TTuple ts) tEnv = foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv (zip bs ts)
--- this shouldn't happen
---consBind (C.MultiBind bs) t tEnv = trace ("shit\n" ++ (show bs)) (trace (show t) (trace (show tEnv) undefined))
 
 -- | Adds a set of constraints for linking a multibind to a TVar
 multiBindConstraint :: C.Bind Int -> C.Type -> TypeEnv -> TypeConsM TypeEnv
@@ -86,15 +95,9 @@ constrain cModel = trace (show res) res
     consM :: TypeConsM TypeEnv
     consM = DF.foldlM consTop Map.empty (C.getOrdSeq cModel)
 
---    consTop tEnv (C.TopLet (C.SingleBind b) e) = do
---        (eT, tEnv') <- consExpr tEnv e
---        -- extend and return tEnv
---        return $ Map.insert b eT tEnv'
-
     consTop tEnv (C.TopLet (C.LetBind bs) e) = do
         (eT, tEnv') <- consExpr tEnv e
         -- extend and return tEnv
-        -- return $ Map.insert i eT tEnv'
         case eT of
             (C.TTuple ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv' (zip bs ts)
             (C.TVar v) | (length bs > 1) -> multiBindConstraint (C.LetBind bs) (C.TVar v) tEnv'
@@ -107,13 +110,12 @@ constrain cModel = trace (show res) res
         let tEnv' = Map.insert arg fromT tEnv
         (toT, tEnv'') <- consExpr tEnv' e
         -- add a constraint?
-
         -- extend and return tEnv
         return $ Map.insert b (C.TArr fromT toT) tEnv''
 
 
-    -- | map over the expression elements, creating constraints as needed,
     -- TODO - do we need to uniquely refer to each expression within AST?, or just bindings?
+    -- | map over the expression elements, creating constraints as needed,
     consExpr tEnv (C.Var v) = return $ (tEnv Map.! v, tEnv)
 
     consExpr tEnv (C.Lit l) = return $ (getLitType l, tEnv)
@@ -128,15 +130,7 @@ constrain cModel = trace (show res) res
         addConstraint fT (C.TArr eT toT)
         return (toT, tEnv')
 
-    -- TODO - do we need to return the new tEnv here?
---    consExpr tEnv (C.Let (C.SingleBind b) e1 e2) = do
---        (e1T, tEnv') <- consExpr tEnv e1
---        -- extend tEnv with new env
---        let tEnv'' = Map.insert b e1T tEnv'
---        consExpr tEnv'' e2
---        -- add constraint ?
---        -- return e2T
-
+    -- NOTE - do we need to return the new tEnv here?
     consExpr tEnv (C.Let (C.LetBind bs) e1 e2) = do
         (e1T, tEnv') <- consExpr tEnv e1
         -- extend tEnv with new env
@@ -168,9 +162,10 @@ constrain cModel = trace (show res) res
         consTuple (eTs, tEnv) = (C.TTuple (reverse eTs), tEnv)
 
     -- other exprs
-    consExpr tEnv _ = undefined --return (TFloat, tEnv)
+    consExpr tEnv _ = undefined
 
 
+-- NOTE - should threse two functions be moved into the AST?
 getLitType :: C.Literal -> C.Type
 getLitType l = case l of
     C.Boolean _ -> C.TBool
@@ -178,7 +173,6 @@ getLitType l = case l of
     C.NumSeq _ -> C.TFloat
 
 
--- TODO - should this be moved into the AST?
 -- | Takes an operator and returns the static type of the function
 getOpType :: C.Op -> C.Type
 getOpType op = case op of
@@ -196,17 +190,14 @@ getOpType op = case op of
     C.And -> binLog
     C.Or -> binLog
     C.Not -> C.TArr C.TBool C.TBool
-    --C.Unpack i -> C.TArr (C.TTuple (createUnpackFrom i)) inType -- TODO - is this right?
-    -- C.Nop -> C.TUnknown -- why is this here??!
   where
     binNum = C.TArr (C.TTuple [C.TFloat, C.TFloat]) C.TFloat
     binRel = C.TArr (C.TTuple [C.TFloat, C.TFloat]) C.TBool
     binLog = C.TArr (C.TTuple [C.TBool, C.TBool]) C.TBool
-    --createUnpackFrom i = hd ++ (inType:tl)
-    --  where
-    --    (hd, tl) = splitAt i . replicate i $ C.TUnknown
 
 
+-- | unify takes a set of type contraints and attempts to unify all types, inc TVars
+-- based on HM - standard constraint unification algorithm
 unify :: TypeCons -> MExcept TypeEnv
 unify tCons = liftM snd $ unify' (tCons, Map.empty)
   where
@@ -268,22 +259,3 @@ unify tCons = liftM snd $ unify' (tCons, Map.empty)
         | t == x = y
         | otherwise = C.TArr (subTTerm x y fromT) (subTTerm x y toT)
     subTTerm x y t = if t == x then y else t
-
-subTVars :: TypeEnv -> TypeEnv -> TypeEnv
-subTVars tEnv tVarMap = Map.map (\t -> C.travTypes t updateType) tEnv
-  where
-    updateType (C.TVar i) = tVarMap Map.! i
-    updateType t = t
-
-
--- | run a map over the model replacing all bindings with typemap equiv
-typeModel :: C.OrdModel Int -> TypeEnv -> C.OrdModel C.TypedId
-typeModel cModel tM = trace (show tM) cModel'
-  where
-    cModel' = DF.foldl createModel C.empty newSeq
-    newSeq = fmap convBinding (C.getOrdSeq cModel)
-    convBinding t = fmap (\i -> C.TypedId i (tM Map.! i)) t
-    createModel m topExpr = C.insert b v m
-      where
-        (b, v) = C.getTopBinding topExpr
-
