@@ -38,6 +38,7 @@ import qualified Core.Type2 as T2
 import qualified CoreANF.AST as CA
 
 import Utils.Utils
+import Utils.OrdMap
 
 -- | main entry funtion
 main :: IO ()

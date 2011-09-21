@@ -25,7 +25,7 @@ import qualified Data.Sequence as Seq
 import qualified Data.List as List
 import qualified Data.Foldable as DF
 import qualified Data.Traversable as DT
-import Data.Functor
+import qualified Data.Functor as Functor
 import Data.Maybe (fromJust, isJust)
 import Utils.Utils
 import Core.AST.Expr
