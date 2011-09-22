@@ -26,5 +26,4 @@ Module(..), ModuleData(..), ModuleEnv, ExprMap, TypeMap, IdBimap,
 ) where
 
 import Core.AST.Expr
-import Core.AST.Model
 import Core.AST.Module

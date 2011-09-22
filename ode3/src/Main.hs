@@ -32,8 +32,7 @@ import Ode.Desugarer
 import qualified Core.AST as C
 import Core.Reorderer (reorder)
 import Core.Renamer (rename)
-
-import qualified Core.Type2 as T2
+import Core.TypeChecker (typeCheck)
 
 import qualified CoreANF.AST as CA
 
@@ -111,7 +110,7 @@ odeParser fileName = do
 coreDriver :: C.Module C.SrcId -> IO (Maybe (C.Module C.TypedId)) -- should return CA.Model
 coreDriver oModel = processRes
   where
-    res = reorder oModel >>= rename >>= T2.typeCheck
+    res = reorder oModel >>= rename >>= typeCheck
     processRes = either
         (\err -> errorM "ode3.coreDriver" err >> return Nothing)
         (\res -> infoM "ode3.coreDriver" "No errors" >> infoM "ode3.coreDriver" (show res) >> return (Just res)) res

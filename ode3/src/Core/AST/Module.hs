@@ -20,7 +20,6 @@ Module(..), ModuleData(..), ModuleEnv, ExprMap, TypeMap, IdBimap,
 
 import qualified Data.Map as Map
 import qualified Data.Bimap as Bimap
-import Core.AST.Model
 import Core.AST.Expr
 import qualified Utils.OrdMap as OrdMap
 

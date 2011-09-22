@@ -14,7 +14,7 @@
 -----------------------------------------------------------------------------
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
 
-module Core.Type2 (
+module Core.TypeChecker (
 typeCheck
 ) where
 
