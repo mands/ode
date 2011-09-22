@@ -25,7 +25,7 @@ import qualified Data.Sequence as Seq
 import qualified Data.Foldable as DF
 import qualified Data.Traversable as DT
 import qualified Data.Functor as Functor
-
+import Control.Applicative (liftA, liftA2, pure, (<$>), (<*>))
 import Data.Maybe (fromJust, isJust)
 
 type AssocList k v = [(k, v)]
@@ -92,6 +92,25 @@ map f (OrdMap m) = OrdMap $ List.map f m
 foldl :: (a -> (k,v) -> a) -> a -> OrdMap k v -> a
 foldl f z (OrdMap m) = List.foldl f z m
 
+
+-- |Basic instances
+-- this can't be done as the contained object within OrdModel is not the same as that within the sequence (i.e. b vs Top b)
+-- instead need to get the seq directly to fold over
+
+-- Functor instance - only applies to the values
+instance Functor (OrdMap k) where
+    -- need to fmap over the sequence, then recreate the orig structure using insert with a fold
+    fmap f (OrdMap m) = OrdMap $ fmap (\(k, v) -> (k, f v)) m
+
+instance DF.Foldable (OrdMap k) where
+    --foldr :: (a -> b -> b) -> b -> t a -> b
+    foldr f z (OrdMap m) = foldr (\(k, v) s -> f v s) z m
+
+instance DT.Traversable (OrdMap k) where
+    -- like mapM?
+    traverse f (OrdMap m) = OrdMap <$> DT.traverse f' m
+      where
+        f' (k, v) = (,) <$> (pure k) <*> (f v)
 
 -- Optimised version using a Map and Seq
 --
