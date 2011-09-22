@@ -20,7 +20,7 @@
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
 
 module Core.AST.Expr (
-SrcId, UntypedId, Bind(..), Type(..), TypedId(..), travTypes, getTopBinding,
+Id, SrcId, UntypedId, TypedId(..), ModId, DetailId, Bind(..), Type(..), travTypes, getTopBinding,
 Top(..), Expr(..), Op(..), Literal(..),
 ) where
 
@@ -72,9 +72,13 @@ type SrcId = String
 type UntypedId = Int
 data TypedId = TypedId Int Type
     deriving (Show, Eq, Ord)
+data ModId a =  LocalId a -- Binding
+                | ModId SrcId a -- Module Name and Binding
 
 -- | DetailId - holds both a (parameterised) identifier and a string that represetns the (closest) original/source variable and line num
-data DetailId a = DetailId a SrcId Int
+data DetailId a = DetailId (ModId a) SrcId Int
+
+type Id a = DetailId a
 
 -- | Types
 data Type :: * where
@@ -85,7 +89,7 @@ data Type :: * where
     TTuple :: [Type] -> Type -- don't want to allow tuples of tuples
     deriving (Show, Eq, Ord)
 
--- could entually optimise this and make more type-safe but this works for now
+-- could eventually optimise this and make more type-safe but this works for now
 data Bind b = AbsBind b | LetBind [b]
     deriving (Show, Eq, Ord)
 
@@ -94,7 +98,7 @@ data Bind b = AbsBind b | LetBind [b]
 data Top b :: * where
     TopLet :: (Bind b) -> (Expr b) -> Top b    -- binding, expr
     TopAbs :: (Bind b) -> b -> (Expr b) -> Top b -- binding, abs name, expr
-    deriving Show
+    deriving (Show, Eq, Ord)
 
 getTopBinding :: Top b -> (Bind b, Top b)
 getTopBinding t@(TopLet b _) = (b,t)
@@ -137,23 +141,23 @@ data Expr b = Var b                    -- a reference to any let-defined express
             | Tuple [Expr b]            -- just a test, could be used instead of pairs, makes some ops easier
 
             -- now add the simulation stuff!
-            deriving Show
+            deriving (Show, Eq, Ord)
 
 -- |Atomic, core values, will eventually become atomic args during ANF conversion
 data Literal =  Num Double | NumSeq [Double] | Boolean Bool
-                deriving Show
+                deriving (Show, Eq, Ord)
 
 -- |built-in operators - basically any operators that may be expressed directly as hardware instructions or sys/built-ins
 data Op = Add | Sub | Mul | Div | Mod
         | LT | LE | GT | GE | EQ | NEQ
         | And | Or | Not
-        deriving Show
+        deriving (Show, Eq, Ord)
 
+-- is this some type of type-class?
 travTypes :: Type -> (Type -> Type) -> Type
 travTypes (TArr fromT toT) f = TArr (travTypes fromT f) (travTypes toT f)
 travTypes (TTuple ts) f = TTuple $ map f ts
 travTypes t f = f t
-
 
 -- |Standard functor defintion, could be derived automatically but still...
 -- only applicable for the binding parameter, so maybe useless

@@ -32,20 +32,20 @@ import Text.Printf (printf)
 import qualified Core.AST as C
 import Utils.Utils
 import Utils.MonadSupply
-
+import Utils.OrdMap as OrdMap
 
 type TypeEnv = Map.Map Int C.Type
 type TypeCons = Set.Set (C.Type, C.Type)
 type TypeConsM = SupplyT Int (State TypeCons)
 
 
-typeCheck :: C.OrdModel Int -> MExcept (C.OrdModel C.TypedId)
-typeCheck cModel = do
-    let (tEnv, tCons) = constrain cModel
+typeCheck :: C.Module Int -> MExcept (C.Module C.TypedId)
+typeCheck (C.VarMod n exprMap modData) = do
+    let (tEnv, tCons) = constrain exprMap
     tVarMap <- unify tCons
     let tEnv' = subTVars tEnv tVarMap
-    let cModel' = typeModel cModel tEnv'
-    trace (show tEnv') (return cModel')
+    let exprMap' = typeModel exprMap tEnv'
+    trace (show tEnv') (return (C.VarMod n exprMap' modData))
 
 
 -- | use the TVar map to undate the type enviroment and substitute all TVars
@@ -56,14 +56,15 @@ subTVars tEnv tVarMap = Map.map (\t -> C.travTypes t updateType) tEnv
     updateType t = t
 
 
+-- TODO - clean up
 -- | run a map over the model replacing all bindings with typemap equiv
-typeModel :: C.OrdModel Int -> TypeEnv -> C.OrdModel C.TypedId
+typeModel :: C.ExprMap Int -> TypeEnv -> C.ExprMap C.TypedId
 typeModel cModel tM = trace (show tM) cModel'
   where
-    cModel' = DF.foldl createModel C.empty newSeq
-    newSeq = fmap convBinding (C.getOrdSeq cModel)
+    cModel' = DF.foldl createModel OrdMap.empty newSeq
+    newSeq = fmap convBinding (OrdMap.elems cModel)
     convBinding t = fmap (\i -> C.TypedId i (tM Map.! i)) t
-    createModel m topExpr = C.insert b v m
+    createModel m topExpr = OrdMap.insert b v m
       where
         (b, v) = C.getTopBinding topExpr
 
@@ -87,13 +88,13 @@ multiBindConstraint (C.LetBind bs) (C.TVar v) tEnv = do
     -- add the tvars to the type map
     DF.foldlM (\tEnv (b, bT) -> return $ Map.insert b bT tEnv) tEnv (zip bs bTs)
 
-constrain :: C.OrdModel Int -> (TypeEnv, TypeCons)
+constrain :: C.ExprMap Int -> (TypeEnv, TypeCons)
 constrain cModel = trace (show res) res
   where
     res = runState (evalSupplyT consM [1..]) (Set.empty)
 
     consM :: TypeConsM TypeEnv
-    consM = DF.foldlM consTop Map.empty (C.getOrdSeq cModel)
+    consM = DF.foldlM consTop Map.empty (OrdMap.elems cModel)
 
     consTop tEnv (C.TopLet (C.LetBind bs) e) = do
         (eT, tEnv') <- consExpr tEnv e

@@ -38,6 +38,7 @@ import Data.Maybe (fromJust)
 
 import qualified Core.AST as C
 import Utils.Utils
+import qualified Utils.OrdMap as OrdMap
 
 -- define the types we need for our graphs
 -- need a topgraph and a topmap - place them both in a state monad and done
@@ -69,25 +70,24 @@ type GraphStateM = StateT ReorderState MExcept
 newtype GraphStateMa a = GraphStateMa { runReorder :: StateT ReorderState (MExcept) a }
     deriving (Monad, MonadState ReorderState, MonadError String)
 
-reorder :: C.Model C.SrcId -> MExcept (C.OrdModel C.SrcId)
-reorder cModel = do
+reorder :: C.Module C.SrcId -> MExcept (C.Module C.SrcId)
+reorder (C.VarMod n exprMap modData) = do
     -- build the dependency graphs
     (topGraph', topMap') <- procDepGraphs topGraph topMap topBindMap
     -- now we need to sort the graphs and reconstruct the expressions
-    sortModel <- sortGraphs topGraph' topMap'
-    let sortModel' = C.fromList sortModel
-    return $ trace (show sortModel') sortModel'
+    exprMap' <- sortGraphs topGraph' topMap'
+    return $ trace (show exprMap') (C.VarMod n exprMap' modData)
   where
-    topGraph = createTopGraph cModel topMap
-    topMap = createTopMap cModel
+    topGraph = createTopGraph exprMap topMap
+    topMap = createTopMap exprMap
     topBindMap = createTopBindMap topMap
 
 -- | The main top-level graph
-createTopGraph :: C.Model C.SrcId -> TopMap -> TopGraph
+createTopGraph :: C.ExprMap C.SrcId -> TopMap -> TopGraph
 createTopGraph cModel topMap = mkGraph topGraphNodes []
   where
     -- get list of top-graph nodes - need to make sure this matches up with TopMap
-    topGraphNodes = convGTop <$> (Map.elems cModel) -- use applicative style
+    topGraphNodes = convGTop <$> (OrdMap.elems cModel) -- use applicative style
     -- create a list of the node id (int), and the binding val as the node info
     convGTop (C.TopLet i exp) = (rTopNode $ topMap Map.! i, i)
     convGTop (C.TopAbs i a exp) = (rTopNode $ topMap Map.! i, i)
@@ -95,10 +95,10 @@ createTopGraph cModel topMap = mkGraph topGraphNodes []
 -- TODO should check here for duplicated ids and throw errors
 -- | need to build the TopMap, can use the model to do this
 -- fold over the elements, creating a new topmap thru accumulation
-createTopMap :: C.Model C.SrcId -> TopMap
+createTopMap :: C.ExprMap C.SrcId -> TopMap
 createTopMap cModel = trace (show topMap) topMap
   where
-    (_, topMap) = Map.mapAccum createTopMapElem [1..] cModel
+    (_, topMap) = Map.mapAccum createTopMapElem [1..] (OrdMap.toMap cModel)
 
     createTopMapElem (x:xs) (C.TopLet i exp) = (xs, TopMapElem { rTopNode = x, rTopExpr = LTopLet i, rBaseExpr = baseExpr, rExprMap = map, rExprGraph = createExprGraph exp})
       where
@@ -208,14 +208,14 @@ procExprN topElem eg mENode exp = procExpr eg exp
 
 -- | Sorts the top and expressiosn graphs, returning an ordererd map representation of the model
 -- also checks for recursive definitions at either level
-sortGraphs :: TopGraph -> TopMap -> MExcept [(C.Bind C.SrcId, C.Top C.SrcId)]
+sortGraphs :: TopGraph -> TopMap -> MExcept (C.ExprMap C.SrcId)
 sortGraphs tg tm = do
-    sortTop <- if sccCheck tg then return (topsort' tg)
+    sortedTops <- if sccCheck tg then return (topsort' tg)
         -- TODO - need to determine the names of the elements
         else throwError "Found recursive relationship between top-level elements"
 
     -- need to map over elems in sort top, extract the topmapElem, then sort the exprgraph and regen the top expr
-    DT.mapM sortExpr sortTop
+    liftM OrdMap.fromList $ DT.mapM sortExpr sortedTops
   where
     sortExpr topVar = if exprCheck then return (topVar, rE)
         else throwError ("Found recursive relationship between expressions within " ++ (show topVar))

@@ -16,7 +16,9 @@
 {-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, FunctionalDependencies  #-}
 
 module Utils.OrdMap (
-(!), Utils.OrdMap.lookup, member, empty, singleton, insert, delete, update, elems, keys, toList, fromList
+OrdMap, (!), lookup, member, empty, singleton, insert, delete, update, elems, keys,
+toList, fromList, mapAccum, toMap,
+
 ) where
 
 import qualified Data.List as List
@@ -27,6 +29,7 @@ import qualified Data.Traversable as DT
 import qualified Data.Functor as Functor
 import Control.Applicative (liftA, liftA2, pure, (<$>), (<*>))
 import Data.Maybe (fromJust, isJust)
+import Prelude hiding (foldl, lookup)
 
 type AssocList k v = [(k, v)]
 
@@ -34,36 +37,36 @@ type AssocList k v = [(k, v)]
 -- most functions cribbed from Data.Map
 -- add more as needed, only basic essential funcs here, rest acessible via toList/fromList
 -- need to make instance of Traversable and Foldable
-newtype OrdMap k v = OrdMap [(k,v)] deriving (Show, Eq, Ord)
+newtype OrdMap k v = OrdMapC [(k,v)] deriving (Show, Eq, Ord)
 
 (!) :: (Ord k) => OrdMap k v -> k -> v
-(!) (OrdMap m) k = fromJust $ List.lookup k m
+(!) (OrdMapC m) k = fromJust $ List.lookup k m
 
 lookup :: (Ord k) => k -> OrdMap k v -> Maybe v
-lookup k (OrdMap m) = List.lookup k m
+lookup k (OrdMapC m) = List.lookup k m
 
 member :: (Ord k) => k -> OrdMap k v -> Bool
-member k (OrdMap m) = isJust $ List.lookup k m
+member k (OrdMapC m) = isJust $ List.lookup k m
 
 empty :: OrdMap k v
-empty = OrdMap []
+empty = OrdMapC []
 
 singleton :: k -> v -> OrdMap k v
-singleton k v = OrdMap [(k,v)]
+singleton k v = OrdMapC [(k,v)]
 
 -- if already exsists use existing insertion order, else add at the tail of list
 insert :: (Ord k) => k -> v -> OrdMap k v -> OrdMap k v
-insert k v (OrdMap m) = OrdMap $ maybe insert' update' mInd
+insert k v (OrdMapC m) = OrdMapC $ maybe insert' update' mInd
   where
     update' i = let (hd', tl') = splitAt i m
                 in hd' ++ ((k, v) : (tail tl'))
     insert' = m ++ [(k,v)]
-    mInd = List.elemIndex k (keys (OrdMap m))
+    mInd = List.elemIndex k (keys (OrdMapC m))
 
 delete :: (Ord k) => k -> OrdMap k v -> OrdMap k v
-delete k (OrdMap m) = OrdMap $ maybe m delete' mInd
+delete k (OrdMapC m) = OrdMapC $ maybe m delete' mInd
   where
-    mInd = List.elemIndex k (keys (OrdMap m))
+    mInd = List.elemIndex k (keys (OrdMapC m))
     delete' i = let (hd', tl') = splitAt i m
                 in hd' ++ (tail tl')
 
@@ -74,24 +77,33 @@ update f b m = if member b m then update' (f (m!b)) else m
     update' Nothing = delete b m
 
 elems :: OrdMap k v -> [v]
-elems (OrdMap m) = List.map snd m
+elems (OrdMapC m) = List.map snd m
 
 keys :: OrdMap k v -> [k]
-keys (OrdMap m) = List.map fst m
+keys (OrdMapC m) = List.map fst m
 
 toList :: OrdMap k v -> [(k,v)]
-toList (OrdMap m) = m
+toList (OrdMapC m) = m
 
 fromList :: [(k,v)] -> OrdMap k v
-fromList = OrdMap
+fromList = OrdMapC
+
+toMap :: (Ord k) => OrdMap k v -> Map.Map k v
+toMap = Map.fromList . toList
 
 -- map over the keys and values - preserves the ordering regardless
 map :: ((k, v) -> (k', v')) -> OrdMap k v -> OrdMap k' v'
-map f (OrdMap m) = OrdMap $ List.map f m
+map f (OrdMapC m) = OrdMapC $ List.map f m
 
 foldl :: (a -> (k,v) -> a) -> a -> OrdMap k v -> a
-foldl f z (OrdMap m) = List.foldl f z m
+foldl f z (OrdMapC m) = List.foldl f z m
 
+
+-- other useful functions
+mapAccum :: (Ord k) => (a -> b -> (a, c)) -> a -> OrdMap k b -> (a, OrdMap k c)
+mapAccum f z m = foldl f' (z, empty) m
+  where
+    f' (acc, m) (k, v) = let (acc', v') = f acc v in (acc', insert k v' m)
 
 -- |Basic instances
 -- this can't be done as the contained object within OrdModel is not the same as that within the sequence (i.e. b vs Top b)
@@ -100,15 +112,15 @@ foldl f z (OrdMap m) = List.foldl f z m
 -- Functor instance - only applies to the values
 instance Functor (OrdMap k) where
     -- need to fmap over the sequence, then recreate the orig structure using insert with a fold
-    fmap f (OrdMap m) = OrdMap $ fmap (\(k, v) -> (k, f v)) m
+    fmap f (OrdMapC m) = OrdMapC $ fmap (\(k, v) -> (k, f v)) m
 
 instance DF.Foldable (OrdMap k) where
     --foldr :: (a -> b -> b) -> b -> t a -> b
-    foldr f z (OrdMap m) = foldr (\(k, v) s -> f v s) z m
+    foldr f z (OrdMapC m) = DF.foldr (\(k, v) s -> f v s) z m
 
 instance DT.Traversable (OrdMap k) where
     -- like mapM?
-    traverse f (OrdMap m) = OrdMap <$> DT.traverse f' m
+    traverse f (OrdMapC m) = OrdMapC <$> DT.traverse f' m
       where
         f' (k, v) = (,) <$> (pure k) <*> (f v)
 
@@ -180,20 +192,3 @@ instance DT.Traversable (OrdMap k) where
 --    --List.map (\b -> (b, m!b)) (keys m)
 --
 --    fromList xs = DF.foldl' (\m (b, v) -> insert b v m) empty xs
-
--- |Basic instances
-
--- this can't be done as the contained object within OrdModel is not the same as that within the sequence (i.e. b vs Top b)
--- instead need to get the seq directly to fold over
---instance DF.Foldable OrdModel where
-    --foldr :: (a -> b -> b) -> b -> t a -> b
---    foldr f z m = DF.foldr f z (getOrdSeq m)
-
--- Functor instance - again can't do for same reason as above, model holds b, seq holds (Top b) - not compatible
---instance Functor OrdModel where
-    -- need to fmap over the sequence, then recreate the orig structure using insert with a fold
---    fmap f model = model
---      where
---        newSeq = fmap f (getOrdSeq model)
-
-

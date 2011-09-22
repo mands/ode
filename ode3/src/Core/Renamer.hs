@@ -35,6 +35,7 @@ import Data.Maybe (fromJust)
 import qualified Core.AST as C
 import Utils.Utils
 import Utils.MonadSupply
+import qualified Utils.OrdMap as OrdMap
 
 -- we need a supply of uniques, use monad supply again but with user-start param
 --newtype IntSupply a = IntSupply { runIntSupply :: SupplyT Int (StateT ExprBinds (MExcept)) a }
@@ -49,10 +50,10 @@ newtype TopBinds =  TopBinds (Map.Map C.SrcId Int) deriving Show
 -- | Main rename function, takes a model bound by Ids and returns a single-scoped model bound by unique ints
 -- I don't think this function can ever fail
 -- eventually will take/return the higest bound int within the model
-rename :: C.OrdModel C.SrcId -> MExcept (C.OrdModel Int)
-rename cModel = trace (show renModel) (Right renModel)
+rename :: C.Module C.SrcId -> MExcept (C.Module Int)
+rename (C.VarMod n exprMap modData) = trace (show exprMap') (Right (C.VarMod n exprMap' modData))
   where
-    renModel = renTop cModel
+    exprMap' = renTop exprMap
 
 -- map over each expr, using the topmap, converting lets and building a new scopemap
 -- as traversing expr, as order is fixed this should be ok
@@ -70,7 +71,7 @@ convBind (C.LetBind bs) map = liftM (mapFst (C.LetBind . reverse)) $ DF.foldlM t
         return (b':bs', map')
 
 -- |Need to build a conversion map of the top values first
-renTop :: C.OrdModel C.SrcId -> (C.OrdModel Int)
+renTop :: C.ExprMap C.SrcId -> (C.ExprMap Int)
 renTop model = model'
   where
     ((_, model'), uniqs) = evalState (runSupplyT mModel [1..]) (ExprBinds Map.empty)
@@ -80,11 +81,11 @@ renTop model = model'
 
 --model' -- topBinds
 
-    m = (C.getOrdSeq model)
+    m = (model)
 
-    mModel = DF.foldlM convTopBind (TopBinds Map.empty, C.empty) m
+    mModel = DF.foldlM convTopBind (TopBinds Map.empty, OrdMap.empty) m
 
-    convTopBind :: (TopBinds, C.OrdModel Int) -> C.Top C.SrcId -> IntSupply (TopBinds, C.OrdModel Int)
+    convTopBind :: (TopBinds, C.ExprMap Int) -> C.Top C.SrcId -> IntSupply (TopBinds, C.ExprMap Int)
     convTopBind (TopBinds map, model) (C.TopLet b e) = do
         (b', map') <- convBind b map
         --trace (show b') b'
@@ -93,7 +94,7 @@ renTop model = model'
         lift $ put (ExprBinds Map.empty)
         -- should traverse over the expression here
         expr' <- renExpr map'' e
-        let model' = C.insert b' (C.TopLet b' expr') model
+        let model' = OrdMap.insert b' (C.TopLet b' expr') model
         return (map'', model')
 
     convTopBind (TopBinds map, model) (C.TopAbs b arg e) = do
@@ -105,7 +106,7 @@ renTop model = model'
         lift $ put (ExprBinds $ exprMap)
         -- should traverse over the expression here
         expr' <- renExpr map'' e
-        let model' = C.insert b' (C.TopAbs b' arg' expr') model
+        let model' = OrdMap.insert b' (C.TopAbs b' arg' expr') model
         return (map'', model')
 
 -- | Basic traverse over the expression structure - make into Data.Traversable

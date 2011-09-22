@@ -20,9 +20,11 @@
 
 -- just reexports the imports
 module Core.AST (
-SrcId, UntypedId, TypedId(..), Bind(..), Type(..), travTypes,
-ModelMap(..), Model, ListModel, OrdModel, getOrdMap, getOrdSeq, putOrdMap, putOrdSeq, getTopBinding,
+Id, SrcId, UntypedId, TypedId(..), ModId, DetailId, Bind(..), Type(..), travTypes, getTopBinding,
 Top(..), Expr(..), Op(..), Literal(..),
+--ModelMap(..), Model, ListModel, OrdModel, getOrdMap, getOrdSeq, putOrdMap, putOrdSeq, getTopBinding,
+Module(..), ModuleData(..), ModuleEnv, ExprMap, TypeMap, IdBimap,
+
 ) where
 
 import Core.AST.Expr

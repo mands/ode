@@ -32,7 +32,7 @@ import Ode.Desugarer
 import qualified Core.AST as C
 import Core.Reorderer (reorder)
 import Core.Renamer (rename)
---import Core.TypeChecker (typeCheck)
+
 import qualified Core.Type2 as T2
 
 import qualified CoreANF.AST as CA
@@ -93,7 +93,7 @@ ionParser fileName = do
         (\res -> infoM "ode3.ionParser" "No errors" >> print res) res
 
 -- | drives the core language compilation state through monadic sequencing
-odeParser :: FilePath -> IO (Maybe (C.Model C.SrcId))
+odeParser :: FilePath -> IO (Maybe (C.Module C.SrcId))
 odeParser fileName = do
     fileData <- readFile fileName
     let res = (odeParse fileName fileData) >>= desugar
@@ -108,7 +108,7 @@ odeParser fileName = do
 -- | driver for the core language front-end of the compiler
 -- will effectively run the front-end pipeline within the Error monad
 -- requires calling reorderer, renamer, typechecker, converter/interpreter
-coreDriver :: C.Model C.SrcId -> IO (Maybe (C.OrdModel C.TypedId)) -- should return CA.Model
+coreDriver :: C.Module C.SrcId -> IO (Maybe (C.Module C.TypedId)) -- should return CA.Model
 coreDriver oModel = processRes
   where
     res = reorder oModel >>= rename >>= T2.typeCheck

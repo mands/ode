@@ -18,11 +18,13 @@ desugar
 ) where
 
 import qualified Data.Map as Map
+import qualified Data.Bimap as Bimap
 import Control.Monad
 import Control.Monad.Error as E
 import Control.Monad.Trans
 import Utils.Utils
 import Utils.MonadSupply
+import qualified Utils.OrdMap as OrdMap
 import qualified Ode.AST as O
 import qualified Core.AST as C
 
@@ -40,14 +42,14 @@ evalSupplyVars x = evalSupplyT x $ map (\x -> tmpPrefix ++ x) vars
 --tmpName = "tmpName"
 -- | desugar function takes an ODE model representaiton and converts it into a lower-level Core AST
 -- we only concern ourselves with single module models for now
-desugar :: O.Model -> MExcept (C.Model C.SrcId)
-desugar (O.Model files modules) = a
+desugar :: O.Model -> MExcept (C.Module C.SrcId)
+desugar (O.Model files modules) = a >>= (\a -> return (C.VarMod "testMod" a (C.ModuleData Map.empty Bimap.empty Nothing)))
   where
     -- use the supply monad to generate unique names
     a = evalSupplyVars topMod
 
     -- fold over the list of components within the module creating the model
-    topMod = foldM desugarModElems Map.empty testModElems
+    topMod = foldM desugarModElems OrdMap.empty testModElems
 
     -- filter to get complete modules and return only the elems list
     testModElems =  head . map (\(O.ModuleAbs _ _ elems) -> elems) . filter
@@ -57,7 +59,7 @@ desugar (O.Model files modules) = a
                         $ modules
 
 -- | desugar a top-level value constant(s)
-desugarModElems :: (C.Model C.SrcId) -> O.ModuleElem -> TmpSupply (C.Model C.SrcId)
+desugarModElems :: (C.ExprMap C.SrcId) -> O.ModuleElem -> TmpSupply (C.ExprMap C.SrcId)
 desugarModElems map (O.ModuleElemValue (O.ValueDef ids value)) =
 --    if (isSingleElem ids)
 --        then do
@@ -68,7 +70,7 @@ desugarModElems map (O.ModuleElemValue (O.ValueDef ids value)) =
         do
             v' <- dsExpr value
             let mB = C.LetBind ids
-            return $ C.insert mB (C.TopLet mB v') map
+            return $ OrdMap.insert mB (C.TopLet mB v') map
 
 
     -- call standard expression desugarer for the top-level let of a packed value
@@ -89,7 +91,7 @@ desugarModElems map (O.ModuleElemComponent (O.Component name ins body outs)) = d
     --tmpBind <- supply
     v <- desugarComp arg ins body outs
     let topAbs = C.TopAbs (C.AbsBind name) arg v
-    return $ C.insert (C.AbsBind name) topAbs map
+    return $ OrdMap.insert (C.AbsBind name) topAbs map
 
 -- | desugars and converts a component into a \c abstraction
 -- not in tail-call form, could blow out the stack, but unlikely
