@@ -84,10 +84,10 @@ reorder (C.VarMod n exprMap modData) = do
 
 -- | The main top-level graph
 createTopGraph :: C.ExprMap C.SrcId -> TopMap -> TopGraph
-createTopGraph cModel topMap = mkGraph topGraphNodes []
+createTopGraph exprMap topMap = mkGraph topGraphNodes []
   where
     -- get list of top-graph nodes - need to make sure this matches up with TopMap
-    topGraphNodes = convGTop <$> (OrdMap.elems cModel) -- use applicative style
+    topGraphNodes = convGTop <$> (OrdMap.elems exprMap) -- use applicative style
     -- create a list of the node id (int), and the binding val as the node info
     convGTop (C.TopLet i exp) = (rTopNode $ topMap Map.! i, i)
     convGTop (C.TopAbs i a exp) = (rTopNode $ topMap Map.! i, i)
@@ -96,9 +96,9 @@ createTopGraph cModel topMap = mkGraph topGraphNodes []
 -- | need to build the TopMap, can use the model to do this
 -- fold over the elements, creating a new topmap thru accumulation
 createTopMap :: C.ExprMap C.SrcId -> TopMap
-createTopMap cModel = trace (show topMap) topMap
+createTopMap exprMap = topMap
   where
-    (_, topMap) = Map.mapAccum createTopMapElem [1..] (OrdMap.toMap cModel)
+    (_, topMap) = Map.mapAccum createTopMapElem [1..] (OrdMap.toMap exprMap)
 
     createTopMapElem (x:xs) (C.TopLet i exp) = (xs, TopMapElem { rTopNode = x, rTopExpr = LTopLet i, rBaseExpr = baseExpr, rExprMap = map, rExprGraph = createExprGraph exp})
       where
@@ -121,11 +121,10 @@ createTopMap cModel = trace (show topMap) topMap
 
 
 createTopBindMap :: TopMap -> TopBindMap
-createTopBindMap topMap = trace (show res) res
+createTopBindMap topMap = foldl createElem Map.empty (Map.keys topMap)
   where
     createElem map bind@(C.AbsBind b) = Map.insert b bind map
     createElem map bind@(C.LetBind bs) = foldl (\map b -> Map.insert b bind map) map bs
-    res = foldl createElem Map.empty (Map.keys topMap)
 
 
 -- TODO - fix use of mapM and assoc to use mapWithKey and lift the monads after

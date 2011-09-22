@@ -13,7 +13,7 @@
 -----------------------------------------------------------------------------
 
 module Utils.Utils (
-MExcept, PrettyPrint(..), mapFst, mapSnd
+MExcept, PrettyPrint(..), mapFst, mapSnd, pairM
 ) where
 
 import Control.Monad
@@ -48,6 +48,9 @@ mapFst :: (a -> b) -> (a, c) -> (b, c)
 mapFst f (x,y) = (f x,y)
 mapSnd :: (a -> b) -> (c, a) -> (c, b)
 mapSnd f (x,y) = (x,f y)
+
+pairM :: (Monad m) => m a -> m b -> m (a, b)
+pairM a b = liftM2 (,) a b
 
 
 -- |pretty-printing class for viewing, not machine-readable like Show

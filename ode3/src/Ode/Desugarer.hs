@@ -43,7 +43,7 @@ evalSupplyVars x = evalSupplyT x $ map (\x -> tmpPrefix ++ x) vars
 -- | desugar function takes an ODE model representaiton and converts it into a lower-level Core AST
 -- we only concern ourselves with single module models for now
 desugar :: O.Model -> MExcept (C.Module C.SrcId)
-desugar (O.Model files modules) = a >>= (\a -> return (C.VarMod "testMod" a (C.ModuleData Map.empty Bimap.empty Nothing)))
+desugar (O.Model _ modules) = a >>= (\a -> return (C.VarMod "testMod" a (C.ModuleData Map.empty Bimap.empty Nothing)))
   where
     -- use the supply monad to generate unique names
     a = evalSupplyVars topMod
@@ -60,35 +60,15 @@ desugar (O.Model files modules) = a >>= (\a -> return (C.VarMod "testMod" a (C.M
 
 -- | desugar a top-level value constant(s)
 desugarModElems :: (C.ExprMap C.SrcId) -> O.ModuleElem -> TmpSupply (C.ExprMap C.SrcId)
-desugarModElems map (O.ModuleElemValue (O.ValueDef ids value)) =
---    if (isSingleElem ids)
---        then do
---            v' <- dsExpr value
---            let sB = C.SingleBind $ singleElem ids
---            return $ C.insert sB (C.TopLet sB v') map
---        else do
-        do
-            v' <- dsExpr value
-            let mB = C.LetBind ids
-            return $ OrdMap.insert mB (C.TopLet mB v') map
-
-
-    -- call standard expression desugarer for the top-level let of a packed value
---            v' <- dsExpr value
---            tN <- supply
---            let multMap = C.insert tN (C.TopLet tN v') map
---            -- now expand the pattern to create the list of sub-lets
---            let (multMap', _, _) = foldl createTopIds (multMap, 0, tN) ids
---            return multMap'
---  where
---    -- creates an Op that represnets the unpacking of a specific tuple value to a bound id
---    createTopIds (map, n, tN) id = (C.insert id (C.TopLet id (C.Op (C.Unpack n) (C.Var tN))) map, n+1, tN)
+desugarModElems map (O.ModuleElemValue (O.ValueDef ids value)) = do
+    v' <- dsExpr value
+    let mB = C.LetBind ids
+    return $ OrdMap.insert mB (C.TopLet mB v') map
 
 -- | desugar a top level component
 desugarModElems map (O.ModuleElemComponent (O.Component name ins body outs)) = do
     -- create a new tmpArg only if multiple elems
     arg <- if (isSingleElem ins) then return (singleElem ins) else supply
-    --tmpBind <- supply
     v <- desugarComp arg ins body outs
     let topAbs = C.TopAbs (C.AbsBind name) arg v
     return $ OrdMap.insert (C.AbsBind name) topAbs map
@@ -101,32 +81,17 @@ desugarComp name ins body outs = if (isSingleElem ins)
         else dsCompIns ins 0
   where
     -- unpack the input params, a custom fold over the multiple ins
-    --dsCompIns [] _ = dsCompBody body
-    -- dsCompIns (x:xs) n = liftM (C.Let x (C.Op (C.Unpack n) (C.Var name))) $ dsCompIns xs (n+1)
     dsCompIns bs _ = liftM (C.Let (C.LetBind bs) (C.Var name)) $ dsCompBody body
 
     -- process the body by pattern-matching on the statement types
     dsCompBody [] = dsCompOuts outs
     -- very similar to top-level value def - need to handle single elem diff to mult
     dsCompBody ((O.CompValue (O.ValueDef ids e)):xs) = liftM2 (C.Let (C.LetBind ids)) (dsExpr e) (dsCompBody xs)
---        if (isSingleElem ids)
---            then liftM2 (C.Let (C.SingleBind $ singleElem ids)) (dsExpr e) (dsCompBody xs)
---            else liftM2 (C.Let (C.MultiBind ids)) (dsExpr e) (dsCompBody xs)
---            else do
---                e' <- dsExpr e
---                tN <- supply
---                xs' <- dsCompBodyVals ids 0 tN
---                return $ C.Let tN e' xs'
---      where
---        dsCompBodyVals [] _ _ = dsCompBody xs
---        dsCompBodyVals (id:ids) n tN = do
---            ids' <- (dsCompBodyVals ids (n+1) tN)
---            return $ C.Let id (C.Op (C.Unpack n) (C.Var tN)) ids'
 
-    -- we ignore for now
+    -- TODO - we ignore for now
     dsCompBody ((O.InitValueDef ids e):xs) = lift $ throwError "test"
-    dsCompBody ((O.OdeDef id init e):xs) = undefined
-    dsCompBody ((O.RreDef id (from, to) e):xs) = undefined
+    dsCompBody ((O.OdeDef id init e):xs) = error "got ODE"
+    dsCompBody ((O.RreDef id (from, to) e):xs) = error "got RRE"
 
     dsCompOuts outs = packElems outs
 

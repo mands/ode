@@ -45,7 +45,7 @@ typeCheck (C.VarMod n exprMap modData) = do
     tVarMap <- unify tCons
     let tEnv' = subTVars tEnv tVarMap
     let exprMap' = typeModel exprMap tEnv'
-    trace (show tEnv') (return (C.VarMod n exprMap' modData))
+    return (C.VarMod n exprMap' modData)
 
 
 -- | use the TVar map to undate the type enviroment and substitute all TVars
@@ -59,10 +59,9 @@ subTVars tEnv tVarMap = Map.map (\t -> C.travTypes t updateType) tEnv
 -- TODO - clean up
 -- | run a map over the model replacing all bindings with typemap equiv
 typeModel :: C.ExprMap Int -> TypeEnv -> C.ExprMap C.TypedId
-typeModel cModel tM = trace (show tM) cModel'
+typeModel exprMap tM = DF.foldl createModel OrdMap.empty newSeq
   where
-    cModel' = DF.foldl createModel OrdMap.empty newSeq
-    newSeq = fmap convBinding (OrdMap.elems cModel)
+    newSeq = fmap convBinding (OrdMap.elems exprMap)
     convBinding t = fmap (\i -> C.TypedId i (tM Map.! i)) t
     createModel m topExpr = OrdMap.insert b v m
       where
@@ -89,12 +88,10 @@ multiBindConstraint (C.LetBind bs) (C.TVar v) tEnv = do
     DF.foldlM (\tEnv (b, bT) -> return $ Map.insert b bT tEnv) tEnv (zip bs bTs)
 
 constrain :: C.ExprMap Int -> (TypeEnv, TypeCons)
-constrain cModel = trace (show res) res
+constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
   where
-    res = runState (evalSupplyT consM [1..]) (Set.empty)
-
     consM :: TypeConsM TypeEnv
-    consM = DF.foldlM consTop Map.empty (OrdMap.elems cModel)
+    consM = DF.foldlM consTop Map.empty (OrdMap.elems exprMap)
 
     consTop tEnv (C.TopLet (C.LetBind bs) e) = do
         (eT, tEnv') <- consExpr tEnv e
@@ -103,7 +100,7 @@ constrain cModel = trace (show res) res
             (C.TTuple ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv' (zip bs ts)
             (C.TVar v) | (length bs > 1) -> multiBindConstraint (C.LetBind bs) (C.TVar v) tEnv'
             t | length bs == 1 -> return $ Map.insert (head bs) eT tEnv'
-            _ -> trace ("DUMP - toplet shit\n" ++ (show bs)) (trace (show eT) (trace (show tEnv') undefined))
+            _ -> trace (show bs) (trace (show eT) (trace (show tEnv') (error "DUMP - toplet shit\n")))
 
     consTop tEnv (C.TopAbs (C.AbsBind b) arg e) = do
         fromT <- newTypevar
@@ -139,7 +136,7 @@ constrain cModel = trace (show res) res
             (C.TTuple ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv' (zip bs ts)
             (C.TVar v) | (length bs > 1) -> multiBindConstraint (C.LetBind bs) (C.TVar v) tEnv'
             t | length bs == 1 -> return $ Map.insert (head bs) e1T tEnv'
-            _ -> trace ("DUMP - let shit\n" ++ (show bs)) (trace (show e1T) (trace (show tEnv') undefined))
+            _ -> trace (show bs) (trace (show e1T) (trace (show tEnv') (error "DUMP - let shit\n")))
         consExpr tEnv'' e2
 
     consExpr tEnv (C.Op op e) = do
@@ -166,7 +163,7 @@ constrain cModel = trace (show res) res
     consExpr tEnv _ = undefined
 
 
--- NOTE - should threse two functions be moved into the AST?
+-- NOTE - should these two functions be moved into the AST?
 getLitType :: C.Literal -> C.Type
 getLitType l = case l of
     C.Boolean _ -> C.TBool

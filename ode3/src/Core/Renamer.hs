@@ -47,11 +47,11 @@ type IntSupply = SupplyT Int (State ExprBinds)
 newtype ExprBinds = ExprBinds (Map.Map C.SrcId Int) deriving Show
 newtype TopBinds =  TopBinds (Map.Map C.SrcId Int) deriving Show
 
+-- TODO - store idBimap and maxId in the ModuleData
 -- | Main rename function, takes a model bound by Ids and returns a single-scoped model bound by unique ints
 -- I don't think this function can ever fail
--- eventually will take/return the higest bound int within the model
 rename :: C.Module C.SrcId -> MExcept (C.Module Int)
-rename (C.VarMod n exprMap modData) = trace (show exprMap') (Right (C.VarMod n exprMap' modData))
+rename (C.VarMod n exprMap modData) = (Right (C.VarMod n exprMap' modData))
   where
     exprMap' = renTop exprMap
 
@@ -70,25 +70,31 @@ convBind (C.LetBind bs) map = liftM (mapFst (C.LetBind . reverse)) $ DF.foldlM t
         let map' = Map.insert b b' map
         return (b':bs', map')
 
+
+-- TODO - refactor
+-- | Monadic binding lookup,
+bLookup :: C.SrcId -> TopBinds -> IntSupply Int
+bLookup v (TopBinds tB) = do
+    (ExprBinds eB) <- lift get
+    let m = Map.lookup v eB
+    case m of
+        Just x -> return x
+        -- This should never throw an error (reorderer now catches all unknown variable references)
+        -- maybe (renError ("Referenced variable " ++ v ++ " not found")) (\x -> return x) (Map.lookup v tB)
+        Nothing -> return $ tB Map.! v
+
 -- |Need to build a conversion map of the top values first
 renTop :: C.ExprMap C.SrcId -> (C.ExprMap Int)
-renTop model = model'
+renTop exprMap = exprMap'
   where
-    ((_, model'), uniqs) = evalState (runSupplyT mModel [1..]) (ExprBinds Map.empty)
---renTop model = do
+    ((_, exprMap'), uniqs) = evalState (runSupplyT exprMapM [1..]) (ExprBinds Map.empty)
 --    ((_, model'), uniqs) <- evalState (runSupplyT mModel [1..]) (ExprBinds Map.empty)
---    return model'
 
---model' -- topBinds
-
-    m = (model)
-
-    mModel = DF.foldlM convTopBind (TopBinds Map.empty, OrdMap.empty) m
+    exprMapM = DF.foldlM convTopBind (TopBinds Map.empty, OrdMap.empty) exprMap
 
     convTopBind :: (TopBinds, C.ExprMap Int) -> C.Top C.SrcId -> IntSupply (TopBinds, C.ExprMap Int)
     convTopBind (TopBinds map, model) (C.TopLet b e) = do
         (b', map') <- convBind b map
-        --trace (show b') b'
         let map'' = TopBinds $ map'
         -- reset exprbinds
         lift $ put (ExprBinds Map.empty)
@@ -109,6 +115,7 @@ renTop model = model'
         let model' = OrdMap.insert b' (C.TopAbs b' arg' expr') model
         return (map'', model')
 
+
 -- | Basic traverse over the expression structure - make into Data.Traversable
 renExpr :: TopBinds -> C.Expr C.SrcId -> IntSupply (C.Expr Int)
 
@@ -127,13 +134,9 @@ renExpr tB (C.Let b bExpr expr) = do
     bExpr' <- renExpr tB bExpr
     -- get the exprBinds
     (ExprBinds eB) <- lift get
-
-    -- get the unique ids
+    -- get the unique ids and update the binding
     (b', eB') <- convBind b eB
-
-    -- add new binding
---    let eB' = Map.insert b b' eB
-    -- put the new binding backend
+    -- put the new binding back
     lift $ put (ExprBinds eB')
     -- process the main expr
     expr' <- renExpr tB expr
@@ -151,18 +154,6 @@ renExpr tB (C.If bExpr tExpr fExpr) = return C.If `ap` (re bExpr) `ap` (re tExpr
 -- need to map (or fold?) over the elements - map should be okay as a tuple should never create sub-bindings
 renExpr tB (C.Tuple exprs) = liftM C.Tuple $ DT.mapM (\e -> renExpr tB e) exprs
 
--- | Monadic binding lookup,
--- TODO - refactor
-bLookup :: C.SrcId -> TopBinds -> IntSupply Int
-bLookup v (TopBinds tB) = do
-    (ExprBinds eB) <- lift get
-    let m = Map.lookup v eB
-    case m of
-        Just x -> return x
-        -- This should never throw an error (reorderer now catches all unknown variable references)
-        -- maybe (renError ("Referenced variable " ++ v ++ " not found")) (\x -> return x) (Map.lookup v tB)
-        Nothing -> return $ tB Map.! v
-
 --renError :: String -> IntSupply a
 --renError s = lift . lift $ throwError s
 
@@ -174,14 +165,8 @@ bLookup v (TopBinds tB) = do
 --   instead it only threads whatever is held in the monad
 -- SOL - could manually unpack/thread state using do-notation, easier just to use State monad
 
---rePairExpr ::
 exprAp :: (Monad m) => (b -> c) -> m (a, b) -> m (a, c)
 exprAp f m = m >>= (\(eB, e) -> return (eB, f e))
 
 pairExpr :: ExprBinds -> IntSupply (C.Expr Int) -> IntSupply (ExprBinds, C.Expr Int)
---pairM :: UniqueIntSupply ExprBinds -> UniqueIntSupply (C.Expr Int) -> UniqueIntSupply (ExprBinds, C.Expr Int)
 pairExpr a b = pairM (return a) b
-
-pairM :: (Monad m) => m a -> m b -> m (a, b)
---pairM :: UniqueIntSupply ExprBinds -> UniqueIntSupply (C.Expr Int) -> UniqueIntSupply (ExprBinds, C.Expr Int)
-pairM a b = liftM2 (,) a b
