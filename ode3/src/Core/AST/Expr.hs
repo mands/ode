@@ -20,7 +20,7 @@
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
 
 module Core.AST.Expr (
-Id, SrcId, UntypedId, TypedId(..), ModId, DetailId, Bind(..), Type(..), travTypes, getTopBinding,
+SrcId, Id, ModId(..), Bind(..), Type(..), travTypes, getTopBinding,
 Top(..), Expr(..), Op(..), Literal(..),
 ) where
 
@@ -72,13 +72,15 @@ type SrcId = String
 type UntypedId = Int
 data TypedId = TypedId Int Type
     deriving (Show, Eq, Ord)
+type Id = UntypedId
 data ModId a =  LocalId a -- Binding
                 | ModId SrcId a -- Module Name and Binding
+                deriving (Show, Eq, Ord)
 
 -- | DetailId - holds both a (parameterised) identifier and a string that represetns the (closest) original/source variable and line num
-data DetailId a = DetailId (ModId a) SrcId Int
-
-type Id a = DetailId a
+-- make use mod id
+--data DetailId a = DetailId a SrcId Int deriving (Show, Eq, Ord)
+--type Id a = DetailId a
 
 -- | Types
 data Type :: * where

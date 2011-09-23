@@ -24,6 +24,8 @@ rename
 import qualified Data.Map as Map
 import qualified Data.Foldable as DF
 import qualified Data.Traversable as DT
+import qualified Data.Bimap as Bimap
+
 import Debug.Trace -- love this shit!
 
 import Control.Monad
@@ -44,19 +46,29 @@ import qualified Utils.OrdMap as OrdMap
 type IntSupply = SupplyT Int (State ExprBinds)
 
 -- main types
-newtype ExprBinds = ExprBinds (Map.Map C.SrcId Int) deriving Show
-newtype TopBinds =  TopBinds (Map.Map C.SrcId Int) deriving Show
+newtype ExprBinds = ExprBinds (Map.Map C.SrcId C.Id) deriving Show
+newtype TopBinds =  TopBinds (Map.Map C.SrcId C.Id) deriving Show
 
 -- TODO - store idBimap and maxId in the ModuleData
 -- | Main rename function, takes a model bound by Ids and returns a single-scoped model bound by unique ints
 -- I don't think this function can ever fail
 rename :: C.Module C.SrcId -> MExcept (C.Module Int)
-rename (C.VarMod n exprMap modData) = (Right (C.VarMod n exprMap' modData))
+rename (C.VarMod n exprMap modData) = (Right (C.VarMod n exprMap' modData'))
   where
-    exprMap' = renTop exprMap
+    (exprMap', topBinds, freeId) = renTop exprMap
+    modData' = updateModData modData topBinds freeId
 
--- map over each expr, using the topmap, converting lets and building a new scopemap
--- as traversing expr, as order is fixed this should be ok
+
+-- | Update the module data with the idBimap and next free id
+updateModData :: C.ModuleData ->  TopBinds -> Int -> C.ModuleData
+updateModData modData (TopBinds map) freeId = modData { C.modIdBimap = idBimap', C.modFreeId = Just freeId }
+  where
+    -- TODO - quick hack to convert
+    idBimap = Bimap.fromList $ Map.toList map
+    -- should never fail
+    idBimap' = if (Bimap.valid idBimap) then idBimap else error "DUMP - invalid bimap!"
+
+
 convBind :: C.Bind C.SrcId -> Map.Map C.SrcId Int -> IntSupply (C.Bind Int, Map.Map C.SrcId Int)
 convBind (C.AbsBind b) map = do
     b' <- supply
@@ -84,14 +96,16 @@ bLookup v (TopBinds tB) = do
         Nothing -> return $ tB Map.! v
 
 -- |Need to build a conversion map of the top values first
-renTop :: C.ExprMap C.SrcId -> (C.ExprMap Int)
-renTop exprMap = exprMap'
+renTop :: C.ExprMap C.SrcId -> (C.ExprMap Int, TopBinds, Int)
+renTop exprMap = (exprMap', topBinds, head uniqs)
   where
-    ((_, exprMap'), uniqs) = evalState (runSupplyT exprMapM [1..]) (ExprBinds Map.empty)
+    ((topBinds, exprMap'), uniqs) = evalState (runSupplyT exprMapM [1..]) (ExprBinds Map.empty)
 --    ((_, model'), uniqs) <- evalState (runSupplyT mModel [1..]) (ExprBinds Map.empty)
 
     exprMapM = DF.foldlM convTopBind (TopBinds Map.empty, OrdMap.empty) exprMap
 
+    -- map over each expr, using the topmap, converting lets and building a new scopemap
+    -- as traversing expr, as order is fixed this should be ok
     convTopBind :: (TopBinds, C.ExprMap Int) -> C.Top C.SrcId -> IntSupply (TopBinds, C.ExprMap Int)
     convTopBind (TopBinds map, model) (C.TopLet b e) = do
         (b', map') <- convBind b map

@@ -8,7 +8,7 @@
 -- Stability   :  alpha
 -- Portability :
 --
--- | Desugarer - takes an Ode AST and desguars and converts into the Core langauge AST
+-- | Desugarer - takes an Ode AST and desugars/converts into the Core AST
 -- Can issue errors due to user defined model
 --
 -----------------------------------------------------------------------------
@@ -48,7 +48,7 @@ desugar (O.Model _ modules) = a
     -- use the supply monad to generate unique names
     a = evalSupplyVars testMods
 
-    -- filter to get complete modules and return only the elems list
+    -- filter first to return only complete modules
     testMods = mapM desugarMod . filter
                         (\m -> case m of
                             (O.ModuleAbs _ Nothing _) -> True
@@ -60,7 +60,7 @@ desugarMod :: O.Module -> TmpSupply (C.Module C.SrcId)
 desugarMod (O.ModuleAbs name Nothing elems) = do
     -- fold over the list of elems within the module creating the exprMap
     exprMap <- foldM desugarModElems OrdMap.empty elems
-    return $ C.VarMod name exprMap (C.ModuleData Map.empty Bimap.empty Nothing)
+    return $ C.VarMod name exprMap (C.ModuleData Map.empty Map.empty Bimap.empty Nothing)
 
 desugarMod (O.ModuleAbs name (Just args) elems) = undefined -- C.AbsMod name elems (C.ModuleData Map.empty Bimap.empty Nothing))
 desugarMod (O.ModuleApp  name _) = undefined -- C.AppMod name elems (C.ModuleData Map.empty Bimap.empty Nothing))
@@ -134,7 +134,7 @@ dsExpr (O.Piecewise cases e) = dsIf cases
 dsExpr (O.Call (O.LocalId id) exprs) = liftM (C.App id) $ packElems exprs
 
 -- any unknown/unimplemented paths - mainly modules for now
-dsExpr _ = error "Unknown ODE expression to desugar"
+dsExpr _ = error "Unknown ODE3 expression to desugar"
 
 -- |Simple test to see if an expression contains only a single element or is a packed tuple
 isSingleElem es = length es == 1

@@ -19,6 +19,7 @@ typeCheck
 ) where
 
 import qualified Data.Map as Map
+import qualified Data.Bimap as Bimap
 import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import qualified Data.Foldable as DF
@@ -34,19 +35,20 @@ import Utils.Utils
 import Utils.MonadSupply
 import Utils.OrdMap as OrdMap
 
-type TypeEnv = Map.Map Int C.Type
+type TypeEnv = C.TypeMap
 type TypeCons = Set.Set (C.Type, C.Type)
 type TypeConsM = SupplyT Int (State TypeCons)
 
 
-typeCheck :: C.Module Int -> MExcept (C.Module C.TypedId)
+-- TODO - un-Do this!
+typeCheck :: C.Module C.Id -> MExcept (C.Module C.Id)
 typeCheck (C.VarMod n exprMap modData) = do
     let (tEnv, tCons) = constrain exprMap
     tVarMap <- unify tCons
     let tEnv' = subTVars tEnv tVarMap
-    let exprMap' = typeModel exprMap tEnv'
-    return (C.VarMod n exprMap' modData)
-
+    --let exprMap' = typeExprs exprMap tEnv'
+    let modData' = updateModData modData tEnv'
+    return (C.VarMod n exprMap modData')
 
 -- | use the TVar map to undate the type enviroment and substitute all TVars
 subTVars :: TypeEnv -> Map.Map Int C.Type -> TypeEnv
@@ -55,17 +57,23 @@ subTVars tEnv tVarMap = Map.map (\t -> C.travTypes t updateType) tEnv
     updateType (C.TVar i) = tVarMap Map.! i
     updateType t = t
 
-
 -- TODO - clean up
 -- | run a map over the model replacing all bindings with typemap equiv
-typeModel :: C.ExprMap Int -> TypeEnv -> C.ExprMap C.TypedId
-typeModel exprMap tM = DF.foldl createModel OrdMap.empty newSeq
+--typeExprs :: C.ExprMap Int -> TypeEnv -> C.ExprMap C.TypedId
+--typeExprs exprMap tM = DF.foldl createModel OrdMap.empty newSeq
+--  where
+--    newSeq = fmap convBinding (OrdMap.elems exprMap)
+--    convBinding t = fmap (\i -> C.TypedId i (tM Map.! i)) t
+--    createModel m topExpr = OrdMap.insert b v m
+--      where
+--        (b, v) = C.getTopBinding topExpr
+
+-- | Update the module data with the public module signature and internal typemap
+updateModData :: C.ModuleData -> TypeEnv -> C.ModuleData
+updateModData modData tEnv = modData { C.modTMap = tEnv, C.modSig = modSig }
   where
-    newSeq = fmap convBinding (OrdMap.elems exprMap)
-    convBinding t = fmap (\i -> C.TypedId i (tM Map.! i)) t
-    createModel m topExpr = OrdMap.insert b v m
-      where
-        (b, v) = C.getTopBinding topExpr
+    idMap = Bimap.toMap (C.modIdBimap modData)
+    modSig = Map.map (\id -> tEnv Map.! id) idMap
 
 
 addConstraint :: C.Type -> C.Type -> TypeConsM ()
