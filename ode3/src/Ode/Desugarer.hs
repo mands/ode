@@ -42,36 +42,44 @@ evalSupplyVars x = evalSupplyT x $ map (\x -> tmpPrefix ++ x) vars
 --tmpName = "tmpName"
 -- | desugar function takes an ODE model representaiton and converts it into a lower-level Core AST
 -- we only concern ourselves with single module models for now
-desugar :: O.Model -> MExcept (C.Module C.SrcId)
-desugar (O.Model _ modules) = a >>= (\a -> return (C.VarMod "testMod" a (C.ModuleData Map.empty Bimap.empty Nothing)))
+desugar :: O.Model -> MExcept [C.Module C.SrcId]
+desugar (O.Model _ modules) = a
   where
     -- use the supply monad to generate unique names
-    a = evalSupplyVars topMod
-
-    -- fold over the list of components within the module creating the model
-    topMod = foldM desugarModElems OrdMap.empty testModElems
+    a = evalSupplyVars testMods
 
     -- filter to get complete modules and return only the elems list
-    testModElems =  head . map (\(O.ModuleAbs _ _ elems) -> elems) . filter
+    testMods = mapM desugarMod . filter
                         (\m -> case m of
                             (O.ModuleAbs _ Nothing _) -> True
                             otherwise -> False)
                         $ modules
 
+
+desugarMod :: O.Module -> TmpSupply (C.Module C.SrcId)
+desugarMod (O.ModuleAbs name Nothing elems) = do
+    -- fold over the list of elems within the module creating the exprMap
+    exprMap <- foldM desugarModElems OrdMap.empty elems
+    return $ C.VarMod name exprMap (C.ModuleData Map.empty Bimap.empty Nothing)
+
+desugarMod (O.ModuleAbs name (Just args) elems) = undefined -- C.AbsMod name elems (C.ModuleData Map.empty Bimap.empty Nothing))
+desugarMod (O.ModuleApp  name _) = undefined -- C.AppMod name elems (C.ModuleData Map.empty Bimap.empty Nothing))
+
+
 -- | desugar a top-level value constant(s)
 desugarModElems :: (C.ExprMap C.SrcId) -> O.ModuleElem -> TmpSupply (C.ExprMap C.SrcId)
-desugarModElems map (O.ModuleElemValue (O.ValueDef ids value)) = do
+desugarModElems exprMap (O.ModuleElemValue (O.ValueDef ids value)) = do
     v' <- dsExpr value
     let mB = C.LetBind ids
-    return $ OrdMap.insert mB (C.TopLet mB v') map
+    return $ OrdMap.insert mB (C.TopLet mB v') exprMap
 
 -- | desugar a top level component
-desugarModElems map (O.ModuleElemComponent (O.Component name ins body outs)) = do
+desugarModElems exprMap (O.ModuleElemComponent (O.Component name ins body outs)) = do
     -- create a new tmpArg only if multiple elems
     arg <- if (isSingleElem ins) then return (singleElem ins) else supply
     v <- desugarComp arg ins body outs
     let topAbs = C.TopAbs (C.AbsBind name) arg v
-    return $ OrdMap.insert (C.AbsBind name) topAbs map
+    return $ OrdMap.insert (C.AbsBind name) topAbs exprMap
 
 -- | desugars and converts a component into a \c abstraction
 -- not in tail-call form, could blow out the stack, but unlikely
@@ -126,7 +134,7 @@ dsExpr (O.Piecewise cases e) = dsIf cases
 dsExpr (O.Call (O.LocalId id) exprs) = liftM (C.App id) $ packElems exprs
 
 -- any unknown/unimplemented paths - mainly modules for now
-dsExpr _ = undefined
+dsExpr _ = error "Unknown ODE expression to desugar"
 
 -- |Simple test to see if an expression contains only a single element or is a packed tuple
 isSingleElem es = length es == 1

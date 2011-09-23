@@ -15,7 +15,7 @@
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
 
 module Core.AST.Module (
-Module(..), ModuleData(..), ModuleEnv, ExprMap, TypeMap, IdBimap,
+Module(..), ModuleData(..), ModuleEnv, ExprMap, TypeMap, IdBimap, getModuleName,
 ) where
 
 import qualified Data.Map as Map
@@ -48,6 +48,11 @@ data ModuleData =   ModuleData {tMap :: TypeMap, idBimap :: IdBimap, maxId :: Ma
                     deriving (Show, Eq)
 
 -- | Module envirnomne,t the run-time envirmornet used to create models and start simulations, holds the current results from interpreting the module system
-type ModuleEnv = Map.Map SrcId (Module (Id TypedId))
+type ModuleEnv = Map.Map SrcId (Module (TypedId))
+
+getModuleName :: Module a -> SrcId
+getModuleName (VarMod name _ _) = name
+getModuleName (AbsMod name _ _ _) = name
+getModuleName (AppMod name _ _) = name
 
 

@@ -21,6 +21,9 @@ import System.Log.Logger
 import System.Log.Handler(close)
 import System.Log.Handler.Simple
 import Control.Monad.Trans
+import Control.Monad
+import qualified Data.Foldable as DF
+import qualified Data.Map as Map
 
 import Ion.Parser
 import qualified Ion.AST as I
@@ -92,29 +95,34 @@ ionParser fileName = do
         (\res -> infoM "ode3.ionParser" "No errors" >> print res) res
 
 -- | drives the core language compilation state through monadic sequencing
-odeParser :: FilePath -> IO (Maybe (C.Module C.SrcId))
+odeParser :: FilePath -> IO (Maybe [C.Module C.SrcId])
 odeParser fileName = do
+    -- TODO - update to follow multiple file commands
     fileData <- readFile fileName
-    let res = (odeParse fileName fileData) >>= desugar
+    let modules = (odeParse fileName fileData) >>= desugar
 
     -- back in IO monad, report any error message(s)
     either
         (\err -> errorM "ode3.odeParser" err >> return Nothing)
-        (\res -> infoM "ode3.odeParser" "No errors" >> infoM "ode3.odeParser" (show res) >>
-            --infoM "ode3.odeParser" (prettyPrint res) >>
-            return (Just res)) res
+        (\res -> infoM "ode3.odeParser" "No errors" >> infoM "ode3.odeParser" (show res) >> return (Just res)) modules
 
 -- | driver for the core language front-end of the compiler
 -- will effectively run the front-end pipeline within the Error monad
 -- requires calling reorderer, renamer, typechecker, converter/interpreter
-coreDriver :: C.Module C.SrcId -> IO (Maybe (C.Module C.TypedId)) -- should return CA.Model
-coreDriver oModel = processRes
+coreDriver :: [C.Module C.SrcId] -> IO (Maybe C.ModuleEnv)
+coreDriver modules = processRes
   where
-    res = reorder oModel >>= rename >>= typeCheck
+    modEnv = DF.foldlM procModule Map.empty modules
+
+    modulePipeline = reorder >=> rename >=> typeCheck
+
+    procModule modEnv mod = do
+        mod' <- modulePipeline mod
+        return $ Map.insert (C.getModuleName mod) mod' modEnv
+
     processRes = either
         (\err -> errorM "ode3.coreDriver" err >> return Nothing)
-        (\res -> infoM "ode3.coreDriver" "No errors" >> infoM "ode3.coreDriver" (show res) >> return (Just res)) res
-
+        (\res -> infoM "ode3.coreDriver" "No errors" >> infoM "ode3.coreDriver" (show res) >> return (Just res)) modEnv
 
 -- | driver for the middle-end of the compiler
 -- will run the middle-end of the compiler using the ANF/lowerlevel FIR - AST to be determined
