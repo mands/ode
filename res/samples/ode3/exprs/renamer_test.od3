@@ -1,0 +1,13 @@
+module RenamerTest {
+
+    val x = 1
+
+    component y(x) {
+    	val y = 1
+    	return (x + y)
+    }
+
+    val z = x + y(x) + 2
+
+}
+
