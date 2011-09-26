@@ -22,7 +22,7 @@
 module Core.AST (
 SrcId, Id, ModId, Bind(..), Type(..), travTypes, getTopBinding,
 Top(..), Expr(..), Op(..), Literal(..),
-Module(..), ModuleData(..), ModuleEnv, ExprMap, SigMap, TypeMap, IdBimap, getModuleName,
+TopMod(..), Module(..), ModuleData(..), ModuleEnv, ExprMap, SigMap, TypeMap, IdBimap,
 ) where
 
 import Core.AST.Expr

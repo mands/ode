@@ -42,13 +42,13 @@ type TypeConsM = SupplyT Int (State TypeCons)
 
 -- TODO - un-Do this!
 typeCheck :: C.Module C.Id -> MExcept (C.Module C.Id)
-typeCheck (C.VarMod n exprMap modData) = do
+typeCheck (C.LitMod exprMap modData) = do
     let (tEnv, tCons) = constrain exprMap
     tVarMap <- unify tCons
     let tEnv' = subTVars tEnv tVarMap
     --let exprMap' = typeExprs exprMap tEnv'
     let modData' = updateModData modData tEnv'
-    return (C.VarMod n exprMap modData')
+    return (C.LitMod exprMap modData')
 
 -- | use the TVar map to undate the type enviroment and substitute all TVars
 subTVars :: TypeEnv -> Map.Map Int C.Type -> TypeEnv

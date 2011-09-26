@@ -42,7 +42,7 @@ evalSupplyVars x = evalSupplyT x $ map (\x -> tmpPrefix ++ x) vars
 --tmpName = "tmpName"
 -- | desugar function takes an ODE model representaiton and converts it into a lower-level Core AST
 -- we only concern ourselves with single module models for now
-desugar :: O.Model -> MExcept [C.Module C.SrcId]
+desugar :: O.Model -> MExcept [C.TopMod C.SrcId]
 desugar (O.Model _ modules) = a
   where
     -- use the supply monad to generate unique names
@@ -56,11 +56,11 @@ desugar (O.Model _ modules) = a
                         $ modules
 
 
-desugarMod :: O.Module -> TmpSupply (C.Module C.SrcId)
+desugarMod :: O.Module -> TmpSupply (C.TopMod C.SrcId)
 desugarMod (O.ModuleAbs name Nothing elems) = do
     -- fold over the list of elems within the module creating the exprMap
     exprMap <- foldM desugarModElems OrdMap.empty elems
-    return $ C.VarMod name exprMap (C.ModuleData Map.empty Map.empty Bimap.empty Nothing)
+    return $ C.TopMod name (C.LitMod exprMap (C.ModuleData Map.empty Map.empty Bimap.empty Nothing))
 
 desugarMod (O.ModuleAbs name (Just args) elems) = undefined -- C.AbsMod name elems (C.ModuleData Map.empty Bimap.empty Nothing))
 desugarMod (O.ModuleApp  name _) = undefined -- C.AppMod name elems (C.ModuleData Map.empty Bimap.empty Nothing))

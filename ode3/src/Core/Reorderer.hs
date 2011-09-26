@@ -71,12 +71,12 @@ newtype GraphStateMa a = GraphStateMa { runReorder :: StateT ReorderState (MExce
     deriving (Monad, MonadState ReorderState, MonadError String)
 
 reorder :: C.Module C.SrcId -> MExcept (C.Module C.SrcId)
-reorder (C.VarMod n exprMap modData) = do
+reorder (C.LitMod exprMap modData) = do
     -- build the dependency graphs
     (topGraph', topMap') <- procDepGraphs topGraph topMap topBindMap
     -- now we need to sort the graphs and reconstruct the expressions
     exprMap' <- sortGraphs topGraph' topMap'
-    return $ trace (show exprMap') (C.VarMod n exprMap' modData)
+    return $ trace (show exprMap') (C.LitMod exprMap' modData)
   where
     topGraph = createTopGraph exprMap topMap
     topMap = createTopMap exprMap

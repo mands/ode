@@ -15,7 +15,7 @@
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
 
 module Core.AST.Module (
-Module(..), ModuleData(..), ModuleEnv, ExprMap, SigMap, TypeMap, IdBimap, getModuleName,
+TopMod(..), Module(..), ModuleData(..), ModuleEnv, ExprMap, SigMap, TypeMap, IdBimap,
 ) where
 
 import qualified Data.Map as Map
@@ -35,13 +35,16 @@ type ExprMap a = OrdMap.OrdMap (Bind a) (Top a)
 type SigMap = Map.Map SrcId Type
 type TypeMap = Map.Map Id Type -- maybe switch to IntMap?
 
+-- | Top level module variables
+data TopMod a = TopMod SrcId (Module a) deriving (Show, Eq)
+
 -- | Main executable modules that can be combined at run-time, they represent a dform of the simply-typed \-calc that is interpreted at runtime
 -- type-checking occurs in two-stage process, vars and abs are checked during parsing, applications are cehcked from the replicate
 -- var modeules must be closed anfd fully typered, abs/parameterisd modules are open (wrt to parameters) and may be polymorphic
-data Module a = VarMod SrcId (ExprMap a) ModuleData -- (Name, Expr, ModType, IntType, Bimap, LastId)
-                | AbsMod SrcId [Module a] (ExprMap a) ModuleData -- (Name, ModArgs, Expr, Type, Bimap, LastId)
+data Module a = LitMod  (ExprMap a) ModuleData -- Expr, ModType, IntType, Bimap, LastId)
+                | FunctorMod SrcId [Module a] (ExprMap a) ModuleData -- ModArgs, Expr, Type, Bimap, LastId)
                 -- we never have access to the appmodules, they are always immediatly applied and the resulting ClosedModule is saved under this name
-                | AppMod SrcId SrcId SrcId
+                | AppMod SrcId [SrcId]
                 deriving (Show, Eq)
 
 -- | Metadata regarding a module
@@ -51,10 +54,10 @@ data ModuleData =   ModuleData {modSig :: SigMap, modTMap :: TypeMap, modIdBimap
 -- | Module envirnomne,t the run-time envirmornet used to create models and start simulations, holds the current results from interpreting the module system
 type ModuleEnv = Map.Map SrcId (Module Id)
 
-getModuleName :: Module a -> SrcId
-getModuleName (VarMod name _ _) = name
-getModuleName (AbsMod name _ _ _) = name
-getModuleName (AppMod name _ _) = name
+--getModuleName :: Module a -> SrcId
+--getModuleName (VarMod name _ _) = name
+--getModuleName (AbsMod name _ _ _) = name
+--getModuleName (AppMod name _ _) = name
 
 -- need to put more helper functions here
 -- for instance functions to union two exprMaps, modules, remap ids, etc.

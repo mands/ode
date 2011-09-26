@@ -71,6 +71,7 @@ main = do
     -- start the compiler
     --(odeParser fileName) >>= coreDriver
     -- need to create a maybeT transformer - ignore for now
+    -- TODO - return exit code depending on success/failure
     resA <- odeParser fileName
     maybe (return Nothing) coreDriver resA
 
@@ -95,7 +96,7 @@ ionParser fileName = do
         (\res -> infoM "ode3.ionParser" "No errors" >> print res) res
 
 -- | drives the core language compilation state through monadic sequencing
-odeParser :: FilePath -> IO (Maybe [C.Module C.SrcId])
+odeParser :: FilePath -> IO (Maybe [C.TopMod C.SrcId])
 odeParser fileName = do
     -- TODO - update to follow multiple file commands
     fileData <- readFile fileName
@@ -109,16 +110,16 @@ odeParser fileName = do
 -- | driver for the core language front-end of the compiler
 -- will effectively run the front-end pipeline within the Error monad
 -- requires calling reorderer, renamer, typechecker, converter/interpreter
-coreDriver :: [C.Module C.SrcId] -> IO (Maybe C.ModuleEnv)
+coreDriver :: [C.TopMod C.SrcId] -> IO (Maybe C.ModuleEnv)
 coreDriver modules = processRes
   where
     modEnv = DF.foldlM procModule Map.empty modules
 
     modulePipeline = reorder >=> rename >=> typeCheck
 
-    procModule modEnv mod = do
+    procModule modEnv (C.TopMod name mod) = do
         mod' <- modulePipeline mod
-        return $ Map.insert (C.getModuleName mod) mod' modEnv
+        return $ Map.insert name mod' modEnv
 
     processRes = either
         (\err -> errorM "ode3.coreDriver" err >> return Nothing)
