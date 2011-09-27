@@ -36,6 +36,8 @@ import Utils.MonadSupply
 import Utils.OrdMap as OrdMap
 
 type TypeEnv = C.TypeMap
+-- type env for modules, only one needed as vars should be unique, holds a type var for the first occurance of a module var
+type ModTypeEnv = Map.Map (C.VarId C.Id) C.Type
 type TypeCons = Set.Set (C.Type, C.Type)
 type TypeConsM = SupplyT Int (State TypeCons)
 
@@ -43,19 +45,19 @@ type TypeConsM = SupplyT Int (State TypeCons)
 -- TODO - un-Do this!
 typeCheck :: C.Module C.Id -> MExcept (C.Module C.Id)
 typeCheck (C.LitMod exprMap modData) = do
-    modData' <- typeCheck' exprMap modData
+    modData' <- typeCheck' exprMap False modData
     return (C.LitMod exprMap modData')
 
 typeCheck (C.FunctorMod args exprMap modData) = do
-    modData' <- typeCheck' exprMap modData
+    modData' <- typeCheck' exprMap True modData
     return (C.FunctorMod args exprMap modData')
 
-typeCheck' exprMap modData = do
-    let (tEnv, tCons) = constrain exprMap
-    tVarMap <- unify tCons
+typeCheck' exprMap allowPoly modData = do
+    let ((tEnv, mTEnv), tCons) = constrain exprMap
+    tVarMap <- unify tCons allowPoly
     let tEnv' = subTVars tEnv tVarMap
     let modData' = updateModData modData tEnv'
-    return $ trace (show modData') modData'
+    return $ trace (show modData') (trace (show mTEnv) modData')
 
 -- | use the TVar map to undate the type enviroment and substitute all TVars
 subTVars :: TypeEnv -> Map.Map Int C.Type -> TypeEnv
@@ -102,84 +104,89 @@ multiBindConstraint (C.LetBind bs) (C.TVar v) tEnv = do
     -- add the tvars to the type map
     DF.foldlM (\tEnv (b, bT) -> return $ Map.insert b bT tEnv) tEnv (zip bs bTs)
 
-constrain :: C.ExprMap Int -> (TypeEnv, TypeCons)
+constrain :: C.ExprMap Int -> ((TypeEnv, ModTypeEnv), TypeCons)
 constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
   where
-    consM :: TypeConsM TypeEnv
-    consM = DF.foldlM consTop Map.empty (OrdMap.elems exprMap)
+    consM :: TypeConsM (TypeEnv, ModTypeEnv)
+    consM = DF.foldlM consTop (Map.empty, Map.empty) (OrdMap.elems exprMap)
 
-    consTop tEnv (C.TopLet (C.LetBind bs) e) = do
-        (eT, tEnv') <- consExpr tEnv e
+    consTop (tEnv, mTEnv) (C.TopLet (C.LetBind bs) e) = do
+        (eT, tEnv', mTEnv') <- consExpr tEnv mTEnv e
         -- extend and return tEnv
         case eT of
-            (C.TTuple ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv' (zip bs ts)
-            (C.TVar v) | (length bs > 1) -> multiBindConstraint (C.LetBind bs) (C.TVar v) tEnv'
-            t | length bs == 1 -> return $ Map.insert (head bs) eT tEnv'
-            _ -> trace (show bs) (trace (show eT) (trace (show tEnv') (error "DUMP - toplet shit\n")))
+            (C.TTuple ts) -> return $ (foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv' (zip bs ts), mTEnv')
+            (C.TVar v) | (length bs > 1) -> (multiBindConstraint (C.LetBind bs) (C.TVar v) tEnv') >>= (\tEnv -> return (tEnv, mTEnv'))
+            t | length bs == 1 -> return $ (Map.insert (head bs) eT tEnv', mTEnv')
+            _ -> trace (show bs) (trace (show eT) (trace (show tEnv') (error "(TYPE) - toplet shit\n")))
 
-    consTop tEnv (C.TopAbs (C.AbsBind b) arg e) = do
+    consTop (tEnv, mTEnv) (C.TopAbs (C.AbsBind b) arg e) = do
         fromT <- newTypevar
         -- extend the tEnv
         let tEnv' = Map.insert arg fromT tEnv
-        (toT, tEnv'') <- consExpr tEnv' e
+        (toT, tEnv'', mTEnv') <- consExpr tEnv' mTEnv e
         -- add a constraint?
         -- extend and return tEnv
-        return $ Map.insert b (C.TArr fromT toT) tEnv''
+        return $ (Map.insert b (C.TArr fromT toT) tEnv'', mTEnv')
 
 
     -- TODO - do we need to uniquely refer to each expression within AST?, or just bindings?
     -- | map over the expression elements, creating constraints as needed,
-    consExpr :: TypeEnv -> C.Expr C.Id -> TypeConsM (C.Type, TypeEnv)
-    consExpr tEnv (C.Var (C.LocalVar v)) = return $ (tEnv Map.! v, tEnv)
+    consExpr :: TypeEnv -> ModTypeEnv -> C.Expr C.Id -> TypeConsM (C.Type, TypeEnv, ModTypeEnv)
+    consExpr tEnv mTEnv (C.Var (C.LocalVar v)) = return $ (tEnv Map.! v, tEnv, mTEnv)
 
+    -- TODO - tidy up
     -- need to look in a separate map here that adds the value on first lookup
-    consExpr tEnv (C.Var (C.ModVar m v)) = return $ (C.TFloat, tEnv)
+    consExpr tEnv mTEnv (C.Var mv@(C.ModVar m v)) = do
+        -- look into the mTEnv, if exists get the type, else create a newtvar and add to the map
+        eT <- if (Map.member mv mTEnv) then return (mTEnv Map.! mv) else newTypevar
+        let mTEnv' = Map.insert mv eT mTEnv
+        return $ (eT, tEnv, mTEnv')
 
-    consExpr tEnv (C.Lit l) = return $ (getLitType l, tEnv)
+    consExpr tEnv mTEnv (C.Lit l) = return $ (getLitType l, tEnv, mTEnv)
 
-    consExpr tEnv (C.App f e) = do
+    consExpr tEnv mTEnv (C.App f e) = do
         -- as HOFs not allowed
         -- fT =  consExpr tEnv f
         let fT = tEnv Map.! f
-        (eT, tEnv') <- consExpr tEnv e
+        (eT, tEnv', mTEnv') <- consExpr tEnv mTEnv e
         toT <- newTypevar
         -- add constraint
         addConstraint fT (C.TArr eT toT)
-        return (toT, tEnv')
+        return (toT, tEnv', mTEnv')
 
     -- NOTE - do we need to return the new tEnv here?
-    consExpr tEnv (C.Let (C.LetBind bs) e1 e2) = do
-        (e1T, tEnv') <- consExpr tEnv e1
+    consExpr tEnv mTEnv (C.Let (C.LetBind bs) e1 e2) = do
+        (e1T, tEnv', mTEnv') <- consExpr tEnv mTEnv e1
         -- extend tEnv with new env
         tEnv'' <- case e1T of
             (C.TTuple ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv' (zip bs ts)
             (C.TVar v) | (length bs > 1) -> multiBindConstraint (C.LetBind bs) (C.TVar v) tEnv'
             t | length bs == 1 -> return $ Map.insert (head bs) e1T tEnv'
-            _ -> trace (show bs) (trace (show e1T) (trace (show tEnv') (error "DUMP - let shit\n")))
-        consExpr tEnv'' e2
+            _ -> trace (show bs) (trace (show e1T) (trace (show tEnv') (error "(TYPE) - let shit\n")))
+        consExpr tEnv'' mTEnv' e2
 
-    consExpr tEnv (C.Op op e) = do
+    consExpr tEnv mTEnv (C.Op op e) = do
         let (C.TArr fromT toT) = getOpType op
-        (eT, tEnv') <- consExpr tEnv e
+        (eT, tEnv', mTEnv') <- consExpr tEnv mTEnv e
         -- NOTE - we don't need to gen a new tvar here as the totype is always fixed so the toT will always unify to it
         addConstraint fromT eT
-        return (toT, tEnv')
+        return (toT, tEnv', mTEnv')
 
-    consExpr tEnv (C.If eB eT eF) = do
-        (eBT, tEnv') <- consExpr tEnv eB
+    consExpr tEnv mTEnv (C.If eB eT eF) = do
+        (eBT, tEnv', mTEnv') <- consExpr tEnv mTEnv eB
         addConstraint eBT C.TBool
-        (eTT, tEnv'') <- consExpr tEnv' eT
-        (eFT, tEnv''') <- consExpr tEnv'' eF
+        (eTT, tEnv'', mTEnv'') <- consExpr tEnv' mTEnv' eT
+        (eFT, tEnv''', mTEnv''') <- consExpr tEnv'' mTEnv'' eF
         addConstraint eTT eFT
-        return (eFT, tEnv''')
+        return (eFT, tEnv''', mTEnv''')
 
-    consExpr tEnv (C.Tuple es) = liftM consTuple (DF.foldlM consElem ([], tEnv) es)
+    consExpr tEnv mTEnv (C.Tuple es) = liftM consTuple (DF.foldlM consElem ([], tEnv, mTEnv) es)
       where
-        consElem (eTs, tEnv) e = consExpr tEnv e >>= (\(eT, tEnv') -> return (eT:eTs, tEnv'))
-        consTuple (eTs, tEnv) = (C.TTuple (reverse eTs), tEnv)
+        consElem (eTs, tEnv, mTEnv) e = consExpr tEnv mTEnv e >>= (\(eT, tEnv', mTEnv') -> return (eT:eTs, tEnv', mTEnv'))
+        consTuple (eTs, tEnv, mTEnv) = (C.TTuple (reverse eTs), tEnv, mTEnv)
 
     -- other exprs
-    consExpr tEnv _ = error "(TYPE) unknown expr"
+    consExpr tEnv mTEnv e = error ("(TYPE) unknown expr - " ++ show e)
 
 
 -- NOTE - should these two functions be moved into the AST?
@@ -215,8 +222,9 @@ getOpType op = case op of
 
 -- | unify takes a set of type contraints and attempts to unify all types, inc TVars
 -- based on HM - standard constraint unification algorithm
-unify :: TypeCons -> MExcept TypeEnv
-unify tCons = liftM snd $ unify' (tCons, Map.empty)
+-- Bool argument determinst wheter the checking should allow polymophism and not fully-unify
+unify :: TypeCons -> Bool -> MExcept TypeEnv
+unify tCons allowPoly = liftM snd $ unify' (tCons, Map.empty)
   where
     unify' :: (TypeCons, TypeEnv) ->  MExcept (TypeCons, TypeEnv)
     unify' (tCons, tMap) = case (Set.minView tCons) of

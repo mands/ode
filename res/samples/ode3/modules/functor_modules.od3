@@ -1,6 +1,6 @@
 // basic module functor
 module A(B) {
-
   val x = 1 + B.y
+  val y = x + B.y
 }
 

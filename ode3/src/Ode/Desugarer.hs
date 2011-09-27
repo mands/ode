@@ -68,7 +68,8 @@ desugarMod (O.ModuleAbs name Nothing elems) = do
 desugarMod (O.ModuleAbs name (Just args) elems) = do -- error "(DESUGAR) - mod abs" -- C.AbsMod name elems (C.ModuleData Map.empty Bimap.empty Nothing))
     -- fold over the list of elems within the module creating the exprMap
     exprMap <- foldM desugarModElems OrdMap.empty elems
-    return $ C.TopMod name (C.FunctorMod args exprMap (C.ModuleData Map.empty Map.empty Bimap.empty Nothing))
+    let args' = OrdMap.fromList $ map (\arg -> (arg, Map.empty)) args
+    return $ C.TopMod name (C.FunctorMod args' exprMap (C.ModuleData Map.empty Map.empty Bimap.empty Nothing))
 
 desugarMod (O.ModuleApp  name _) = error "(DESUGAR) - mod app" -- C.AppMod name elems (C.ModuleData Map.empty Bimap.empty Nothing))
 
