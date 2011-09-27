@@ -43,12 +43,19 @@ type TypeConsM = SupplyT Int (State TypeCons)
 -- TODO - un-Do this!
 typeCheck :: C.Module C.Id -> MExcept (C.Module C.Id)
 typeCheck (C.LitMod exprMap modData) = do
+    modData' <- typeCheck' exprMap modData
+    return (C.LitMod exprMap modData')
+
+typeCheck (C.FunctorMod args exprMap modData) = do
+    modData' <- typeCheck' exprMap modData
+    return (C.FunctorMod args exprMap modData')
+
+typeCheck' exprMap modData = do
     let (tEnv, tCons) = constrain exprMap
     tVarMap <- unify tCons
     let tEnv' = subTVars tEnv tVarMap
-    --let exprMap' = typeExprs exprMap tEnv'
     let modData' = updateModData modData tEnv'
-    return (C.LitMod exprMap modData')
+    return $ trace (show modData') modData'
 
 -- | use the TVar map to undate the type enviroment and substitute all TVars
 subTVars :: TypeEnv -> Map.Map Int C.Type -> TypeEnv
@@ -122,7 +129,11 @@ constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
 
     -- TODO - do we need to uniquely refer to each expression within AST?, or just bindings?
     -- | map over the expression elements, creating constraints as needed,
+    consExpr :: TypeEnv -> C.Expr C.Id -> TypeConsM (C.Type, TypeEnv)
     consExpr tEnv (C.Var (C.LocalVar v)) = return $ (tEnv Map.! v, tEnv)
+
+    -- need to look in a separate map here that adds the value on first lookup
+    consExpr tEnv (C.Var (C.ModVar m v)) = return $ (C.TFloat, tEnv)
 
     consExpr tEnv (C.Lit l) = return $ (getLitType l, tEnv)
 
@@ -168,7 +179,7 @@ constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
         consTuple (eTs, tEnv) = (C.TTuple (reverse eTs), tEnv)
 
     -- other exprs
-    consExpr tEnv _ = undefined
+    consExpr tEnv _ = error "(TYPE) unknown expr"
 
 
 -- NOTE - should these two functions be moved into the AST?

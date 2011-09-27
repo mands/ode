@@ -78,7 +78,7 @@ type Id = UntypedId
 --                deriving (Show, Eq, Ord)
 --type TestId = ModId SrcId
 data VarId a =  LocalVar a
-                | ModVar SrcId a
+                | ModVar SrcId SrcId
                 deriving (Show, Eq, Ord)
 
 -- | DetailId - holds both a (parameterised) identifier and a string that represetns the (closest) original/source variable and line num
@@ -179,7 +179,7 @@ instance Functor Top where
 
 instance Functor Expr where
     fmap f (Var (LocalVar a)) = Var (LocalVar (f a))
-    fmap f (Var (ModVar m a)) = Var (ModVar m (f a))
+    fmap f (Var (ModVar m a)) = Var (ModVar m a)
     fmap f (Lit a) = Lit a
     fmap f (App x e) = App (f x) (fmap f e)
     fmap f (Let b e1 e2) = Let (fmap f b) (fmap f e1) (fmap f e2)
