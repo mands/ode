@@ -134,7 +134,7 @@ renTop exprMap = (exprMap', topBinds, head uniqs)
 renExpr :: TopBinds -> C.Expr C.SrcId -> IntSupply (C.Expr Int)
 
 -- need to check the expr and top bindings
-renExpr tB (C.Var v) = liftM C.Var (bLookup v tB)
+renExpr tB (C.Var (C.LocalVar v)) = (bLookup v tB) >>= (\v -> return $ C.Var (C.LocalVar v))
 
 -- same as above
 renExpr tB (C.App b expr) = liftM2 C.App v' expr'

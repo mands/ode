@@ -20,7 +20,7 @@
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
 
 module Core.AST.Expr (
-SrcId, Id, ModId(..), Bind(..), Type(..), travTypes, getTopBinding,
+SrcId, Id, VarId(..), Bind(..), Type(..), travTypes,
 Top(..), Expr(..), Op(..), Literal(..),
 ) where
 
@@ -73,8 +73,12 @@ type UntypedId = Int
 data TypedId = TypedId Int Type
     deriving (Show, Eq, Ord)
 type Id = UntypedId
-data ModId a =  LocalId a -- Binding
-                | ModId SrcId a -- Module Name and Binding
+--data ModId a =  LocalId a -- Binding
+--                | ModId SrcId a -- Module Name and Binding
+--                deriving (Show, Eq, Ord)
+--type TestId = ModId SrcId
+data VarId a =  LocalVar a
+                | ModVar SrcId a
                 deriving (Show, Eq, Ord)
 
 -- | DetailId - holds both a (parameterised) identifier and a string that represetns the (closest) original/source variable and line num
@@ -113,7 +117,7 @@ getTopBinding t@(TopAbs b _ _) = (b,t)
 -- disabling currying means that all functions take only a single parameter, and evalute to an expression,
 -- thus to pass/return multiple values simple used pair consing
 -- TODO - should this be a GADT??, should "b" be an instance of Ord
-data Expr b = Var b                    -- a reference to any let-defined expressions
+data Expr b = Var (VarId b)             -- a reference to any let-defined expressions
                                         -- could potentially ref to a top-level abs but unlikely, would be optimised
 
             | Lit Literal               -- basic built-in constant literals
@@ -174,7 +178,8 @@ instance Functor Top where
     fmap f (TopAbs b arg expr) = TopAbs (fmap f b) (f arg) (fmap f expr)
 
 instance Functor Expr where
-    fmap f (Var a) = Var (f a)
+    fmap f (Var (LocalVar a)) = Var (LocalVar (f a))
+    fmap f (Var (ModVar m a)) = Var (ModVar m (f a))
     fmap f (Lit a) = Lit a
     fmap f (App x e) = App (f x) (fmap f e)
     fmap f (Let b e1 e2) = Let (fmap f b) (fmap f e1) (fmap f e2)

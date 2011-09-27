@@ -71,12 +71,16 @@ newtype GraphStateMa a = GraphStateMa { runReorder :: StateT ReorderState (MExce
     deriving (Monad, MonadState ReorderState, MonadError String)
 
 reorder :: C.Module C.SrcId -> MExcept (C.Module C.SrcId)
-reorder (C.LitMod exprMap modData) = do
+reorder (C.LitMod exprMap modData) = reorder' exprMap >>= (\exprMap -> (return $ C.LitMod exprMap modData))
+reorder (C.FunctorMod args exprMap modData) = reorder' exprMap >>= (\exprMap -> (return $ C.FunctorMod args exprMap modData))
+
+reorder' :: C.ExprMap C.SrcId -> MExcept (C.ExprMap C.SrcId)
+reorder' exprMap = do
     -- build the dependency graphs
     (topGraph', topMap') <- procDepGraphs topGraph topMap topBindMap
     -- now we need to sort the graphs and reconstruct the expressions
     exprMap' <- sortGraphs topGraph' topMap'
-    return $ trace (show exprMap') (C.LitMod exprMap' modData)
+    return $ trace (show exprMap') exprMap'
   where
     topGraph = createTopGraph exprMap topMap
     topMap = createTopMap exprMap
@@ -156,7 +160,7 @@ procExprN topElem eg mENode exp = procExpr eg exp
     -- NOTE - we have already removed all lets from the expressiong so no defs possible
     -- | Process an individual expression by pattern match over the possibilities
     procExpr :: ExprGraph -> C.Expr C.SrcId -> GraphStateMa ExprGraph
-    procExpr eg (C.Var useVar) = updateGraphDep eg useVar -- create a link in the graph from def to use
+    procExpr eg (C.Var (C.LocalVar useVar)) = updateGraphDep eg useVar -- create a link in the graph from def to use
     procExpr eg (C.App useVar exp) = (updateGraphDep eg useVar) >>= (\eg -> procExpr eg exp)  -- create a link in the graph from def to use
 
     procExpr eg (C.Op _ exp) = procExpr eg exp

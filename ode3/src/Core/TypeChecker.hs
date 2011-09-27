@@ -122,7 +122,7 @@ constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
 
     -- TODO - do we need to uniquely refer to each expression within AST?, or just bindings?
     -- | map over the expression elements, creating constraints as needed,
-    consExpr tEnv (C.Var v) = return $ (tEnv Map.! v, tEnv)
+    consExpr tEnv (C.Var (C.LocalVar v)) = return $ (tEnv Map.! v, tEnv)
 
     consExpr tEnv (C.Lit l) = return $ (getLitType l, tEnv)
 

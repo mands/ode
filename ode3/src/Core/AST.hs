@@ -20,7 +20,7 @@
 
 -- just reexports the imports
 module Core.AST (
-SrcId, Id, ModId, Bind(..), Type(..), travTypes, getTopBinding,
+SrcId, Id, VarId(..), Bind(..), Type(..), travTypes,
 Top(..), Expr(..), Op(..), Literal(..),
 TopMod(..), Module(..), ModuleData(..), ModuleEnv, ExprMap, SigMap, TypeMap, IdBimap,
 ) where

@@ -42,9 +42,10 @@ data TopMod a = TopMod SrcId (Module a) deriving (Show, Eq)
 -- type-checking occurs in two-stage process, vars and abs are checked during parsing, applications are cehcked from the replicate
 -- var modeules must be closed anfd fully typered, abs/parameterisd modules are open (wrt to parameters) and may be polymorphic
 data Module a = LitMod  (ExprMap a) ModuleData -- Expr, ModType, IntType, Bimap, LastId)
-                | FunctorMod SrcId [Module a] (ExprMap a) ModuleData -- ModArgs, Expr, Type, Bimap, LastId)
+                | FunctorMod [SrcId] (ExprMap a) ModuleData -- ModArgs, Expr, Type, Bimap, LastId)
                 -- we never have access to the appmodules, they are always immediatly applied and the resulting ClosedModule is saved under this name
                 | AppMod SrcId [SrcId]
+                -- | VarMod SrcId ??
                 deriving (Show, Eq)
 
 -- | Metadata regarding a module

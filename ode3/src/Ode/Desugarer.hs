@@ -19,6 +19,7 @@ desugar
 
 import qualified Data.Map as Map
 import qualified Data.Bimap as Bimap
+import Debug.Trace
 import Control.Monad
 import Control.Monad.Error as E
 import Control.Monad.Trans
@@ -27,6 +28,8 @@ import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap
 import qualified Ode.AST as O
 import qualified Core.AST as C
+
+type Id = C.SrcId
 
 -- We need a supply of unique Ids
 -- supply type, transformed with Error/Except Monad
@@ -42,7 +45,7 @@ evalSupplyVars x = evalSupplyT x $ map (\x -> tmpPrefix ++ x) vars
 --tmpName = "tmpName"
 -- | desugar function takes an ODE model representaiton and converts it into a lower-level Core AST
 -- we only concern ourselves with single module models for now
-desugar :: O.Model -> MExcept [C.TopMod C.SrcId]
+desugar :: O.Model -> MExcept [C.TopMod Id]
 desugar (O.Model _ modules) = a
   where
     -- use the supply monad to generate unique names
@@ -51,23 +54,27 @@ desugar (O.Model _ modules) = a
     -- filter first to return only complete modules
     testMods = mapM desugarMod . filter
                         (\m -> case m of
-                            (O.ModuleAbs _ Nothing _) -> True
+                            (O.ModuleAbs _ _ _) -> True
                             otherwise -> False)
                         $ modules
 
 
-desugarMod :: O.Module -> TmpSupply (C.TopMod C.SrcId)
+desugarMod :: O.Module -> TmpSupply (C.TopMod Id)
 desugarMod (O.ModuleAbs name Nothing elems) = do
     -- fold over the list of elems within the module creating the exprMap
     exprMap <- foldM desugarModElems OrdMap.empty elems
     return $ C.TopMod name (C.LitMod exprMap (C.ModuleData Map.empty Map.empty Bimap.empty Nothing))
 
-desugarMod (O.ModuleAbs name (Just args) elems) = undefined -- C.AbsMod name elems (C.ModuleData Map.empty Bimap.empty Nothing))
-desugarMod (O.ModuleApp  name _) = undefined -- C.AppMod name elems (C.ModuleData Map.empty Bimap.empty Nothing))
+desugarMod (O.ModuleAbs name (Just args) elems) = do -- error "(DESUGAR) - mod abs" -- C.AbsMod name elems (C.ModuleData Map.empty Bimap.empty Nothing))
+    -- fold over the list of elems within the module creating the exprMap
+    exprMap <- foldM desugarModElems OrdMap.empty elems
+    return $ C.TopMod name (C.FunctorMod args exprMap (C.ModuleData Map.empty Map.empty Bimap.empty Nothing))
+
+desugarMod (O.ModuleApp  name _) = error "(DESUGAR) - mod app" -- C.AppMod name elems (C.ModuleData Map.empty Bimap.empty Nothing))
 
 
 -- | desugar a top-level value constant(s)
-desugarModElems :: (C.ExprMap C.SrcId) -> O.ModuleElem -> TmpSupply (C.ExprMap C.SrcId)
+desugarModElems :: (C.ExprMap Id) -> O.ModuleElem -> TmpSupply (C.ExprMap Id)
 desugarModElems exprMap (O.ModuleElemValue (O.ValueDef ids value)) = do
     v' <- dsExpr value
     let mB = C.LetBind ids
@@ -83,13 +90,13 @@ desugarModElems exprMap (O.ModuleElemComponent (O.Component name ins body outs))
 
 -- | desugars and converts a component into a \c abstraction
 -- not in tail-call form, could blow out the stack, but unlikely
-desugarComp :: C.SrcId -> [O.Id] -> [O.CompStmt] -> [O.Expr] -> TmpSupply (C.Expr C.SrcId)
+desugarComp :: O.Id -> [O.Id] -> [O.CompStmt] -> [O.Expr] -> TmpSupply (C.Expr Id)
 desugarComp name ins body outs = if (isSingleElem ins)
         then dsCompBody body -- error here for single elem
-        else dsCompIns ins 0
+        else dsCompIns ins
   where
     -- unpack the input params, a custom fold over the multiple ins
-    dsCompIns bs _ = liftM (C.Let (C.LetBind bs) (C.Var name)) $ dsCompBody body
+    dsCompIns bs = liftM (C.Let (C.LetBind bs) (C.Var (C.LocalVar name))) $ dsCompBody body
 
     -- process the body by pattern-matching on the statement types
     dsCompBody [] = dsCompOuts outs
@@ -105,7 +112,7 @@ desugarComp name ins body outs = if (isSingleElem ins)
 
 -- | Expression desugarer - basically a big pattern amtch on all possible types
 -- should prob enable warnings to pick up all unmatched patterns
-dsExpr :: O.Expr -> TmpSupply (C.Expr C.SrcId)
+dsExpr :: O.Expr -> TmpSupply (C.Expr Id)
 dsExpr (O.UnExpr O.Not e) = liftM (C.Op C.Not) (dsExpr e)
 
 -- convert unary negation into (* -1)
@@ -122,7 +129,9 @@ dsExpr (O.BinExpr op a b) = do
 dsExpr (O.Number n) = return $ C.Lit (C.Num n)
 dsExpr (O.NumSeq a b c) = return $ C.Lit (C.NumSeq $ enumFromThenTo a b c)
 dsExpr (O.Boolean b) = return $ C.Lit (C.Boolean b)
-dsExpr (O.ValueRef (O.LocalId id)) = return $ C.Var id
+dsExpr (O.ValueRef (O.LocalId id)) = return $ C.Var (C.LocalVar id)
+dsExpr (O.ValueRef (O.ModId mId id)) = return $ C.Var (C.ModVar mId id)
+
 
 -- create nested set of ifs for piecewise expression
 dsExpr (O.Piecewise cases e) = dsIf cases
@@ -134,7 +143,7 @@ dsExpr (O.Piecewise cases e) = dsIf cases
 dsExpr (O.Call (O.LocalId id) exprs) = liftM (C.App id) $ packElems exprs
 
 -- any unknown/unimplemented paths - mainly modules for now
-dsExpr _ = error "Unknown ODE3 expression to desugar"
+dsExpr a = trace (show a) (error "(DESUGAR) Unknown ODE3 expression")
 
 -- |Simple test to see if an expression contains only a single element or is a packed tuple
 isSingleElem es = length es == 1
