@@ -33,38 +33,47 @@ import Text.Printf (printf)
 import qualified Core.AST as C
 import Utils.Utils
 import Utils.MonadSupply
-import Utils.OrdMap as OrdMap
+import qualified Utils.OrdMap as OrdMap
 
-type TypeEnv = C.TypeMap
+type TypeEnv    = C.TypeMap
+type TypeVarEnv = Map.Map C.Id C.Type
 -- type env for modules, only one needed as vars should be unique, holds a type var for the first occurance of a module var
 type ModTypeEnv = Map.Map (C.VarId C.Id) C.Type
-type TypeCons = Set.Set (C.Type, C.Type)
-type TypeConsM = SupplyT Int (State TypeCons)
+type TypeCons   = Set.Set (C.Type, C.Type)
+type TypeConsM  = SupplyT Int (State TypeCons)
 
 
 -- TODO - un-Do this!
 typeCheck :: C.Module C.Id -> MExcept (C.Module C.Id)
 typeCheck (C.LitMod exprMap modData) = do
-    modData' <- typeCheck' exprMap False modData
+    (modData', _) <- typeCheck' exprMap False modData
     return (C.LitMod exprMap modData')
 
 typeCheck (C.FunctorMod args exprMap modData) = do
-    modData' <- typeCheck' exprMap True modData
-    return (C.FunctorMod args exprMap modData')
+    (modData', modTEnv) <- typeCheck' exprMap True modData
+    let args' = updateFunModArgs args modTEnv
+    return (C.FunctorMod args' exprMap modData')
 
 typeCheck' exprMap allowPoly modData = do
     let ((tEnv, mTEnv), tCons) = constrain exprMap
-    tVarMap <- unify tCons allowPoly
-    let tEnv' = subTVars tEnv tVarMap
+    tVarMap <- unify tCons
+    let (tEnv', mTEnv') = subTVars tEnv mTEnv tVarMap allowPoly
     let modData' = updateModData modData tEnv'
-    return $ trace (show modData') (trace (show mTEnv) modData')
+    return $ trace (show modData') (trace (show mTEnv') (modData', mTEnv'))
 
 -- | use the TVar map to undate the type enviroment and substitute all TVars
-subTVars :: TypeEnv -> Map.Map Int C.Type -> TypeEnv
-subTVars tEnv tVarMap = Map.map (\t -> C.travTypes t updateType) tEnv
+subTVars :: TypeEnv -> ModTypeEnv -> TypeVarEnv -> Bool -> (TypeEnv, ModTypeEnv)
+subTVars tEnv mTEnv tVarMap allowPoly = (tEnv', mTEnv')
   where
-    updateType (C.TVar i) = tVarMap Map.! i
+    -- try to substitute a tvar if it exists - this will behave differently depending on closed/open modules
+    updateType t@(C.TVar i) = case (Map.lookup i tVarMap) of
+                                Just t' -> t'
+                                Nothing -> if allowPoly then t else error "Type-variable found in non-polymorphic closed module"
     updateType t = t
+
+    tEnv' = Map.map (\t -> C.travTypes t updateType) tEnv
+    mTEnv' = Map.map (\t -> C.travTypes t updateType) mTEnv
+
 
 -- TODO - clean up
 -- | run a map over the model replacing all bindings with typemap equiv
@@ -78,12 +87,21 @@ subTVars tEnv tVarMap = Map.map (\t -> C.travTypes t updateType) tEnv
 --        (b, v) = C.getTopBinding topExpr
 
 -- | Update the module data with the public module signature and internal typemap
+-- we create the mod signature by mapping over the idbimap data and looking up each value from the internal typemap
 updateModData :: C.ModuleData -> TypeEnv -> C.ModuleData
 updateModData modData tEnv = modData { C.modTMap = tEnv, C.modSig = modSig }
   where
     idMap = Bimap.toMap (C.modIdBimap modData)
     modSig = Map.map (\id -> tEnv Map.! id) idMap
 
+-- | create the public module signatures for Functors
+updateFunModArgs :: C.FunArgs -> ModTypeEnv -> C.FunArgs
+updateFunModArgs args mTEnv = Map.foldrWithKey addArg args mTEnv
+  where
+    -- add the type for M.v into the args OrdMap
+    addArg (C.ModVar m v) t args = OrdMap.update updateModArgs m args
+      where
+        updateModArgs modMap = Just (Map.insert v t modMap)
 
 addConstraint :: C.Type -> C.Type -> TypeConsM ()
 addConstraint t1 t2 = do
@@ -223,15 +241,15 @@ getOpType op = case op of
 -- | unify takes a set of type contraints and attempts to unify all types, inc TVars
 -- based on HM - standard constraint unification algorithm
 -- Bool argument determinst wheter the checking should allow polymophism and not fully-unify
-unify :: TypeCons -> Bool -> MExcept TypeEnv
-unify tCons allowPoly = liftM snd $ unify' (tCons, Map.empty)
+unify :: TypeCons -> MExcept TypeVarEnv
+unify tCons = liftM snd $ unify' (tCons, Map.empty)
   where
-    unify' :: (TypeCons, TypeEnv) ->  MExcept (TypeCons, TypeEnv)
+    unify' :: (TypeCons, TypeVarEnv) ->  MExcept (TypeCons, TypeVarEnv)
     unify' (tCons, tMap) = case (Set.minView tCons) of
                         Just (constraint, tCons') -> (uCon constraint (tCons', tMap)) >>= unify'
                         Nothing -> return (tCons, tMap)
 
-    uCon :: (C.Type, C.Type) -> (TypeCons, TypeEnv) -> MExcept (TypeCons, TypeEnv)
+    uCon :: (C.Type, C.Type) -> (TypeCons, TypeVarEnv) -> MExcept (TypeCons, TypeVarEnv)
     -- two equal ids - remove from set and ignore
     uCon (C.TVar xId, C.TVar yId) st
        | (xId == yId) = return st

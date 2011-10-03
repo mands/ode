@@ -15,7 +15,7 @@
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
 
 module Core.AST.Module (
-TopMod(..), Module(..), ModuleData(..), ModuleEnv, ExprMap, SigMap, TypeMap, IdBimap,
+TopMod(..), Module(..), ModuleData(..), ModuleEnv, ExprMap, SigMap, TypeMap, FunArgs, IdBimap,
 ) where
 
 import qualified Data.Map as Map

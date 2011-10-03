@@ -1,6 +1,24 @@
-// basic module functor
+/*
+// closed module ref
 module A(B) {
   val x = 1 + B.y
-  val y = x + B.y
+//  val y = x + B.y
+}
+
+// poly module ref
+module B(Z) {
+  val x = Z.y
+}
+
+// multiple module refs
+module C(Z, Y) {
+  val x = Z.y + Y.z
+}
+*/
+
+
+// closed module call
+module D(Z) {
+  val x = Z.y(0)
 }
 
