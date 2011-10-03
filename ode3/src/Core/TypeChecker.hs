@@ -162,7 +162,7 @@ constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
 
     consExpr tEnv mTEnv (C.Lit l) = return $ (getLitType l, tEnv, mTEnv)
 
-    consExpr tEnv mTEnv (C.App f e) = do
+    consExpr tEnv mTEnv (C.App (C.LocalVar f) e) = do
         -- as HOFs not allowed
         -- fT =  consExpr tEnv f
         let fT = tEnv Map.! f

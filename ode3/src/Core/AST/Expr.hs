@@ -122,7 +122,7 @@ data Expr b = Var (VarId b)             -- a reference to any let-defined expres
 
             | Lit Literal               -- basic built-in constant literals
 
-            | App b (Expr b)           -- name of top-level func, expression to apply
+            | App (VarId b) (Expr b)    -- name of top-level func, expression to apply
                                         -- by using an Id instead of Expr we effecitively disallow anon-funcs and HOF, we can only
                                         -- call top-level variables that may then be applied
 
@@ -181,7 +181,9 @@ instance Functor Expr where
     fmap f (Var (LocalVar a)) = Var (LocalVar (f a))
     fmap f (Var (ModVar m a)) = Var (ModVar m a)
     fmap f (Lit a) = Lit a
-    fmap f (App x e) = App (f x) (fmap f e)
+    fmap f (App (LocalVar a) e) = App (LocalVar (f a)) (fmap f e)
+    fmap f (App (ModVar m a) e) = App (ModVar m a) (fmap f e)
+
     fmap f (Let b e1 e2) = Let (fmap f b) (fmap f e1) (fmap f e2)
     fmap f (Op op e) = Op op (fmap f e)
     fmap f (If e1 e2 e3) = If (fmap f e1) (fmap f e2) (fmap f e3)

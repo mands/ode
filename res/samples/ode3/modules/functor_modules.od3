@@ -1,4 +1,4 @@
-/*
+
 // closed module ref
 module A(B) {
   val x = 1 + B.y
@@ -13,12 +13,13 @@ module B(Z) {
 // multiple module refs
 module C(Z, Y) {
   val x = Z.y + Y.z
+  val y = Y.y
 }
-*/
 
 
+/*
 // closed module call
 module D(Z) {
   val x = Z.y(0)
 }
-
+*/

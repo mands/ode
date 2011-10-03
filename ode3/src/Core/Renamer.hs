@@ -142,7 +142,7 @@ renExpr :: TopBinds -> C.Expr C.SrcId -> IntSupply (C.Expr Int)
 renExpr tB (C.Var (C.LocalVar v)) = (bLookup v tB) >>= (\v -> return $ C.Var (C.LocalVar v))
 renExpr tB (C.Var (C.ModVar m v)) = return $ (C.Var (C.ModVar m v))
 -- same as above
-renExpr tB (C.App b expr) = liftM2 C.App v' expr'
+renExpr tB (C.App (C.LocalVar b) expr) = liftM2 C.App (liftM C.LocalVar v') expr'
   where
     v' = bLookup b tB
     expr' = renExpr tB expr

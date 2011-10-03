@@ -161,7 +161,7 @@ procExprN topElem eg mENode exp = procExpr eg exp
     -- | Process an individual expression by pattern match over the possibilities
     procExpr :: ExprGraph -> C.Expr C.SrcId -> GraphStateMa ExprGraph
     procExpr eg (C.Var (C.LocalVar useVar)) = updateGraphDep eg useVar -- create a link in the graph from def to use
-    procExpr eg (C.App useVar exp) = (updateGraphDep eg useVar) >>= (\eg -> procExpr eg exp)  -- create a link in the graph from def to use
+    procExpr eg (C.App (C.LocalVar useVar) exp) = (updateGraphDep eg useVar) >>= (\eg -> procExpr eg exp)  -- create a link in the graph from def to use
 
     procExpr eg (C.Op _ exp) = procExpr eg exp
     procExpr eg (C.If exp1 exp2 exp3) = foldM (\eg exp -> procExpr eg exp) eg [exp1,exp2,exp3]

@@ -141,7 +141,8 @@ dsExpr (O.Piecewise cases e) = dsIf cases
     dsIf ((testExpr, runExpr):xs) = liftM3 C.If (dsExpr testExpr) (dsExpr runExpr) (dsIf xs)
 
 -- convert call to a app, need to convert ins/args into a tuple first
-dsExpr (O.Call (O.LocalId id) exprs) = liftM (C.App id) $ packElems exprs
+dsExpr (O.Call (O.LocalId id) exprs) = liftM (C.App (C.LocalVar id)) $ packElems exprs
+dsExpr (O.Call (O.ModId mId id) exprs) = liftM (C.App (C.ModVar mId id)) $ packElems exprs
 
 -- any unknown/unimplemented paths - mainly modules for now
 dsExpr a = trace (show a) (error "(DESUGAR) Unknown ODE3 expression")
