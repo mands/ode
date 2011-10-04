@@ -167,7 +167,9 @@ procExprN topElem eg mENode exp = procExpr eg exp
     procExpr eg (C.If exp1 exp2 exp3) = foldM (\eg exp -> procExpr eg exp) eg [exp1,exp2,exp3]
 
     procExpr eg (C.Tuple exps) = foldM (\eg exp -> procExpr eg exp) eg exps
-    procExpr eg _ = return eg -- ignore anything else
+
+    -- ignore anything else, for isntance, all module references, as they are already defined
+    procExpr eg _ = return eg
 
     -- helper function
     topBindLookup v m = do

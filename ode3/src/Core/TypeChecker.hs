@@ -172,6 +172,22 @@ constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
         addConstraint fT (C.TArr eT toT)
         return (toT, tEnv', mTEnv')
 
+    -- TODO - is this right?!
+    consExpr tEnv mTEnv (C.App mv@(C.ModVar m v) e) = do
+        -- similet to var - check if the type is already created, if not create a newTypeVar that
+        -- we can constrain later
+        fT <- if (Map.member mv mTEnv) then return (mTEnv Map.! mv) else newTypevar
+        -- TODO - want to create and add in same step
+        let mTEnv' = Map.insert mv fT mTEnv
+
+        -- get the type of the expression
+        (eT, tEnv', mTEnv'') <- consExpr tEnv mTEnv' e
+        toT <- newTypevar
+        -- add constraint
+        addConstraint fT (C.TArr eT toT)
+        return (toT, tEnv', mTEnv'')
+
+
     -- NOTE - do we need to return the new tEnv here?
     consExpr tEnv mTEnv (C.Let (C.LetBind bs) e1 e2) = do
         (e1T, tEnv', mTEnv') <- consExpr tEnv mTEnv e1

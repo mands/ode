@@ -1,4 +1,4 @@
-
+/*
 // closed module ref
 module A(B) {
   val x = 1 + B.y
@@ -15,11 +15,25 @@ module C(Z, Y) {
   val x = Z.y + Y.z
   val y = Y.y
 }
+*/
 
-
-/*
 // closed module call
 module D(Z) {
-  val x = Z.y(0)
+  val x = Z.y(0,0) + 1
 }
-*/
+
+// poly-res module call
+module E(Z) {
+  val x = Z.y(0,0)
+}
+
+// poly-arg module call
+module F(Z) {
+  val x = Z.y(Z.z) + 1
+}
+
+// poly-arg and poly-res module call
+module G(Z) {
+  val x = Z.y(Z.z)
+}
+

@@ -140,11 +140,16 @@ renExpr :: TopBinds -> C.Expr C.SrcId -> IntSupply (C.Expr Int)
 
 -- need to check the expr and top bindings
 renExpr tB (C.Var (C.LocalVar v)) = (bLookup v tB) >>= (\v -> return $ C.Var (C.LocalVar v))
+-- we don't rename module vars, least not yet - they are renamed during functor application
 renExpr tB (C.Var (C.ModVar m v)) = return $ (C.Var (C.ModVar m v))
 -- same as above
 renExpr tB (C.App (C.LocalVar b) expr) = liftM2 C.App (liftM C.LocalVar v') expr'
   where
     v' = bLookup b tB
+    expr' = renExpr tB expr
+
+renExpr tB (C.App (C.ModVar m v) expr) = liftM2 C.App (return $ C.ModVar m v) expr'
+  where
     expr' = renExpr tB expr
 
 -- need to create a new binding and keep processing
