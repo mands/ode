@@ -49,15 +49,9 @@ desugar :: O.Model -> MExcept [C.TopMod Id]
 desugar (O.Model _ modules) = a
   where
     -- use the supply monad to generate unique names
-    a = evalSupplyVars testMods
-
+    a = evalSupplyVars mods
     -- filter first to return only complete modules
-    testMods = mapM desugarMod . filter
-                        (\m -> case m of
-                            (O.ModuleAbs _ _ _) -> True
-                            otherwise -> False)
-                        $ modules
-
+    mods = mapM desugarMod modules
 
 desugarMod :: O.Module -> TmpSupply (C.TopMod Id)
 desugarMod (O.ModuleAbs name Nothing elems) = do
@@ -71,8 +65,12 @@ desugarMod (O.ModuleAbs name (Just args) elems) = do -- error "(DESUGAR) - mod a
     let args' = OrdMap.fromList $ map (\arg -> (arg, Map.empty)) args
     return $ C.TopMod name (C.FunctorMod args' exprMap (C.ModuleData Map.empty Map.empty Bimap.empty Nothing))
 
-desugarMod (O.ModuleApp  name _) = error "(DESUGAR) - mod app" -- C.AppMod name elems (C.ModuleData Map.empty Bimap.empty Nothing))
-
+-- only support single args for now (not nested)
+-- TODO - aliases
+desugarMod (O.ModuleApp name (O.ModuleAppParams funcId (Just args))) =
+    return $ C.TopMod name (C.AppMod funcId args')
+  where
+    args' = map (\(O.ModuleAppParams arg _) -> arg) args
 
 -- | desugar a top-level value constant(s)
 desugarModElems :: (C.ExprMap Id) -> O.ModuleElem -> TmpSupply (C.ExprMap Id)
@@ -106,8 +104,8 @@ desugarComp name ins body outs = if (isSingleElem ins)
 
     -- TODO - we ignore for now
     dsCompBody ((O.InitValueDef ids e):xs) = lift $ throwError "test"
-    dsCompBody ((O.OdeDef id init e):xs) = error "got ODE"
-    dsCompBody ((O.RreDef id (from, to) e):xs) = error "got RRE"
+    dsCompBody ((O.OdeDef id init e):xs) = error "(DESUGAR) got ODE"
+    dsCompBody ((O.RreDef id (from, to) e):xs) = error "(DESUGAR) got RRE"
 
     dsCompOuts outs = packElems outs
 

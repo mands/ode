@@ -28,15 +28,12 @@ import qualified Data.Map as Map
 import Ion.Parser
 import qualified Ion.AST as I
 
-import Ode.Parser
+import Ode.Parser (odeParse)
 import qualified Ode.AST as O
-import Ode.Desugarer
+import Ode.Desugarer (desugar)
 
 import qualified Core.AST as C
-import Core.Reorderer (reorder)
-import Core.Renamer (rename)
-import Core.TypeChecker (typeCheck)
-
+import qualified Core.ModuleDriver as MD
 import qualified CoreANF.AST as CA
 
 import Utils.Utils
@@ -107,23 +104,8 @@ odeParser fileName = do
         (\err -> errorM "ode3.odeParser" err >> return Nothing)
         (\res -> infoM "ode3.odeParser" "No errors" >> infoM "ode3.odeParser" (show res) >> return (Just res)) modules
 
--- | driver for the core language front-end of the compiler
--- will effectively run the front-end pipeline within the Error monad
--- requires calling reorderer, renamer, typechecker, converter/interpreter
 coreDriver :: [C.TopMod C.SrcId] -> IO (Maybe C.ModuleEnv)
-coreDriver modules = processRes
-  where
-    modEnv = DF.foldlM procModule Map.empty modules
-
-    modulePipeline = reorder >=> rename >=> typeCheck
-
-    procModule modEnv (C.TopMod name mod) = do
-        mod' <- modulePipeline mod
-        return $ Map.insert name mod' modEnv
-
-    processRes = either
-        (\err -> errorM "ode3.coreDriver" err >> return Nothing)
-        (\res -> infoM "ode3.coreDriver" "No errors" >> infoM "ode3.coreDriver" (show res) >> return (Just res)) modEnv
+coreDriver modules = MD.moduleDriver modules
 
 -- | driver for the middle-end of the compiler
 -- will run the middle-end of the compiler using the ANF/lowerlevel FIR - AST to be determined

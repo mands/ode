@@ -16,7 +16,7 @@
 {-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, FunctionalDependencies  #-}
 
 module Utils.OrdMap (
-OrdMap, (!), lookup, member, empty, singleton, insert, delete, update, elems, keys,
+OrdMap, (!), lookup, member, empty, singleton, insert, delete, update, elems, keys, map, foldl,
 toList, fromList, mapAccum, toMap,
 
 ) where
@@ -29,7 +29,7 @@ import qualified Data.Traversable as DT
 import qualified Data.Functor as Functor
 import Control.Applicative (liftA, liftA2, pure, (<$>), (<*>))
 import Data.Maybe (fromJust, isJust)
-import Prelude hiding (foldl, lookup)
+import Prelude hiding (foldl, lookup, map)
 
 type AssocList k v = [(k, v)]
 

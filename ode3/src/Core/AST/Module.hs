@@ -29,15 +29,13 @@ import qualified Utils.OrdMap as OrdMap
 -- how does the renamer work - do we need two typed of ids, locaql and module level - do we rename the modules too?
 -- ??
 
--- | bidirectional map between internal ids and source ids
-type IdBimap = Bimap.Bimap SrcId Id
-type ExprMap a = OrdMap.OrdMap (Bind a) (Top a)
-type SigMap = Map.Map SrcId Type
-type TypeMap = Map.Map Id Type -- maybe switch to IntMap?
-type FunArgs = OrdMap.OrdMap SrcId SigMap
-
 -- | Top level module variables
 data TopMod a = TopMod SrcId (Module a) deriving (Show, Eq)
+
+type ExprMap a = OrdMap.OrdMap (Bind a) (Top a)
+
+-- | FunArgs are the list of module parameters, and thier required signatures, for a functor application
+type FunArgs = OrdMap.OrdMap SrcId SigMap
 
 -- | Main executable modules that can be combined at run-time, they represent a dform of the simply-typed \-calc that is interpreted at runtime
 -- type-checking occurs in two-stage process, vars and abs are checked during parsing, applications are cehcked from the replicate
@@ -53,7 +51,15 @@ data Module a = LitMod  (ExprMap a) ModuleData -- Expr, ModType, IntType, Bimap,
 data ModuleData =   ModuleData {modSig :: SigMap, modTMap :: TypeMap, modIdBimap :: IdBimap, modFreeId :: Maybe Id}
                     deriving (Show, Eq)
 
--- | Module envirnomne,t the run-time envirmornet used to create models and start simulations, holds the current results from interpreting the module system
+-- | bidirectional map between internal ids and source ids for all visible/top-level defined vars
+type IdBimap = Bimap.Bimap SrcId Id
+-- | SigMap is the external typemap for the module - can be created from the typemap, top-level expressions and idbimap
+type SigMap = Map.Map SrcId Type
+-- | Typemap is the internal typemap for all vars (top and expr) within a module
+type TypeMap = Map.Map Id Type -- maybe switch to IntMap?
+
+
+-- | Module environment the run-time envirmornet used to create models and start simulations, holds the current results from interpreting the module system
 type ModuleEnv = Map.Map SrcId (Module Id)
 
 --getModuleName :: Module a -> SrcId

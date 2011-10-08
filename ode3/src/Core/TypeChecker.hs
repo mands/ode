@@ -15,7 +15,7 @@
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
 
 module Core.TypeChecker (
-typeCheck
+typeCheck, typeCheckApp, TypeVarEnv, TypeCons, unify
 ) where
 
 import qualified Data.Map as Map
@@ -45,34 +45,92 @@ type TypeConsM  = SupplyT Int (State TypeCons)
 
 -- TODO - un-Do this!
 typeCheck :: C.Module C.Id -> MExcept (C.Module C.Id)
-typeCheck (C.LitMod exprMap modData) = do
-    (modData', _) <- typeCheck' exprMap False modData
-    return (C.LitMod exprMap modData')
-
-typeCheck (C.FunctorMod args exprMap modData) = do
-    (modData', modTEnv) <- typeCheck' exprMap True modData
-    let args' = updateFunModArgs args modTEnv
-    return (C.FunctorMod args' exprMap modData')
-
-typeCheck' exprMap allowPoly modData = do
-    let ((tEnv, mTEnv), tCons) = constrain exprMap
+typeCheck mod@(C.LitMod exprMap modData) = do
+    let ((tEnv, _), tCons) = constrain exprMap
+    -- unify the types and get the new typemap
     tVarMap <- unify tCons
-    let (tEnv', mTEnv') = subTVars tEnv mTEnv tVarMap allowPoly
+    -- substitute to obtain the new type env
+    let tEnv' = subTVars tEnv tVarMap False
     let modData' = updateModData modData tEnv'
-    return $ trace (show modData') (trace (show mTEnv') (modData', mTEnv'))
+    return $ C.LitMod exprMap modData'
 
--- | use the TVar map to undate the type enviroment and substitute all TVars
-subTVars :: TypeEnv -> ModTypeEnv -> TypeVarEnv -> Bool -> (TypeEnv, ModTypeEnv)
-subTVars tEnv mTEnv tVarMap allowPoly = (tEnv', mTEnv')
+typeCheck mod@(C.FunctorMod args exprMap modData) = do
+    let ((tEnv, mTEnv), tCons) = constrain exprMap
+    -- unify the types and get the new typemap
+    tVarMap <- unify tCons
+    -- substitute to obtain the new type env
+    let tEnv' = subTVars tEnv tVarMap True
+    let mTEnv' = subTVars mTEnv tVarMap True
+    let modData' = updateModData modData tEnv'
+    let args' = createFunModArgs args mTEnv'
+    return $ C.FunctorMod args' exprMap modData'
+  where
+      -- | create the public module signatures for Functors
+    createFunModArgs :: C.FunArgs -> ModTypeEnv -> C.FunArgs
+    createFunModArgs args mTEnv = Map.foldrWithKey addArg args mTEnv
+      where
+        -- add the type for M.v into the args OrdMap
+        addArg (C.ModVar m v) t args = OrdMap.update updateModArgs m args
+          where
+            updateModArgs modMap = Just (Map.insert v t modMap)
+
+-- takes the funcModule, an closed enviroment of the module args,
+typeCheckApp :: C.Module C.Id -> C.ModuleEnv ->  MExcept (C.Module C.Id, C.ModuleEnv)
+typeCheckApp fMod@(C.FunctorMod funArgs _ _) modEnv = do
+    -- get the complete typevar map for an application
+    tVarMap <- unify tCons
+    let fMod' = updateMod tVarMap fMod
+    let modEnv' = Map.map (updateMod tVarMap) modEnv
+    return (fMod', modEnv')
+  where
+    tCons = OrdMap.foldl constrainSigs Set.empty funArgs
+
+    -- take a single mod arg for the functor, compare the sig with the one for the id within the modEnv,
+    -- add all sigs to the typeCons
+    constrainSigs :: TypeCons -> (C.SrcId, C.SigMap) -> TypeCons
+    constrainSigs typeCons (argId, argSig) = typeCons'
+      where
+        -- the module referenced by the arg
+        argMod@(C.LitMod _ argModData) = modEnv Map.! argId
+        -- now fold over sigs, comparing the types for each binding by adding to the typeconstraint set
+        typeCons' = Map.foldrWithKey compareTypes typeCons argSig
+        compareTypes b tFun typeCons = Set.insert (tFun, tArg) typeCons
+          where
+            tArg = (C.modSig argModData) Map.! b
+
+    -- update a module based on the new type information
+    updateMod :: TypeEnv -> C.Module C.Id -> C.Module C.Id
+    updateMod tVarMap (C.LitMod exprMap modData) = C.LitMod exprMap modData'
+      where
+        tEnv' = subTVars (C.modTMap modData) tVarMap False
+        modData' = updateModData modData tEnv'
+
+    updateMod tVarMap (C.FunctorMod args exprMap modData) = C.FunctorMod args' exprMap modData'
+      where
+        tEnv' = subTVars (C.modTMap modData) tVarMap False
+        modData' = updateModData modData tEnv'
+        -- create the new funArgs based on the new tVarMap
+        args' = fmap (\idMap -> subTVars idMap tVarMap False) args
+
+-- | use the TVar map to undate a type enviroment and substitute all TVars
+subTVars :: Map.Map b C.Type -> TypeVarEnv -> Bool -> Map.Map b C.Type
+subTVars tEnv tVarMap allowPoly = tEnv'
   where
     -- try to substitute a tvar if it exists - this will behave differently depending on closed/open modules
     updateType t@(C.TVar i) = case (Map.lookup i tVarMap) of
                                 Just t' -> t'
-                                Nothing -> if allowPoly then t else error "Type-variable found in non-polymorphic closed module"
+                                Nothing -> if allowPoly then t else error "(TYPECHECKER) - Type-variable found in non-polymorphic closed module"
     updateType t = t
-
     tEnv' = Map.map (\t -> C.travTypes t updateType) tEnv
-    mTEnv' = Map.map (\t -> C.travTypes t updateType) mTEnv
+
+
+-- | Update the module data with the public module signature and internal typemap
+-- we create the mod signature by mapping over the idbimap data and looking up each value from the internal typemap
+updateModData :: C.ModuleData -> TypeEnv -> C.ModuleData
+updateModData modData tEnv = modData { C.modTMap = tEnv, C.modSig = modSig }
+  where
+    idMap = Bimap.toMap (C.modIdBimap modData)
+    modSig = Map.map (\id -> tEnv Map.! id) idMap
 
 
 -- TODO - clean up
@@ -85,23 +143,6 @@ subTVars tEnv mTEnv tVarMap allowPoly = (tEnv', mTEnv')
 --    createModel m topExpr = OrdMap.insert b v m
 --      where
 --        (b, v) = C.getTopBinding topExpr
-
--- | Update the module data with the public module signature and internal typemap
--- we create the mod signature by mapping over the idbimap data and looking up each value from the internal typemap
-updateModData :: C.ModuleData -> TypeEnv -> C.ModuleData
-updateModData modData tEnv = modData { C.modTMap = tEnv, C.modSig = modSig }
-  where
-    idMap = Bimap.toMap (C.modIdBimap modData)
-    modSig = Map.map (\id -> tEnv Map.! id) idMap
-
--- | create the public module signatures for Functors
-updateFunModArgs :: C.FunArgs -> ModTypeEnv -> C.FunArgs
-updateFunModArgs args mTEnv = Map.foldrWithKey addArg args mTEnv
-  where
-    -- add the type for M.v into the args OrdMap
-    addArg (C.ModVar m v) t args = OrdMap.update updateModArgs m args
-      where
-        updateModArgs modMap = Just (Map.insert v t modMap)
 
 addConstraint :: C.Type -> C.Type -> TypeConsM ()
 addConstraint t1 t2 = do
