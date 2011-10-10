@@ -8,8 +8,8 @@
 -- Stability   :  alpha
 -- Portability :
 --
--- | Renamer takes a reordered AST and renames all variables into unique values, thus it also deals with all scoping
--- issues. As only are two scopes this should be fairly easy.
+-- | Renamer takes a reordered AST and renames all variables into unique values (ints starting from 0),
+-- thus it also deals with all scoping issues - as only are two scopes this should be fairly easy.
 -- It also checks for all vlaue declarations, unused values, undefined values, and so on
 -- Can issue errors due to user defined model
 --
@@ -104,7 +104,7 @@ bLookup v (TopBinds tB) = do
 renTop :: C.ExprMap C.SrcId -> (C.ExprMap Int, TopBinds, Int)
 renTop exprMap = (exprMap', topBinds, head uniqs)
   where
-    ((topBinds, exprMap'), uniqs) = evalState (runSupplyT exprMapM [1..]) (ExprBinds Map.empty)
+    ((topBinds, exprMap'), uniqs) = evalState (runSupplyT exprMapM [0..]) (ExprBinds Map.empty)
 --    ((_, model'), uniqs) <- evalState (runSupplyT mModel [1..]) (ExprBinds Map.empty)
 
     exprMapM = DF.foldlM convTopBind (TopBinds Map.empty, OrdMap.empty) exprMap

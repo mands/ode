@@ -12,12 +12,14 @@
 --
 -----------------------------------------------------------------------------
 
-{-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
+{-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures, FlexibleInstances #-}
 
 module Core.AST.Module (
 TopMod(..), Module(..), ModuleData(..), ModuleEnv, ExprMap, SigMap, TypeMap, FunArgs, IdBimap,
 ) where
 
+import Control.Monad
+import Data.Monoid
 import qualified Data.Map as Map
 import qualified Data.Bimap as Bimap
 import Core.AST.Expr
@@ -69,3 +71,55 @@ type ModuleEnv = Map.Map SrcId (Module Id)
 
 -- need to put more helper functions here
 -- for instance functions to union two exprMaps, modules, remap ids, etc.
+
+
+
+-- standard typeclass instances
+
+-- | Make LitMod a instnace of monoid, where mappend a b imppiles adding the module b to occur after module a
+instance Monoid (Module Id) where
+    mempty = LitMod OrdMap.empty mempty
+
+    mappend modA@(LitMod exprMapA modDataA) modB@(LitMod exprMapB modDataB) = maybe modA appendMods freeId'
+      where
+        freeIdA = modFreeId modDataA
+        freeIdB = modFreeId modDataB
+        freeId' = liftM2 (+) freeIdA freeIdB
+
+        -- append the mods using the deltaId
+        appendMods deltaId = LitMod exprMap' modDataA
+          where
+            exprMap' = OrdMap.map updateIds exprMapB
+            updateIds (topB, topExpr) = (fmap (+ deltaId) topB, fmap (+ deltaId) topExpr)
+            modData' = modDataA `mappend` modDataB
+
+
+instance Monoid ModuleData where
+    mempty = (ModuleData { modSig = Map.empty, modTMap = Map.empty, modIdBimap = Bimap.empty, modFreeId = Nothing })
+    mappend a b = a
+      where
+        modSig' = undefined
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -16,7 +16,7 @@
 {-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, FunctionalDependencies  #-}
 
 module Utils.OrdMap (
-OrdMap, (!), lookup, member, empty, singleton, insert, delete, update, elems, keys, map, foldl,
+OrdMap, (!), lookup, member, empty, singleton, insert, delete, update, elems, keys, map, foldl, union,
 toList, fromList, mapAccum, toMap,
 
 ) where
@@ -97,6 +97,11 @@ map f (OrdMapC m) = OrdMapC $ List.map f m
 
 foldl :: (a -> (k,v) -> a) -> a -> OrdMap k v -> a
 foldl f z (OrdMapC m) = List.foldl f z m
+
+union :: (Eq k) => OrdMap k v -> OrdMap k v -> OrdMap k v
+union (OrdMapC a) (OrdMapC b) = OrdMapC $ List.unionBy bindingEq a b
+  where
+    bindingEq (kA, _) (kB, _) = kA == kB
 
 
 -- other useful functions

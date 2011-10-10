@@ -1,11 +1,16 @@
 // closed module ref
-module A(B) {
-  val x = B.y
+module A(Z, Y) {
+  val x = Z.y + Y.z
+}
+
+module B {
+  val y = 1
 }
 
 module C {
-  val y = 2
+  val z = 2
 }
 
-module D = A(C)
+
+module D = A(B, C)
 

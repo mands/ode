@@ -112,7 +112,8 @@ desugarComp name ins body outs = if (isSingleElem ins)
 -- | Expression desugarer - basically a big pattern amtch on all possible types
 -- should prob enable warnings to pick up all unmatched patterns
 dsExpr :: O.Expr -> TmpSupply (C.Expr Id)
-dsExpr (O.UnExpr O.Not e) = liftM (C.Op C.Not) (dsExpr e)
+-- TODO - fix!
+--dsExpr (O.UnExpr O.Not e) = liftM (C.Op C.Not) (dsExpr e)
 
 -- convert unary negation into (* -1)
 dsExpr (O.UnExpr O.Neg e) = do
