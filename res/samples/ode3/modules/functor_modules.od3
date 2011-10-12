@@ -1,39 +1,114 @@
+
 /*
-// closed module ref
-module A(B) {
-  val x = 1 + B.y
-//  val y = x + B.y
+PASS - closed module ref
+A :: (Z :: { y :: Float })
+     -> { x :: Float, y :: Float }
+*/
+module A(Z) {
+  val x = 1 + Z.y
+  val y = x + Z.y
 }
 
-// poly module ref
+/*
+PASS - poly module ref
+B :: (Z :: { y :: a })
+     -> { x :: a }
+*/
 module B(Z) {
   val x = Z.y
 }
 
-// multiple module refs
+/*
+PASS - multiple module refs
+C :: (Z :: { y :: Bool }
+     ,Y :: { y :: a, z :: Bool })
+     -> { x :: Bool, y :: a }
+*/
 module C(Z, Y) {
-  val x = Z.y + Y.z
+  val x = Z.y and Y.z
   val y = Y.y
 }
-*/
 
-// closed module call
+/*
+PASS - static module call
+D :: (Z :: { y :: (Float, Float) -> Float })
+     -> { x :: Float }
+*/
 module D(Z) {
   val x = Z.y(0,0) + 1
 }
 
-// poly-res module call
+/*
+PASS - poly-res module call
+E :: (Z :: { y :: (Float, Float) -> a })
+     -> { x :: a }
+*/
 module E(Z) {
   val x = Z.y(0,0)
 }
 
-// poly-arg module call
+/*
+PASS - poly-arg module call
+F :: (Z :: { y :: a -> Float, z :: a })
+     -> { x :: Float }
+*/
 module F(Z) {
   val x = Z.y(Z.z) + 1
 }
 
-// poly-arg and poly-res module call
+/*
+PASS - poly-arg and poly-res module call
+G :: (Z :: { y :: a -> b, z :: a })
+     -> { x :: b }
+
+*/
 module G(Z) {
   val x = Z.y(Z.z)
 }
+
+/*
+PASS - multi-functor, poly-res module-call
+H :: (Z :: { y :: (a, Float) -> b },
+      Y :: { z :: a })
+     -> { x :: b }
+*/
+module H(Z, Y) {
+  val x = Z.y(Y.z, 1)
+}
+
+/*
+PASS - component defs, static
+I :: (Z :: { y :: Bool })
+     -> { comA :: Bool -> Bool }
+*/
+module I(Z) {
+  component comA(x) {
+    return (x or Z.y)
+  }
+}
+
+/*
+PASS - component defs, poly
+J :: (Z :: { x :: Float, y :: a})
+     -> { comA :: (Float, b) -> (Float, a, b) }
+*/
+module J(Z) {
+  component comA(x, z) {
+    val y = x + Z.x
+    return (y, Z.y, z)
+  }
+}
+
+/*
+// PASS - component defs, poly arg and return
+K :: (Z :: { comB :: a -> b, z :: c })
+     -> { comA :: a -> (b, c) }
+*/
+module K(Z) {
+  component comA(x) {
+    val y = Z.comB(x)
+    return (y, Z.z)
+  }
+}
+
 

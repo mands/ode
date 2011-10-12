@@ -1,0 +1,133 @@
+/* 
+PASS - reording lit module
+A :: { W :: Float -> Float, X :: Float, Z :: Float, Y :: Float -> Float }
+*/
+/*
+module A {
+    component W(q) {
+
+        val zD = yD + xD + Z
+
+        val xD = X + q
+
+        val yD = 3 + xD + Y(2)
+
+        return (xD + yD + zD )
+
+    }
+
+    val X = 1
+
+    val Z = 2
+
+    component Y(r) {
+        return (r)
+    }
+}
+*/
+
+/*
+PASS - reordering functor
+B :: (Z :: { x :: Float, y :: (a, Float) -> Float, b :: Float },
+      Y :: { z :: a, y :: Float, a :: Float })
+     -> { y :: Float, x :: Float, comA :: Float -> Float, w :: a }
+*/
+/*
+module B(Z, Y) {
+
+    val y = x + Z.x
+  
+    val x = Z.y(Y.z, 1) - comA(Y.y)
+  
+    component comA(a) {
+        val x = Y.a + y
+        val y = Z.b / a
+        return (x + y)
+    }
+    
+    val z = Y.z
+    
+}
+*/
+
+// PASS - recuisive val defintinos, should fail
+/*
+module C {    
+    val x = y
+    val y = x + 1
+}
+*/
+
+// PASS - recuisive val defintinos within comp, should fail
+/*
+module D {    
+    component comA(x) {
+        val a = b
+        val b = a
+        return (a+x)
+    }    
+}
+*/
+
+// PASS - recursive fun call, should fail
+/*
+module E {
+    component comA(x) {
+        return (comA(1) + x)
+    }    
+    val x = comA(1)
+}
+*/
+
+// PASS - mutually recusive funcs, should fail
+/*
+module F {
+    component comA(x) {
+        return (comB(x) + 1)
+    }    
+    component comB(x) {
+        return (comA(x) - 1)
+    }    
+    val x = comA(1)
+}
+*/
+
+// PASS - recsuvive between top-level and component expression
+/*
+module G {
+    component comA(x) {
+        val z = y + x    
+        return (z)
+    }
+    val y = comA(1)
+}
+*/
+
+// PASS - testing scoping resolution with reordering, componant defs should take priority
+/*
+module H {
+    val x = 1
+    val y = 2
+    
+    component b(a) {
+        val y = x + 3
+        val x = 4 + a
+        return (x + y)
+    }    
+}
+*/
+
+// PASS - undefined var usage, just needs better error handling
+module I {
+    component inc(x) {
+        return (x + 1)
+    }
+
+    val X = inc(3)
+    val Y = X + X
+    // val Z = Y + X + 23 
+
+    // what the fuck!
+    val Z = Y + X + Z
+}
+

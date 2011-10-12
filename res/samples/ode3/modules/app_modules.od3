@@ -1,16 +1,374 @@
-// closed module ref
-module A(Z, Y) {
-  val x = Z.y + Y.z
+/*
+PASS - static test, single functor
+A1 :: (Z :: { y :: Float })
+      -> { x :: Bool }
+B1 :: { y :: Float }
+C1 :: { x :: Bool }
+*/
+/*
+module A1(Z) {
+  val x = Z.y > 1
 }
-
-module B {
+module B1 {
   val y = 1
 }
+module C1 = A1(B1)
+*/
 
-module C {
+/*
+PASS - polymoprhic test, single functor
+A2 :: (Z :: { y :: a }
+      -> { x :: a }
+B2 :: { y :: Float }
+C2 :: { x :: Float }
+*/
+/*
+module A2(Z) {
+  val x = Z.y
+}
+module B2 {
+  val y = 1
+}
+module C2 = A2(B2)
+*/
+
+/*
+PASS - static test, multiple functor
+A3 :: (Z :: { y :: Float },
+       Y :: ( z :: Float })
+       -> { x :: Float }
+B3 :: { y :: Float }
+C3 :: { x :: Float }
+D3 :: { x :: Float }
+*/
+/*
+module A3(Z, Y) {
+  val x = Z.y + Y.z
+}
+module B3 {
+  val y = 1
+}
+module C3 {
   val z = 2
 }
+module D3 = A3(B3, C3)
+*/
+
+/*
+PASS - polymorphic test, multiple functor, reorder
+A4 :: (Z :: { x :: a, y :: Float, z :: Float }, 
+      Y :: { y :: Float, z :: Float })
+      -> { x :: Float, y :: a, z :: Float, w :: Bool }
+B4 :: { x :: Float, y :: Float, z :: Float }
+C4 :: { y :: Float, z :: Float }
+D4 :: { x :: Float, y :: Float, z :: Bool, w :: Bool }
+*/
+/*
+module A4(Z, Y) {
+  val x = Z.y + Y.z + z
+  val y = Z.x
+  val z = Y.y + Z.z
+  val w = Y.y > Z.z
+}
+module B4 {
+  val x = 1
+  val y = 2
+  val z = 3
+}
+module C4 {
+  val y = 4
+  val z = 5
+}
+module D4 = A4(B4, C4)
+*/
+
+/*
+PASS - static, mutliple vars test, multiple functor
+A5 ::  (Z :: { x :: Float },
+       Y :: { x :: Float })
+       -> { x :: Float }
+B5 :: { x :: Float }
+C5 :: { x :: Float }
+D5 :: { x :: Float }
+*/
+/*
+module A5(Z, Y) {
+  val x = Z.x + Y.x
+}
+module B5 {
+  val x = 1
+}
+module C5 {
+  val x = 2
+}
+module D5 = A5(B5, C5)
+*/
+
+/*
+PASS - static + poly, multiple functor, many functor applications
+A6 :: (Z :: { x :: a, y :: Float},
+     Y :: { z :: Float })
+     -> { x :: a, y :: Bool }
+B6 :: { y :: Float, x :: Float }
+C6 :: { z :: Float }
+D6 :: { x :: Float }
+E6 :: (Z :: { x :: Float },
+      Y :: { x :: Float })
+     -> { x :: Float }
+F6 :: { x :: Float, y :: Bool }
+G6 :: { x :: Float }
+*/
+/*
+module A6(Z, Y) {
+  val y = Z.y > Y.z
+  val x = Z.x
+}
+module B6 {
+  val y = 1
+  val x = 2
+}
+module C6 {
+  val z = 3
+}
+module D6 {
+  val x = 4
+}
+module E6(Z, Y) {
+  val x = Z.x + Y.x
+}
+module F6 = A6(B6, C6)
+module G6 = E6(F6, D6)
+*/
+
+/*
+PASS - component calls test, static, single functor
+A7 :: (Z :: { comInc :: Float -> Float })
+      -> { x :: Float }
+B7 :: { comInc :: Float -> Float }
+C7 :: { x :: Float }
+*/
+/*
+module A7(Z) {
+  val x = Z.comInc(1) + 1
+}
+module B7 {
+  component comInc(x) {
+    return (x+1)
+  }
+}
+module C7 = A7(B7)
+*/
+
+/*
+PASS - component calls test, poly return, single functor
+A8 :: (Z :: { comInc :: Float -> a })
+      -> { x :: a }
+B8 :: { comInc :: Float -> Float }
+C8 :: { x :: Float }
+*/
+/*
+module A8(Z) {
+  val x = Z.comInc(1)
+}
+module B8 {
+  component comInc(x) {
+    return (x+1)
+  }
+}
+module C8 = A8(B8)
+*/
 
 
-module D = A(B, C)
+/*
+PASS - component calls test, poly arg + return, single functor
+A9 :: (Z :: { comAdd :: (a, b) -> c, x :: a, y :: b })
+      -> { x :: c }
+B9 :: { comAdd :: (Float, Float) -> Float, x :: Float, y :: Float }
+C9 :: { x :: Float}
+*/
+/*
+module A9(Z) {
+  val x = Z.comAdd(Z.x, Z.y)
+}
+module B9 {
+  component comAdd(x, y) {
+    return (x+y)
+  }
+  val x = 1
+  val y = 2
+}
+module C9 = A9(B9)
+*/
+
+/*
+PASS - component calls test, poly arg + return, multi-ret, single functor, scope testing
+A10 :: (Z :: { comAddSub :: (a, b) -> (c, d), x :: a, y :: b })
+       -> { x :: c, y :: d}
+B10 :: { comAddSub :: (Float, Float) -> (Bool, Bool), x :: Float, y :: Float}
+C10 :: { x :: Bool, y :: Bool } 
+*/
+/*
+module A10(Z) {
+  val x,y = Z.comGtLt(Z.x, Z.y)
+}
+module B10 {
+  component comGtLt(x, y) {
+    return (x > y, x < y)
+  }
+  val x = 1
+  val y = 2
+}
+module C10 = A10(B10)
+*/
+
+/*
+PASS - component calls test, poly arg + return, multi-ret, multi functor
+A11 :: (Z :: { comAddSub :: (a, b) -> (c, d) },
+       Y :: { x :: a, y :: b })
+       -> { v :: c, w :: d }
+B11 :: { comAddSub :: (Float, Float) -> (Float, Float) }
+C11 :: { x :: Float, y :: Float }
+D11 :: { v :: Float, w :: Float } 
+*/
+/*
+module A11(Z, Y) {
+  val v,w = Z.comAddSub(Y.x, Y.y)
+}
+module B11 {
+  component comAddSub(x, y) {
+    return (x+y, x-y)
+  }
+}
+module C11 {
+  val x = 1
+  val y = 2
+}
+module D11 = A11(B11, C11)
+*/
+
+
+
+/*
+PASS - component calls test, poly arg + return, multi-ret, multi functor
+A12 :: (Z :: { comAddSub :: (a, b) -> (c, d),
+       Y :: { x :: e, y :: f },
+       X :: { comInc :: e -> a, comDec :: f -> b })
+       -> { v :: c, w :: d }
+B12 :: { comAddSub :: (Float, Float) -> (Float, Float) }
+C12 :: { x :: Float, y :: Float }
+D12 :: { comInc :: Float -> Float, comDec :: Float -> Float }
+E12 :: { v :: Float, w :: Float }
+*/
+/*
+module A12(Z, Y, X) {
+  val v, w = Z.comAddSub(X.comInc(Y.x), X.comDec(Y.y))
+}
+module B12 {
+  component comAddSub(x, y) {
+    return (x+y, x-y)
+  }
+}
+module C12 {
+  val x = 1
+  val y = 2
+}
+module D12 {
+  component comInc(x) {
+    return (x+1)
+  }
+  component comDec(x) {
+    return (x-1)
+  }
+}
+module E12 = A12(B12, C12, D12)
+*/
+
+/*
+PASS - component calls test, poly, multi-functor, type-error
+A71 :: (Z :: { comComp :: (a, b) -> c })
+      -> { x :: c }
+B71 :: { comComp :: Bool -> Bool }
+C71 :: { x :: Float, y :: Float }
+D71 :: { x :: NA }
+*/
+/*
+module A71(Z, Y) {
+  val x = Z.comOr(Y.x, Y.y)
+}
+module B71 {
+  component comOr(x, y) {
+    return (x or y)
+  }
+}
+module C71 {
+  val x = 1
+  val y = 2
+}
+module D71 = A71(B71, C71)
+*/
+
+
+/*
+PASS - component defs, static
+A13 :: (Z :: { y :: Float })
+       -> { comA :: Float -> Bool }
+B13 :: { y :: Float }
+C13 :: { comA :: Float -> Bool }
+*/
+/*
+module A13(Z) {
+  component comA(x) {
+    return (x > Z.y)
+  }
+}
+module B13 {
+  val y = 1
+}
+module C13 = A13(B13)
+*/
+
+/*
+PASS - component defs, poly, typetest for close module app - should fail
+A14 :: (Z :: { x :: Float, y :: a})
+     -> { comA :: (Float, b) -> (Float, a, b) }
+B14 :: { x :: Float, y :: Float }
+C14 :: { comA :: (Float, b) -> (Float, Float, b) }
+*/
+/*
+module A14(Z) {
+  component comA(x, z) {
+    val y = x + Z.x
+    return (y, Z.y, z)
+  }
+}
+module B14 {
+  val x = 2
+  val y = 1  
+}
+// cannot apply functor
+//module C14 = A14(B14)
+*/
+
+/*
+// PASS - component defs, poly arg and return
+A15 :: (Z :: { comB :: a -> b, z :: c })
+     -> { comA :: a -> (b, c) }
+B15 :: { comB :: Float -> Float, z :: Float }
+C15 :: { comA :: Float -> (Float, Float) }
+*/
+/*
+module A15(Z) {
+  component comA(x) {
+    val y = Z.comB(x)
+    return (y, Z.z)
+  }
+}
+module B15 {
+  component comB(x) {
+    return (x+1)
+  }
+  val z = 1
+}
+module C15 = A15(B15)
+*/
 

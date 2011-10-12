@@ -126,10 +126,13 @@ appendModule argName argMod@(C.LitMod argExprMap argModData) baseMod@(C.LitMod b
         argIdBimap = C.modIdBimap argModData
 
         updateVars :: C.Expr C.Id -> C.Expr C.Id
-        updateVars (C.Var (C.ModVar modId id)) | modId == argName = C.Var (C.LocalVar (argIdBimap Bimap.! id))
-        updateVars (C.App (C.ModVar modId id) expr) | modId == argName =
-            C.App (C.LocalVar (argIdBimap Bimap.! id)) (updateVars expr)
-        updateVars (C.App (C.LocalVar id) expr) = C.App (C.LocalVar id) (updateVars expr)
+        updateVars (C.Var (C.ModVar modId id))
+            | modId == argName = C.Var (C.LocalVar (argIdBimap Bimap.! id))
+
+        updateVars (C.App vId@(C.ModVar modId id) expr)
+            | modId == argName = C.App (C.LocalVar (argIdBimap Bimap.! id)) (updateVars expr)
+        updateVars (C.App vId expr) = C.App vId (updateVars expr)
+
         updateVars (C.Let b e1 e2) = C.Let b (updateVars e1) (updateVars e2)
         updateVars (C.Op op e) = C.Op op (updateVars e)
         updateVars (C.If eIf eT eF) = C.If (updateVars eIf) (updateVars eT) (updateVars eF)

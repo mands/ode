@@ -1,17 +1,22 @@
-module X {
+// basic literal modules
 
+/*
+X :: { inc :: Float -> Float, x :: Float }
+*/
+module X {
   component inc(x) {
     return (x+1)
   }
-
   val x = inc(3)
 }
 
+/*
+Y :: { gtZero :: Float -> Bool, y :: Bool }
+*/
 module Y {
-
-  component dec(x) {
-    return (x-1)
+  component gtZero(x) {
+    return (x > 0)
   }
-
-  val y = dec(3)
+  val y = gtZero(3)
 }
+

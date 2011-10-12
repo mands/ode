@@ -1,0 +1,56 @@
+// PASS - simple local val scoping & ordering tests
+/*
+module A {
+    val z = x + y(x) + 2
+    val x = 1
+    component y(x) {
+    	val y = 1
+    	return (x + y)
+    }
+}
+*/
+
+// PASS - more complicated - tests different scopes and namespaces
+/*
+module B {
+    val w = 0
+    val x = 1
+    component y(x) {
+    	val y = 1 + w
+    	return (x + y)
+    }
+    val z = x + y(x)
+}
+*/
+
+// PASS - multiple bindings  with same value - should fail
+/*
+module C {
+    val y = 0
+    component y(x) {
+    	val y = 1 + y
+    	return (x + y)
+    }
+    val z = y(y)
+}
+*/
+
+/*
+PASS - tests functors namespacing/scopting
+D :: (A :: {x :: Float, b :: a, y :: b -> Float, a :: Float}
+      B :: {x :: Float, y :: b, b :: Float })
+     -> { x :: Float, y :: Float, a :: Float, b :: (Float, a) -> Float }
+*/
+module D(A, B) {
+    val x = A.x + B.x
+    val y = A.y(B.y)
+    
+    val a = b(A.a, A.b)
+    
+    component b(a, b) {
+        val x = a + A.a + B.b
+        val y = x + y
+        return (x + y)
+    }    
+}
+
