@@ -44,7 +44,7 @@ main :: IO ()
 main = do
     updateGlobalLogger rootLoggerName (setLevel DEBUG)
     --filelogger <- fileHandler "output.log" DEBUG
-    streamlogger <- verboseStreamHandler stdout INFO
+    streamlogger <- verboseStreamHandler stdout DEBUG
     --updateGlobalLogger rootLoggerName (setHandlers [streamlogger, filelogger])
     updateGlobalLogger rootLoggerName (setHandlers [streamlogger])
 

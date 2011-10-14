@@ -32,6 +32,7 @@ import Control.Monad.Error
 import System.Log.Logger
 
 import qualified Core.AST as C
+import Core.AST.Module (debugModuleExpr)
 import Core.Reorderer (reorder)
 import Core.Renamer (rename)
 import Core.TypeChecker --(typeCheck, TypeVarEnv, TypeCons)
@@ -42,33 +43,37 @@ import qualified Utils.OrdMap as OrdMap
 -- | moduleDriver takes a list of base modules and creates a runtime module envinroment that is used create close modules
 -- for simulation
 moduleDriver :: [C.TopMod C.SrcId] -> IO (Maybe C.ModuleEnv)
-moduleDriver baseModules = processRes
-  where
-
+moduleDriver baseModules = do
     -- a rudimentary controlelr that sets up the iteration over the luist of module commands, altering state as we fold
-    modEnv = DF.foldlM interpretModule Map.empty baseModules
+    modEnv <- DF.foldlM procMod Map.empty baseModules
+    infoM "ode3.moduleDriver" "No errors"
+    return $ Just modEnv
+  where
+    -- processes a module and displays the results
+    procMod :: C.ModuleEnv -> C.TopMod C.SrcId -> IO C.ModuleEnv
+    procMod modEnv (C.TopMod name mod) = either
+        (\err -> errorOut err >> return modEnv)
+        (\mod -> succOut mod >> return (Map.insert name mod modEnv)) interpretRes
+      where
+        interpretRes = interpretModule modEnv mod
+        errorOut err = errorM "ode3.moduleDriver" ("Error processing module " ++ name ++ " " ++ err)
+        succOut mod = infoM "ode3.moduleDriver" ("Processed module " ++ name ++ " - " ++ prettyPrint mod) >>
+            debugM "ode3.moduleDriver" ("Module toplevel - \n" ++ debugModuleExpr mod)
 
-    -- a top level IO command
-    processRes = either
-        (\err -> errorM "ode3.coreDriver" err >> return Nothing)
-        (\res -> infoM "ode3.coreDriver" "No errors" >> infoM "ode3.coreDriver" (show res) >> return (Just res)) modEnv
 
-
-
-
--- a basic interpreter over the set of module types
-interpretModule :: C.ModuleEnv -> C.TopMod C.SrcId -> MExcept C.ModuleEnv
-interpretModule modEnv (C.TopMod name mod@(C.LitMod _ _)) = do
+-- a basic interpreter over the set of module types, interpres the modules with regards tro the moduleenv
+interpretModule :: C.ModuleEnv -> C.Module C.SrcId -> MExcept (C.Module C.Id)
+interpretModule modEnv mod@(C.LitMod _ _) = do
     -- reorder, rename and typecheck the expressinons within module, adding to the module metadata
     mod' <- reorder >=> rename >=> typeCheck $ mod
-    return $ Map.insert name mod' modEnv
+    return mod'
 
-interpretModule modEnv (C.TopMod name mod@(C.FunctorMod _ _ _)) = do
+interpretModule modEnv mod@(C.FunctorMod _ _ _) = do
     -- reorder, rename and typecheck the expressinons within functor module, adding to the module metadata
     mod' <- reorder >=> rename >=> typeCheck $ mod
-    return $ Map.insert name mod' modEnv
+    return mod'
 
-interpretModule modEnv (C.TopMod name mod@(C.AppMod fModId argModIds)) = do
+interpretModule modEnv mod@(C.AppMod fModId argModIds) = do
 
     -- need to check that the application is valid, if so then create a new module
     -- involves several steps with specialised pipeline operations
@@ -85,8 +90,7 @@ interpretModule modEnv (C.TopMod name mod@(C.AppMod fModId argModIds)) = do
     (fMod', appModEnv') <- typeCheckApp fMod appModEnv
 
     let mod' = applyFunctor fMod' appModEnv'
-
-    return $ trace (show mod') (Map.insert name mod' modEnv)
+    return $ mod'
   where
 
     -- lookup/evaluate the functor and params

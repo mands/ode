@@ -12,18 +12,20 @@
 --
 -----------------------------------------------------------------------------
 
-{-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures, FlexibleInstances #-}
+{-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures, FlexibleInstances, TypeSynonymInstances #-}
 
 module Core.AST.Module (
-TopMod(..), Module(..), ModuleData(..), ModuleEnv, ExprMap, SigMap, TypeMap, FunArgs, IdBimap,
+TopMod(..), Module(..), ModuleData(..), ModuleEnv, ExprMap, SigMap, TypeMap, FunArgs, IdBimap, debugModuleExpr
 ) where
 
 import Control.Monad
 import Data.Monoid
+import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Bimap as Bimap
 import Core.AST.Expr
 import qualified Utils.OrdMap as OrdMap
+import Utils.Utils
 
 -- TODO - questions
 -- how does interpretation proceed, is strict, hence order determined by pos in file
@@ -64,18 +66,14 @@ type TypeMap = Map.Map Id Type -- maybe switch to IntMap?
 -- | Module environment the run-time envirmornet used to create models and start simulations, holds the current results from interpreting the module system
 type ModuleEnv = Map.Map SrcId (Module Id)
 
---getModuleName :: Module a -> SrcId
---getModuleName (VarMod name _ _) = name
---getModuleName (AbsMod name _ _ _) = name
---getModuleName (AppMod name _ _) = name
-
 -- need to put more helper functions here
 -- for instance functions to union two exprMaps, modules, remap ids, etc.
-
-
+debugModuleExpr :: (Show a) => Module a -> String
+debugModuleExpr (LitMod exprMap _) = prettyPrint exprMap
+debugModuleExpr (FunctorMod _ exprMap _) = prettyPrint exprMap
+debugModuleExpr (AppMod _ _) = "Application - no exprs"
 
 -- standard typeclass instances
-
 -- | Make LitMod a instnace of monoid, where mappend a b imppiles adding the module b to occur after module a
 instance Monoid (Module Id) where
     mempty = LitMod OrdMap.empty mempty
@@ -100,13 +98,25 @@ instance Monoid ModuleData where
       where
         modSig' = undefined
 
+instance PrettyPrint (TopMod a) where
+    prettyPrint (TopMod name mod) = show name ++ " :: " ++ prettyPrint mod
 
+instance PrettyPrint (Module a) where
+    -- show the module signature
+    prettyPrint (LitMod exprMap modData) = "Closed :: " ++ prettyPrint modData
 
+    -- show the args and module sig
+    prettyPrint (FunctorMod funcArgs exprMap modData) = "Functor :: (" ++ prettyPrint funcArgs ++ ") -> " ++ prettyPrint modData
 
+    -- show the functor and args
+    prettyPrint mod@(AppMod functor args) = "Application - " ++ functor ++ "(" ++ show args ++ ")"
 
+-- show the module signature
+instance PrettyPrint ModuleData where
+    prettyPrint (ModuleData sig tMap idBimap mFreeId) = show sig
 
-
-
+instance PrettyPrint FunArgs where
+    prettyPrint funArgs = List.intercalate "," $ List.map (\(m, sig) -> show m ++ " :: {" ++ show sig ++ "}") (OrdMap.toList funArgs)
 
 
 

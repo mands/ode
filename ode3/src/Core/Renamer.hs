@@ -53,12 +53,12 @@ newtype TopBinds =  TopBinds (Map.Map C.SrcId C.Id) deriving Show
 -- | Main rename function, takes a model bound by Ids and returns a single-scoped model bound by unique ints
 -- I don't think this function can ever fail
 rename :: C.Module C.SrcId -> MExcept (C.Module Int)
-rename (C.LitMod exprMap modData) = trace (show exprMap') (Right (C.LitMod exprMap' modData'))
+rename (C.LitMod exprMap modData) = (Right (C.LitMod exprMap' modData'))
   where
     (exprMap', topBinds, freeId) = renTop exprMap
     modData' = updateModData modData topBinds freeId
 
-rename (C.FunctorMod args exprMap modData) = trace (show exprMap') (Right (C.FunctorMod args exprMap' modData'))
+rename (C.FunctorMod args exprMap modData) = (Right (C.FunctorMod args exprMap' modData'))
   where
     (exprMap', topBinds, freeId) = renTop exprMap
     modData' = updateModData modData topBinds freeId

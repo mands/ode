@@ -346,7 +346,7 @@ module B14 {
   val y = 1  
 }
 // cannot apply functor
-//module C14 = A14(B14)
+module C14 = A14(B14)
 */
 
 /*
