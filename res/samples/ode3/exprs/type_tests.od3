@@ -84,9 +84,11 @@ module A {
 	}
 	val X7 = id(1) + 1
 
-// PASS - comopnent artity errors
+// PASS - comopnent artity and type errors
 //    val X8 = inc(1,2)
 //    val Y8 = add(1)
+//    val Z8 = comAnd(1,2)
+//    val W8 = add(1>1,0>0)
 
 // PASS - call a val, add a component
 //    val X9 = X1(1,2)

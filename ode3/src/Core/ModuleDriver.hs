@@ -20,11 +20,13 @@ moduleDriver,
 
 
 import Debug.Trace
+import qualified Data.Traversable as DT
 import qualified Data.Foldable as DF
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.Bimap as Bimap
 import Data.Maybe (fromJust)
+import Control.Applicative
 import Control.Monad.Trans
 import Control.Monad
 import Control.Monad.Error
@@ -46,7 +48,8 @@ moduleDriver :: [C.TopMod C.SrcId] -> IO (Maybe C.ModuleEnv)
 moduleDriver baseModules = do
     -- a rudimentary controlelr that sets up the iteration over the luist of module commands, altering state as we fold
     modEnv <- DF.foldlM procMod Map.empty baseModules
-    infoM "ode3.moduleDriver" "No errors"
+    infoM "ode3.moduleDriver" "No fatal errors"
+    infoM "ode3.moduleDriver" ("Final module environment - " ++ (show $ Map.keys modEnv))
     return $ Just modEnv
   where
     -- processes a module and displays the results
@@ -85,22 +88,38 @@ interpretModule modEnv mod@(C.AppMod fModId argModIds) = do
 
     -- order is, args/sig check, typecheck, rename, reorder
     -- should return a new closed module that can be reused later on
-    --mod' <- reorder >=> rename >=> typeCheck $ mod
-    --return $ Map.insert name mod' modEnv
+
+    fMod <- eFMod
+    argMods <- eArgMods
+    appModEnv <- getAppModEnv fMod argMods
     (fMod', appModEnv') <- typeCheckApp fMod appModEnv
 
     let mod' = applyFunctor fMod' appModEnv'
     return $ mod'
   where
 
-    -- lookup/evaluate the functor and params
-    fMod@(C.FunctorMod funArgs funExprs funModData) = modEnv Map.! fModId
-    argMods = map ((Map.!) modEnv) argModIds
+    -- lookup/evaluate the functor and params, dynamically type-check
+    eFMod :: MExcept (C.Module C.Id)
+    eFMod = case (Map.lookup fModId modEnv) of
+        Just mod -> case mod of
+            (C.FunctorMod _ _ _) -> return mod
+            _ -> throwError ("(MO01) - Module " ++ fModId ++ " is not a functor")
+        Nothing -> throwError ("(MO02) - Functor module " ++ fModId ++ " not found")
+
+    eArgMods :: MExcept [C.Module C.Id]
+    eArgMods = DT.mapM argLookup argModIds
+      where
+        argLookup argId = case (Map.lookup argId modEnv) of
+            Just mod -> case mod of
+                (C.LitMod _ _) -> return mod
+                _ -> throwError ("(MO03) - Module " ++ fModId ++ " is not a literal module")
+            Nothing -> throwError ("(MO02) - Module argument " ++ argId ++ " not found")
 
     -- rename the argMods according to pos/ create a new modenv to evalulate the applciation within
-    -- TODO - test that the args are all LitMods / evalulated to LitMods
-    appModEnv :: C.ModuleEnv
-    appModEnv = Map.fromList $ zip (OrdMap.keys funArgs) argMods
+    getAppModEnv :: C.Module C.Id -> [C.Module C.Id] -> MExcept C.ModuleEnv
+    getAppModEnv (C.FunctorMod funArgs _ _) argMods = if (OrdMap.size funArgs == length argMods)
+        then return (Map.fromList $ zip (OrdMap.keys funArgs) argMods)
+        else throwError "(MO04) - Wrong number of arguments for functor application"
 
 -- actually evaluate the functor applciation, similar to evaluation of function application
 applyFunctor :: C.Module C.Id -> C.ModuleEnv -> C.Module C.Id

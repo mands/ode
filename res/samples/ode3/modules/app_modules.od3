@@ -372,3 +372,56 @@ module B15 {
 module C15 = A15(B15)
 */
 
+/*
+PASS - sig mismatch, missing ref, should fail
+A16 :: (Z :: { z :: Float })
+      -> { x :: Bool }
+B16 :: { y :: Float }
+C16 :: { x :: Bool }
+*/
+/*
+module A16(Z) {
+  val x = Z.z > 1
+}
+module B16 {
+  val y = 1
+}
+module C16 = A16(B16)
+*/
+/*
+PASS - sig mismatch, wrong type, should fail
+A17 :: (Z :: { y :: Bool })
+      -> { x :: Bool }
+B17 :: { y :: Float }
+C17 :: { x :: Bool }
+*/
+/*
+module A17(Z) {
+  val x = Z.y and (1 > 0)
+}
+module B17 {
+  val y = 1
+}
+module C17 = A17(B17)
+*/
+/*
+PASS - incorrect functor applications, should fail
+A18 :: (Z :: { z :: Float })
+      -> { x :: Bool }
+B18 :: { y :: Float }
+C18 :: { x :: Bool }
+*/
+module A18(Z) {
+  val x = Z.z > 1
+}
+module B18 {
+  val y = 1
+}
+module C18 = A18(B18, B18) // too many args
+module D18 = A18(A18) // functor applied to functor
+module E18 = B18(B18) // literal applied to literal
+module F18 = A18(NA) // functor doesn't exist
+
+
+
+

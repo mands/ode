@@ -20,11 +20,12 @@
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
 
 module Core.AST.Expr (
-SrcId, Id, VarId(..), Bind(..), Type(..), travTypes,
+SrcId, Id, VarId(..), Bind(..), Type(..), travTypesM,
 Top(..), Expr(..), Op(..), Literal(..),
 ) where
 
 
+import Control.Monad
 import qualified Data.Map as Map
 import qualified Data.IntMap as IntMap
 import qualified Data.Sequence as Seq
@@ -160,10 +161,10 @@ data Op = Add | Sub | Mul | Div | Mod
         deriving (Show, Eq, Ord)
 
 -- is this some type of type-class?
-travTypes :: Type -> (Type -> Type) -> Type
-travTypes (TArr fromT toT) f = TArr (travTypes fromT f) (travTypes toT f)
-travTypes (TTuple ts) f = TTuple $ map f ts
-travTypes t f = f t
+travTypesM :: (Monad m) => Type -> (Type -> m Type) -> m Type
+travTypesM (TArr fromT toT) f = liftM2 TArr (travTypesM fromT f) (travTypesM toT f)
+travTypesM (TTuple ts) f = liftM TTuple $ mapM f ts
+travTypesM t f = f t
 
 -- |Standard functor defintion, could be derived automatically but still...
 -- only applicable for the binding parameter, so maybe useless

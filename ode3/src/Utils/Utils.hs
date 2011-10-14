@@ -13,12 +13,12 @@
 -----------------------------------------------------------------------------
 
 module Utils.Utils (
-MExcept, PrettyPrint(..), mapFst, mapSnd, pairM
+MExcept, PrettyPrint(..), mapFst, mapSnd, pairM, errorDump
 ) where
 
 import Control.Monad
 import Control.Monad.Error
-
+import Data.List (intercalate)
 -- |my exception/error monad, could just import from Control.Monad.Error but anyway...
 type MExcept = Either String
 
@@ -57,7 +57,8 @@ pairM a b = liftM2 (,) a b
 class PrettyPrint a where
     prettyPrint :: a -> String
 
-
+errorDump :: [String] -> String
+errorDump msgs = "ERROR DUMP \n" ++ (intercalate "\n" msgs)
 
 
 

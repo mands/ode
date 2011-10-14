@@ -16,7 +16,7 @@
 {-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, OverlappingInstances, FlexibleInstances, FunctionalDependencies  #-}
 
 module Utils.OrdMap (
-OrdMap, (!), lookup, member, empty, singleton, insert, delete, update, elems, keys, map, foldl, union,
+OrdMap, (!), lookup, size, member, empty, singleton, insert, delete, update, elems, keys, map, foldl, union,
 toList, fromList, mapAccum, toMap, prettyPrint
 
 ) where
@@ -45,6 +45,9 @@ newtype OrdMap k v = OrdMapC [(k,v)] deriving (Show, Eq, Ord)
 
 lookup :: (Ord k) => k -> OrdMap k v -> Maybe v
 lookup k (OrdMapC m) = List.lookup k m
+
+size :: OrdMap k v -> Int
+size (OrdMapC m) = List.length m
 
 member :: (Ord k) => k -> OrdMap k v -> Bool
 member k (OrdMapC m) = isJust $ List.lookup k m

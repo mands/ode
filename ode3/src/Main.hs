@@ -24,6 +24,7 @@ import Control.Monad.Trans
 import Control.Monad
 import qualified Data.Foldable as DF
 import qualified Data.Map as Map
+import qualified Data.List as List
 
 import Ion.Parser
 import qualified Ion.AST as I
@@ -102,7 +103,13 @@ odeParser fileName = do
     -- back in IO monad, report any error message(s)
     either
         (\err -> errorM "ode3.odeParser" err >> return Nothing)
-        (\res -> infoM "ode3.odeParser" "No errors" >> infoM "ode3.odeParser" (show res) >> return (Just res)) modules
+        (\res -> infoM "ode3.odeParser" "No errors"
+                >> debugM "ode3.odeParser" (succOut res)
+                >> return (Just res))
+        modules
+
+  where
+    succOut srcMods = "Parsed Modules - \n" ++ (List.intercalate "\n" . List.map show $ srcMods)
 
 coreDriver :: [C.TopMod C.SrcId] -> IO (Maybe C.ModuleEnv)
 coreDriver modules = MD.moduleDriver modules
