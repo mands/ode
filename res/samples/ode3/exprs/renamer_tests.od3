@@ -24,7 +24,7 @@ module B {
 */
 
 // PASS - multiple bindings  with same value - should fail
-/*
+
 module C {
     val y = 0
     component y(x) {
@@ -33,7 +33,7 @@ module C {
     }
     val z = y(y)
 }
-*/
+
 
 /*
 PASS - tests functors namespacing/scopting
@@ -41,6 +41,7 @@ D :: (A :: {x :: Float, b :: a, y :: b -> Float, a :: Float}
       B :: {x :: Float, y :: b, b :: Float })
      -> { x :: Float, y :: Float, a :: Float, b :: (Float, a) -> Float }
 */
+/*
 module D(A, B) {
     val x = A.x + B.x
     val y = A.y(B.y)
@@ -53,4 +54,4 @@ module D(A, B) {
         return (x + y)
     }    
 }
-
+*/

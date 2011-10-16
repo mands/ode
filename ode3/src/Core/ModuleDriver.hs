@@ -37,6 +37,7 @@ import qualified Core.AST as C
 import Core.AST.Module (debugModuleExpr)
 import Core.Reorderer (reorder)
 import Core.Renamer (rename)
+import Core.Validator (validate)
 import Core.TypeChecker --(typeCheck, TypeVarEnv, TypeCons)
 import Utils.Utils
 import qualified Utils.OrdMap as OrdMap
@@ -68,12 +69,12 @@ moduleDriver baseModules = do
 interpretModule :: C.ModuleEnv -> C.Module C.SrcId -> MExcept (C.Module C.Id)
 interpretModule modEnv mod@(C.LitMod _ _) = do
     -- reorder, rename and typecheck the expressinons within module, adding to the module metadata
-    mod' <- reorder >=> rename >=> typeCheck $ mod
+    mod' <- validate >=> reorder >=> rename >=> typeCheck $ mod
     return mod'
 
 interpretModule modEnv mod@(C.FunctorMod _ _ _) = do
     -- reorder, rename and typecheck the expressinons within functor module, adding to the module metadata
-    mod' <- reorder >=> rename >=> typeCheck $ mod
+    mod' <- validate >=> reorder >=> rename >=> typeCheck $ mod
     return mod'
 
 interpretModule modEnv mod@(C.AppMod fModId argModIds) = do

@@ -70,6 +70,7 @@ desugarMod (O.ModuleApp name (O.ModuleAppParams funcId (Just args))) =
     args' = map (\(O.ModuleAppParams arg _) -> arg) args
 
 -- | desugar a top-level value constant(s)
+-- throws an error if a top-level is already defined
 desugarModElems :: (C.ExprMap Id) -> O.ModuleElem -> TmpSupply (C.ExprMap Id)
 desugarModElems exprMap (O.ModuleElemValue (O.ValueDef ids value)) = do
     v' <- dsExpr value
@@ -104,8 +105,8 @@ desugarComp name ins body outs = case ins of
 
     -- TODO - we ignore for now
     dsCompBody ((O.InitValueDef ids e):xs) = lift $ throwError "test"
-    dsCompBody ((O.OdeDef id init e):xs) = error "(DESUGAR) got ODE"
-    dsCompBody ((O.RreDef id (from, to) e):xs) = error "(DESUGAR) got RRE"
+    dsCompBody ((O.OdeDef id init e):xs) = error "(DS) got ODE"
+    dsCompBody ((O.RreDef id (from, to) e):xs) = error "(DS) got RRE"
 
     dsCompOuts outs = packElems outs
 
@@ -144,7 +145,7 @@ dsExpr (O.Call (O.LocalId id) exprs) = liftM (C.App (C.LocalVar id)) $ packElems
 dsExpr (O.Call (O.ModId mId id) exprs) = liftM (C.App (C.ModVar mId id)) $ packElems exprs
 
 -- any unknown/unimplemented paths - mainly modules for now
-dsExpr a = trace (show a) (error "(DESUGAR) Unknown ODE3 expression")
+dsExpr a = trace (show a) (error "(DS) Unknown ODE3 expression")
 
 -- |Simple test to see if an expression contains only a single element or is a packed tuple
 isSingleElem es = length es == 1
