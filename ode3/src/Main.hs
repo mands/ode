@@ -76,6 +76,28 @@ main = do
     infoM "ode3.main" $ "Done"
     --close filelogger
 
+
+-- | debugging main entry funtion that takes the input file as a func param
+debugMain :: String -> IO ()
+debugMain fileName = do
+    updateGlobalLogger rootLoggerName (setLevel DEBUG)
+    --filelogger <- fileHandler "output.log" DEBUG
+    streamlogger <- verboseStreamHandler stdout DEBUG
+    --updateGlobalLogger rootLoggerName (setHandlers [streamlogger, filelogger])
+    updateGlobalLogger rootLoggerName (setHandlers [streamlogger])
+    progName <- getProgName
+    infoM "ode3.main" $ "Hello World from " ++ progName ++ "!"
+    curDir <- getCurrentDirectory
+    infoM "ode3.main" $ "Running from " ++ curDir
+    -- read the input file
+    infoM "ode3.main" $ "parsing " ++ fileName
+    resA <- odeParser fileName
+    maybe (return Nothing) coreDriver resA
+
+    infoM "ode3.main" $ "Done"
+    --close filelogger
+
+
 -- | argument flag types
 data Flag = Version
     deriving Show

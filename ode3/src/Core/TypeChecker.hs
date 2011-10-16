@@ -52,6 +52,7 @@ typeCheck mod@(C.LitMod exprMap modData) = do
     -- substitute to obtain the new type env
     tEnv' <- subTVars tEnv tVarMap False
     let modData' = updateModData modData tEnv'
+
     return $ C.LitMod exprMap modData'
 
 typeCheck mod@(C.FunctorMod args exprMap modData) = do

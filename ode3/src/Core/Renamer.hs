@@ -53,16 +53,17 @@ newtype TopBinds =  TopBinds (Map.Map C.SrcId C.Id) deriving Show
 -- | Main rename function, takes a model bound by Ids and returns a single-scoped model bound by unique ints
 -- I don't think this function can ever fail
 rename :: C.Module C.SrcId -> MExcept (C.Module Int)
-rename (C.LitMod exprMap modData) = (Right (C.LitMod exprMap' modData'))
+rename (C.LitMod exprMap modData) = trace ("(RN) " ++ (show res)) (Right res)
   where
     (exprMap', topBinds, freeId) = renTop exprMap
     modData' = updateModData modData topBinds freeId
+    res = (C.LitMod exprMap' modData')
 
-rename (C.FunctorMod args exprMap modData) = (Right (C.FunctorMod args exprMap' modData'))
+rename (C.FunctorMod args exprMap modData) = trace ("(RN) " ++ (show res)) (Right res)
   where
     (exprMap', topBinds, freeId) = renTop exprMap
     modData' = updateModData modData topBinds freeId
-
+    res = (C.FunctorMod args exprMap' modData')
 
 -- | Update the module data with the idBimap and next free id
 updateModData :: C.ModuleData ->  TopBinds -> Int -> C.ModuleData
@@ -98,7 +99,7 @@ bLookup v (TopBinds tB) = do
         Just x -> return x
         -- This should never throw an error (reorderer now catches all unknown variable references)
         -- maybe (renError ("Referenced variable " ++ v ++ " not found")) (\x -> return x) (Map.lookup v tB)
-        Nothing -> return $ tB Map.! v
+        Nothing -> return $ maybe (error "(RNO1)") id $ Map.lookup v tB
 
 -- |Need to build a conversion map of the top values first
 renTop :: C.ExprMap C.SrcId -> (C.ExprMap Int, TopBinds, Int)

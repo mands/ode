@@ -57,9 +57,8 @@ module C {
     val y = x + 1
 }
 */
-
-// PASS - recuisive val defintinos within comp, should fail
 /*
+// PASS - recuisive val defintinos within comp, should fail
 module D {    
     component comA(x) {
         val a = b
@@ -68,19 +67,16 @@ module D {
     }    
 }
 */
-
-// PASS - recursive fun call, should fail
-/*
+// PASS - recursive fun call, should fail - better handling
 module E {
     component comA(x) {
-        return (comA(1) + x)
+        return (comA(x) + x)
     }    
     val x = comA(1)
 }
-*/
 
-// PASS - mutually recusive funcs, should fail
 /*
+// PASS - mutually recusive funcs, should fail
 module F {
     component comA(x) {
         return (comB(x) + 1)
@@ -90,10 +86,8 @@ module F {
     }    
     val x = comA(1)
 }
-*/
 
 // PASS - recsuvive between top-level and component expression
-/*
 module G {
     component comA(x) {
         val z = y + x    
@@ -101,10 +95,8 @@ module G {
     }
     val y = comA(1)
 }
-*/
 
 // PASS - testing scoping resolution with reordering, componant defs should take priority
-/*
 module H {
     val x = 1
     val y = 2
@@ -116,8 +108,8 @@ module H {
     }    
 }
 */
+// PASS - toplevel undefined var usage, just needs better error handling
 
-// PASS - undefined var usage, just needs better error handling
 module I {
     component inc(x) {
         return (x + 1)
@@ -129,5 +121,19 @@ module I {
 
     // what the fuck!
     val Z = Y + X + Z
+}
+
+
+// undefined var
+module J {
+//    val X = inc(3)
+    val Y = X + 1
+}
+
+// undefined component var
+module K {
+    component add(x) {
+        return (x + y)
+    }
 }
 

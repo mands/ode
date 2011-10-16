@@ -80,7 +80,7 @@ reorder' exprMap = do
     (topGraph', topMap') <- procDepGraphs topGraph topMap topBindMap
     -- now we need to sort the graphs and reconstruct the expressions
     exprMap' <- sortGraphs topGraph' topMap'
-    return $ exprMap'
+    return $ trace ("(RO) " ++ (show exprMap')) exprMap'
   where
     topGraph = createTopGraph exprMap topMap
     topMap = createTopMap exprMap
@@ -174,8 +174,7 @@ procExprN topElem eg mENode exp = procExpr eg exp
     -- helper function
     topBindLookup v m = do
         s <- get
-        let bindVar = (rTopBindMap s) Map.! v
-        return $ Map.lookup bindVar m
+        return $ liftM2 (Map.!) (return m) (Map.lookup v (rTopBindMap s))
 
     -- | main function that updates the graph with new edges
     updateGraphDep :: ExprGraph -> C.SrcId -> GraphStateMa ExprGraph
@@ -186,9 +185,10 @@ procExprN topElem eg mENode exp = procExpr eg exp
             -- if current expNode exists, i.e. is not a baseExpr
             Just useDefNode -> return $ maybe eg (\eNode -> addDep useDefNode eNode eg) mENode
             Nothing ->
-                -- check to see if is the arg within an abs
+                -- ref not within current scope, check special cases, if not check toplevel
                 case (rTopExpr topElem) of
-                    LTopAbs _ arg -> if (arg == useVar) then return eg else checkTopDep
+                    -- is the ref to the arg within an abs
+                    LTopAbs _ arg | (arg == useVar) -> return eg
                     -- if not, check the toplevel
                     _ -> checkTopDep
       where
@@ -199,7 +199,7 @@ procExprN topElem eg mENode exp = procExpr eg exp
             case topNode of
                 Just useTopElem -> checkTopDep' useTopElem
                 -- throwError if lookup fails
-                Nothing -> throwError ("(a) Referenced variable " ++ (show useVar) ++ " not found")
+                Nothing -> throwError ("(RO03) Referenced variable " ++ (show useVar) ++ " not found")
           where
             checkTopDep' useTopElem = do
                 s <- get
@@ -215,22 +215,22 @@ procExprN topElem eg mENode exp = procExpr eg exp
 -- also checks for recursive definitions at either level
 sortGraphs :: TopGraph -> TopMap -> MExcept (C.ExprMap C.SrcId)
 sortGraphs tg tm = do
-    sortedTops <- if sccCheck tg then return (topsort' tg)
+    sortedTops <- if simpleCheck tg then return (topsort' tg)
         -- TODO - need to determine the names of the elements
-        else throwError "Found recursive relationship between top-level elements"
+        else throwError "(RO01) Found recursive relationship between top-level elements"
 
     -- need to map over elems in sort top, extract the topmapElem, then sort the exprgraph and regen the top expr
     liftM OrdMap.fromList $ DT.mapM sortExpr sortedTops
   where
     sortExpr topVar = if exprCheck then return (topVar, rE)
-        else throwError ("Found recursive relationship between expressions within " ++ (show topVar))
+        else throwError ("(RO02) Found recursive relationship between expressions within " ++ (show topVar))
       where
-        topElem = (Map.!) tm topVar
-        exprCheck = sccCheck (rExprGraph topElem)
+        topElem = maybe (error "(ROO4)") id $ Map.lookup topVar tm
+        exprCheck = simpleCheck (rExprGraph topElem)
         rE = reconExpr (rTopExpr topElem) (topsort' $ rExprGraph topElem) (rBaseExpr topElem)
 
-    -- | function to check for stronglyConnComp within a graph, i.e. any recursive calls
-    sccCheck = all (== 1) . map length . scc
+    -- | function to check for loops and/or stronglyConnComp within a graph, i.e. any recursive calls
+    simpleCheck g = isSimple g && (all (== 1) . map length . scc $ g)
 
     -- | Reconstructs an expression from the list of lets and the baseExpr
     reconExpr :: TopExpr ->  [ExprNodeLabel] -> (C.Expr C.SrcId) -> C.Top C.SrcId
