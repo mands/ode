@@ -19,6 +19,7 @@ desugar
 
 import qualified Data.Map as Map
 import qualified Data.Bimap as Bimap
+import Data.List (nub)
 import Debug.Trace
 import Control.Monad
 import Control.Monad.Error as E
@@ -45,13 +46,9 @@ evalSupplyVars x = evalSupplyT x $ map (\x -> tmpPrefix ++ x) vars
 --tmpName = "tmpName"
 -- | desugar function takes an ODE model representaiton and converts it into a lower-level Core AST
 -- we only concern ourselves with single module models for now
+-- use the supply monad to generate unique names
 desugar :: O.Model -> MExcept [C.TopMod Id]
-desugar (O.Model _ modules) = a
-  where
-    -- use the supply monad to generate unique names
-    a = evalSupplyVars mods
-    -- filter first to return only complete modules
-    mods = mapM desugarMod modules
+desugar (O.Model _ modules) = evalSupplyVars $ mapM desugarMod modules
 
 desugarMod :: O.Module -> TmpSupply (C.TopMod Id)
 desugarMod (O.ModuleAbs name Nothing elems) = do
@@ -90,9 +87,12 @@ desugarModElems exprMap (O.ModuleElemComponent (O.Component name ins body outs))
 -- | desugars and converts a component into a \c abstraction
 -- not in tail-call form, could blow out the stack, but unlikely
 desugarComp :: O.Id -> [O.Id] -> [O.CompStmt] -> [O.Expr] -> TmpSupply (C.Expr Id)
-desugarComp name ins body outs = if (isSingleElem ins)
-        then dsCompBody body -- error here for single elem
-        else dsCompIns ins
+desugarComp name [] body outs = lift $ throwError ("(DS01) Component has zero inputs")
+desugarComp name ins body [] = lift $ throwError ("(DS02) Component has zero outputs")
+desugarComp name ins body outs = case ins of
+                                    (singIn:[]) -> dsCompBody body
+                                    _ | length ins == (length . nub) ins  -> dsCompIns ins
+                                    _ | otherwise -> lift $ throwError ("(DS03) Component has inputs with the same name")
   where
     -- unpack the input params, a custom fold over the multiple ins
     dsCompIns bs = liftM (C.Let (C.LetBind bs) (C.Var (C.LocalVar name))) $ dsCompBody body

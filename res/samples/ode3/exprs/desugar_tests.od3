@@ -1,0 +1,39 @@
+// PASS - simple component test
+module A {
+    component comA(x, y) {
+    	return (x + y)
+    }
+}
+
+// PASS - componetns with inputs with same name, should fail
+/*
+module B {
+    val y = 1
+    component comA(x, x) {
+    	return (x + y)
+    }
+}
+*/
+
+// PASS - componetns with no inputs, should fail
+/*
+module C {
+    val x = 1
+    val y = 1
+    component comA() {
+    	return (x + y)
+    }
+}
+*/
+
+// PASS - componetns with no outputs, should fail
+/*
+module C {
+    val x = 1
+    val y = 1
+    component comA(x) {
+    	return ()
+    }
+}
+*/
+
