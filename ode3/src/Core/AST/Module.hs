@@ -15,14 +15,21 @@
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures, FlexibleInstances, TypeSynonymInstances #-}
 
 module Core.AST.Module (
-TopMod(..), Module(..), ModuleData(..), ModuleEnv, ExprMap, SigMap, TypeMap, FunArgs, IdBimap, debugModuleExpr
+TopMod(..), Module(..), ModuleData(..), ModuleEnv, ExprMap, SigMap, TypeMap, FunArgs, IdBimap, debugModuleExpr,
+SafeExprMap, insertTopExpr, emptySafeExprMap
 ) where
 
 import Control.Monad
+import Control.Applicative
+import Control.Monad.Error
 import Data.Monoid
+import qualified Data.Traversable as DT
+import qualified Data.Foldable as DF
+import qualified Data.Set as Set
 import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Bimap as Bimap
+
 import Core.AST.Expr
 import qualified Utils.OrdMap as OrdMap
 import Utils.Utils
@@ -72,6 +79,22 @@ debugModuleExpr :: (Show a) => Module a -> String
 debugModuleExpr (LitMod exprMap _) = prettyPrint exprMap
 debugModuleExpr (FunctorMod _ exprMap _) = prettyPrint exprMap
 debugModuleExpr (AppMod _ _) = "Application - no exprs"
+
+
+type SafeExprMap a = (Set.Set a, ExprMap a)
+-- | Util func to safely insert a top expression into an expremap with the given binding,
+-- throws an exception if the binding exists in the map
+insertTopExpr :: (Show a, Ord a) => Top a -> SafeExprMap a -> MExcept (SafeExprMap a)
+insertTopExpr topExpr (curBinds, exprMap) = case topExpr of
+    (TopAbs b'@(AbsBind b) _ _) -> (,) <$> (addBinding curBinds b) <*> addExprMap' b'
+    (TopLet b'@(LetBind bs) _) -> (,) <$> (DF.foldlM addBinding curBinds bs) <*> addExprMap' b'
+  where
+    addBinding curBinds b = case Set.member b curBinds of
+        True -> throwError $ "(MO01) - Top-level binding " ++ (show b) ++ " already exists in module"
+        False -> pure $ (Set.insert b curBinds)
+    addExprMap' b = pure (OrdMap.insert b topExpr exprMap)
+
+emptySafeExprMap = (Set.empty, OrdMap.empty)
 
 -- standard typeclass instances
 -- | Make LitMod a instnace of monoid, where mappend a b imppiles adding the module b to occur after module a

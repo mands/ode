@@ -24,7 +24,6 @@ module B {
 */
 
 // PASS - multiple bindings  with same value - should fail
-
 module C {
     val y = 0
     component y(x) {
@@ -33,6 +32,7 @@ module C {
     }
     val z = y(y)
 }
+
 
 
 /*

@@ -67,14 +67,15 @@ module D {
     }    
 }
 */
-// PASS - recursive fun call, should fail - better handling
+// PASS - recursive fun call, should fail
+/*
 module E {
     component comA(x) {
         return (comA(x) + x)
     }    
     val x = comA(1)
 }
-
+*/
 /*
 // PASS - mutually recusive funcs, should fail
 module F {
@@ -108,9 +109,9 @@ module H {
     }    
 }
 */
-// PASS - toplevel undefined var usage, just needs better error handling
-
-module I {
+// PASS - toplevel undefined var usage, within top-level and components, should fail
+/*
+module I1 {
     component inc(x) {
         return (x + 1)
     }
@@ -122,18 +123,46 @@ module I {
     // what the fuck!
     val Z = Y + X + Z
 }
-
-
-// undefined var
-module J {
+module I2 {
 //    val X = inc(3)
     val Y = X + 1
 }
-
-// undefined component var
-module K {
+module I3 {
     component add(x) {
         return (x + y)
+    }
+}
+*/
+
+// scoping test, if a val with the same binding exsists outside of a component, ref that and don't create a recursive ref
+/*
+module J1 {
+    val y = 0
+    val y = y
+}
+*/
+
+module J2 {
+    val y = 0
+    component comA(x) {
+    	val y = y
+    	return (y + x)
+    }
+}
+
+module J3 {
+    component comA(x) {
+    	val y = y
+    	return (y + x)
+    }
+}
+
+module J4 {
+    val z = 1
+    component comA(x) {
+    	val y = z
+    	val z = 2
+    	return (y + z + x)
     }
 }
 

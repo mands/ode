@@ -162,54 +162,50 @@ procExprN topElem eg mENode exp = procExpr eg exp
     procExpr :: ExprGraph -> C.Expr C.SrcId -> GraphStateMa ExprGraph
     procExpr eg (C.Var (C.LocalVar useVar)) = updateGraphDep eg useVar -- create a link in the graph from def to use
     procExpr eg (C.App (C.LocalVar useVar) exp) = (updateGraphDep eg useVar) >>= (\eg -> procExpr eg exp)  -- create a link in the graph from def to use
-
     procExpr eg (C.Op _ exp) = procExpr eg exp
     procExpr eg (C.If exp1 exp2 exp3) = foldM (\eg exp -> procExpr eg exp) eg [exp1,exp2,exp3]
-
     procExpr eg (C.Tuple exps) = foldM (\eg exp -> procExpr eg exp) eg exps
-
-    -- ignore anything else, for isntance, all module references, as they are already defined
-    procExpr eg _ = return eg
-
-    -- helper function
-    topBindLookup v m = do
-        s <- get
-        return $ liftM2 (Map.!) (return m) (Map.lookup v (rTopBindMap s))
+    procExpr eg _ = return eg -- ignore anything else, i.e. module references, as they are already defined
 
     -- | main function that updates the graph with new edges
+    -- check all contexts, get the usage's def node from the useVar within the cur elem exprmap
     updateGraphDep :: ExprGraph -> C.SrcId -> GraphStateMa ExprGraph
-    updateGraphDep eg useVar = do
-        -- get the usage's def node from the useVar within the cur elem exprmap
-        case (Map.lookup useVar (rExprMap topElem)) of
-            -- add a dependency edge from the defUse to the current node
-            -- if current expNode exists, i.e. is not a baseExpr
-            Just useDefNode -> return $ maybe eg (\eNode -> addDep useDefNode eNode eg) mENode
-            Nothing ->
-                -- ref not within current scope, check special cases, if not check toplevel
-                case (rTopExpr topElem) of
-                    -- is the ref to the arg within an abs
-                    LTopAbs _ arg | (arg == useVar) -> return eg
-                    -- if not, check the toplevel
-                    _ -> checkTopDep
-      where
-        -- | look in the top level for the expression instead
-        checkTopDep = do
-            topMap <- liftM rTopMap get
-            topNode <- topBindLookup useVar topMap
-            case topNode of
-                Just useTopElem -> checkTopDep' useTopElem
-                -- throwError if lookup fails
-                Nothing -> throwError ("(RO03) Referenced variable " ++ (show useVar) ++ " not found")
-          where
-            checkTopDep' useTopElem = do
-                s <- get
-                let tg' = addDep (rTopNode useTopElem) (rTopNode topElem) (rTopGraph s)
-                put (s { rTopGraph = tg' }) -- put the updated tg back into StateM
-                return eg -- return the unmodified eg
+    updateGraphDep eg useVar = case (Map.lookup useVar (rExprMap topElem)) of
+        -- are we refercing ourselves?
+        -- check for binding to outside scope with same name as local scope, if so don't create recursive loop
+        Just useDefNode | (Just useDefNode == mENode) -> do
+            mUseTopElem <- topBindLookup useVar
+            maybe (addLocalDep useDefNode) (\useTopElem -> addTopDep useTopElem) mUseTopElem
 
+        -- add a dependency edge from the defUse to the current node
+        -- if current expNode exists, i.e. is not a baseExpr
+        Just useDefNode | otherwise -> addLocalDep useDefNode
+
+        -- ref not within current scope, check special cases, if not check toplevel
+        Nothing -> case (rTopExpr topElem) of
+            -- is the ref to the arg within an abs
+            LTopAbs _ arg | (arg == useVar) -> return eg
+            -- if not, look in the top level for the expression instead
+            _ -> do
+                mUseTopElem <- topBindLookup useVar
+                maybe (throwError $ "(RO03) Referenced variable " ++ (show useVar) ++ " not found")
+                    (\useTopElem -> addTopDep useTopElem) mUseTopElem
+      where
         -- | add a dependency from n1 to n2 within the graph g
         addDep n1 n2 g = insEdge (n1, n2, ()) g
+        addLocalDep useDefNode = return $ maybe eg (\eNode -> addDep useDefNode eNode eg) mENode
+        addTopDep useTopElem = do
+            s <- get
+            let tg' = addDep (rTopNode useTopElem) (rTopNode topElem) (rTopGraph s)
+            put (s { rTopGraph = tg' }) -- put the updated tg back into StateM
+             -- return the unmodified eg
+            return eg
 
+        -- helper function, checks in both binding map levels, threading the maybe thru
+        topBindLookup :: C.SrcId -> GraphStateMa (Maybe TopMapElem)
+        topBindLookup v = do
+            s <- get
+            return $ (Map.!) <$> (pure $ rTopMap s) <*> (Map.lookup v (rTopBindMap s))
 
 -- | Sorts the top and expressiosn graphs, returning an ordererd map representation of the model
 -- also checks for recursive definitions at either level

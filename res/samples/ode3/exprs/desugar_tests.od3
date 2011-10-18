@@ -28,7 +28,7 @@ module C {
 
 // PASS - componetns with no outputs, should fail
 /*
-module C {
+module D {
     val x = 1
     val y = 1
     component comA(x) {
@@ -36,4 +36,16 @@ module C {
     }
 }
 */
+
+// PASS - top-level binding devined multiple times, should fail
+/*
+module E {
+    val y = 0
+    component y(x) {
+        return (x+1)
+    }
+    val z = y(y)
+}
+*/
+
 

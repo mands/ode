@@ -29,6 +29,7 @@ import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap
 import qualified Ode.AST as O
 import qualified Core.AST as C
+import qualified Core.AST.Module as CMod
 
 type Id = C.SrcId
 
@@ -53,12 +54,12 @@ desugar (O.Model _ modules) = evalSupplyVars $ mapM desugarMod modules
 desugarMod :: O.Module -> TmpSupply (C.TopMod Id)
 desugarMod (O.ModuleAbs name Nothing elems) = do
     -- fold over the list of elems within the module creating the exprMap
-    exprMap <- foldM desugarModElems OrdMap.empty elems
+    (_, exprMap) <- foldM desugarModElems CMod.emptySafeExprMap elems
     return $ C.TopMod name (C.LitMod exprMap (C.ModuleData Map.empty Map.empty Bimap.empty Nothing))
 
 desugarMod (O.ModuleAbs name (Just args) elems) = do -- error "(DESUGAR) - mod abs" -- C.AbsMod name elems (C.ModuleData Map.empty Bimap.empty Nothing))
     -- fold over the list of elems within the module creating the exprMap
-    exprMap <- foldM desugarModElems OrdMap.empty elems
+    (_, exprMap) <- foldM desugarModElems CMod.emptySafeExprMap elems
     let args' = OrdMap.fromList $ map (\arg -> (arg, Map.empty)) args
     return $ C.TopMod name (C.FunctorMod args' exprMap (C.ModuleData Map.empty Map.empty Bimap.empty Nothing))
 
@@ -71,32 +72,32 @@ desugarMod (O.ModuleApp name (O.ModuleAppParams funcId (Just args))) =
 
 -- | desugar a top-level value constant(s)
 -- throws an error if a top-level is already defined
-desugarModElems :: (C.ExprMap Id) -> O.ModuleElem -> TmpSupply (C.ExprMap Id)
-desugarModElems exprMap (O.ModuleElemValue (O.ValueDef ids value)) = do
+desugarModElems :: (CMod.SafeExprMap Id) -> O.ModuleElem -> TmpSupply (CMod.SafeExprMap Id)
+desugarModElems sExprMap (O.ModuleElemValue (O.ValueDef ids value)) = do
     v' <- dsExpr value
     let mB = C.LetBind ids
-    return $ OrdMap.insert mB (C.TopLet mB v') exprMap
+    lift $ CMod.insertTopExpr (C.TopLet mB v') sExprMap
 
 -- | desugar a top level component
-desugarModElems exprMap (O.ModuleElemComponent (O.Component name ins body outs)) = do
+desugarModElems sExprMap (O.ModuleElemComponent (O.Component name ins body outs)) = do
     -- create a new tmpArg only if multiple elems
     arg <- if (isSingleElem ins) then return (singleElem ins) else supply
     v <- desugarComp arg ins body outs
     let topAbs = C.TopAbs (C.AbsBind name) arg v
-    return $ OrdMap.insert (C.AbsBind name) topAbs exprMap
+    lift $ CMod.insertTopExpr topAbs sExprMap
 
 -- | desugars and converts a component into a \c abstraction
 -- not in tail-call form, could blow out the stack, but unlikely
 desugarComp :: O.Id -> [O.Id] -> [O.CompStmt] -> [O.Expr] -> TmpSupply (C.Expr Id)
-desugarComp name [] body outs = lift $ throwError ("(DS01) Component has zero inputs")
-desugarComp name ins body [] = lift $ throwError ("(DS02) Component has zero outputs")
-desugarComp name ins body outs = case ins of
+desugarComp argName [] body outs = lift $ throwError ("(DS01) Component has zero inputs")
+desugarComp argName ins body [] = lift $ throwError ("(DS02) Component has zero outputs")
+desugarComp argName ins body outs = case ins of
                                     (singIn:[]) -> dsCompBody body
                                     _ | length ins == (length . nub) ins  -> dsCompIns ins
                                     _ | otherwise -> lift $ throwError ("(DS03) Component has inputs with the same name")
   where
     -- unpack the input params, a custom fold over the multiple ins
-    dsCompIns bs = liftM (C.Let (C.LetBind bs) (C.Var (C.LocalVar name))) $ dsCompBody body
+    dsCompIns bs = liftM (C.Let (C.LetBind bs) (C.Var (C.LocalVar argName))) $ dsCompBody body
 
     -- process the body by pattern-matching on the statement types
     dsCompBody [] = dsCompOuts outs
