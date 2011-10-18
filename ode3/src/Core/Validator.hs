@@ -19,6 +19,7 @@ validate,
 import Control.Monad.Error
 import Control.Applicative
 import Data.Functor
+import Data.List (nub)
 import qualified Data.Traversable as DT
 import qualified Data.Foldable as DF
 import qualified Data.Set as Set
@@ -29,7 +30,10 @@ import qualified Utils.OrdMap as OrdMap
 
 validate :: C.Module C.SrcId -> MExcept (C.Module C.SrcId)
 validate mod@(C.LitMod exprMap modData) = C.LitMod <$> validTopExpr exprMap <*> pure modData
-validate mod@(C.FunctorMod funArgs exprMap modData) = C.FunctorMod <$> pure funArgs <*> validTopExpr exprMap <*> pure modData
+validate mod@(C.FunctorMod funArgs exprMap modData) = C.FunctorMod <$> funArgs' <*> validTopExpr exprMap <*> pure modData
+  where
+    funArgs' = if (length funArgKeys == (length . nub) funArgKeys) then pure funArgs else throwError ("(VL05) - Functor has arguments with the same name")
+    funArgKeys = OrdMap.keys funArgs
 validate mod@(C.AppMod _ _) = pure mod
 
 validTopExpr :: C.ExprMap C.SrcId -> MExcept (C.ExprMap C.SrcId)

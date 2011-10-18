@@ -415,12 +415,13 @@ module A18(Z) {
   val x = Z.z > 1
 }
 module B18 {
-  val y = 1
+  val z = 1
 }
 module C18 = A18(B18, B18) // too many args
 module D18 = A18(A18) // functor applied to functor
 module E18 = B18(B18) // literal applied to literal
 module F18 = A18(NA) // functor doesn't exist
+module A18 = A18(B18) // module already defined
 
 
 

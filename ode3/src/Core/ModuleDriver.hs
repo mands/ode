@@ -59,7 +59,9 @@ moduleDriver baseModules = do
         (\err -> errorOut err >> return modEnv)
         (\mod -> succOut mod >> return (Map.insert name mod modEnv)) interpretRes
       where
-        interpretRes = interpretModule modEnv mod
+        interpretRes = checkName *> interpretModule modEnv mod
+        -- check if module already exists
+        checkName = if Map.member name modEnv then throwError ("(MD06) - Module with name " ++ (show name) ++ " already defined") else pure ()
         errorOut err = errorM "ode3.moduleDriver" ("Error processing module " ++ name ++ " " ++ err)
         succOut mod = infoM "ode3.moduleDriver" ("Processed module " ++ name ++ " - " ++ prettyPrint mod) >>
             debugM "ode3.moduleDriver" ("Module toplevel - \n" ++ debugModuleExpr mod)
@@ -104,8 +106,8 @@ interpretModule modEnv mod@(C.AppMod fModId argModIds) = do
     eFMod = case (Map.lookup fModId modEnv) of
         Just mod -> case mod of
             (C.FunctorMod _ _ _) -> return mod
-            _ -> throwError ("(MO01) - Module " ++ fModId ++ " is not a functor")
-        Nothing -> throwError ("(MO02) - Functor module " ++ fModId ++ " not found")
+            _ -> throwError ("(MD01) - Module " ++ fModId ++ " is not a functor")
+        Nothing -> throwError ("(MD02) - Functor module " ++ fModId ++ " not found")
 
     eArgMods :: MExcept [C.Module C.Id]
     eArgMods = DT.mapM argLookup argModIds
@@ -113,14 +115,14 @@ interpretModule modEnv mod@(C.AppMod fModId argModIds) = do
         argLookup argId = case (Map.lookup argId modEnv) of
             Just mod -> case mod of
                 (C.LitMod _ _) -> return mod
-                _ -> throwError ("(MO03) - Module " ++ fModId ++ " is not a literal module")
-            Nothing -> throwError ("(MO02) - Module argument " ++ argId ++ " not found")
+                _ -> throwError ("(MD03) - Module " ++ fModId ++ " is not a literal module")
+            Nothing -> throwError ("(MD02) - Module argument " ++ argId ++ " not found")
 
     -- rename the argMods according to pos/ create a new modenv to evalulate the applciation within
     getAppModEnv :: C.Module C.Id -> [C.Module C.Id] -> MExcept C.ModuleEnv
     getAppModEnv (C.FunctorMod funArgs _ _) argMods = if (OrdMap.size funArgs == length argMods)
         then return (Map.fromList $ zip (OrdMap.keys funArgs) argMods)
-        else throwError "(MO04) - Wrong number of arguments for functor application"
+        else throwError "(MD04) - Wrong number of arguments for functor application"
 
 -- actually evaluate the functor applciation, similar to evaluation of function application
 applyFunctor :: C.Module C.Id -> C.ModuleEnv -> C.Module C.Id

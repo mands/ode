@@ -112,3 +112,15 @@ module K(Z) {
 }
 
 
+/*
+// PASS - functor argsw with same name, should fail
+J :: (A :: { z :: Float }, A :: { z :: Float })
+     -> { y :: Float }
+*/
+module L(A, A) {
+  component comA(x) {
+    val y = A.z + 1
+    return (y)
+  }
+}
+
