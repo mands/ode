@@ -140,8 +140,6 @@ module J1 {
     val y = 0
     val y = y
 }
-*/
-
 module J2 {
     val y = 0
     component comA(x) {
@@ -149,14 +147,12 @@ module J2 {
     	return (y + x)
     }
 }
-
 module J3 {
     component comA(x) {
     	val y = y
     	return (y + x)
     }
 }
-
 module J4 {
     val z = 1
     component comA(x) {
@@ -165,4 +161,16 @@ module J4 {
     	return (y + z + x)
     }
 }
+*/
+
+/* FAIL - reordering test for components
+unpacking of arguments (x,y) should be first operation within a compoent, instead is reordered with normal lets
+*/
+module K {
+  component comA(x, y) {
+    val z = 2
+    return (x + y > z)  
+  }
+}
+
 

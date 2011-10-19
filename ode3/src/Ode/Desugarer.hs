@@ -57,18 +57,17 @@ desugarMod (O.ModuleAbs name Nothing elems) = do
     (_, exprMap) <- foldM desugarModElems CMod.emptySafeExprMap elems
     return $ C.TopMod name (C.LitMod exprMap (C.ModuleData Map.empty Map.empty Bimap.empty Nothing))
 
-desugarMod (O.ModuleAbs name (Just args) elems) = do -- error "(DESUGAR) - mod abs" -- C.AbsMod name elems (C.ModuleData Map.empty Bimap.empty Nothing))
+desugarMod (O.ModuleAbs name (Just args) elems) = do
     -- fold over the list of elems within the module creating the exprMap
     (_, exprMap) <- foldM desugarModElems CMod.emptySafeExprMap elems
     let args' = OrdMap.fromList $ map (\arg -> (arg, Map.empty)) args
     return $ C.TopMod name (C.FunctorMod args' exprMap (C.ModuleData Map.empty Map.empty Bimap.empty Nothing))
 
--- only support single args for now (not nested)
--- TODO - aliases
-desugarMod (O.ModuleApp name (O.ModuleAppParams funcId (Just args))) =
-    return $ C.TopMod name (C.AppMod funcId args')
+-- need to desugar into nested set of appMods and varMods
+desugarMod (O.ModuleApp name params) = return $ C.TopMod name (procParams params)
   where
-    args' = map (\(O.ModuleAppParams arg _) -> arg) args
+    procParams (O.ModuleAppParams modId Nothing) = C.VarMod modId
+    procParams (O.ModuleAppParams funcId (Just args)) = C.AppMod funcId (map procParams args)
 
 -- | desugar a top-level value constant(s)
 -- throws an error if a top-level is already defined

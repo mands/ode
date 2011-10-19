@@ -79,7 +79,12 @@ interpretModule modEnv mod@(C.FunctorMod _ _ _) = do
     mod' <- validate >=> reorder >=> rename >=> typeCheck $ mod
     return mod'
 
-interpretModule modEnv mod@(C.AppMod fModId argModIds) = do
+-- simply lookup the id within the env and return the module
+interpretModule modEnv mod@(C.VarMod modId) = case (Map.lookup modId modEnv) of
+    Just mod -> return mod
+    Nothing -> throwError $ "(MD07) - Referenced module " ++ (show modId) ++ " not found in envirnoment"
+
+interpretModule modEnv mod@(C.AppMod fModId argMods) = do
 
     -- need to check that the application is valid, if so then create a new module
     -- involves several steps with specialised pipeline operations
@@ -93,10 +98,8 @@ interpretModule modEnv mod@(C.AppMod fModId argModIds) = do
     -- should return a new closed module that can be reused later on
 
     fMod <- eFMod
-    argMods <- eArgMods
-    appModEnv <- getAppModEnv fMod argMods
+    appModEnv <- (getAppModEnv fMod) =<< eArgMods
     (fMod', appModEnv') <- typeCheckApp fMod appModEnv
-
     let mod' = applyFunctor fMod' appModEnv'
     return $ mod'
   where
@@ -109,20 +112,24 @@ interpretModule modEnv mod@(C.AppMod fModId argModIds) = do
             _ -> throwError ("(MD01) - Module " ++ fModId ++ " is not a functor")
         Nothing -> throwError ("(MD02) - Functor module " ++ fModId ++ " not found")
 
+
+    -- TODO - need typecheck
+    -- interpret the args, either eval inline apps or lookup
+    -- map and sequence thru interpretation of the args, using the same env
     eArgMods :: MExcept [C.Module C.Id]
-    eArgMods = DT.mapM argLookup argModIds
+    eArgMods = DT.mapM interpretArgs argMods
       where
-        argLookup argId = case (Map.lookup argId modEnv) of
-            Just mod -> case mod of
+        interpretArgs argMod = do
+            mod <- interpretModule modEnv argMod
+            case mod of
                 (C.LitMod _ _) -> return mod
-                _ -> throwError ("(MD03) - Module " ++ fModId ++ " is not a literal module")
-            Nothing -> throwError ("(MD02) - Module argument " ++ argId ++ " not found")
+                _ -> throwError ("(MD03) - Module argument to functor " ++ fModId ++ " is not a literal module")
 
     -- rename the argMods according to pos/ create a new modenv to evalulate the applciation within
     getAppModEnv :: C.Module C.Id -> [C.Module C.Id] -> MExcept C.ModuleEnv
     getAppModEnv (C.FunctorMod funArgs _ _) argMods = if (OrdMap.size funArgs == length argMods)
         then return (Map.fromList $ zip (OrdMap.keys funArgs) argMods)
-        else throwError "(MD04) - Wrong number of arguments for functor application"
+        else throwError "(MD05) - Wrong number of arguments for functor application"
 
 -- actually evaluate the functor applciation, similar to evaluation of function application
 applyFunctor :: C.Module C.Id -> C.ModuleEnv -> C.Module C.Id

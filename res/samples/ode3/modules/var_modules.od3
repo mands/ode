@@ -1,0 +1,129 @@
+/* Set of tests to test the interpreted for nested applications and variable lookups
+*/
+
+/*
+PASS - simple var lookup and application
+A1 :: (Z :: { z :: Float })
+      -> { x :: Bool }
+B1 :: { y :: Float }
+C1 :: { x :: Bool }
+*/
+module A1(Z) {
+  val x = Z.z > 1
+}
+
+module B1 {
+  val z = 0
+}
+
+module C1 = A1(B1)
+
+/*
+PASS - simple var lookup and application
+A2 :: (Z :: { z :: Float }, 
+       Y :: { z :: Float })
+      -> { x :: Bool }
+B2 :: { y :: Float }
+C2 :: { x :: Bool }
+*/
+module A2(Z, Y) {
+  val x = Z.z > Y.z
+}
+
+module B2 {
+  val z = 0
+}
+
+module C2 = A2(B2, B2)
+
+/*
+PASS - simple module alias
+A3 :: { x :: Float }
+B3 :: { x :: Float }
+*/
+module A3 {
+  val x = 1
+}
+module B3 = A3
+
+/*
+PASS - nested application
+A4 :: (Z :: { x :: Float }, 
+      -> { x :: Bool }
+B4 :: (Z :: { z :: Float }, 
+      -> { x :: Float }
+C4 :: { z :: Float }
+D4 :: { x :: Bool }
+*/
+module A4(Z) {
+  val x = Z.x > 0
+}
+
+module B4(Y) {
+  val x = Y.z + Y.z
+}
+
+module C4 {
+  val z = 1
+}
+
+module D4 = A4(B4(C4))
+
+/*
+PASS - nested application with type-error, should fail
+A5 :: (Z :: { x :: Bool }, 
+      -> { x :: Bool }
+B5 :: (Z :: { z :: Float }, 
+      -> { x :: Float }
+C5 :: { z :: Float }
+D5 :: { x :: Bool }
+*/
+module A5(Z) {
+  val x = Z.x and (0 > 0)
+}
+module B5(Y) {
+  val x = Y.z + Y.z
+}
+module C5 {
+  val z = 1
+}
+module D5 = A5(B5(C5))
+
+/*
+PASS - more complicated nested application
+A5 :: (Z :: { x :: Bool }, 
+      -> { x :: Bool }
+B5 :: (Z :: { z :: Float }, 
+      -> { x :: Float }
+C5 :: { z :: Float }
+D5 :: { x :: Bool }
+*/
+module A6(Z, Y) {
+  val x = (Z.x > 1) or Y.x
+}
+module B6 {
+  val x = 1
+}
+
+module C6(Y, X) {
+  val z = Y.y + Y.z
+  component comA(x, y) {
+    val z = 2
+    return (x + y > z)  
+  }    
+  val x = comA(z, X.x)
+}
+
+module D6 {
+  val x = 3
+}
+
+module E6 {
+  val y = 4
+  val z = 5
+}
+
+module F6 = A6(B6, C6(E6, D6))
+
+
+

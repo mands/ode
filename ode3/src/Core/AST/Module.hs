@@ -54,8 +54,9 @@ type FunArgs = OrdMap.OrdMap SrcId SigMap
 data Module a = LitMod  (ExprMap a) ModuleData -- Expr, ModType, IntType, Bimap, LastId)
                 | FunctorMod FunArgs (ExprMap a) ModuleData -- ModArgs, Expr, Type, Bimap, LastId)
                 -- we never have access to the appmodules, they are always immediatly applied and the resulting ClosedModule is saved under this name
-                | AppMod SrcId [SrcId]
-                -- | VarMod SrcId ??
+                | AppMod SrcId [Module a]
+                -- only used within appmods
+                | VarMod SrcId
                 deriving (Show, Eq)
 
 -- | Metadata regarding a module
@@ -121,10 +122,10 @@ instance Monoid ModuleData where
       where
         modSig' = undefined
 
-instance PrettyPrint (TopMod a) where
+instance (Show a) => PrettyPrint (TopMod a) where
     prettyPrint (TopMod name mod) = show name ++ " :: " ++ prettyPrint mod
 
-instance PrettyPrint (Module a) where
+instance (Show a) => PrettyPrint (Module a) where
     -- show the module signature
     prettyPrint (LitMod exprMap modData) = "Closed :: " ++ prettyPrint modData
 

@@ -48,10 +48,11 @@ data Module = ModuleAbs Id (Maybe [Id]) [ModuleElem]
             | ModuleApp Id ModuleAppParams
             deriving Show
 
--- |tree indicating module parameters for application of a functor
+-- |tree indicating module parameters for application of a functor,
+-- first Id is the functorId, if followed by a list of args, where each arg may have args itself
+-- else Id is the varId, if followed by Nothing
 data ModuleAppParams    = ModuleAppParams Id (Maybe [ModuleAppParams])
                         deriving Show
-
 -- |elements allowed within a module, basically components or top-level constant values
 data ModuleElem = ModuleElemComponent Component
                 | ModuleElemValue ValueDef

@@ -111,7 +111,6 @@ module K(Z) {
   }
 }
 
-
 /*
 // PASS - functor argsw with same name, should fail
 J :: (A :: { z :: Float }, A :: { z :: Float })
