@@ -48,4 +48,11 @@ module E {
 }
 */
 
+// FAIL - test cration of private identifiers
+module F {
+    val _x = 2
+    component _comA(x, y) {
+    	return (x + y)
+    }
+}
 
