@@ -20,27 +20,19 @@
 -----------------------------------------------------------------------------
 
 module Ode.AST (
-    Model(..),
-    FileOpen, ModLocalId(..), Module(..), ModuleAppParams(..), ModuleElem(..),
+    ModLocalId(..), Module(..), ModuleAppParams(..), ModuleElem(..),
     Component(..), ValueDef(..), CompStmt(..), Expr(..), BinOp(..), UnOp(..), Id
 ) where
 
 import Data.Map as Map
 
--- |an individual number type, not sure if needed, used to convert from double to integer
+-- | an individual number type, not sure if needed, used to convert from double to integer
 type NumTy = Double
--- |identifier - is converted later on
+-- | identifier - is converted later on
 type Id = String
--- |filepath created by open directive
-type FileOpen = String
--- |identifier that may be local to current block or refer to a module parameter
+-- | identifier that may be local to current block or refer to a module parameter
 data ModLocalId = LocalId Id | ModId Id Id
                 deriving Show
-
---type Model = Map.Map Id ModuleElem
--- |top level model
-data Model  = Model [FileOpen] [Module]
-            deriving Show
 
 -- |module
 -- should this be split by complete and partial/functors?

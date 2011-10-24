@@ -14,13 +14,14 @@
 -----------------------------------------------------------------------------
 
 module Ode.Desugarer (
-desugar
+desugarMod
 ) where
 
 import qualified Data.Map as Map
 import qualified Data.Bimap as Bimap
 import Data.List (nub)
 import Debug.Trace
+import Control.Applicative
 import Control.Monad
 import Control.Monad.Error as E
 import Control.Monad.Trans
@@ -44,28 +45,27 @@ evalSupplyVars x = evalSupplyT x $ map (\x -> tmpPrefix ++ x) vars
     vars = [replicate k ['A'..'Z'] | k <- [1..]] >>= sequence
     tmpPrefix = "des"
 
---tmpName = "tmpName"
--- | desugar function takes an ODE model representaiton and converts it into a lower-level Core AST
--- we only concern ourselves with single module models for now
+-- | desugar function takes an ODE module representaiton and converts it into a lower-level Core AST
 -- use the supply monad to generate unique names
-desugar :: O.Model -> MExcept [C.TopMod Id]
-desugar (O.Model _ modules) = evalSupplyVars $ mapM desugarMod modules
-
-desugarMod :: O.Module -> TmpSupply (C.TopMod Id)
-desugarMod (O.ModuleAbs name Nothing elems) = do
+desugarMod :: O.Module -> MExcept (C.TopMod Id)
+desugarMod (O.ModuleAbs name Nothing elems) =
+    evalSupplyVars $ (\(_, exprMap) -> C.TopMod name (C.LitMod exprMap modData)) <$> deRes
+  where
+    modData = C.ModuleData Map.empty Map.empty Bimap.empty Nothing
     -- fold over the list of elems within the module creating the exprMap
-    (_, exprMap) <- foldM desugarModElems CMod.emptySafeExprMap elems
-    return $ C.TopMod name (C.LitMod exprMap (C.ModuleData Map.empty Map.empty Bimap.empty Nothing))
+    deRes = (foldM desugarModElems CMod.emptySafeExprMap elems)
 
-desugarMod (O.ModuleAbs name (Just args) elems) = do
+desugarMod (O.ModuleAbs name (Just args) elems) =
+    evalSupplyVars $ (\(_, exprMap) -> C.TopMod name (C.FunctorMod args' exprMap modData)) <$> deRes
+  where
+    modData = C.ModuleData Map.empty Map.empty Bimap.empty Nothing
+    args' = OrdMap.fromList $ map (\arg -> (arg, Map.empty)) args
     -- fold over the list of elems within the module creating the exprMap
-    (_, exprMap) <- foldM desugarModElems CMod.emptySafeExprMap elems
-    let args' = OrdMap.fromList $ map (\arg -> (arg, Map.empty)) args
-    return $ C.TopMod name (C.FunctorMod args' exprMap (C.ModuleData Map.empty Map.empty Bimap.empty Nothing))
+    deRes = foldM desugarModElems CMod.emptySafeExprMap elems
 
--- need to desugar into nested set of appMods and varMods
 desugarMod (O.ModuleApp name params) = return $ C.TopMod name (procParams params)
   where
+    -- need to desugar into nested set of appMods and varMods
     procParams (O.ModuleAppParams modId Nothing) = C.VarMod modId
     procParams (O.ModuleAppParams funcId (Just args)) = C.AppMod funcId (map procParams args)
 

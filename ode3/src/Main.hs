@@ -26,15 +26,8 @@ import qualified Data.Foldable as DF
 import qualified Data.Map as Map
 import qualified Data.List as List
 
-import Ion.Parser
-import qualified Ion.AST as I
-
-import Ode.Parser (odeParse)
-import qualified Ode.AST as O
-import Ode.Desugarer (desugar)
-
+import Core.ModuleParser (modParse)
 import qualified Core.AST as C
-import qualified Core.ModuleDriver as MD
 import qualified CoreANF.AST as CA
 
 import Utils.Utils
@@ -70,8 +63,8 @@ main = do
     --(odeParser fileName) >>= coreDriver
     -- need to create a maybeT transformer - ignore for now
     -- TODO - return exit code depending on success/failure
-    resA <- odeParser fileName
-    maybe (return Nothing) coreDriver resA
+    resA <- modParser fileName
+    -- maybe (return Nothing) coreDriver resA
 
     infoM "ode3.main" $ "Done"
     --close filelogger
@@ -91,8 +84,8 @@ debugMain fileName = do
     infoM "ode3.main" $ "Running from " ++ curDir
     -- read the input file
     infoM "ode3.main" $ "parsing " ++ fileName
-    resA <- odeParser fileName
-    maybe (return Nothing) coreDriver resA
+    resA <- modParser fileName
+    -- maybe (return Nothing) coreDriver resA
 
     infoM "ode3.main" $ "Done"
     --close filelogger
@@ -106,35 +99,44 @@ data Flag = Version
 options :: [OptDescr Flag]
 options = [ Option ['V'] ["version"] (NoArg Version) "Show version number" ]
 
--- | drives the ion language compilation state through monadic sequencing
-ionParser :: FilePath -> IO ()
-ionParser fileName = do
+modParser :: FilePath -> IO ()
+modParser fileName = do
+    -- TODO - update to follow multiple file commands, move reader into the parser
     fileData <- readFile fileName
-    let res = ionParse fileName fileData
+    let modEnv = modParse fileName fileData Map.empty
+    either (\err -> errorM "ode3.modParser" err)
+        (\res -> infoM "ode3.modParser" $ "Parsed modules - \n" ++ (show res)) modEnv
 
-    either (\err -> errorM "ode3.ionParser" err)
-        (\res -> infoM "ode3.ionParser" "No errors" >> print res) res
+
+-- | drives the ion language compilation state through monadic sequencing
+--ionParser :: FilePath -> IO ()
+--ionParser fileName = do
+--    fileData <- readFile fileName
+--    let res = ionParse fileName fileData
+--
+--    either (\err -> errorM "ode3.ionParser" err)
+--        (\res -> infoM "ode3.ionParser" "No errors" >> print res) res
 
 -- | drives the core language compilation state through monadic sequencing
-odeParser :: FilePath -> IO (Maybe [C.TopMod C.SrcId])
-odeParser fileName = do
-    -- TODO - update to follow multiple file commands
-    fileData <- readFile fileName
-    let modules = (odeParse fileName fileData) >>= desugar
+--odeParser :: FilePath -> IO (Maybe [C.TopMod C.SrcId])
+--odeParser fileName = do
+--    -- TODO - update to follow multiple file commands
+--    fileData <- readFile fileName
+--    let modules = (modParse fileName fileData) >>= desugar
+--
+--    -- back in IO monad, report any error message(s)
+--    either
+--        (\err -> errorM "ode3.odeParser" err >> return Nothing)
+--        (\res -> infoM "ode3.odeParser" "No errors"
+--                >> debugM "ode3.odeParser" (succOut res)
+--                >> return (Just res))
+--        modules
+--
+--  where
+--    succOut srcMods = "Parsed Modules - \n" ++ (List.intercalate "\n" . List.map show $ srcMods)
 
-    -- back in IO monad, report any error message(s)
-    either
-        (\err -> errorM "ode3.odeParser" err >> return Nothing)
-        (\res -> infoM "ode3.odeParser" "No errors"
-                >> debugM "ode3.odeParser" (succOut res)
-                >> return (Just res))
-        modules
-
-  where
-    succOut srcMods = "Parsed Modules - \n" ++ (List.intercalate "\n" . List.map show $ srcMods)
-
-coreDriver :: [C.TopMod C.SrcId] -> IO (Maybe C.ModuleEnv)
-coreDriver modules = MD.moduleDriver modules
+--coreDriver :: [C.TopMod C.SrcId] -> IO (Maybe C.ModuleEnv)
+--coreDriver modules = MD.moduleDriver modules
 
 -- | driver for the middle-end of the compiler
 -- will run the middle-end of the compiler using the ANF/lowerlevel FIR - AST to be determined

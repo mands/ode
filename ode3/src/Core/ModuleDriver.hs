@@ -15,7 +15,7 @@
 -----------------------------------------------------------------------------
 
 module Core.ModuleDriver (
-moduleDriver,
+moduleDriver, interpretModule, newModuleDriver
 ) where
 
 
@@ -65,6 +65,15 @@ moduleDriver baseModules = do
         errorOut err = errorM "ode3.moduleDriver" ("Error processing module " ++ name ++ " " ++ err)
         succOut mod = infoM "ode3.moduleDriver" ("Processed module " ++ name ++ " - " ++ prettyPrint mod) >>
             debugM "ode3.moduleDriver" ("Module toplevel - \n" ++ debugModuleExpr mod)
+
+
+
+newModuleDriver :: C.ModuleEnv -> C.TopMod C.SrcId -> MExcept (C.ModuleEnv)
+newModuleDriver modEnv topMod@(C.TopMod name mod) = Map.insert name <$> eMod <*> pure modEnv
+  where
+    eMod = checkName *> interpretModule modEnv mod
+    -- check if module already exists
+    checkName = if Map.member name modEnv then throwError ("(MD06) - Module with name " ++ (show name) ++ " already defined") else pure ()
 
 
 -- a basic interpreter over the set of module types, interpres the modules with regards tro the moduleenv

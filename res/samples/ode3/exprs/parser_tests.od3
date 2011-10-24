@@ -1,0 +1,12 @@
+
+// new module syntax
+module B {
+  component comA (x,y) => (a, b+2) {
+    val a = 3
+    val b = x > y
+  }
+
+  component comB (x) => (x+1)
+
+}
+

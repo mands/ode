@@ -15,7 +15,7 @@
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures, FlexibleInstances, TypeSynonymInstances #-}
 
 module Core.AST.Module (
-TopMod(..), Module(..), ModuleData(..), ModuleEnv, ExprMap, SigMap, TypeMap, FunArgs, IdBimap, debugModuleExpr,
+ModImport, TopMod(..), Module(..), ModuleData(..), ModuleEnv, ExprMap, SigMap, TypeMap, FunArgs, IdBimap, debugModuleExpr,
 SafeExprMap, insertTopExpr, emptySafeExprMap
 ) where
 
@@ -39,6 +39,10 @@ import Utils.Utils
 -- need to add polymorphism to type-checker/impletemet two-stage type-checking
 -- how does the renamer work - do we need two typed of ids, locaql and module level - do we rename the modules too?
 -- ??
+
+-- | import created by import directive
+type ModImport = [String]
+-- data ModImport = ModImport String (Maybe String) deriving (Show, Eq, Ord)
 
 -- | Top level module variables
 data TopMod a = TopMod SrcId (Module a) deriving (Show, Eq)

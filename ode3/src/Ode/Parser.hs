@@ -22,7 +22,7 @@
 -----------------------------------------------------------------------------
 
 module Ode.Parser (
-    odeParse,
+    moduleBody
 ) where
 
 import Control.Applicative
@@ -222,38 +222,3 @@ moduleBody :: Parser O.ModuleElem
 moduleBody =    O.ModuleElemComponent <$> compDef
                 <|> O.ModuleElemValue <$> valueDef
                 <?> "component or value defintion"
-
--- |parse a chain/tree of module applications
-moduleAppParams :: Parser O.ModuleAppParams
-moduleAppParams = O.ModuleAppParams <$> modIdentifier <*> optionMaybe (paramList moduleAppParams)
-
--- |parse a module, either an entire definition/abstraction or an application
-moduleDef :: Parser O.Module
-moduleDef = do
-    mName <- reserved "module" *> modIdentifier
-    modParse mName
-  where
-    modParse mName =
-        O.ModuleApp <$> pure mName <*> (reservedOp "=" *> moduleAppParams)
-        <|> O.ModuleAbs <$> pure mName <*> optionMaybe (paramList modIdentifier) <*> braces (many1 moduleBody)
-        <?> "module definition"
-
--- |parse the open directive
-moduleOpen :: Parser O.FileOpen
-moduleOpen = reserved "open" *> stringLiteral
-
--- |top level parser for a file
-odeTop :: Parser O.Model
-odeTop = O.Model <$> (whiteSpace *> many moduleOpen) <*> many1 moduleDef <* eof
-
--- |parses the string and returns the result if sucessful
--- maybe move into main
--- TODO - switch to bytestring?
-odeParse :: FilePath -> String -> MExcept O.Model
-odeParse fileName fileData =
-    -- do  parseRes <- parseFromFile odeMain fileName
-    case parseRes of
-        Left err    -> Left ("parse error at " ++ show err)
-        Right res   -> Right res
-  where
-    parseRes = parse odeTop fileName fileData
