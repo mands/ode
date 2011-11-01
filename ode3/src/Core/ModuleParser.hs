@@ -28,6 +28,10 @@ import Text.Parsec.Language( javaStyle )
 import Text.Parsec.Perm
 import Debug.Trace (trace)
 
+import qualified Data.Map as Map
+import qualified Data.Bimap as Bimap
+import qualified Utils.OrdMap as OrdMap
+
 import Utils.Utils
 import qualified Ode.AST as O
 import qualified Ode.Parser as OP
@@ -57,7 +61,7 @@ lexeme      = T.lexeme lexer
 symbol      = T.symbol lexer
 stringLiteral = T.stringLiteral lexer
 natural     = T.natural lexer
-integer     = T.integer lexer
+integer     = T.integer lexern
 float       = T.float lexer
 parens      = T.parens lexer
 semi        = T.semi lexer
@@ -101,12 +105,9 @@ modFileTop :: M.ModuleEnv -> Parser M.ModuleEnv
 modFileTop modEnv = do
     imports <- (whiteSpace *> many moduleOpen)
     -- TODO, should lookup the imports here and update the env
-    let _ = trace (show imports) ()
 
     -- update the env and now parse the modules using the new env
     mods <- many1 (moduleDef modEnv) <* eof
-
-    let _ = trace (show mods) ()
 
     -- add the new mods to the moduleEnv
     let modEnv' = either (\_ -> modEnv) id $ DF.foldlM odeCoreConvert modEnv mods
@@ -118,29 +119,37 @@ moduleOpen :: Parser M.ModImport
 moduleOpen = reserved "import" *> modPathIdentifier
 
 -- | parse a module, either an entire definition/abstraction or an application
-moduleDef :: M.ModuleEnv -> Parser O.Module
-moduleDef modEnv = do
-    mName <- reserved "module" *> modIdentifier
-    modParse mName
+moduleDef :: M.ModuleEnv -> Parser (M.TopMod C.SrcId)
+moduleDef modEnv = M.TopMod <$> (reserved "module" *> modIdentifier) <*> modParse
   where
-    modParse mName =
-        O.ModuleApp <$> pure mName <*> (reservedOp "=" *> moduleAppParams)
-        <|> O.ModuleAbs <$> pure mName <*> optionMaybe (paramList modIdentifier) <*> braces (many1 moduleBody)
+    modParse =
+        (reservedOp "=" *> moduleAppParams)
+        <|> M.FunctorMod <$> (funcArgs <$> paramList modIdentifier) <*> modBody <*> pure modData
+        <|> M.LitMod <$> modBody <*> pure modData
         <?> "module definition"
+    modData = C.ModuleData Map.empty Map.empty Bimap.empty Nothing
+    funcArgs args = OrdMap.fromList $ map (\arg -> (arg, Map.empty)) args
 
 -- | parse a chain/tree of module applications
-moduleAppParams :: Parser O.ModuleAppParams
-moduleAppParams = O.ModuleAppParams <$> modIdentifier <*> optionMaybe (paramList moduleAppParams)
+moduleAppParams :: Parser (M.Module C.SrcId)
+moduleAppParams = procParams <$> modIdentifier <*> optionMaybe (paramList moduleAppParams)
+  where
+    -- need to desugar into nested set of appMods and varMods
+    procParams modId Nothing = C.VarMod modId
+    procParams funcId (Just args) = C.AppMod funcId args
 
-moduleBody = OP.moduleBody
-
+modBody :: Parser (M.ExprMap C.SrcId)
+modBody = do
+    modElems <- braces (many1 OP.moduleBody)
+    case (desugarMod modElems) of
+        Left err -> return OrdMap.empty
+        Right exprMap -> return exprMap
 
 -- Util functions - need to refactor and place elsewhere
-
 -- | Function that takes an ODE Module and fully converts it into a Core Module
 -- (i.e. desugar, reorder, rename, typecheck) with respect to the current ModuleEnv
-odeCoreConvert :: M.ModuleEnv -> O.Module -> MExcept (M.ModuleEnv)
-odeCoreConvert modEnv mod = desugarMod mod >>= MD.newModuleDriver modEnv
+odeCoreConvert :: M.ModuleEnv -> (M.TopMod C.SrcId)  -> MExcept (M.ModuleEnv)
+odeCoreConvert modEnv mod = MD.newModuleDriver modEnv mod
 
 
 

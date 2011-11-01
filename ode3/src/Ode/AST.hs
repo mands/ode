@@ -20,7 +20,7 @@
 -----------------------------------------------------------------------------
 
 module Ode.AST (
-    ModLocalId(..), Module(..), ModuleAppParams(..), ModuleElem(..),
+    ModLocalId(..), ModuleElem(..),
     Component(..), ValueDef(..), CompStmt(..), Expr(..), BinOp(..), UnOp(..), Id
 ) where
 
@@ -36,15 +36,16 @@ data ModLocalId = LocalId Id | ModId Id Id
 
 -- |module
 -- should this be split by complete and partial/functors?
-data Module = ModuleAbs Id (Maybe [Id]) [ModuleElem]
-            | ModuleApp Id ModuleAppParams
-            deriving Show
+--data Module = ModuleAbs Id (Maybe [Id]) [ModuleElem]
+--            | ModuleApp Id ModuleAppParams
+--            deriving Show
 
 -- |tree indicating module parameters for application of a functor,
 -- first Id is the functorId, if followed by a list of args, where each arg may have args itself
 -- else Id is the varId, if followed by Nothing
-data ModuleAppParams    = ModuleAppParams Id (Maybe [ModuleAppParams])
-                        deriving Show
+--data ModuleAppParams    = ModuleAppParams Id (Maybe [ModuleAppParams])
+--                        deriving Show
+
 -- |elements allowed within a module, basically components or top-level constant values
 data ModuleElem = ModuleElemComponent Component
                 | ModuleElemValue ValueDef
