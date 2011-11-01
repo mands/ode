@@ -19,7 +19,7 @@
 {-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, FunctionalDependencies  #-}
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
 
-module Core.AST.Expr (
+module Core.ExprAST (
 SrcId, Id, VarId(..), Bind(..), Type(..), travTypesM,
 Top(..), Expr(..), Op(..), Literal(..),
 ) where
@@ -199,11 +199,11 @@ instance PrettyPrint Op where
     prettyPrint Div = "/"
     prettyPrint Mod = "%"
 
-    prettyPrint Core.AST.Expr.LT = "<"
+    prettyPrint Core.ExprAST.LT = "<"
     prettyPrint LE = "<="
-    prettyPrint Core.AST.Expr.GT = ">"
+    prettyPrint Core.ExprAST.GT = ">"
     prettyPrint GE = ">="
-    prettyPrint Core.AST.Expr.EQ = "=="
+    prettyPrint Core.ExprAST.EQ = "=="
     prettyPrint NEQ = "!="
 
     prettyPrint And = "&&"

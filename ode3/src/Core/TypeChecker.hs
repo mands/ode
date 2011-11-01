@@ -30,22 +30,23 @@ import Control.Monad.Error
 import Data.Maybe (fromJust)
 import Debug.Trace (trace)
 import Text.Printf (printf)
-import qualified Core.AST as C
+import qualified Core.ExprAST as E
+import qualified Core.ModuleAST as M
 import Utils.Utils
 import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap
 
-type TypeEnv    = C.TypeMap
-type TypeVarEnv = Map.Map C.Id C.Type
+type TypeEnv    = M.TypeMap
+type TypeVarEnv = Map.Map E.Id E.Type
 -- type env for modules, only one needed as vars should be unique, holds a type var for the first occurance of a module var
-type ModTypeEnv = Map.Map (C.VarId C.Id) C.Type
-type TypeCons   = Set.Set (C.Type, C.Type)
+type ModTypeEnv = Map.Map (E.VarId E.Id) E.Type
+type TypeCons   = Set.Set (E.Type, E.Type)
 type TypeConsM  = SupplyT Int (State TypeCons)
 
 
 -- TODO - un-Do this!
-typeCheck :: C.Module C.Id -> MExcept (C.Module C.Id)
-typeCheck mod@(C.LitMod exprMap modData) = do
+typeCheck :: M.Module E.Id -> MExcept (M.Module E.Id)
+typeCheck mod@(M.LitMod exprMap modData) = do
     let ((tEnv, _), tCons) = constrain exprMap
     -- unify the types and get the new typemap
     tVarMap <- unify tCons
@@ -53,9 +54,9 @@ typeCheck mod@(C.LitMod exprMap modData) = do
     tEnv' <- subTVars tEnv tVarMap False
     let modData' = updateModData modData tEnv'
 
-    return $ C.LitMod exprMap modData'
+    return $ M.LitMod exprMap modData'
 
-typeCheck mod@(C.FunctorMod args exprMap modData) = do
+typeCheck mod@(M.FunctorMod args exprMap modData) = do
     let ((tEnv, mTEnv), tCons) = constrain exprMap
     -- unify the types and get the new typemap
     tVarMap <- unify tCons
@@ -64,20 +65,20 @@ typeCheck mod@(C.FunctorMod args exprMap modData) = do
     mTEnv' <- subTVars mTEnv tVarMap True
     let modData' = updateModData modData tEnv'
     let args' = createFunModArgs args mTEnv'
-    return $ C.FunctorMod args' exprMap modData'
+    return $ M.FunctorMod args' exprMap modData'
   where
     -- create the public module signatures for Functors
-    createFunModArgs :: C.FunArgs -> ModTypeEnv -> C.FunArgs
+    createFunModArgs :: M.FunArgs -> ModTypeEnv -> M.FunArgs
     createFunModArgs args mTEnv = Map.foldrWithKey addArg args mTEnv
       where
         -- add the type for M.v into the args OrdMap
-        addArg (C.ModVar m v) t args = OrdMap.update updateModArgs m args
+        addArg (E.ModVar m v) t args = OrdMap.update updateModArgs m args
           where
             updateModArgs modMap = Just (Map.insert v t modMap)
 
 -- takes the funcModule, an closed enviroment of the module args,
-typeCheckApp :: C.Module C.Id -> C.ModuleEnv ->  MExcept (C.Module C.Id, C.ModuleEnv)
-typeCheckApp fMod@(C.FunctorMod funArgs _ _) modEnv = do
+typeCheckApp :: M.Module E.Id -> M.ModuleEnv ->  MExcept (M.Module E.Id, M.ModuleEnv)
+typeCheckApp fMod@(M.FunctorMod funArgs _ _) modEnv = do
     -- get the complete typevar map for an application
     tCons <- DF.foldlM constrainSigs Set.empty (OrdMap.toList funArgs)
     tVarMap <- unify tCons
@@ -87,50 +88,50 @@ typeCheckApp fMod@(C.FunctorMod funArgs _ _) modEnv = do
   where
     -- take a single mod arg for the functor, compare the sig with the one for the id within the modEnv,
     -- add all sigs to the typeCons via a foldr
-    constrainSigs :: TypeCons -> (C.SrcId, C.SigMap) -> MExcept TypeCons
+    constrainSigs :: TypeCons -> (E.SrcId, M.SigMap) -> MExcept TypeCons
     constrainSigs typeCons (funcArgId, funcArgSig) = DF.foldrM compareTypes typeCons (Map.toList funcArgSig)
       where
         -- the module referenced by the arg
-        argMod@(C.LitMod _ argModData) = modEnv Map.! funcArgId
+        argMod@(M.LitMod _ argModData) = modEnv Map.! funcArgId
         -- comparing the types for each binding by adding to the typeconstraint set
         compareTypes (b,tFunc) typeCons = typeCons'
           where
-            typeCons' = case (Map.lookup b (C.modSig argModData)) of
+            typeCons' = case (Map.lookup b (M.modSig argModData)) of
                 Just tArg -> Right $ Set.insert (tFunc, tArg) typeCons
                 Nothing -> throwError $ "(MO05) - Invalid functor signature, cannot find ref " ++ show b ++ " in module argument" ++ funcArgId
 
     -- update a module based on the new type information
-    updateMod :: TypeEnv -> C.Module C.Id -> MExcept (C.Module C.Id)
-    updateMod tVarMap (C.LitMod exprMap modData) = do
-        tEnv' <- subTVars (C.modTMap modData) tVarMap False
+    updateMod :: TypeEnv -> M.Module E.Id -> MExcept (M.Module E.Id)
+    updateMod tVarMap (M.LitMod exprMap modData) = do
+        tEnv' <- subTVars (M.modTMap modData) tVarMap False
         let modData' = updateModData modData tEnv'
-        return $ C.LitMod exprMap modData'
+        return $ M.LitMod exprMap modData'
 
-    updateMod tVarMap (C.FunctorMod args exprMap modData) = do
-        tEnv' <- subTVars (C.modTMap modData) tVarMap False
+    updateMod tVarMap (M.FunctorMod args exprMap modData) = do
+        tEnv' <- subTVars (M.modTMap modData) tVarMap False
         let modData' = updateModData modData tEnv'
         -- create the new funArgs based on the new tVarMap
         args' <- DT.mapM (\idMap -> subTVars idMap tVarMap False) args
-        return $ C.FunctorMod args' exprMap modData'
+        return $ M.FunctorMod args' exprMap modData'
 
 
 -- | Update the module data with the public module signature and internal typemap
 -- we create the mod signature by mapping over the idbimap data and looking up each value from the internal typemap
-updateModData :: C.ModuleData -> TypeEnv -> C.ModuleData
-updateModData modData tEnv = modData { C.modTMap = tEnv, C.modSig = modSig }
+updateModData :: M.ModuleData -> TypeEnv -> M.ModuleData
+updateModData modData tEnv = modData { M.modTMap = tEnv, M.modSig = modSig }
   where
-    idMap = Bimap.toMap (C.modIdBimap modData)
+    idMap = Bimap.toMap (M.modIdBimap modData)
     modSig = Map.map (\id -> tEnv Map.! id) idMap
 
 
 -- | use the TVar map to undate a type enviroment and substitute all TVars
-subTVars :: Map.Map b C.Type -> TypeVarEnv -> Bool -> MExcept (Map.Map b C.Type)
-subTVars tEnv tVarMap allowPoly = DT.mapM (\t -> C.travTypesM t updateType) tEnv
+subTVars :: Map.Map b E.Type -> TypeVarEnv -> Bool -> MExcept (Map.Map b E.Type)
+subTVars tEnv tVarMap allowPoly = DT.mapM (\t -> E.travTypesM t updateType) tEnv
 
   where
     -- try to substitute a tvar if it exists - this will behave differently depending on closed/open modules
-    updateType :: C.Type -> MExcept C.Type
-    updateType t@(C.TVar i) = case (Map.lookup i tVarMap) of
+    updateType :: E.Type -> MExcept E.Type
+    updateType t@(E.TVar i) = case (Map.lookup i tVarMap) of
                                 Just t' -> return t'
                                 Nothing -> if allowPoly then return t else throwError "(TC03) - Type-variable found in non-polymorphic closed module"
     updateType t = return t
@@ -139,86 +140,86 @@ subTVars tEnv tVarMap allowPoly = DT.mapM (\t -> C.travTypesM t updateType) tEnv
 
 -- TODO - clean up
 -- | run a map over the model replacing all bindings with typemap equiv
---typeExprs :: C.ExprMap Int -> TypeEnv -> C.ExprMap C.TypedId
+--typeExprs :: E.ExprMap Int -> TypeEnv -> E.ExprMap E.TypedId
 --typeExprs exprMap tM = DF.foldl createModel OrdMap.empty newSeq
 --  where
 --    newSeq = fmap convBinding (OrdMap.elems exprMap)
---    convBinding t = fmap (\i -> C.TypedId i (tM Map.! i)) t
+--    convBinding t = fmap (\i -> E.TypedId i (tM Map.! i)) t
 --    createModel m topExpr = OrdMap.insert b v m
 --      where
---        (b, v) = C.getTopBinding topExpr
+--        (b, v) = E.getTopBinding topExpr
 
-addConstraint :: C.Type -> C.Type -> TypeConsM ()
+addConstraint :: E.Type -> E.Type -> TypeConsM ()
 addConstraint t1 t2 = do
     tS <- lift get
     let tS' = Set.insert (t1, t2) tS
     lift $ put tS'
 
-newTypevar :: TypeConsM C.Type
-newTypevar = liftM C.TVar supply
+newTypevar :: TypeConsM E.Type
+newTypevar = liftM E.TVar supply
 
 -- | Adds a set of constraints for linking a multibind to a TVar
-multiBindConstraint :: C.Bind Int -> C.Type -> TypeEnv -> TypeConsM TypeEnv
-multiBindConstraint (C.LetBind bs) (C.TVar v) tEnv = do
+multiBindConstraint :: E.Bind Int -> E.Type -> TypeEnv -> TypeConsM TypeEnv
+multiBindConstraint (E.LetBind bs) (E.TVar v) tEnv = do
     -- create the new tvars for each binding
     bTs <- mapM (\_ -> newTypevar) bs
     -- add the constaint
-    addConstraint (C.TTuple bTs) (C.TVar v)
+    addConstraint (E.TTuple bTs) (E.TVar v)
     -- add the tvars to the type map
     DF.foldlM (\tEnv (b, bT) -> return $ Map.insert b bT tEnv) tEnv (zip bs bTs)
 
-constrain :: C.ExprMap Int -> ((TypeEnv, ModTypeEnv), TypeCons)
+constrain :: M.ExprMap Int -> ((TypeEnv, ModTypeEnv), TypeCons)
 constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
   where
     consM :: TypeConsM (TypeEnv, ModTypeEnv)
     consM = DF.foldlM consTop (Map.empty, Map.empty) (OrdMap.elems exprMap)
 
-    consTop (tEnv, mTEnv) (C.TopLet (C.LetBind bs) e) = do
+    consTop (tEnv, mTEnv) (E.TopLet (E.LetBind bs) e) = do
         (eT, tEnv', mTEnv') <- consExpr tEnv mTEnv e
         -- extend and return tEnv
         case eT of
-            (C.TTuple ts) -> return $ (foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv' (zip bs ts), mTEnv')
-            (C.TVar v) | (length bs > 1) -> (multiBindConstraint (C.LetBind bs) (C.TVar v) tEnv') >>= (\tEnv -> return (tEnv, mTEnv'))
+            (E.TTuple ts) -> return $ (foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv' (zip bs ts), mTEnv')
+            (E.TVar v) | (length bs > 1) -> (multiBindConstraint (E.LetBind bs) (E.TVar v) tEnv') >>= (\tEnv -> return (tEnv, mTEnv'))
             t | length bs == 1 -> return $ (Map.insert (head bs) eT tEnv', mTEnv')
             _ -> trace (errorDump [show bs, show eT, show tEnv']) (error "(TYPECHECKER) - toplet shit\n")
 
-    consTop (tEnv, mTEnv) (C.TopAbs (C.AbsBind b) arg e) = do
+    consTop (tEnv, mTEnv) (E.TopAbs (E.AbsBind b) arg e) = do
         fromT <- newTypevar
         -- extend the tEnv
         let tEnv' = Map.insert arg fromT tEnv
         (toT, tEnv'', mTEnv') <- consExpr tEnv' mTEnv e
         -- add a constraint?
         -- extend and return tEnv
-        return $ (Map.insert b (C.TArr fromT toT) tEnv'', mTEnv')
+        return $ (Map.insert b (E.TArr fromT toT) tEnv'', mTEnv')
 
 
     -- TODO - do we need to uniquely refer to each expression within AST?, or just bindings?
     -- | map over the expression elements, creating constraints as needed,
-    consExpr :: TypeEnv -> ModTypeEnv -> C.Expr C.Id -> TypeConsM (C.Type, TypeEnv, ModTypeEnv)
-    consExpr tEnv mTEnv (C.Var (C.LocalVar v)) = return $ (tEnv Map.! v, tEnv, mTEnv)
+    consExpr :: TypeEnv -> ModTypeEnv -> E.Expr E.Id -> TypeConsM (E.Type, TypeEnv, ModTypeEnv)
+    consExpr tEnv mTEnv (E.Var (E.LocalVar v)) = return $ (tEnv Map.! v, tEnv, mTEnv)
 
     -- TODO - tidy up
     -- need to look in a separate map here that adds the value on first lookup
-    consExpr tEnv mTEnv (C.Var mv@(C.ModVar m v)) = do
+    consExpr tEnv mTEnv (E.Var mv@(E.ModVar m v)) = do
         -- look into the mTEnv, if exists get the type, else create a newtvar and add to the map
         eT <- if (Map.member mv mTEnv) then return (mTEnv Map.! mv) else newTypevar
         let mTEnv' = Map.insert mv eT mTEnv
         return $ (eT, tEnv, mTEnv')
 
-    consExpr tEnv mTEnv (C.Lit l) = return $ (getLitType l, tEnv, mTEnv)
+    consExpr tEnv mTEnv (E.Lit l) = return $ (getLitType l, tEnv, mTEnv)
 
-    consExpr tEnv mTEnv (C.App (C.LocalVar f) e) = do
+    consExpr tEnv mTEnv (E.App (E.LocalVar f) e) = do
         -- as HOFs not allowed
         -- fT =  consExpr tEnv f
         let fT = tEnv Map.! f
         (eT, tEnv', mTEnv') <- consExpr tEnv mTEnv e
         toT <- newTypevar
         -- add constraint
-        addConstraint fT (C.TArr eT toT)
+        addConstraint fT (E.TArr eT toT)
         return (toT, tEnv', mTEnv')
 
     -- TODO - is this right?!
-    consExpr tEnv mTEnv (C.App mv@(C.ModVar m v) e) = do
+    consExpr tEnv mTEnv (E.App mv@(E.ModVar m v) e) = do
         -- similet to var - check if the type is already created, if not create a newTypeVar that
         -- we can constrain later
         fT <- if (Map.member mv mTEnv) then return (mTEnv Map.! mv) else newTypevar
@@ -229,74 +230,74 @@ constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
         (eT, tEnv', mTEnv'') <- consExpr tEnv mTEnv' e
         toT <- newTypevar
         -- add constraint
-        addConstraint fT (C.TArr eT toT)
+        addConstraint fT (E.TArr eT toT)
         return (toT, tEnv', mTEnv'')
 
 
     -- NOTE - do we need to return the new tEnv here?
-    consExpr tEnv mTEnv (C.Let (C.LetBind bs) e1 e2) = do
+    consExpr tEnv mTEnv (E.Let (E.LetBind bs) e1 e2) = do
         (e1T, tEnv', mTEnv') <- consExpr tEnv mTEnv e1
         -- extend tEnv with new env
         tEnv'' <- case e1T of
-            (C.TTuple ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv' (zip bs ts)
-            (C.TVar v) | (length bs > 1) -> multiBindConstraint (C.LetBind bs) (C.TVar v) tEnv'
+            (E.TTuple ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv' (zip bs ts)
+            (E.TVar v) | (length bs > 1) -> multiBindConstraint (E.LetBind bs) (E.TVar v) tEnv'
             t | length bs == 1 -> return $ Map.insert (head bs) e1T tEnv'
             _ -> trace (errorDump [show bs, show e1T, show tEnv']) (error "(TYPECHECKER) - let shit\n")
         consExpr tEnv'' mTEnv' e2
 
-    consExpr tEnv mTEnv (C.Op op e) = do
-        let (C.TArr fromT toT) = getOpType op
+    consExpr tEnv mTEnv (E.Op op e) = do
+        let (E.TArr fromT toT) = getOpType op
         (eT, tEnv', mTEnv') <- consExpr tEnv mTEnv e
         -- NOTE - we don't need to gen a new tvar here as the totype is always fixed so the toT will always unify to it
         addConstraint fromT eT
         return (toT, tEnv', mTEnv')
 
-    consExpr tEnv mTEnv (C.If eB eT eF) = do
+    consExpr tEnv mTEnv (E.If eB eT eF) = do
         (eBT, tEnv', mTEnv') <- consExpr tEnv mTEnv eB
-        addConstraint eBT C.TBool
+        addConstraint eBT E.TBool
         (eTT, tEnv'', mTEnv'') <- consExpr tEnv' mTEnv' eT
         (eFT, tEnv''', mTEnv''') <- consExpr tEnv'' mTEnv'' eF
         addConstraint eTT eFT
         return (eFT, tEnv''', mTEnv''')
 
-    consExpr tEnv mTEnv (C.Tuple es) = liftM consTuple (DF.foldlM consElem ([], tEnv, mTEnv) es)
+    consExpr tEnv mTEnv (E.Tuple es) = liftM consTuple (DF.foldlM consElem ([], tEnv, mTEnv) es)
       where
         consElem (eTs, tEnv, mTEnv) e = consExpr tEnv mTEnv e >>= (\(eT, tEnv', mTEnv') -> return (eT:eTs, tEnv', mTEnv'))
-        consTuple (eTs, tEnv, mTEnv) = (C.TTuple (reverse eTs), tEnv, mTEnv)
+        consTuple (eTs, tEnv, mTEnv) = (E.TTuple (reverse eTs), tEnv, mTEnv)
 
     -- other exprs
     consExpr tEnv mTEnv e = error ("(TC02) unknown expr - " ++ show e)
 
 
 -- NOTE - should these two functions be moved into the AST?
-getLitType :: C.Literal -> C.Type
+getLitType :: E.Literal -> E.Type
 getLitType l = case l of
-    C.Boolean _ -> C.TBool
-    C.Num _ -> C.TFloat
-    C.NumSeq _ -> C.TFloat
+    E.Boolean _ -> E.TBool
+    E.Num _ -> E.TFloat
+    E.NumSeq _ -> E.TFloat
 
 
 -- | Takes an operator and returns the static type of the function
-getOpType :: C.Op -> C.Type
+getOpType :: E.Op -> E.Type
 getOpType op = case op of
-    C.Add -> binNum
-    C.Sub -> binNum
-    C.Mul -> binNum
-    C.Div -> binNum
-    C.Mod -> binNum
-    C.LT -> binRel
-    C.LE -> binRel
-    C.GT -> binRel
-    C.GE -> binRel
-    C.EQ -> binRel
-    C.NEQ -> binRel
-    C.And -> binLog
-    C.Or -> binLog
-    C.Not -> C.TArr C.TBool C.TBool
+    E.Add -> binNum
+    E.Sub -> binNum
+    E.Mul -> binNum
+    E.Div -> binNum
+    E.Mod -> binNum
+    E.LT -> binRel
+    E.LE -> binRel
+    E.GT -> binRel
+    E.GE -> binRel
+    E.EQ -> binRel
+    E.NEQ -> binRel
+    E.And -> binLog
+    E.Or -> binLog
+    E.Not -> E.TArr E.TBool E.TBool
   where
-    binNum = C.TArr (C.TTuple [C.TFloat, C.TFloat]) C.TFloat
-    binRel = C.TArr (C.TTuple [C.TFloat, C.TFloat]) C.TBool
-    binLog = C.TArr (C.TTuple [C.TBool, C.TBool]) C.TBool
+    binNum = E.TArr (E.TTuple [E.TFloat, E.TFloat]) E.TFloat
+    binRel = E.TArr (E.TTuple [E.TFloat, E.TFloat]) E.TBool
+    binLog = E.TArr (E.TTuple [E.TBool, E.TBool]) E.TBool
 
 
 -- | unify takes a set of type contraints and attempts to unify all types, inc TVars
@@ -310,28 +311,28 @@ unify tCons = liftM snd $ unify' (tCons, Map.empty)
                         Just (constraint, tCons') -> (uCon constraint (tCons', tMap)) >>= unify'
                         Nothing -> return (tCons, tMap)
 
-    uCon :: (C.Type, C.Type) -> (TypeCons, TypeVarEnv) -> MExcept (TypeCons, TypeVarEnv)
+    uCon :: (E.Type, E.Type) -> (TypeCons, TypeVarEnv) -> MExcept (TypeCons, TypeVarEnv)
     -- two equal ids - remove from set and ignore
-    uCon (C.TVar xId, C.TVar yId) st
+    uCon (E.TVar xId, E.TVar yId) st
        | (xId == yId) = return st
 
     uCon (x, y) st
        | (x == y) = return st
 
     -- replace all x with y
-    uCon (x@(C.TVar _), y) (tCons, tMap)
+    uCon (x@(E.TVar _), y) (tCons, tMap)
         | not (occursCheck x y) = return (subStack x y tCons, subMap x y tMap)
 
     -- replace all y with x
-    uCon (x, y@(C.TVar _)) (tCons, tMap)
+    uCon (x, y@(E.TVar _)) (tCons, tMap)
         | not (occursCheck y x) = return (subStack y x tCons, subMap y x tMap)
 
     -- composite types
-    uCon (C.TArr x1 x2, C.TArr y1 y2) st = do
+    uCon (E.TArr x1 x2, E.TArr y1 y2) st = do
         st' <- uCon (x1, y1) st
         uCon (x2, y2) st'
 
-    uCon (C.TTuple xs, C.TTuple ys) st = DF.foldlM (\st (x, y) -> uCon (x, y) st) st (zip xs ys)
+    uCon (E.TTuple xs, E.TTuple ys) st = DF.foldlM (\st (x, y) -> uCon (x, y) st) st (zip xs ys)
 
     -- can't unfiy types
     uCon (x, y) st = trace (errorDump [show x, show y, show st]) $ throwError (printf "(TC01) - cannot unify %s and %s" (show x) (show y))
@@ -342,24 +343,24 @@ unify tCons = liftM snd $ unify' (tCons, Map.empty)
         subTCon (a, b) = (subTTerm x y a, subTTerm x y b)
 
     -- replaces all occurances of tVar x with y in tMap
-    subMap x@(C.TVar xId) y tMap = Map.insert xId y tMap'
+    subMap x@(E.TVar xId) y tMap = Map.insert xId y tMap'
       where
         tMap' = Map.map (subTTerm x y) tMap
 
     -- checks that tVar x does not exist in tTerm t, stop recursive substitions
-    occursCheck x t@(C.TTuple ts)
+    occursCheck x t@(E.TTuple ts)
         | t == x = True
         | otherwise = any (occursCheck x) ts
-    occursCheck x t@(C.TArr fromT toT)
+    occursCheck x t@(E.TArr fromT toT)
         | t == x = True
         | otherwise = (occursCheck x fromT) || (occursCheck x toT)
     occursCheck x t = if t == x then True else False
 
     -- replaces all occurances of x with y in the tTerm t
-    subTTerm x y t@(C.TTuple ts)
+    subTTerm x y t@(E.TTuple ts)
         | t == x = y
-        | otherwise = C.TTuple $ map (subTTerm x y) ts
-    subTTerm x y t@(C.TArr fromT toT)
+        | otherwise = E.TTuple $ map (subTTerm x y) ts
+    subTTerm x y t@(E.TArr fromT toT)
         | t == x = y
-        | otherwise = C.TArr (subTTerm x y fromT) (subTTerm x y toT)
+        | otherwise = E.TArr (subTTerm x y fromT) (subTTerm x y toT)
     subTTerm x y t = if t == x then y else t

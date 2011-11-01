@@ -27,8 +27,9 @@ import qualified Data.Map as Map
 import qualified Data.List as List
 
 import Core.ModuleParser (modParse)
-import qualified Core.AST as C
-import qualified CoreANF.AST as CA
+import qualified Core.ExprAST as EA
+import qualified Core.ModuleAST as MA
+--import qualified CoreANF.AST as CA
 
 import Utils.Utils
 import Utils.OrdMap

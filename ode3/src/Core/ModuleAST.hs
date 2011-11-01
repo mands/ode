@@ -14,7 +14,7 @@
 
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures, FlexibleInstances, TypeSynonymInstances #-}
 
-module Core.AST.Module (
+module Core.ModuleAST (
 ModImport, TopMod(..), Module(..), ModuleData(..), ModuleEnv, ExprMap, SigMap, TypeMap, FunArgs, IdBimap, debugModuleExpr,
 SafeExprMap, insertTopExpr, emptySafeExprMap
 ) where
@@ -30,7 +30,7 @@ import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Bimap as Bimap
 
-import Core.AST.Expr
+import qualified Core.ExprAST as E
 import qualified Utils.OrdMap as OrdMap
 import Utils.Utils
 
@@ -45,12 +45,12 @@ type ModImport = [String]
 -- data ModImport = ModImport String (Maybe String) deriving (Show, Eq, Ord)
 
 -- | Top level module variables
-data TopMod a = TopMod SrcId (Module a) deriving (Show, Eq)
+data TopMod a = TopMod E.SrcId (Module a) deriving (Show, Eq)
 
-type ExprMap a = OrdMap.OrdMap (Bind a) (Top a)
+type ExprMap a = OrdMap.OrdMap (E.Bind a) (E.Top a)
 
 -- | FunArgs are the list of module parameters, and thier required signatures, for a functor application
-type FunArgs = OrdMap.OrdMap SrcId SigMap
+type FunArgs = OrdMap.OrdMap E.SrcId SigMap
 
 -- | Main executable modules that can be combined at run-time, they represent a dform of the simply-typed \-calc that is interpreted at runtime
 -- type-checking occurs in two-stage process, vars and abs are checked during parsing, applications are cehcked from the replicate
@@ -58,25 +58,25 @@ type FunArgs = OrdMap.OrdMap SrcId SigMap
 data Module a = LitMod  (ExprMap a) ModuleData -- Expr, ModType, IntType, Bimap, LastId)
                 | FunctorMod FunArgs (ExprMap a) ModuleData -- ModArgs, Expr, Type, Bimap, LastId)
                 -- we never have access to the appmodules, they are always immediatly applied and the resulting ClosedModule is saved under this name
-                | AppMod SrcId [Module a]
+                | AppMod E.SrcId [Module a]
                 -- only used within appmods
-                | VarMod SrcId
+                | VarMod E.SrcId
                 deriving (Show, Eq)
 
 -- | Metadata regarding a module
-data ModuleData =   ModuleData {modSig :: SigMap, modTMap :: TypeMap, modIdBimap :: IdBimap, modFreeId :: Maybe Id}
+data ModuleData =   ModuleData {modSig :: SigMap, modTMap :: TypeMap, modIdBimap :: IdBimap, modFreeId :: Maybe E.Id}
                     deriving (Show, Eq)
 
 -- | bidirectional map between internal ids and source ids for all visible/top-level defined vars
-type IdBimap = Bimap.Bimap SrcId Id
+type IdBimap = Bimap.Bimap E.SrcId E.Id
 -- | SigMap is the external typemap for the module - can be created from the typemap, top-level expressions and idbimap
-type SigMap = Map.Map SrcId Type
+type SigMap = Map.Map E.SrcId E.Type
 -- | Typemap is the internal typemap for all vars (top and expr) within a module
-type TypeMap = Map.Map Id Type -- maybe switch to IntMap?
+type TypeMap = Map.Map E.Id E.Type -- maybe switch to IntMap?
 
 
 -- | Module environment the run-time envirmornet used to create models and start simulations, holds the current results from interpreting the module system
-type ModuleEnv = Map.Map SrcId (Module Id)
+type ModuleEnv = Map.Map E.SrcId (Module E.Id)
 
 -- need to put more helper functions here
 -- for instance functions to union two exprMaps, modules, remap ids, etc.
@@ -89,10 +89,10 @@ debugModuleExpr (AppMod _ _) = "Application - no exprs"
 type SafeExprMap a = (Set.Set a, ExprMap a)
 -- | Util func to safely insert a top expression into an expremap with the given binding,
 -- throws an exception if the binding exists in the map
-insertTopExpr :: (Show a, Ord a) => Top a -> SafeExprMap a -> MExcept (SafeExprMap a)
+insertTopExpr :: (Show a, Ord a) => E.Top a -> SafeExprMap a -> MExcept (SafeExprMap a)
 insertTopExpr topExpr (curBinds, exprMap) = case topExpr of
-    (TopAbs b'@(AbsBind b) _ _) -> (,) <$> (addBinding curBinds b) <*> addExprMap' b'
-    (TopLet b'@(LetBind bs) _) -> (,) <$> (DF.foldlM addBinding curBinds bs) <*> addExprMap' b'
+    (E.TopAbs b'@(E.AbsBind b) _ _) -> (,) <$> (addBinding curBinds b) <*> addExprMap' b'
+    (E.TopLet b'@(E.LetBind bs) _) -> (,) <$> (DF.foldlM addBinding curBinds bs) <*> addExprMap' b'
   where
     addBinding curBinds b = case Set.member b curBinds of
         True -> throwError $ "(MO01) - Top-level binding " ++ (show b) ++ " already exists in module"
@@ -103,7 +103,7 @@ emptySafeExprMap = (Set.empty, OrdMap.empty)
 
 -- standard typeclass instances
 -- | Make LitMod a instnace of monoid, where mappend a b imppiles adding the module b to occur after module a
-instance Monoid (Module Id) where
+instance Monoid (Module E.Id) where
     mempty = LitMod OrdMap.empty mempty
 
     mappend modA@(LitMod exprMapA modDataA) modB@(LitMod exprMapB modDataB) = maybe modA appendMods freeId'

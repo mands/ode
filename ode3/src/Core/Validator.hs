@@ -24,56 +24,57 @@ import qualified Data.Traversable as DT
 import qualified Data.Foldable as DF
 import qualified Data.Set as Set
 
-import Core.AST as C
+import Core.ExprAST as E
+import Core.ModuleAST as M
 import Utils.Utils
 import qualified Utils.OrdMap as OrdMap
 
-validate :: C.Module C.SrcId -> MExcept (C.Module C.SrcId)
-validate mod@(C.LitMod exprMap modData) = C.LitMod <$> validTopExpr exprMap <*> pure modData
-validate mod@(C.FunctorMod funArgs exprMap modData) = C.FunctorMod <$> funArgs' <*> validTopExpr exprMap <*> pure modData
+validate :: M.Module E.SrcId -> MExcept (M.Module E.SrcId)
+validate mod@(M.LitMod exprMap modData) = M.LitMod <$> validTopExpr exprMap <*> pure modData
+validate mod@(M.FunctorMod funArgs exprMap modData) = M.FunctorMod <$> funArgs' <*> validTopExpr exprMap <*> pure modData
   where
     funArgs' = if (length funArgKeys == (length . nub) funArgKeys) then pure funArgs else throwError ("(VL05) - Functor has arguments with the same name")
     funArgKeys = OrdMap.keys funArgs
-validate mod@(C.AppMod _ _) = pure mod
+validate mod@(M.AppMod _ _) = pure mod
 
-validTopExpr :: C.ExprMap C.SrcId -> MExcept (C.ExprMap C.SrcId)
+validTopExpr :: M.ExprMap E.SrcId -> MExcept (M.ExprMap E.SrcId)
 validTopExpr exprMap = (\_ -> exprMap) <$> DF.traverse_ t exprMap
   where
-    t (C.TopAbs b arg expr) = validExpr (Set.singleton arg) expr
-    t (C.TopLet b expr) = validExpr (Set.empty) expr
+    t (E.TopAbs b arg expr) = validExpr (Set.singleton arg) expr
+    t (E.TopLet b expr) = validExpr (Set.empty) expr
 
 -- check several properties for expression tree, passes state down into exp, doesn't bother returning it for now
-validExpr :: (Set.Set C.SrcId) -> C.Expr C.SrcId -> MExcept ()
-validExpr bs e@(C.Var v) = pure ()
-validExpr bs e@(C.Lit l) = pure ()
-validExpr curBinds (C.App v e1) = validExpr curBinds e1 *> pure ()
+validExpr :: (Set.Set E.SrcId) -> E.Expr E.SrcId -> MExcept ()
+validExpr bs e@(E.Var v) = pure ()
+validExpr bs e@(E.Lit l) = pure ()
+validExpr curBinds (E.App v e1) = validExpr curBinds e1 *> pure ()
 
-validExpr curBinds (C.Let b'@(C.LetBind bs) e1 e2) = do
+validExpr curBinds (E.Let b'@(E.LetBind bs) e1 e2) = do
     curBinds' <- DF.foldlM addBinding curBinds bs
-    --C.Let <$> pure b' <*> (validExpr curBinds' e1) <*> (validExpr curBinds' e2)
+    --E.Let <$> pure b' <*> (validExpr curBinds' e1) <*> (validExpr curBinds' e2)
     (validExpr curBinds e1) *> (validExpr curBinds' e2) *> pure ()
   where
     addBinding curBinds b = case Set.member b curBinds of
         True -> throwError $ "(VL04) - Binding " ++ (show b) ++ " already exists in component"
         False -> pure $ (Set.insert b curBinds)
 
-validExpr curBinds (C.Op op e) = (validExpr curBinds e) *> pure () --C.Op <$> pure op <*> (validExpr curBinds e)
-validExpr curBinds (C.If eB eT eF) =
+validExpr curBinds (E.Op op e) = (validExpr curBinds e) *> pure () --E.Op <$> pure op <*> (validExpr curBinds e)
+validExpr curBinds (E.If eB eT eF) =
     (validExpr curBinds eB) *> (validExpr curBinds eT) *> (validExpr curBinds eF) *> pure ()
-validExpr _ (C.Tuple []) = throwError "(VL01) Empty tuple found"
-validExpr _ (C.Tuple (e:[])) = throwError "(VL02) Tuple with only one element found"
-validExpr curBinds (C.Tuple es) = DF.traverse_ (validExpr curBinds) es
+validExpr _ (E.Tuple []) = throwError "(VL01) Empty tuple found"
+validExpr _ (E.Tuple (e:[])) = throwError "(VL02) Tuple with only one element found"
+validExpr curBinds (E.Tuple es) = DF.traverse_ (validExpr curBinds) es
 validExpr _ e = pure ()
 
 
---travExpr :: (C.Expr C.SrcId -> b) -> C.Expr C.SrcId -> b
-travExpr f e@(C.Var v) = f e
-travExpr f e@(C.Lit l) = f e
-travExpr f (C.App v e1) = f (C.App v (travExpr f e1))
-travExpr f (C.Let b e1 e2) = f (C.Let b (travExpr f e1) (travExpr f e2))
-travExpr f (C.Op op e) = f (C.Op op (travExpr f e))
-travExpr f (C.If eB eT eF) = f (C.If (travExpr f eB) (travExpr f eT) (travExpr f eF))
-travExpr f (C.Tuple es) = f $ C.Tuple (map (travExpr f) es)
+--travExpr :: (E.Expr E.SrcId -> b) -> E.Expr E.SrcId -> b
+travExpr f e@(E.Var v) = f e
+travExpr f e@(E.Lit l) = f e
+travExpr f (E.App v e1) = f (E.App v (travExpr f e1))
+travExpr f (E.Let b e1 e2) = f (E.Let b (travExpr f e1) (travExpr f e2))
+travExpr f (E.Op op e) = f (E.Op op (travExpr f e))
+travExpr f (E.If eB eT eF) = f (E.If (travExpr f eB) (travExpr f eT) (travExpr f eF))
+travExpr f (E.Tuple es) = f $ E.Tuple (map (travExpr f) es)
 travExpr f e = f e
 
 

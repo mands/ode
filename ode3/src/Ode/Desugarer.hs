@@ -29,8 +29,8 @@ import Utils.Utils
 import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap
 import qualified Ode.AST as O
-import qualified Core.AST as C
-import qualified Core.AST.Module as CMod
+import qualified Core.ExprAST as C
+import qualified Core.ModuleAST as M
 
 type Id = C.SrcId
 
@@ -69,16 +69,16 @@ evalSupplyVars x = evalSupplyT x $ map (\x -> tmpPrefix ++ x) vars
 --    procParams (O.ModuleAppParams modId Nothing) = C.VarMod modId
 --    procParams (O.ModuleAppParams funcId (Just args)) = C.AppMod funcId (map procParams args)
 
-desugarMod :: [O.ModuleElem] -> MExcept (C.ExprMap Id)
-desugarMod elems = evalSupplyVars $ snd <$> foldM desugarModElems CMod.emptySafeExprMap elems
+desugarMod :: [O.ModuleElem] -> MExcept (M.ExprMap Id)
+desugarMod elems = evalSupplyVars $ snd <$> foldM desugarModElems M.emptySafeExprMap elems
 
 -- | desugar a top-level value constant(s)
 -- throws an error if a top-level is already defined
-desugarModElems :: (CMod.SafeExprMap Id) -> O.ModuleElem -> TmpSupply (CMod.SafeExprMap Id)
+desugarModElems :: (M.SafeExprMap Id) -> O.ModuleElem -> TmpSupply (M.SafeExprMap Id)
 desugarModElems sExprMap (O.ModuleElemValue (O.ValueDef ids value)) = do
     v' <- dsExpr value
     let mB = C.LetBind ids
-    lift $ CMod.insertTopExpr (C.TopLet mB v') sExprMap
+    lift $ M.insertTopExpr (C.TopLet mB v') sExprMap
 
 -- | desugar a top level component
 desugarModElems sExprMap (O.ModuleElemComponent (O.Component name ins body outs)) = do
@@ -86,7 +86,7 @@ desugarModElems sExprMap (O.ModuleElemComponent (O.Component name ins body outs)
     arg <- if (isSingleElem ins) then return (singleElem ins) else supply
     v <- desugarComp arg ins body outs
     let topAbs = C.TopAbs (C.AbsBind name) arg v
-    lift $ CMod.insertTopExpr topAbs sExprMap
+    lift $ M.insertTopExpr topAbs sExprMap
 
 -- | desugars and converts a component into a \c abstraction
 -- not in tail-call form, could blow out the stack, but unlikely

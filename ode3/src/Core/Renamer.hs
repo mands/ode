@@ -34,7 +34,8 @@ import Control.Monad.Error
 import Control.Applicative
 import Data.Maybe (fromJust)
 
-import qualified Core.AST as C
+import qualified Core.ExprAST as E
+import qualified Core.ModuleAST as M
 import Utils.Utils
 import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap
@@ -46,28 +47,28 @@ import qualified Utils.OrdMap as OrdMap
 type IntSupply = SupplyT Int (State ExprBinds)
 
 -- main types
-newtype ExprBinds = ExprBinds (Map.Map C.SrcId C.Id) deriving Show
-newtype TopBinds =  TopBinds (Map.Map C.SrcId C.Id) deriving Show
+newtype ExprBinds = ExprBinds (Map.Map E.SrcId E.Id) deriving Show
+newtype TopBinds =  TopBinds (Map.Map E.SrcId E.Id) deriving Show
 
 -- TODO - store idBimap and maxId in the ModuleData
 -- | Main rename function, takes a model bound by Ids and returns a single-scoped model bound by unique ints
 -- I don't think this function can ever fail
-rename :: C.Module C.SrcId -> MExcept (C.Module Int)
-rename (C.LitMod exprMap modData) = trace ("(RN) " ++ (show res)) (Right res)
+rename :: M.Module E.SrcId -> MExcept (M.Module Int)
+rename (M.LitMod exprMap modData) = trace ("(RN) " ++ (show res)) (Right res)
   where
     (exprMap', topBinds, freeId) = renTop exprMap
     modData' = updateModData modData topBinds freeId
-    res = (C.LitMod exprMap' modData')
+    res = (M.LitMod exprMap' modData')
 
-rename (C.FunctorMod args exprMap modData) = trace ("(RN) " ++ (show res)) (Right res)
+rename (M.FunctorMod args exprMap modData) = trace ("(RN) " ++ (show res)) (Right res)
   where
     (exprMap', topBinds, freeId) = renTop exprMap
     modData' = updateModData modData topBinds freeId
-    res = (C.FunctorMod args exprMap' modData')
+    res = (M.FunctorMod args exprMap' modData')
 
 -- | Update the module data with the idBimap and next free id
-updateModData :: C.ModuleData ->  TopBinds -> Int -> C.ModuleData
-updateModData modData (TopBinds map) freeId = modData { C.modIdBimap = idBimap', C.modFreeId = Just freeId }
+updateModData :: M.ModuleData ->  TopBinds -> Int -> M.ModuleData
+updateModData modData (TopBinds map) freeId = modData { M.modIdBimap = idBimap', M.modFreeId = Just freeId }
   where
     -- TODO - quick hack to convert
     idBimap = Bimap.fromList $ Map.toList map
@@ -75,13 +76,13 @@ updateModData modData (TopBinds map) freeId = modData { C.modIdBimap = idBimap',
     idBimap' = if (Bimap.valid idBimap) then idBimap else error "DUMP - invalid bimap!"
 
 
-convBind :: C.Bind C.SrcId -> Map.Map C.SrcId Int -> IntSupply (C.Bind Int, Map.Map C.SrcId Int)
-convBind (C.AbsBind b) map = do
+convBind :: E.Bind E.SrcId -> Map.Map E.SrcId Int -> IntSupply (E.Bind Int, Map.Map E.SrcId Int)
+convBind (E.AbsBind b) map = do
     b' <- supply
     let map' = Map.insert b b' map
-    return (C.AbsBind b', map')
+    return (E.AbsBind b', map')
 
-convBind (C.LetBind bs) map = liftM (mapFst (C.LetBind . reverse)) $ DF.foldlM t ([], map) bs
+convBind (E.LetBind bs) map = liftM (mapFst (E.LetBind . reverse)) $ DF.foldlM t ([], map) bs
   where
     t (bs', map) b = do
         b' <- supply
@@ -91,7 +92,7 @@ convBind (C.LetBind bs) map = liftM (mapFst (C.LetBind . reverse)) $ DF.foldlM t
 
 -- TODO - refactor
 -- | Monadic binding lookup,
-bLookup :: C.SrcId -> TopBinds -> IntSupply Int
+bLookup :: E.SrcId -> TopBinds -> IntSupply Int
 bLookup v (TopBinds tB) = do
     (ExprBinds eB) <- lift get
     let m = Map.lookup v eB
@@ -102,7 +103,7 @@ bLookup v (TopBinds tB) = do
         Nothing -> return $ maybe (error "(RNO1)") id $ Map.lookup v tB
 
 -- |Need to build a conversion map of the top values first
-renTop :: C.ExprMap C.SrcId -> (C.ExprMap Int, TopBinds, Int)
+renTop :: M.ExprMap E.SrcId -> (M.ExprMap Int, TopBinds, Int)
 renTop exprMap = (exprMap', topBinds, head uniqs)
   where
     ((topBinds, exprMap'), uniqs) = evalState (runSupplyT exprMapM [0..]) (ExprBinds Map.empty)
@@ -112,18 +113,18 @@ renTop exprMap = (exprMap', topBinds, head uniqs)
 
     -- map over each expr, using the topmap, converting lets and building a new scopemap
     -- as traversing expr, as order is fixed this should be ok
-    convTopBind :: (TopBinds, C.ExprMap Int) -> C.Top C.SrcId -> IntSupply (TopBinds, C.ExprMap Int)
-    convTopBind (TopBinds map, model) (C.TopLet b e) = do
+    convTopBind :: (TopBinds, M.ExprMap Int) -> E.Top E.SrcId -> IntSupply (TopBinds, M.ExprMap Int)
+    convTopBind (TopBinds map, model) (E.TopLet b e) = do
         (b', map') <- convBind b map
         let map'' = TopBinds $ map'
         -- reset exprbinds
         lift $ put (ExprBinds Map.empty)
         -- should traverse over the expression here
         expr' <- renExpr map'' e
-        let model' = OrdMap.insert b' (C.TopLet b' expr') model
+        let model' = OrdMap.insert b' (E.TopLet b' expr') model
         return (map'', model')
 
-    convTopBind (TopBinds map, model) (C.TopAbs b arg e) = do
+    convTopBind (TopBinds map, model) (E.TopAbs b arg e) = do
         (b', map') <- convBind b map
         let map'' = TopBinds $ map'
         arg' <- supply
@@ -132,29 +133,29 @@ renTop exprMap = (exprMap', topBinds, head uniqs)
         lift $ put (ExprBinds $ exprMap)
         -- should traverse over the expression here
         expr' <- renExpr map'' e
-        let model' = OrdMap.insert b' (C.TopAbs b' arg' expr') model
+        let model' = OrdMap.insert b' (E.TopAbs b' arg' expr') model
         return (map'', model')
 
 
 -- | Basic traverse over the expression structure - make into Data.Traversable
-renExpr :: TopBinds -> C.Expr C.SrcId -> IntSupply (C.Expr Int)
+renExpr :: TopBinds -> E.Expr E.SrcId -> IntSupply (E.Expr Int)
 
 -- need to check the expr and top bindings
-renExpr tB (C.Var (C.LocalVar v)) = (bLookup v tB) >>= (\v -> return $ C.Var (C.LocalVar v))
+renExpr tB (E.Var (E.LocalVar v)) = (bLookup v tB) >>= (\v -> return $ E.Var (E.LocalVar v))
 -- we don't rename module vars, least not yet - they are renamed during functor application
-renExpr tB (C.Var (C.ModVar m v)) = return $ (C.Var (C.ModVar m v))
+renExpr tB (E.Var (E.ModVar m v)) = return $ (E.Var (E.ModVar m v))
 -- same as above
-renExpr tB (C.App (C.LocalVar b) expr) = liftM2 C.App (liftM C.LocalVar v') expr'
+renExpr tB (E.App (E.LocalVar b) expr) = liftM2 E.App (liftM E.LocalVar v') expr'
   where
     v' = bLookup b tB
     expr' = renExpr tB expr
 
-renExpr tB (C.App (C.ModVar m v) expr) = liftM2 C.App (return $ C.ModVar m v) expr'
+renExpr tB (E.App (E.ModVar m v) expr) = liftM2 E.App (return $ E.ModVar m v) expr'
   where
     expr' = renExpr tB expr
 
 -- need to create a new binding and keep processing
-renExpr tB (C.Let b bExpr expr) = do
+renExpr tB (E.Let b bExpr expr) = do
     -- process the binding bExpr with the existing eB
     bExpr' <- renExpr tB bExpr
     -- get the exprBinds
@@ -165,19 +166,19 @@ renExpr tB (C.Let b bExpr expr) = do
     lift $ put (ExprBinds eB')
     -- process the main expr
     expr' <- renExpr tB expr
-    return $ C.Let b' bExpr' expr'
+    return $ E.Let b' bExpr' expr'
 
 -- just traverse the structure
-renExpr tB (C.Lit l) = return (C.Lit l)
+renExpr tB (E.Lit l) = return (E.Lit l)
 
-renExpr tB (C.Op op expr) = liftM (C.Op op) (renExpr tB expr)
+renExpr tB (E.Op op expr) = liftM (E.Op op) (renExpr tB expr)
 
-renExpr tB (C.If bExpr tExpr fExpr) = return C.If `ap` (re bExpr) `ap` (re tExpr) `ap` (re fExpr)
+renExpr tB (E.If bExpr tExpr fExpr) = return E.If `ap` (re bExpr) `ap` (re tExpr) `ap` (re fExpr)
   where
     re = renExpr tB
 
 -- need to map (or fold?) over the elements - map should be okay as a tuple should never create sub-bindings
-renExpr tB (C.Tuple exprs) = liftM C.Tuple $ DT.mapM (\e -> renExpr tB e) exprs
+renExpr tB (E.Tuple exprs) = liftM E.Tuple $ DT.mapM (\e -> renExpr tB e) exprs
 
 --renError :: String -> IntSupply a
 --renError s = lift . lift $ throwError s
@@ -193,5 +194,5 @@ renExpr tB (C.Tuple exprs) = liftM C.Tuple $ DT.mapM (\e -> renExpr tB e) exprs
 exprAp :: (Monad m) => (b -> c) -> m (a, b) -> m (a, c)
 exprAp f m = m >>= (\(eB, e) -> return (eB, f e))
 
-pairExpr :: ExprBinds -> IntSupply (C.Expr Int) -> IntSupply (ExprBinds, C.Expr Int)
+pairExpr :: ExprBinds -> IntSupply (E.Expr Int) -> IntSupply (ExprBinds, E.Expr Int)
 pairExpr a b = pairM (return a) b
