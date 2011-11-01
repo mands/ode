@@ -35,6 +35,7 @@ import qualified Data.Traversable as DT
 import Data.Functor
 import Data.Maybe (fromJust, isJust)
 import Utils.Utils
+import Common.AST
 
 -- |Basic \-Calc
 -- not used - just for reference
@@ -69,11 +70,11 @@ data LExpr      = LVar SrcId
 
 -- TODO - change to newtype?
 -- | Identifier - basicially RdrName - needs to become parameterised
-type SrcId = String
-type UntypedId = Int
+--type SrcId = String
+--type UntypedId = Int
 data TypedId = TypedId Int Type
     deriving (Show, Eq, Ord)
-type Id = UntypedId
+--type Id = UntypedId
 --data ModId a =  LocalId a -- Binding
 --                | ModId SrcId a -- Module Name and Binding
 --                deriving (Show, Eq, Ord)

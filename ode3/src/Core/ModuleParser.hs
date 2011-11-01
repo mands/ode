@@ -22,10 +22,8 @@ import qualified Data.Foldable as DF
 import Control.Applicative
 import Text.Parsec hiding (many, optional, (<|>))
 import Text.Parsec.String
-import Text.Parsec.Expr
 import qualified Text.Parsec.Token as T
 import Text.Parsec.Language( javaStyle )
-import Text.Parsec.Perm
 import Debug.Trace (trace)
 
 import qualified Data.Map as Map
@@ -39,57 +37,6 @@ import qualified Core.ModuleAST as M
 import qualified Core.ExprAST as E
 import qualified Core.ModuleDriver as MD
 import Ode.Desugarer (desugarMod)
-
--- | hijack the javaStyle default definition, gives us a bunch of ready-made parsers/behaviours
-coreLangDef = javaStyle
-    {
-        -- add more later
-        T.reservedNames =   ["module", "import", "as"],
-        -- unary ops and relational ops?
-        -- do formatting operators count? e.g. :, {, }, ,, ..,  etc.
-        -- NO - they are symbols to aid parsiing and have no meaning in the language itself...
-        T.reservedOpNames = ["="],
-        T.caseSensitive = True
-    }
-
-lexer :: T.TokenParser ()
-lexer  = T.makeTokenParser coreLangDef
-
--- For efficiency, we will bind all the used lexical parsers at toplevel.
-whiteSpace  = T.whiteSpace lexer
-lexeme      = T.lexeme lexer
-symbol      = T.symbol lexer
-stringLiteral = T.stringLiteral lexer
-natural     = T.natural lexer
-integer     = T.integer lexer
-float       = T.float lexer
-parens      = T.parens lexer
-semi        = T.semi lexer
-colon       = T.colon lexer
-comma       = T.comma lexer
-identifier  = T.identifier lexer
-reserved    = T.reserved lexer
-reservedOp  = T.reservedOp lexer
-commaSep    = T.commaSep lexer
-commaSep1   = T.commaSep1 lexer
-braces      = T.braces lexer
-brackets    = T.brackets lexer
-dot         = T.dot lexer
-
--- | lexeme parser for module identifier
-modIdentifier :: Parser String
-modIdentifier = lexeme upperIdentifier
-
--- | lexeme parser for a module string in dot notation
-modPathIdentifier :: Parser [String]
-modPathIdentifier = lexeme $ upperIdentifier `sepBy1` (char '.')
-
--- | parses a upper case identifier
-upperIdentifier :: Parser String
-upperIdentifier = (:) <$> upper <*> many alphaNum <?> "module identifier"
-
--- | comma sepated parameter list of any parser, e.g. (a,b,c)
-paramList = parens . commaSep
 
 -- | modParse takes an input file and a current snapshot of the module env, and parse within this context
 -- sucessfuylly parsed modules are then converted into (Module E.Id) and added to the env
@@ -112,7 +59,6 @@ modFileTop modEnv = do
     -- add the new mods to the moduleEnv
     let modEnv' = either (\_ -> modEnv) id $ DF.foldlM odeCoreConvert modEnv mods
     return $ trace (show imports) (trace (show mods) modEnv')
-
 
 -- | parse the open directive
 moduleOpen :: Parser M.ModImport
@@ -150,6 +96,58 @@ modBody = do
 -- (i.e. desugar, reorder, rename, typecheck) with respect to the current ModuleEnv
 odeCoreConvert :: M.ModuleEnv -> (M.TopMod E.SrcId)  -> MExcept (M.ModuleEnv)
 odeCoreConvert modEnv mod = MD.newModuleDriver modEnv mod
+
+-- Default Parser style
+-- | hijack the javaStyle default definition, gives us a bunch of ready-made parsers/behaviours
+coreLangDef = javaStyle
+    {
+        -- add more later
+        T.reservedNames =   ["module", "import", "as"],
+        -- unary ops and relational ops?
+        -- do formatting operators count? e.g. :, {, }, ,, ..,  etc.
+        -- NO - they are symbols to aid parsiing and have no meaning in the language itself...
+        T.reservedOpNames = ["="],
+        T.caseSensitive = True
+    }
+
+lexer :: T.TokenParser ()
+lexer  = T.makeTokenParser coreLangDef
+
+-- For efficiency, we will bind all the used lexical parsers at toplevel.
+whiteSpace  = T.whiteSpace lexer
+lexeme      = T.lexeme lexer
+symbol      = T.symbol lexer
+stringLiteral = T.stringLiteral lexer
+--natural     = T.natural lexer
+--integer     = T.integer lexer
+--float       = T.float lexer
+parens      = T.parens lexer
+--semi        = T.semi lexer
+--colon       = T.colon lexer
+--comma       = T.comma lexer
+--identifier  = T.identifier lexer
+reserved    = T.reserved lexer
+reservedOp  = T.reservedOp lexer
+commaSep    = T.commaSep lexer
+--commaSep1   = T.commaSep1 lexer
+braces      = T.braces lexer
+--brackets    = T.brackets lexer
+--dot         = T.dot lexer
+
+-- | lexeme parser for module identifier
+modIdentifier :: Parser String
+modIdentifier = lexeme upperIdentifier
+
+-- | lexeme parser for a module string in dot notation
+modPathIdentifier :: Parser [String]
+modPathIdentifier = lexeme $ upperIdentifier `sepBy1` (char '.')
+
+-- | parses a upper case identifier
+upperIdentifier :: Parser String
+upperIdentifier = (:) <$> upper <*> many alphaNum <?> "module identifier"
+
+-- | comma sepated parameter list of any parser, e.g. (a,b,c)
+paramList = parens . commaSep
 
 
 

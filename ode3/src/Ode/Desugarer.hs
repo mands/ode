@@ -32,7 +32,7 @@ import qualified Ode.AST as O
 import qualified Core.ExprAST as C
 import qualified Core.ModuleAST as M
 
-type Id = C.SrcId
+--type Id = C.SrcId
 
 -- We need a supply of unique Ids
 -- supply type, transformed with Error/Except Monad
@@ -69,19 +69,19 @@ evalSupplyVars x = evalSupplyT x $ map (\x -> tmpPrefix ++ x) vars
 --    procParams (O.ModuleAppParams modId Nothing) = C.VarMod modId
 --    procParams (O.ModuleAppParams funcId (Just args)) = C.AppMod funcId (map procParams args)
 
-desugarMod :: [O.ModuleElem] -> MExcept (M.ExprMap Id)
+desugarMod :: [O.TopElem] -> MExcept (M.ExprMap C.SrcId)
 desugarMod elems = evalSupplyVars $ snd <$> foldM desugarModElems M.emptySafeExprMap elems
 
 -- | desugar a top-level value constant(s)
 -- throws an error if a top-level is already defined
-desugarModElems :: (M.SafeExprMap Id) -> O.ModuleElem -> TmpSupply (M.SafeExprMap Id)
-desugarModElems sExprMap (O.ModuleElemValue (O.ValueDef ids value)) = do
+desugarModElems :: (M.SafeExprMap C.SrcId) -> O.TopElem -> TmpSupply (M.SafeExprMap C.SrcId)
+desugarModElems sExprMap (O.TopElemValue (O.ValueDef ids value)) = do
     v' <- dsExpr value
     let mB = C.LetBind ids
     lift $ M.insertTopExpr (C.TopLet mB v') sExprMap
 
 -- | desugar a top level component
-desugarModElems sExprMap (O.ModuleElemComponent (O.Component name ins body outs)) = do
+desugarModElems sExprMap (O.TopElemComponent (O.Component name ins body outs)) = do
     -- create a new tmpArg only if multiple elems
     arg <- if (isSingleElem ins) then return (singleElem ins) else supply
     v <- desugarComp arg ins body outs
@@ -90,7 +90,7 @@ desugarModElems sExprMap (O.ModuleElemComponent (O.Component name ins body outs)
 
 -- | desugars and converts a component into a \c abstraction
 -- not in tail-call form, could blow out the stack, but unlikely
-desugarComp :: O.Id -> [O.Id] -> [O.CompStmt] -> [O.Expr] -> TmpSupply (C.Expr Id)
+desugarComp :: O.SrcId -> [O.SrcId] -> [O.CompStmt] -> [O.Expr] -> TmpSupply (C.Expr C.SrcId)
 desugarComp argName [] body outs = lift $ throwError ("(DS01) Component has zero inputs")
 desugarComp argName ins body [] = lift $ throwError ("(DS02) Component has zero outputs")
 desugarComp argName ins body outs = case ins of
@@ -115,7 +115,7 @@ desugarComp argName ins body outs = case ins of
 
 -- | Expression desugarer - basically a big pattern amtch on all possible types
 -- should prob enable warnings to pick up all unmatched patterns
-dsExpr :: O.Expr -> TmpSupply (C.Expr Id)
+dsExpr :: O.Expr -> TmpSupply (C.Expr C.SrcId)
 -- TODO - fix!
 --dsExpr (O.UnExpr O.Not e) = liftM (C.Op C.Not) (dsExpr e)
 

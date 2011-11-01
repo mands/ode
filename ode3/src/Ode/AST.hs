@@ -20,55 +20,46 @@
 -----------------------------------------------------------------------------
 
 module Ode.AST (
-    ModLocalId(..), ModuleElem(..),
-    Component(..), ValueDef(..), CompStmt(..), Expr(..), BinOp(..), UnOp(..), Id
+    ModLocalId(..), TopElem(..),
+    Component(..), ValueDef(..), CompStmt(..), Expr(..), BinOp(..), UnOp(..),
+    SrcId, NumTy
 ) where
 
 import Data.Map as Map
+import Common.AST
 
 -- | an individual number type, not sure if needed, used to convert from double to integer
-type NumTy = Double
+--type NumTy = Double
 -- | identifier - is converted later on
-type Id = String
--- | identifier that may be local to current block or refer to a module parameter
-data ModLocalId = LocalId Id | ModId Id Id
+--type Id = String
+-- | SrcIdentifier that may be local to current block or refer to a module parameter
+data ModLocalId = LocalId SrcId | ModId SrcId SrcId
                 deriving Show
 
--- |module
--- should this be split by complete and partial/functors?
---data Module = ModuleAbs Id (Maybe [Id]) [ModuleElem]
---            | ModuleApp Id ModuleAppParams
---            deriving Show
-
--- |tree indicating module parameters for application of a functor,
--- first Id is the functorId, if followed by a list of args, where each arg may have args itself
--- else Id is the varId, if followed by Nothing
---data ModuleAppParams    = ModuleAppParams Id (Maybe [ModuleAppParams])
---                        deriving Show
 
 -- |elements allowed within a module, basically components or top-level constant values
-data ModuleElem = ModuleElemComponent Component
-                | ModuleElemValue ValueDef
+data TopElem = TopElemComponent Component
+                | TopElemValue ValueDef
                 deriving Show
 
 -- |value defintion
 -- they are constant, at least during single timestep
-data ValueDef = ValueDef { vName :: [Id], vValue :: Expr } deriving Show
+data ValueDef = ValueDef { vName :: [SrcId], vValue :: Expr } deriving Show
 
 -- |each independent component, it is essentially a function abstraction
 -- components may be defined inline, with name, ins, outs, and body
 -- or they may be a reference to a component defined in a module param and re-exported here
-data Component  = Component { cName :: Id, cInputs :: [Id], cBody :: [CompStmt], cOutputs :: [Expr]}
-                | ComponentRef Id ModLocalId
+data Component  = Component { cName :: SrcId, cInputs :: [SrcId], cBody :: [CompStmt], cOutputs :: [Expr]}
+                | ComponentRef SrcId ModLocalId
                 deriving Show
 
 -- |statments allowed within a component, these include,
 -- constant value defintinos, intial value defintions, odes and rres
 data CompStmt   = CompValue ValueDef
-                | InitValueDef { ivName :: [Id], ivValue :: Expr }
-                | OdeDef { odeName :: Id, odeInit :: Double, odeExp :: Expr}
-                | RreDef { rreName :: Id, reaction :: (Id, Id), rate :: Expr}
-                -- CompCallDef {  ccOutputs :: [Id], ccName :: Id, ccInputs :: [Expr] }
+                | InitValueDef { ivName :: [SrcId], ivValue :: Expr }
+                | OdeDef { odeName :: SrcId, odeInit :: Double, odeExp :: Expr}
+                | RreDef { rreName :: SrcId, reaction :: (SrcId, SrcId), rate :: Expr}
+                -- CompCallDef {  ccOutputs :: [SrcId], ccName :: SrcId, ccInputs :: [Expr] }
                 deriving Show
 
 -- |tree for basic arithmetic expressions, these are recursive and may include

@@ -36,6 +36,131 @@ import Text.Parsec.Perm
 import Utils.Utils
 import qualified Ode.AST as O
 
+
+-- |parse the body of a module
+moduleBody :: Parser O.TopElem
+moduleBody =    O.TopElemComponent <$> compDef
+                <|> O.TopElemValue <$> valueDef
+                <?> "component or value defintion"
+
+
+-- |parser for defining a component, where either a defintion or module parameter component may follow
+compDef :: Parser O.Component
+compDef = do
+    cName <- reserved "component" *> identifier
+    compParse cName
+  where
+    compParse cName =
+        O.ComponentRef <$> pure cName <*> (reservedOp "=" *> modElemIdentifier)
+        <|> (uncurry <$> (O.Component <$> pure cName <*> paramList identifier) <*> braces compBody)
+        <?> "component definition"
+
+
+-- |parser for the component body, a list of statements and return expressions
+compBody :: Parser ([O.CompStmt], [O.Expr])
+compBody = (,)  <$> many compStmt --compStmt `endBy` lexeme newline --
+                <*> (reserved "return" *> paramList compExpr)
+
+
+-- |parser for the statements allowed within a component body
+compStmt :: Parser O.CompStmt
+compStmt =  --O.CompCallDef <$> commaSep1 identifier <*> (reservedOp "=" *> identifier) <*> paramList compExpr
+            O.CompValue <$> valueDef
+            <|> O.InitValueDef <$> (reserved "init" *> commaSep1 identifier) <*> (reservedOp "=" *> compExpr)
+            <|> updateOde <$> (reserved "ode" *> identifier) <*> (reservedOp "=" *> braces odeDef)
+            <|> updateRre <$> (reserved "rre" *> identifier) <*> (reservedOp "=" *> braces rreDef)
+            <?> "valid component statement"
+  where
+    updateOde n ode = ode {O.odeName = n}
+    updateRre n rre = rre {O.rreName = n}
+
+
+-- |parse a value definition
+-- e.g., val x = expr
+valueDef :: Parser O.ValueDef
+valueDef = O.ValueDef   <$> (reserved "val" *> commaSep1 identifier) <*> (reservedOp "=" *> compExpr)
+
+
+-- |parse a rre attribute definition
+rreDef = permute (O.RreDef ""
+            <$$> (attrib "reaction" ((,) <$> identifier <*> (reservedOp "->" *> identifier)))
+            <||> (attrib "rate" compExpr)
+            ) <?> "rre definition"
+
+{-
+TODO - File GHC/Parsec bug
+
+odeDef :: (Double -> O.Expr -> O.CompStmt) -> Parser O.CompStmt
+odeDef n = permute (n
+            <$$> (attrib "init" number)
+            <||> (attrib "delta" compExpr)
+            )
+            -- <|> ((O.OdeDef <$> (reserved "ode" *> identifier <* reservedOp "=" )) >>= (\n -> braces (odeDef n)))
+-}
+
+-- |parse an ode attribute definition
+odeDef = permute (O.OdeDef ""
+            <$$> (attrib "init" number)
+            <||> (attrib "delta" compExpr)
+            ) <?> "ode definition"
+
+
+-- |parse a term - the value on either side of an operator
+-- should ODEs be here - as terms or statements?
+compTerm :: Parser O.Expr
+compTerm =  parens compExpr
+            <|> O.Number <$> number
+            <|> try (O.Boolean <$> boolTerm)
+            <|> try (brackets numSeqTerm)
+            <|> try (braces piecewiseTerm)
+            <|> try (O.Call <$> modLocalIdentifier <*> paramList compExpr)
+            <|> O.ValueRef <$> modLocalIdentifier
+            <?> "valid term"
+
+
+
+piecewiseTerm :: Parser O.Expr
+piecewiseTerm = O.Piecewise <$> (endBy1 ((,) <$> compExpr <*> (colon *> compExpr)) comma)
+                            <*> (reserved "default" *> colon *> compExpr)
+
+boolTerm :: Parser Bool
+boolTerm =  reserved "True" *> pure True
+            <|> reserved "False"  *> pure False
+            <?> "boolean"
+
+
+-- |parser for a numerical sequence, e.g. [a, b .. c]
+-- where a is the start, b is the next element, and c is the stop
+numSeqTerm :: Parser O.Expr
+numSeqTerm = createSeq <$> number <*> (comma *> number) <*> (symbol ".." *> number) <?> "numerical sequence"
+  where
+    createSeq a b c = O.NumSeq a b c -- (b-a) c
+
+
+
+-- |a basic numeric expression, using parsec expression builder
+compExpr  :: Parser O.Expr
+compExpr  =  buildExpressionParser exprOpTable compTerm <?> "expression"
+
+-- |Expression operator precedence table
+-- TODO - add parens and commas to the expressions?
+-- exprOpTable :: OperatorTable String () Identity O.Expr
+exprOpTable =
+    [
+    [prefix "-" O.Neg, prefix "!" O.Not, prefix "not" O.Not]
+    ,[binary "*" O.Mul AssocLeft, binary "/" O.Div AssocLeft, binary "%" O.Mod AssocLeft]
+    ,[binary "+" O.Add AssocLeft, binary "-" O.Sub AssocLeft]
+    ,[binary "<" O.LT AssocLeft, binary "<=" O.LE AssocLeft, binary ">" O.GT AssocLeft, binary ">=" O.GE AssocLeft]
+    ,[binary "==" O.EQ AssocLeft, binary "!=" O.NEQ AssocLeft]
+    ,[binary "&&" O.And AssocLeft, binary "and" O.And AssocLeft]
+    ,[binary "||" O.Or AssocLeft, binary "or" O.Or AssocLeft]
+    ]
+  where
+    binary name binop assoc = Infix (reservedOp name *> pure (\a b -> O.BinExpr binop a b) <?> "binary operator") assoc
+    prefix name unop         = Prefix (reservedOp name *> pure (\a -> O.UnExpr unop a) <?> "unary operator")
+
+
+-- Default Parser style
 -- |hijack the javaStyle default definition, gives us a bunch of ready-made parsers/behaviours
 coreLangDef = javaStyle
     {
@@ -45,7 +170,7 @@ coreLangDef = javaStyle
                             "ode", "delta",
                             "rre", "reaction", "rate",
                             "default",
-                            "true", "false"],
+                            "True", "False"],
         -- unary ops and relational ops?
         -- do formatting operators count? e.g. :, {, }, ,, ..,  etc.
         -- NO - they are symbols to aid parsiing and have no meaning in the language itself...
@@ -111,114 +236,3 @@ paramList = parens . commaSep
 -- TODO - fix the comma separated list of attribute, commaSep?
 -- attrib :: String -> Parser String
 attrib res p = reserved res *> colon *> p <* optional comma
-
--- |a basic numeric expression, using parsec expression builder
-compExpr  :: Parser O.Expr
-compExpr  =  buildExpressionParser exprOpTable compTerm <?> "expression"
-
--- |Expression operator precedence table
--- TODO - add parens and commas to the expressions?
--- exprOpTable :: OperatorTable String () Identity O.Expr
-exprOpTable =
-    [
-    [prefix "-" O.Neg, prefix "!" O.Not, prefix "not" O.Not]
-    ,[binary "*" O.Mul AssocLeft, binary "/" O.Div AssocLeft, binary "%" O.Mod AssocLeft]
-    ,[binary "+" O.Add AssocLeft, binary "-" O.Sub AssocLeft]
-    ,[binary "<" O.LT AssocLeft, binary "<=" O.LE AssocLeft, binary ">" O.GT AssocLeft, binary ">=" O.GE AssocLeft]
-    ,[binary "==" O.EQ AssocLeft, binary "!=" O.NEQ AssocLeft]
-    ,[binary "&&" O.And AssocLeft, binary "and" O.And AssocLeft]
-    ,[binary "||" O.Or AssocLeft, binary "or" O.Or AssocLeft]
-    ]
-  where
-    binary name binop assoc = Infix (reservedOp name *> pure (\a b -> O.BinExpr binop a b) <?> "binary operator") assoc
-    prefix name unop         = Prefix (reservedOp name *> pure (\a -> O.UnExpr unop a) <?> "unary operator")
-
--- |parser for a numerical sequence, e.g. [a, b .. c]
--- where a is the start, b is the next element, and c is the stop
-numSeqTerm :: Parser O.Expr
-numSeqTerm = createSeq <$> number <*> (comma *> number) <*> (symbol ".." *> number) <?> "numerical sequence"
-  where
-    createSeq a b c = O.NumSeq a b c -- (b-a) c
-
---boolTerm :: Parser Bool
---boolTerm =  try <$> reserved "true" *> True
---            <|> reserved "false"  *> False
---            <?> "boolean"
-
-piecewiseTerm :: Parser O.Expr
-piecewiseTerm = O.Piecewise <$> (endBy1 ((,) <$> compExpr <*> (colon *> compExpr)) comma)
-                            <*> (reserved "default" *> colon *> compExpr)
-
--- |parse a term - the value on either side of an operator
--- should ODEs be here - as terms or statements?
-compTerm :: Parser O.Expr
-compTerm =  parens compExpr
-            <|> O.Number <$> number
---            <|> O.Boolean <$> boolTerm
-            <|> try (brackets numSeqTerm)
-            <|> try (braces piecewiseTerm)
-            <|> try (O.Call <$> modLocalIdentifier <*> paramList compExpr)
-            <|> O.ValueRef <$> modLocalIdentifier
-            <?> "valid term"
-
-{-
-TODO - File GHC/Parsec bug
-
-odeDef :: (Double -> O.Expr -> O.CompStmt) -> Parser O.CompStmt
-odeDef n = permute (n
-            <$$> (attrib "init" number)
-            <||> (attrib "delta" compExpr)
-            )
-            -- <|> ((O.OdeDef <$> (reserved "ode" *> identifier <* reservedOp "=" )) >>= (\n -> braces (odeDef n)))
--}
-
--- |parse an ode attribute definition
-odeDef = permute (O.OdeDef ""
-            <$$> (attrib "init" number)
-            <||> (attrib "delta" compExpr)
-            ) <?> "ode definition"
-
--- |parse a rre attribute definition
-rreDef = permute (O.RreDef ""
-            <$$> (attrib "reaction" ((,) <$> identifier <*> (reservedOp "->" *> identifier)))
-            <||> (attrib "rate" compExpr)
-            ) <?> "rre definition"
-
--- |parse a value definition
--- e.g., val x = expr
-valueDef :: Parser O.ValueDef
-valueDef = O.ValueDef   <$> (reserved "val" *> commaSep1 identifier) <*> (reservedOp "=" *> compExpr)
-
--- |parser for the statements allowed within a component body
-compStmt :: Parser O.CompStmt
-compStmt =  --O.CompCallDef <$> commaSep1 identifier <*> (reservedOp "=" *> identifier) <*> paramList compExpr
-            O.CompValue <$> valueDef
-            <|> O.InitValueDef <$> (reserved "init" *> commaSep1 identifier) <*> (reservedOp "=" *> compExpr)
-            <|> updateOde <$> (reserved "ode" *> identifier) <*> (reservedOp "=" *> braces odeDef)
-            <|> updateRre <$> (reserved "rre" *> identifier) <*> (reservedOp "=" *> braces rreDef)
-            <?> "valid component statement"
-  where
-    updateOde n ode = ode {O.odeName = n}
-    updateRre n rre = rre {O.rreName = n}
-
--- |parser for the component body, a list of statements and return expressions
-compBody :: Parser ([O.CompStmt], [O.Expr])
-compBody = (,)  <$> many compStmt --compStmt `endBy` lexeme newline --
-                <*> (reserved "return" *> paramList compExpr)
-
--- |parser for defining a component, where either a defintion or module parameter component may follow
-compDef :: Parser O.Component
-compDef = do
-    cName <- reserved "component" *> identifier
-    compParse cName
-  where
-    compParse cName =
-        O.ComponentRef <$> pure cName <*> (reservedOp "=" *> modElemIdentifier)
-        <|> (uncurry <$> (O.Component <$> pure cName <*> paramList identifier) <*> braces compBody)
-        <?> "component definition"
-
--- |parse the body of a module
-moduleBody :: Parser O.ModuleElem
-moduleBody =    O.ModuleElemComponent <$> compDef
-                <|> O.ModuleElemValue <$> valueDef
-                <?> "component or value defintion"
