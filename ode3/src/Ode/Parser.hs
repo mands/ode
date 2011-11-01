@@ -22,7 +22,7 @@
 -----------------------------------------------------------------------------
 
 module Ode.Parser (
-    moduleBody
+moduleBody
 ) where
 
 import Control.Applicative
@@ -33,6 +33,7 @@ import qualified Text.Parsec.Token as T
 import Text.Parsec.Language( javaStyle )
 import Text.Parsec.Perm
 
+import Common.Parser
 import Utils.Utils
 import qualified Ode.AST as O
 
@@ -110,7 +111,7 @@ odeDef = permute (O.OdeDef ""
 compTerm :: Parser O.Expr
 compTerm =  parens compExpr
             <|> O.Number <$> number
-            <|> try (O.Boolean <$> boolTerm)
+            <|> try (O.Boolean <$> boolean)
             <|> try (brackets numSeqTerm)
             <|> try (braces piecewiseTerm)
             <|> try (O.Call <$> modLocalIdentifier <*> paramList compExpr)
@@ -118,31 +119,23 @@ compTerm =  parens compExpr
             <?> "valid term"
 
 
-
 piecewiseTerm :: Parser O.Expr
 piecewiseTerm = O.Piecewise <$> (endBy1 ((,) <$> compExpr <*> (colon *> compExpr)) comma)
                             <*> (reserved "default" *> colon *> compExpr)
-
-boolTerm :: Parser Bool
-boolTerm =  reserved "True" *> pure True
-            <|> reserved "False"  *> pure False
-            <?> "boolean"
-
 
 -- |parser for a numerical sequence, e.g. [a, b .. c]
 -- where a is the start, b is the next element, and c is the stop
 numSeqTerm :: Parser O.Expr
 numSeqTerm = createSeq <$> number <*> (comma *> number) <*> (symbol ".." *> number) <?> "numerical sequence"
   where
-    createSeq a b c = O.NumSeq a b c -- (b-a) c
-
+    createSeq a b c = O.NumSeq a b c
 
 
 -- |a basic numeric expression, using parsec expression builder
 compExpr  :: Parser O.Expr
 compExpr  =  buildExpressionParser exprOpTable compTerm <?> "expression"
 
--- |Expression operator precedence table
+-- |Expression operator precedence table, based on C
 -- TODO - add parens and commas to the expressions?
 -- exprOpTable :: OperatorTable String () Identity O.Expr
 exprOpTable =
@@ -159,67 +152,6 @@ exprOpTable =
     binary name binop assoc = Infix (reservedOp name *> pure (\a b -> O.BinExpr binop a b) <?> "binary operator") assoc
     prefix name unop         = Prefix (reservedOp name *> pure (\a -> O.UnExpr unop a) <?> "unary operator")
 
-
--- Default Parser style
--- |hijack the javaStyle default definition, gives us a bunch of ready-made parsers/behaviours
-coreLangDef = javaStyle
-    {
-        -- add more later
-        T.reservedNames =   ["module", "component", "return",
-                            "val", "init",
-                            "ode", "delta",
-                            "rre", "reaction", "rate",
-                            "default",
-                            "True", "False"],
-        -- unary ops and relational ops?
-        -- do formatting operators count? e.g. :, {, }, ,, ..,  etc.
-        -- NO - they are symbols to aid parsiing and have no meaning in the language itself...
-        T.reservedOpNames = ["=",
-                            "*", "/", "%", "+", "-",
-                            "<", "<=", ">", ">=", "==", "!=",
-                            "&&", "||", "!", "and", "or", "not"
-                            ],
-        T.caseSensitive = True
-    }
-
-lexer :: T.TokenParser ()
-lexer  = T.makeTokenParser coreLangDef
-
--- For efficiency, we will bind all the used lexical parsers at toplevel.
-whiteSpace  = T.whiteSpace lexer
-lexeme      = T.lexeme lexer
-symbol      = T.symbol lexer
-stringLiteral = T.stringLiteral lexer
-natural     = T.natural lexer
-integer     = T.integer lexer
-float       = T.float lexer
-parens      = T.parens lexer
-semi        = T.semi lexer
-colon       = T.colon lexer
-comma       = T.comma lexer
-identifier  = T.identifier lexer
-reserved    = T.reserved lexer
-reservedOp  = T.reservedOp lexer
-commaSep    = T.commaSep lexer
-commaSep1   = T.commaSep1 lexer
-braces      = T.braces lexer
-brackets    = T.brackets lexer
-dot         = T.dot lexer
-
--- |number parser, parses most formats
-number :: Parser Double
-number =    try float
-            <|> fromIntegral <$> integer
-            <?> "number"
-
--- |parses a upper case identifier
-upperIdentifier :: Parser String
-upperIdentifier = (:) <$> upper <*> many alphaNum <?> "module identifier"
-
--- |lexeme parser for module identifier
-modIdentifier :: Parser String
-modIdentifier = lexeme upperIdentifier
-
 -- |parses a module element reference, e.g. A.x
 modElemIdentifier :: Parser O.ModLocalId
 modElemIdentifier  = lexeme (O.ModId <$> upperIdentifier <*> (char '.' *> identifier))
@@ -228,11 +160,3 @@ modElemIdentifier  = lexeme (O.ModId <$> upperIdentifier <*> (char '.' *> identi
 modLocalIdentifier :: Parser O.ModLocalId
 modLocalIdentifier =    try modElemIdentifier
                         <|> O.LocalId <$> identifier <?> "local or module identifier"
-
--- |comma sepated parameter list of any parser, e.g. (a,b,c)
-paramList = parens . commaSep
-
--- |a parameterised single attribute parser for a given attriibute identifier
--- TODO - fix the comma separated list of attribute, commaSep?
--- attrib :: String -> Parser String
-attrib res p = reserved res *> colon *> p <* optional comma

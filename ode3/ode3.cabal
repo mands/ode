@@ -6,8 +6,8 @@ license: GPL-3
 license-file: LICENSE
 copyright: Copyright (C) 2010-2012 Mandeep Gill
 maintainer: mangil@comlab.ox.ac.uk
-build-depends: parsec -any, mtl -any, hslogger -any, fgl -any,
-               directory -any, containers -any, bimap -any, base -any
+build-depends: base -any, bimap -any, containers -any,
+               directory -any, fgl -any, hslogger -any, mtl -any, parsec -any
 stability: alpha
 homepage: http://www.comlab.ox.ac.uk/people/mangil/ode
 package-url:
@@ -45,12 +45,12 @@ includes:
 install-includes:
 include-dirs:
 hs-source-dirs: src
-other-modules: Common.Parser Common.AST Ode.AST Core.ExprAST
-               Core.ModuleAST Core.ModuleParser Core.Validator Core.ModuleDriver
-               Core.TypeChecker Utils.OrdMap Utils.Utils Utils.MonadSupply
-               CoreANF.Interpreter CoreANF.Converter CoreANF.AST CoreANF.Optimiser
-               Core.Interpreter Core.Renamer Core.Reorderer Ion.AST Ion.Parser
-               Ode.Desugarer Ode.Parser
+other-modules: Common.AST Common.Parser Utils.Utils Utils.OrdMap
+               Utils.MonadSupply CoreANF.Interpreter CoreANF.Converter CoreANF.AST
+               CoreANF.Optimiser Core.ModuleDriver Core.ExprAST Core.ModuleAST
+               Core.TypeChecker Core.Interpreter Core.ModuleParser Core.Validator
+               Core.Renamer Core.Reorderer Ion.AST Ion.Parser Ode.Desugarer
+               Ode.AST Ode.Parser
 ghc-prof-options:
 ghc-shared-options:
 ghc-options:
