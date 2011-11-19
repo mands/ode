@@ -11,12 +11,9 @@
 -- |Parser for the Ode3 language, used to describe stochastic-hybrid systesm comprising of
 -- chemical kinetic reactions and ODEs only (for now)
 -- TO ADD
--- * module system - DONE!
 -- * SDEs?
 -- * units?
--- * types
 -- * first-class/nested component definitions?
--- * sub-modules?
 -- * many more...
 --
 -----------------------------------------------------------------------------
@@ -29,8 +26,6 @@ import Control.Applicative
 import Text.Parsec hiding (many, optional, (<|>))
 import Text.Parsec.String
 import Text.Parsec.Expr
-import qualified Text.Parsec.Token as T
-import Text.Parsec.Language( javaStyle )
 import Text.Parsec.Perm
 
 import Common.Parser

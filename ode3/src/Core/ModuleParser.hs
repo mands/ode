@@ -22,8 +22,6 @@ import qualified Data.Foldable as DF
 import Control.Applicative
 import Text.Parsec hiding (many, optional, (<|>))
 import Text.Parsec.String
-import qualified Text.Parsec.Token as T
-import Text.Parsec.Language( javaStyle )
 import Debug.Trace (trace)
 
 import qualified Data.Map as Map
@@ -57,9 +55,17 @@ modFileTop modEnv = do
     -- update the env and now parse the modules using the new env
     mods <- many1 (moduleDef modEnv) <* eof
 
+    -- HACK - filter and leave only LitMods for now
+    let mods' = filter filterLit mods
+
     -- add the new mods to the moduleEnv
     let modEnv' = either (\_ -> modEnv) id $ DF.foldlM odeCoreConvert modEnv mods
     return $ trace (show imports) (trace (show mods) modEnv')
+
+  where
+    filterLit m = case m of
+        (M.TopMod _ (M.LitMod _ _)) -> True
+        _ -> False
 
 -- | parse the open directive
 moduleOpen :: Parser M.ModImport

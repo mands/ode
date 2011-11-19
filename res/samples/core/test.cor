@@ -1,0 +1,35 @@
+-- test file
+-- basic lambda calc - prop func lang wrap around core
+
+
+module A {
+  let a = 3
+  
+  
+  let b = \arg1 arg2 -> 
+    let a = arg1 + arg2 in
+    let c = arg2 + a in
+    a + c
+  
+  fun b arg1 arg2 = 
+    let a = arg1 + arg2 in
+    let c = arg2 + a in
+    a + c
+
+  let b = fun arg1 arg2 -> 
+    let a = arg1 + arg2 in
+    let c = arg2 + a in
+    a + c
+
+  let (a,b) = c
+
+  let d = \a ->
+    let e = \b -> 
+      a + b
+    in 
+      e a
+      
+      
+
+}
+
