@@ -9,6 +9,7 @@
 -- Portability :
 --
 -- | A basic validator for a Module expressions, perfromas very simple validation tasks
+-- hopefully GADTs will remove a lot of these
 --
 -----------------------------------------------------------------------------
 

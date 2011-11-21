@@ -1,0 +1,25 @@
+// basic tests for the new syntax
+
+
+module A {
+
+
+//  val a = 0
+//  val b = 1
+
+/*
+  component c(a,b) {
+    val d = 0
+    val e = 1
+    return (d,e)
+  }
+*/
+
+
+  component c (a,b) => (d,e) where {
+    val d = a + 1
+    val e = b + 1
+  }
+
+
+}

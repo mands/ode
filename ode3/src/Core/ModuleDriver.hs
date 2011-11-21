@@ -69,10 +69,11 @@ moduleDriver baseModules = do
 
 
 
-newModuleDriver :: M.ModuleEnv -> M.TopMod E.SrcId -> MExcept (M.ModuleEnv)
-newModuleDriver modEnv topMod@(M.TopMod name mod) = Map.insert name <$> eMod <*> pure modEnv
+newModuleDriver :: M.ModuleEnv -> M.TopMod E.SrcId -> MExcept M.ModuleEnv
+newModuleDriver modEnv topMod@(M.TopMod name mod) =
+    Map.insert <$> pure name <*> eRes <*> pure modEnv
   where
-    eMod = checkName *> interpretModule modEnv mod
+    eRes = checkName *> interpretModule modEnv mod
     -- check if module already exists
     checkName = if Map.member name modEnv then throwError ("(MD06) - Module with name " ++ (show name) ++ " already defined") else pure ()
 

@@ -81,19 +81,19 @@ desugarModElems sExprMap (O.TopElemValue (O.ValueDef ids value)) = do
     lift $ M.insertTopExpr (C.TopLet mB v') sExprMap
 
 -- | desugar a top level component
-desugarModElems sExprMap (O.TopElemComponent (O.Component name ins body outs)) = do
+desugarModElems sExprMap (O.TopElemComponent (O.Component name ins outs body)) = do
     -- create a new tmpArg only if multiple elems
     arg <- if (isSingleElem ins) then return (singleElem ins) else supply
-    v <- desugarComp arg ins body outs
+    v <- desugarComp arg ins outs body
     let topAbs = C.TopAbs (C.AbsBind name) arg v
     lift $ M.insertTopExpr topAbs sExprMap
 
 -- | desugars and converts a component into a \c abstraction
 -- not in tail-call form, could blow out the stack, but unlikely
-desugarComp :: O.SrcId -> [O.SrcId] -> [O.CompStmt] -> [O.Expr] -> TmpSupply (C.Expr C.SrcId)
-desugarComp argName [] body outs = lift $ throwError ("(DS01) Component has zero inputs")
-desugarComp argName ins body [] = lift $ throwError ("(DS02) Component has zero outputs")
-desugarComp argName ins body outs = case ins of
+desugarComp :: O.SrcId -> [O.SrcId] -> [O.Expr] -> [O.CompStmt] -> TmpSupply (C.Expr C.SrcId)
+desugarComp argName [] outs body  = lift $ throwError ("(DS01) Component has zero inputs")
+desugarComp argName ins [] body = lift $ throwError ("(DS02) Component has zero outputs")
+desugarComp argName ins outs body = case ins of
                                     (singIn:[]) -> dsCompBody body
                                     _ | length ins == (length . nub) ins  -> dsCompIns ins
                                     _ | otherwise -> lift $ throwError ("(DS03) Component has inputs with the same name")

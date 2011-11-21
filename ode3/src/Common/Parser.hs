@@ -31,7 +31,7 @@ commonLangDef = javaStyle
                             -- core mod
                             "module", "import", "as",
                             -- ode
-                            "component", "return",
+                            "component", "return", "where",
                             "val", "init",
                             "ode", "delta",
                             "rre", "reaction", "rate",
@@ -43,7 +43,7 @@ commonLangDef = javaStyle
         -- unary ops and relational ops?
         -- do formatting operators count? e.g. :, {, }, ,, ..,  etc.
         -- NO - they are symbols to aid parsiing and have no meaning in the language itself...
-        T.reservedOpNames = ["=",
+        T.reservedOpNames = ["=", "=>",
                             "*", "/", "%", "+", "-",
                             "<", "<=", ">", ">=", "==", "!=",
                             "&&", "||", "!", "and", "or", "not"

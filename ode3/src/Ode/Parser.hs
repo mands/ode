@@ -48,14 +48,19 @@ compDef = do
   where
     compParse cName =
         O.ComponentRef <$> pure cName <*> (reservedOp "=" *> modElemIdentifier)
-        <|> (uncurry <$> (O.Component <$> pure cName <*> paramList identifier) <*> braces compBody)
+        -- <|> (uncurry <$> (O.Component <$> pure cName <*> paramList identifier) <*> braces compBody)
+        <|> O.Component <$> pure cName <*> paramList identifier <*>
+            (reservedOp "=>" *> paramList compExpr) <*> (reserved "where" *> compBody)
         <?> "component definition"
+
+    compBody = braces $ many compStmt
 
 
 -- |parser for the component body, a list of statements and return expressions
-compBody :: Parser ([O.CompStmt], [O.Expr])
-compBody = (,)  <$> many compStmt --compStmt `endBy` lexeme newline --
-                <*> (reserved "return" *> paramList compExpr)
+--compBody :: Parser ([O.CompStmt], [O.Expr])
+--compBody = (,)  <$> many compStmt --compStmt `endBy` lexeme newline --
+--                <*> (reserved "return" *> paramList compExpr)
+
 
 
 -- |parser for the statements allowed within a component body

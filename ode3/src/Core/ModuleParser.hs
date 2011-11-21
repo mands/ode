@@ -20,6 +20,7 @@ modParse
 import qualified Data.Traversable as DT
 import qualified Data.Foldable as DF
 import Control.Applicative
+import Control.Monad
 import Text.Parsec hiding (many, optional, (<|>))
 import Text.Parsec.String
 import Debug.Trace (trace)
@@ -40,14 +41,15 @@ import Ode.Desugarer (desugarMod)
 -- | modParse takes an input file and a current snapshot of the module env, and parse within this context
 -- sucessfuylly parsed modules are then converted into (Module E.Id) and added to the env
 modParse :: FilePath -> String -> M.ModuleEnv ->  MExcept M.ModuleEnv
-modParse fileName fileData modEnv = case parseRes of
-    Left err -> Left ("Parse error at " ++ show err)
-    Right res -> Right res
+modParse fileName fileData modEnv =
+    case parseRes of
+        Left err -> Left ("Parse error at " ++ show err)
+        Right res -> res
   where
     parseRes = parse (modFileTop modEnv) fileName fileData
 
 -- | top level parser for a file
-modFileTop :: M.ModuleEnv -> Parser M.ModuleEnv
+modFileTop :: M.ModuleEnv -> Parser (MExcept M.ModuleEnv)
 modFileTop modEnv = do
     imports <- (whiteSpace *> many moduleOpen)
     -- TODO, should lookup the imports here and update the env
@@ -59,8 +61,9 @@ modFileTop modEnv = do
     let mods' = filter filterLit mods
 
     -- add the new mods to the moduleEnv
-    let modEnv' = either (\_ -> modEnv) id $ DF.foldlM odeCoreConvert modEnv mods
-    return $ trace (show imports) (trace (show mods) modEnv')
+    -- TODO - output, don't swallow the error msg here
+    let modEnv' = DF.foldlM MD.newModuleDriver modEnv mods'
+    return $ trace (show imports) (trace (show mods') modEnv')
 
   where
     filterLit m = case m of
@@ -91,6 +94,9 @@ moduleAppParams = procParams <$> modIdentifier <*> optionMaybe (paramList module
     procParams modId Nothing = M.VarMod modId
     procParams funcId (Just args) = M.AppMod funcId args
 
+
+-- TODO - errors during desugaring are swallowed
+-- | parses a Ode module body and desugars into a Core AST
 modBody :: Parser (M.ExprMap E.SrcId)
 modBody = do
     modElems <- braces (many1 OP.moduleBody)
@@ -101,8 +107,8 @@ modBody = do
 -- Util functions - need to refactor and place elsewhere
 -- | Function that takes an ODE Module and fully converts it into a Core Module
 -- (i.e. desugar, reorder, rename, typecheck) with respect to the current ModuleEnv
-odeCoreConvert :: M.ModuleEnv -> (M.TopMod E.SrcId)  -> MExcept (M.ModuleEnv)
-odeCoreConvert modEnv mod = MD.newModuleDriver modEnv mod
+--odeCoreConvert :: M.ModuleEnv -> (M.TopMod E.SrcId)  -> MExcept (M.ModuleEnv)
+--odeCoreConvert modEnv mod = MD.newModuleDriver modEnv mod
 
 
 
