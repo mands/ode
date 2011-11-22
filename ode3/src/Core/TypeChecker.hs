@@ -160,13 +160,23 @@ newTypevar = liftM E.TVar supply
 
 -- | Adds a set of constraints for linking a multibind to a TVar
 multiBindConstraint :: E.Bind Int -> E.Type -> TypeEnv -> TypeConsM TypeEnv
-multiBindConstraint (E.LetBind bs) (E.TVar v) tEnv = do
+--multiBindConstraint (E.LetBind bs) (E.TVar v) tEnv = do
+--    -- create the new tvars for each binding
+--    bTs <- mapM (\_ -> newTypevar) bs
+--    -- add the constaint
+--    addConstraint (E.TTuple bTs) (E.TVar v)
+--    -- add the tvars to the type map
+--    DF.foldlM (\tEnv (b, bT) -> return $ Map.insert b bT tEnv) tEnv (zip bs bTs)
+
+multiBindConstraint (E.LetBind bs) t tEnv = do
     -- create the new tvars for each binding
     bTs <- mapM (\_ -> newTypevar) bs
     -- add the constaint
-    addConstraint (E.TTuple bTs) (E.TVar v)
+    addConstraint (E.TTuple bTs) t
     -- add the tvars to the type map
     DF.foldlM (\tEnv (b, bT) -> return $ Map.insert b bT tEnv) tEnv (zip bs bTs)
+
+
 
 constrain :: M.ExprMap Int -> ((TypeEnv, ModTypeEnv), TypeCons)
 constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
@@ -178,9 +188,13 @@ constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
         (eT, tEnv', mTEnv') <- consExpr tEnv mTEnv e
         -- extend and return tEnv
         case eT of
-            (E.TTuple ts) -> return $ (foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv' (zip bs ts), mTEnv')
-            (E.TVar v) | (length bs > 1) -> (multiBindConstraint (E.LetBind bs) (E.TVar v) tEnv') >>= (\tEnv -> return (tEnv, mTEnv'))
+            -- true if tuple on both side of same size, if so unplack and treat as indivudual elems
+            (E.TTuple ts) | (length bs == length ts) -> return $ (foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv' (zip bs ts), mTEnv')
+            -- true for individual elems, handle same as tuple above
             t | length bs == 1 -> return $ (Map.insert (head bs) eT tEnv', mTEnv')
+            -- basic handling, is common case that subsumes special cases above, basically teat bothsides as tuples
+            -- (with tvars), create contstrains and let unificiation solve it instead
+            t | (length bs > 1) -> (multiBindConstraint (E.LetBind bs) t tEnv') >>= (\tEnv -> return (tEnv, mTEnv'))
             _ -> trace (errorDump [show bs, show eT, show tEnv']) (error "(TYPECHECKER) - toplet shit\n")
 
     consTop (tEnv, mTEnv) (E.TopAbs (E.AbsBind b) arg e) = do
@@ -239,11 +253,17 @@ constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
         (e1T, tEnv', mTEnv') <- consExpr tEnv mTEnv e1
         -- extend tEnv with new env
         tEnv'' <- case e1T of
-            (E.TTuple ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv' (zip bs ts)
-            (E.TVar v) | (length bs > 1) -> multiBindConstraint (E.LetBind bs) (E.TVar v) tEnv'
+            -- true if tuple on both side of same size, if so unplack and treat as indivudual elems
+            (E.TTuple ts) | (length bs == length ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv' (zip bs ts)
+            -- true for individual elems, handle same as tuple above
             t | length bs == 1 -> return $ Map.insert (head bs) e1T tEnv'
+            -- basic handling, is common case that subsumes special cases above, basically teat bothsides as tuples
+            -- (with tvars), create contstrains and let unificiation solve it instead
+            t | (length bs > 1) -> multiBindConstraint (E.LetBind bs) t tEnv'
             _ -> trace (errorDump [show bs, show e1T, show tEnv']) (error "(TYPECHECKER) - let shit\n")
+
         consExpr tEnv'' mTEnv' e2
+
 
     consExpr tEnv mTEnv (E.Op op e) = do
         let (E.TArr fromT toT) = getOpType op

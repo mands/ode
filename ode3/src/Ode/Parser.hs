@@ -109,7 +109,8 @@ odeDef = permute (O.OdeDef ""
 -- |parse a term - the value on either side of an operator
 -- should ODEs be here - as terms or statements?
 compTerm :: Parser O.Expr
-compTerm =  O.Number <$> number
+compTerm =  try (parens compExpr)
+            <|> O.Number <$> number
             <|> try (O.Boolean <$> boolean)
             <|> try (time *> pure O.Time)
             <|> try (unit *> pure O.Unit)
@@ -117,7 +118,7 @@ compTerm =  O.Number <$> number
             <|> try (braces piecewiseTerm)
             <|> try (O.Call <$> modLocalIdentifier <*> paramList compExpr)
             <|> O.ValueRef <$> modLocalIdentifier
-            <|> parens compExpr
+            <|> O.Tuple <$> paramList compExpr
             <?> "valid term"
 
 

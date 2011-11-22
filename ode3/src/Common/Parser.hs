@@ -43,7 +43,7 @@ commonLangDef = javaStyle
         -- unary ops and relational ops?
         -- do formatting operators count? e.g. :, {, }, ,, ..,  etc.
         -- NO - they are symbols to aid parsiing and have no meaning in the language itself...
-        T.reservedOpNames = ["=", "=>", "()",
+        T.reservedOpNames = ["=", "=>", "()", "_",
                             "*", "/", "%", "+", "-",
                             "<", "<=", ">", ">=", "==", "!=",
                             "&&", "||", "!", "and", "or", "not"
@@ -109,7 +109,7 @@ upperIdentifier :: Parser String
 upperIdentifier = (:) <$> upper <*> many alphaNum <?> "module identifier"
 
 -- | comma sepated parameter list of any parser, e.g. (a,b,c)
-paramList = parens . commaSep
+paramList = parens . commaSep1
 
 -- |a parameterised single attribute parser for a given attriibute identifier
 -- TODO - fix the comma separated list of attribute, commaSep?

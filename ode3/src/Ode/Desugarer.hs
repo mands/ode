@@ -152,6 +152,7 @@ dsExpr (O.Time) = return $ C.Lit (C.Time)
 dsExpr (O.Unit) = return $ C.Lit (C.Unit)
 dsExpr (O.ValueRef (O.LocalId id)) = return $ C.Var (C.LocalVar id)
 dsExpr (O.ValueRef (O.ModId mId id)) = return $ C.Var (C.ModVar mId id)
+dsExpr (O.Tuple exprs) = C.Tuple <$> DT.mapM dsExpr exprs
 
 
 -- create nested set of ifs for piecewise expression

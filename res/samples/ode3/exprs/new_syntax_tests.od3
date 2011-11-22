@@ -55,14 +55,51 @@ module E {
 }
 */
 
-// tuples
+// basic tuples exprs
 /*
 module E {
-  val _,_ = compTest(())
-  //val _,_,_ = compTest(())
-  val _,_ = 1
+  val c = (1+1)
+  val a,b = (1, 2)
+}
+*/
 
-  component compTest (un) => (1, 2) where {
+
+// tuples type system - toplevel
+/*
+module F {
+    // val a,b = True
+
+    val c,d = (1,2)
+    
+    val e = (1,2)
+    val f,g = e
+
+    val h = compTestA(1) // OK
+    val i,j = compTestA(1) // OK
+
+  component compTestA (a) => (1, 2) where {
+    val b = 1+a
   }
 }
 */
+
+// tupes type system - let-exprs
+/*
+module G {
+  component compTestB (a) => (1, 2) where {
+    // val b,c = 1 + a
+    val b = 1+a
+    val c,d = (1,2)   
+    val e = (1,2)
+    val f,g = e
+
+  }
+}
+*/
+
+// validation errors
+module H {
+  val a = 1
+  val a = 2
+}
+

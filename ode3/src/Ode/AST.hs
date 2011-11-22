@@ -70,7 +70,7 @@ data CompStmt   = CompValue ValueDef
 -- refernces to existing values, piecewise terms
 -- expressions are may be multiple types, these are determined later on
 data Expr   = BinExpr BinOp Expr Expr | UnExpr UnOp Expr | Number Double | NumSeq Double Double Double | Boolean Bool
-            | Time | Unit | Call ModLocalId [Expr] | ValueRef ModLocalId | Piecewise [(Expr, Expr)] Expr
+            | Time | Unit | Call ModLocalId [Expr] | ValueRef ModLocalId | Piecewise [(Expr, Expr)] Expr | Tuple [Expr]
             deriving Show
 
 -- |basic binary expression operators
