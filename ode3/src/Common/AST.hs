@@ -13,7 +13,8 @@
 -----------------------------------------------------------------------------
 
 module Common.AST (
-    NumTy, SrcId, UntypedId, Id
+    NumTy, UntypedId, Id,
+    SrcId
 ) where
 
 -- | an individual number type, not sure if needed, used to convert from double to integer

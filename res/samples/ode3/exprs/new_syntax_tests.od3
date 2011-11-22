@@ -1,25 +1,68 @@
 // basic tests for the new syntax
 
-
+// new comp syntax
+/*
 module A {
 
+  val valTest = 1
 
-//  val a = 0
-//  val b = 1
-
-/*
-  component c(a,b) {
-    val d = 0
-    val e = 1
-    return (d,e)
-  }
-*/
-
-
-  component c (a,b) => (d,e) where {
+  component compTest (a,b) => (d,e) where {
     val d = a + 1
     val e = b + 1
   }
-
-
 }
+*/
+
+// time term
+/*
+module B {
+  val valTest = 1 + time
+}
+*/
+
+// Unit term
+/*
+module C {
+  val valTest = ()
+  component compTest (unused) => (()) where {
+    val a = 0
+//    val b = unused
+  }
+  val start = compTest(valTest)
+}
+*/
+
+// dont care vals
+/*
+module D {
+  val _ = 1
+  component compTest (a) => (()) where {
+    val _ = 1 + a
+  }
+  val _ = compTest(1)
+}
+*/
+
+// dont care components
+/*
+module E {
+  component compTestA (_) => (1,2) where {
+  }
+  component compTestB (_, a) => (()) where {
+    val _ = a + 1
+  }
+  val _ = compTestB(compTestA(()))
+}
+*/
+
+// tuples
+/*
+module E {
+  val _,_ = compTest(())
+  //val _,_,_ = compTest(())
+  val _,_ = 1
+
+  component compTest (un) => (1, 2) where {
+  }
+}
+*/

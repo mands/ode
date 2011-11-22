@@ -275,7 +275,8 @@ getLitType l = case l of
     E.Boolean _ -> E.TBool
     E.Num _ -> E.TFloat
     E.NumSeq _ -> E.TFloat
-
+    E.Time -> E.TFloat
+    E.Unit -> E.TUnit
 
 -- | Takes an operator and returns the static type of the function
 getOpType :: E.Op -> E.Type

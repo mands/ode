@@ -13,12 +13,15 @@
 --
 -----------------------------------------------------------------------------
 
+{-# LANGUAGE TypeSynonymInstances #-}
+
 module Ode.Desugarer (
 desugarMod
 ) where
 
 import qualified Data.Map as Map
 import qualified Data.Bimap as Bimap
+import qualified Data.Traversable as DT
 import Data.List (nub)
 import Debug.Trace
 import Control.Applicative
@@ -44,6 +47,12 @@ evalSupplyVars x = evalSupplyT x $ map (\x -> tmpPrefix ++ x) vars
   where
     vars = [replicate k ['A'..'Z'] | k <- [1..]] >>= sequence
     tmpPrefix = "des"
+
+
+instance Applicative TmpSupply where
+    pure = return
+    (<*>) = ap
+
 
 -- | desugar function takes an ODE module representaiton and converts it into a lower-level Core AST
 -- use the supply monad to generate unique names
@@ -77,14 +86,17 @@ desugarMod elems = evalSupplyVars $ snd <$> foldM desugarModElems M.emptySafeExp
 desugarModElems :: (M.SafeExprMap C.SrcId) -> O.TopElem -> TmpSupply (M.SafeExprMap C.SrcId)
 desugarModElems sExprMap (O.TopElemValue (O.ValueDef ids value)) = do
     v' <- dsExpr value
-    let mB = C.LetBind ids
+    ids' <- DT.mapM subDontCares ids
+    let mB = C.LetBind ids'
     lift $ M.insertTopExpr (C.TopLet mB v') sExprMap
 
 -- | desugar a top level component
 desugarModElems sExprMap (O.TopElemComponent (O.Component name ins outs body)) = do
+    -- sub the ins
+    ins' <- DT.mapM subDontCares ins
     -- create a new tmpArg only if multiple elems
-    arg <- if (isSingleElem ins) then return (singleElem ins) else supply
-    v <- desugarComp arg ins outs body
+    arg <- if (isSingleElem ins') then return (singleElem ins') else supply
+    v <- desugarComp arg ins' outs body
     let topAbs = C.TopAbs (C.AbsBind name) arg v
     lift $ M.insertTopExpr topAbs sExprMap
 
@@ -99,12 +111,15 @@ desugarComp argName ins outs body = case ins of
                                     _ | otherwise -> lift $ throwError ("(DS03) Component has inputs with the same name")
   where
     -- unpack the input params, a custom fold over the multiple ins
-    dsCompIns bs = liftM (C.Let (C.LetBind bs) (C.Var (C.LocalVar argName))) $ dsCompBody body
+    dsCompIns bs = C.Let (C.LetBind bs) (C.Var (C.LocalVar argName)) <$> dsCompBody body
 
     -- process the body by pattern-matching on the statement types
     dsCompBody [] = dsCompOuts outs
     -- very similar to top-level value def - need to handle single elem diff to mult
-    dsCompBody ((O.CompValue (O.ValueDef ids e)):xs) = liftM2 (C.Let (C.LetBind ids)) (dsExpr e) (dsCompBody xs)
+    dsCompBody ((O.CompValue (O.ValueDef ids e)):xs) = do
+        ids' <- DT.mapM subDontCares ids
+        let mB = C.LetBind ids'
+        C.Let mB <$> dsExpr e <*> dsCompBody xs
 
     -- TODO - we ignore for now
     dsCompBody ((O.InitValueDef ids e):xs) = lift $ throwError "test"
@@ -133,6 +148,8 @@ dsExpr (O.BinExpr op a b) = do
 dsExpr (O.Number n) = return $ C.Lit (C.Num n)
 dsExpr (O.NumSeq a b c) = return $ C.Lit (C.NumSeq $ enumFromThenTo a b c)
 dsExpr (O.Boolean b) = return $ C.Lit (C.Boolean b)
+dsExpr (O.Time) = return $ C.Lit (C.Time)
+dsExpr (O.Unit) = return $ C.Lit (C.Unit)
 dsExpr (O.ValueRef (O.LocalId id)) = return $ C.Var (C.LocalVar id)
 dsExpr (O.ValueRef (O.ModId mId id)) = return $ C.Var (C.ModVar mId id)
 
@@ -160,6 +177,11 @@ singleElem es = head es
 packElems es = if (isSingleElem es)
     then dsExpr $ singleElem es
     else liftM C.Tuple $ mapM dsExpr es
+
+subDontCares :: O.ValId -> TmpSupply C.SrcId
+subDontCares O.DontCare = supply
+subDontCares (O.ValId i) = return i
+
 
 -- |simple patttern matching convertor, boring but gotta be done...
 binOps :: O.BinOp -> C.Op

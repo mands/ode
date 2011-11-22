@@ -93,6 +93,7 @@ data Type :: * where
     TVar :: Int -> Type
     TBool :: Type
     TFloat :: Type
+    TUnit :: Type
     TArr :: Type -> Type -> Type
     TTuple :: [Type] -> Type -- don't want to allow tuples of tuples
     deriving (Show, Eq, Ord)
@@ -151,11 +152,11 @@ data Expr b = Var (VarId b)             -- a reference to any let-defined expres
             -- now add the simulation stuff!
             deriving (Show, Eq, Ord)
 
--- |Atomic, core values, will eventually become atomic args during ANF conversion
-data Literal =  Num Double | NumSeq [Double] | Boolean Bool
+-- | Atomic, core values, will eventually become atomic args during ANF conversion
+data Literal =  Num Double | NumSeq [Double] | Boolean Bool | Time | Unit
                 deriving (Show, Eq, Ord)
 
--- |built-in operators - basically any operators that may be expressed directly as hardware instructions or sys/built-ins
+-- | built-in operators - basically any operators that may be expressed directly as hardware instructions or sys/built-ins
 data Op = Add | Sub | Mul | Div | Mod
         | LT | LE | GT | GE | EQ | NEQ
         | And | Or | Not

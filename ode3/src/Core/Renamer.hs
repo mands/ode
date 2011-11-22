@@ -180,6 +180,7 @@ renExpr tB (E.If bExpr tExpr fExpr) = return E.If `ap` (re bExpr) `ap` (re tExpr
 -- need to map (or fold?) over the elements - map should be okay as a tuple should never create sub-bindings
 renExpr tB (E.Tuple exprs) = liftM E.Tuple $ DT.mapM (\e -> renExpr tB e) exprs
 
+
 --renError :: String -> IntSupply a
 --renError s = lift . lift $ throwError s
 

@@ -20,9 +20,9 @@
 -----------------------------------------------------------------------------
 
 module Ode.AST (
-    ModLocalId(..), TopElem(..),
+    ModLocalId(..), ValId(..), TopElem(..),
     Component(..), ValueDef(..), CompStmt(..), Expr(..), BinOp(..), UnOp(..),
-    SrcId, NumTy
+    SrcId, NumTy,
 ) where
 
 import Data.Map as Map
@@ -36,6 +36,8 @@ import Common.AST
 data ModLocalId = LocalId SrcId | ModId SrcId SrcId
                 deriving Show
 
+-- used for differntiatin between actual ids and _ vals
+data ValId = ValId SrcId | DontCare deriving (Show, Ord, Eq)
 
 -- |elements allowed within a module, basically components or top-level constant values
 data TopElem = TopElemComponent Component
@@ -44,12 +46,12 @@ data TopElem = TopElemComponent Component
 
 -- |value defintion
 -- they are constant, at least during single timestep
-data ValueDef = ValueDef { vName :: [SrcId], vValue :: Expr } deriving Show
+data ValueDef = ValueDef { vName :: [ValId], vValue :: Expr } deriving Show
 
 -- |each independent component, it is essentially a function abstraction
 -- components may be defined inline, with name, ins, outs, and body
 -- or they may be a reference to a component defined in a module param and re-exported here
-data Component  = Component { cName :: SrcId, cInputs :: [SrcId], cOutputs :: [Expr], cBody :: [CompStmt]}
+data Component  = Component { cName :: SrcId, cInputs :: [ValId], cOutputs :: [Expr], cBody :: [CompStmt]}
                 | ComponentRef SrcId ModLocalId
                 deriving Show
 
@@ -68,7 +70,7 @@ data CompStmt   = CompValue ValueDef
 -- refernces to existing values, piecewise terms
 -- expressions are may be multiple types, these are determined later on
 data Expr   = BinExpr BinOp Expr Expr | UnExpr UnOp Expr | Number Double | NumSeq Double Double Double | Boolean Bool
-            | Call ModLocalId [Expr] | ValueRef ModLocalId | Piecewise [(Expr, Expr)] Expr
+            | Time | Unit | Call ModLocalId [Expr] | ValueRef ModLocalId | Piecewise [(Expr, Expr)] Expr
             deriving Show
 
 -- |basic binary expression operators

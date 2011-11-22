@@ -49,7 +49,7 @@ compDef = do
     compParse cName =
         O.ComponentRef <$> pure cName <*> (reservedOp "=" *> modElemIdentifier)
         -- <|> (uncurry <$> (O.Component <$> pure cName <*> paramList identifier) <*> braces compBody)
-        <|> O.Component <$> pure cName <*> paramList identifier <*>
+        <|> O.Component <$> pure cName <*> paramList valIdentifier <*>
             (reservedOp "=>" *> paramList compExpr) <*> (reserved "where" *> compBody)
         <?> "component definition"
 
@@ -79,7 +79,7 @@ compStmt =  --O.CompCallDef <$> commaSep1 identifier <*> (reservedOp "=" *> iden
 -- |parse a value definition
 -- e.g., val x = expr
 valueDef :: Parser O.ValueDef
-valueDef = O.ValueDef   <$> (reserved "val" *> commaSep1 identifier) <*> (reservedOp "=" *> compExpr)
+valueDef = O.ValueDef   <$> (reserved "val" *> commaSep1 valIdentifier) <*> (reservedOp "=" *> compExpr)
 
 
 -- |parse a rre attribute definition
@@ -109,13 +109,15 @@ odeDef = permute (O.OdeDef ""
 -- |parse a term - the value on either side of an operator
 -- should ODEs be here - as terms or statements?
 compTerm :: Parser O.Expr
-compTerm =  parens compExpr
-            <|> O.Number <$> number
+compTerm =  O.Number <$> number
             <|> try (O.Boolean <$> boolean)
+            <|> try (time *> pure O.Time)
+            <|> try (unit *> pure O.Unit)
             <|> try (brackets numSeqTerm)
             <|> try (braces piecewiseTerm)
             <|> try (O.Call <$> modLocalIdentifier <*> paramList compExpr)
             <|> O.ValueRef <$> modLocalIdentifier
+            <|> parens compExpr
             <?> "valid term"
 
 
@@ -160,3 +162,12 @@ modElemIdentifier  = lexeme (O.ModId <$> upperIdentifier <*> (char '.' *> identi
 modLocalIdentifier :: Parser O.ModLocalId
 modLocalIdentifier =    try modElemIdentifier
                         <|> O.LocalId <$> identifier <?> "local or module identifier"
+
+
+-- | value identifier, allows use of don't care vals
+valIdentifier :: Parser O.ValId
+valIdentifier = reservedOp "_" *> pure O.DontCare
+                <|> O.ValId <$> identifier
+                <?> "value identifier"
+
+

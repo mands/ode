@@ -31,19 +31,19 @@ commonLangDef = javaStyle
                             -- core mod
                             "module", "import", "as",
                             -- ode
-                            "component", "return", "where",
+                            "component", "where",
                             "val", "init",
                             "ode", "delta",
                             "rre", "reaction", "rate",
                             "default",
-                            "True", "False"
+                            "True", "False", "time"
                             -- ion...
                             ],
 
         -- unary ops and relational ops?
         -- do formatting operators count? e.g. :, {, }, ,, ..,  etc.
         -- NO - they are symbols to aid parsiing and have no meaning in the language itself...
-        T.reservedOpNames = ["=", "=>",
+        T.reservedOpNames = ["=", "=>", "()",
                             "*", "/", "%", "+", "-",
                             "<", "<=", ">", ">=", "==", "!=",
                             "&&", "||", "!", "and", "or", "not"
@@ -87,6 +87,14 @@ boolean :: Parser Bool
 boolean =  reserved "True" *> pure True
             <|> reserved "False"  *> pure False
             <?> "boolean"
+
+-- | time term, is a special identifier
+time :: Parser ()
+time = reserved "time" *> pure ()
+
+-- | unit term, is a special identifier
+unit :: Parser ()
+unit = reservedOp "()" *> pure ()
 
 -- | lexeme parser for module identifier
 modIdentifier :: Parser String
