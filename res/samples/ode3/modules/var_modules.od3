@@ -107,9 +107,8 @@ module B6 {
 
 module C6(Y, X) {
   val z = Y.y + Y.z
-  component comA(x, y) {
+  component comA(x, y) => (x + y > z) where {
     val z = 2
-    return (x + y > z)  
   }    
   val x = comA(z, X.x)
 }
@@ -124,6 +123,4 @@ module E6 {
 }
 
 module F6 = A6(B6, C6(E6, D6))
-
-
 

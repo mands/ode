@@ -1,17 +1,13 @@
 // PASS - simple component test
 module A {
-    component comA(x, y) {
-    	return (x + y)
-    }
+    component comA(x, y) => (x+y) where { }
 }
 
 // PASS - componetns with inputs with same name, should fail
 /*
 module B {
     val y = 1
-    component comA(x, x) {
-    	return (x + y)
-    }
+    component comA(x, x) => (x + y) where { }
 }
 */
 
@@ -20,9 +16,7 @@ module B {
 module C {
     val x = 1
     val y = 1
-    component comA() {
-    	return (x + y)
-    }
+    component comA() => (x + y) where { }
 }
 */
 
@@ -31,9 +25,7 @@ module C {
 module D {
     val x = 1
     val y = 1
-    component comA(x) {
-    	return ()
-    }
+    component comA(x) => () where { }
 }
 */
 
@@ -41,9 +33,7 @@ module D {
 /*
 module E {
     val y = 0
-    component y(x) {
-        return (x+1)
-    }
+    component y(x) => (x+1) where { }
     val z = y(y)
 }
 */
@@ -51,8 +41,6 @@ module E {
 // FAIL - test cration of private identifiers
 module F {
     val _x = 2
-    component _comA(x, y) {
-    	return (x + y)
-    }
+    component _comA(x, y) => (x+y) where { }
 }
 

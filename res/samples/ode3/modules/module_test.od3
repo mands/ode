@@ -4,36 +4,30 @@ module A {
 
   //val openVal = 3;
 
-  component c1(x, y) {
-    return (x+y)
-  }
+  component c1(x, y) => (x+y) where { }
 
 }
 
 module Test(A, B) {
 
-  component alpha(x) {
+  component alpha(x) => (a + B.c) where {
     val a = -(1.0 + 2) // num
     val b = !(1 == 1) // bool
     val x = 3.0 
-    return (a + B.c)
   }
 
-  component gamma(x) {
+  component gamma(x) => (c) where {
     val c = 50 + [1.0, 1.4 .. 2.0] // num
-    
     ode a = {init: 34, delta: 45}
-    return (c)
   }
   
 }
 
 module FTest(A) {
 
-  component beta(x) {
+  component beta(x) => (b) where {
     val b = A.c // nums allowed?
     val b1 = A.c1(2, 3)
-    return (b)
   }
 
   val x = A.openVal + 20.0
@@ -46,4 +40,5 @@ module Base = FTest(Aa, B(C))
 
 // do we allow this - i.e make module application a closed process and creation of wrapper functors - not for now...
 //module Base(A, B) = FTest(A(), B(C()))
+
 

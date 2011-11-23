@@ -87,6 +87,7 @@ debugModuleExpr (FunctorMod _ exprMap _) = prettyPrint exprMap
 debugModuleExpr (AppMod _ _) = "Application - no exprs"
 
 
+-- TODO - move this error detection elsewhere, perhaps into validator
 type SafeExprMap a = (Set.Set a, ExprMap a)
 -- | Util func to safely insert a top expression into an expremap with the given binding,
 -- throws an exception if the binding exists in the map

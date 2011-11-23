@@ -84,7 +84,7 @@ module F {
 */
 
 // tupes type system - let-exprs
-/*
+
 module G {
   component compTestB (a) => (1, 2) where {
     // val b,c = 1 + a
@@ -92,10 +92,9 @@ module G {
     val c,d = (1,2)   
     val e = (1,2)
     val f,g = e
-
   }
 }
-*/
+
 
 // validation errors
 module H {

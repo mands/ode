@@ -4,9 +4,7 @@
 X :: { inc :: Float -> Float, x :: Float }
 */
 module X {
-  component inc(x) {
-    return (x+1)
-  }
+  component inc(x) => (x+1) where { }
   val x = inc(3)
 }
 
@@ -14,9 +12,7 @@ module X {
 Y :: { gtZero :: Float -> Bool, y :: Bool }
 */
 module Y {
-  component gtZero(x) {
-    return (x > 0)
-  }
+  component gtZero(x) => (x > 0) where { }
   val y = gtZero(3)
 }
 

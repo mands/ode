@@ -4,25 +4,20 @@ A :: { W :: Float -> Float, X :: Float, Z :: Float, Y :: Float -> Float }
 */
 /*
 module A {
-    component W(q) {
+    component W(q) => (xD + yD + zD ) where {
 
         val zD = yD + xD + Z
 
         val xD = X + q
 
         val yD = 3 + xD + Y(2)
-
-        return (xD + yD + zD )
-
     }
 
     val X = 1
 
     val Z = 2
 
-    component Y(r) {
-        return (r)
-    }
+    component Y(r) => (r) where { }
 }
 */
 
@@ -39,14 +34,12 @@ module B(Z, Y) {
   
     val x = Z.y(Y.z, 1) - comA(Y.y)
   
-    component comA(a) {
+    component comA(a) => (x + y) where {
         val x = Y.a + y
         val y = Z.b / a
-        return (x + y)
     }
     
     val z = Y.z
-    
 }
 */
 
@@ -60,39 +53,31 @@ module C {
 /*
 // PASS - recuisive val defintinos within comp, should fail
 module D {    
-    component comA(x) {
+    component comA(x) => (a+x) where {
         val a = b
         val b = a
-        return (a+x)
     }    
 }
 */
 // PASS - recursive fun call, should fail
 /*
 module E {
-    component comA(x) {
-        return (comA(x) + x)
-    }    
+    component comA(x) => (comA(x) + x) where { }
     val x = comA(1)
 }
 */
 /*
 // PASS - mutually recusive funcs, should fail
 module F {
-    component comA(x) {
-        return (comB(x) + 1)
-    }    
-    component comB(x) {
-        return (comA(x) - 1)
-    }    
+    component comA(x) => (comB(x) + 1) where { }    
+    component comB(x) => (comA(x) - 1) where { }    
     val x = comA(1)
 }
 
 // PASS - recsuvive between top-level and component expression
 module G {
-    component comA(x) {
-        val z = y + x    
-        return (z)
+    component comA(x) => (z) where {
+        val z = y + x
     }
     val y = comA(1)
 }
@@ -102,19 +87,16 @@ module H {
     val x = 1
     val y = 2
     
-    component b(a) {
+    component b(a) => (x + y) where {
         val y = x + 3
         val x = 4 + a
-        return (x + y)
     }    
 }
 */
 // PASS - toplevel undefined var usage, within top-level and components, should fail
 /*
 module I1 {
-    component inc(x) {
-        return (x + 1)
-    }
+    component inc(x) => (x + 1) where { }
 
     val X = inc(3)
     val Y = X + X
@@ -128,9 +110,7 @@ module I2 {
     val Y = X + 1
 }
 module I3 {
-    component add(x) {
-        return (x + y)
-    }
+    component add(x) => (x + y) where { }
 }
 */
 
@@ -142,23 +122,20 @@ module J1 {
 }
 module J2 {
     val y = 0
-    component comA(x) {
+    component comA(x) => (y + x) where {
     	val y = y
-    	return (y + x)
     }
 }
 module J3 {
-    component comA(x) {
+    component comA(x) => (y + x) where {
     	val y = y
-    	return (y + x)
     }
 }
 module J4 {
     val z = 1
-    component comA(x) {
+    component comA(x) => (y + z + x) where {
     	val y = z
     	val z = 2
-    	return (y + z + x)
     }
 }
 */
@@ -167,10 +144,8 @@ module J4 {
 unpacking of arguments (x,y) should be first operation within a compoent, instead is reordered with normal lets
 */
 module K {
-  component comA(x, y) {
+  component comA(x, y) => (x + y > z) where {
     val z = 2
-    return (x + y > z)  
   }
 }
-
 

@@ -35,14 +35,18 @@
         <context ref="def:decimal"/>
         <context ref="def:float"/>
         <context ref="def:string"/>
+
         <context id="keywords" style-ref="keyword">
-          <keyword>open</keyword>
+          <keyword>import</keyword>
+          <keyword>as</keyword>
           <keyword>module</keyword>
+
           <keyword>component</keyword>
-          <keyword>return</keyword>
+          <keyword>where</keyword>
+          <keyword>val</keyword>
+
           <keyword>ode</keyword>          
           <keyword>rre</keyword>
-          <keyword>val</keyword>
           <keyword>init</keyword>
         </context>
 

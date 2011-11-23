@@ -152,15 +152,13 @@ module A7(Z) {
   val x = Z.comInc(1) + 1
 }
 module B7 {
-  component comInc(x) {
-    return (x+1)
-  }
+  component comInc(x) => (x+1) where { }
 }
 module C7 = A7(B7)
 */
 
 /*
-PASS - component calls test, poly return, single functor
+PASS - component calls test, poly =>, single functor
 A8 :: (Z :: { comInc :: Float -> a })
       -> { x :: a }
 B8 :: { comInc :: Float -> Float }
@@ -171,16 +169,14 @@ module A8(Z) {
   val x = Z.comInc(1)
 }
 module B8 {
-  component comInc(x) {
-    return (x+1)
-  }
+  component comInc(x) => (x+1) where { }
 }
 module C8 = A8(B8)
 */
 
 
 /*
-PASS - component calls test, poly arg + return, single functor
+PASS - component calls test, poly arg + =>, single functor
 A9 :: (Z :: { comAdd :: (a, b) -> c, x :: a, y :: b })
       -> { x :: c }
 B9 :: { comAdd :: (Float, Float) -> Float, x :: Float, y :: Float }
@@ -191,9 +187,7 @@ module A9(Z) {
   val x = Z.comAdd(Z.x, Z.y)
 }
 module B9 {
-  component comAdd(x, y) {
-    return (x+y)
-  }
+  component comAdd(x, y) => (x+y) where { }
   val x = 1
   val y = 2
 }
@@ -201,7 +195,7 @@ module C9 = A9(B9)
 */
 
 /*
-PASS - component calls test, poly arg + return, multi-ret, single functor, scope testing
+PASS - component calls test, poly arg + =>, multi-ret, single functor, scope testing
 A10 :: (Z :: { comAddSub :: (a, b) -> (c, d), x :: a, y :: b })
        -> { x :: c, y :: d}
 B10 :: { comAddSub :: (Float, Float) -> (Bool, Bool), x :: Float, y :: Float}
@@ -212,9 +206,7 @@ module A10(Z) {
   val x,y = Z.comGtLt(Z.x, Z.y)
 }
 module B10 {
-  component comGtLt(x, y) {
-    return (x > y, x < y)
-  }
+  component comGtLt(x, y) => (x > y, x < y) where { }
   val x = 1
   val y = 2
 }
@@ -222,7 +214,7 @@ module C10 = A10(B10)
 */
 
 /*
-PASS - component calls test, poly arg + return, multi-ret, multi functor
+PASS - component calls test, poly arg + =>, multi-ret, multi functor
 A11 :: (Z :: { comAddSub :: (a, b) -> (c, d) },
        Y :: { x :: a, y :: b })
        -> { v :: c, w :: d }
@@ -235,9 +227,7 @@ module A11(Z, Y) {
   val v,w = Z.comAddSub(Y.x, Y.y)
 }
 module B11 {
-  component comAddSub(x, y) {
-    return (x+y, x-y)
-  }
+  component comAddSub(x, y) => (x+y, x-y) where { }
 }
 module C11 {
   val x = 1
@@ -249,7 +239,7 @@ module D11 = A11(B11, C11)
 
 
 /*
-PASS - component calls test, poly arg + return, multi-ret, multi functor
+PASS - component calls test, poly arg + =>, multi-ret, multi functor
 A12 :: (Z :: { comAddSub :: (a, b) -> (c, d),
        Y :: { x :: e, y :: f },
        X :: { comInc :: e -> a, comDec :: f -> b })
@@ -264,21 +254,15 @@ module A12(Z, Y, X) {
   val v, w = Z.comAddSub(X.comInc(Y.x), X.comDec(Y.y))
 }
 module B12 {
-  component comAddSub(x, y) {
-    return (x+y, x-y)
-  }
+  component comAddSub(x, y) => (x+y, x-y) where { }
 }
 module C12 {
   val x = 1
   val y = 2
 }
 module D12 {
-  component comInc(x) {
-    return (x+1)
-  }
-  component comDec(x) {
-    return (x-1)
-  }
+  component comInc(x) => (x+1) where { }
+  component comDec(x) => (x-1) where { }
 }
 module E12 = A12(B12, C12, D12)
 */
@@ -296,9 +280,7 @@ module A71(Z, Y) {
   val x = Z.comOr(Y.x, Y.y)
 }
 module B71 {
-  component comOr(x, y) {
-    return (x or y)
-  }
+  component comOr(x, y) => (x or y) where { }
 }
 module C71 {
   val x = 1
@@ -317,9 +299,7 @@ C13 :: { comA :: Float -> Bool }
 */
 /*
 module A13(Z) {
-  component comA(x) {
-    return (x > Z.y)
-  }
+  component comA(x) => (x > Z.y) where { }
 }
 module B13 {
   val y = 1
@@ -336,9 +316,8 @@ C14 :: { comA :: (Float, b) -> (Float, Float, b) }
 */
 /*
 module A14(Z) {
-  component comA(x, z) {
+  component comA(x, z) => (y, Z.y, z) where {
     val y = x + Z.x
-    return (y, Z.y, z)
   }
 }
 module B14 {
@@ -350,7 +329,7 @@ module C14 = A14(B14)
 */
 
 /*
-// PASS - component defs, poly arg and return
+// PASS - component defs, poly arg and =>
 A15 :: (Z :: { comB :: a -> b, z :: c })
      -> { comA :: a -> (b, c) }
 B15 :: { comB :: Float -> Float, z :: Float }
@@ -358,15 +337,12 @@ C15 :: { comA :: Float -> (Float, Float) }
 */
 /*
 module A15(Z) {
-  component comA(x) {
+  component comA(x) => (y, Z.z) where {
     val y = Z.comB(x)
-    return (y, Z.z)
   }
 }
 module B15 {
-  component comB(x) {
-    return (x+1)
-  }
+  component comB(x) => (x+1) where { }
   val z = 1
 }
 module C15 = A15(B15)

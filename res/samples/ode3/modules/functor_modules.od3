@@ -82,9 +82,7 @@ I :: (Z :: { y :: Bool })
      -> { comA :: Bool -> Bool }
 */
 module I(Z) {
-  component comA(x) {
-    return (x or Z.y)
-  }
+  component comA(x) => (x or Z.y) where { }
 }
 
 /*
@@ -93,21 +91,19 @@ J :: (Z :: { x :: Float, y :: a})
      -> { comA :: (Float, b) -> (Float, a, b) }
 */
 module J(Z) {
-  component comA(x, z) {
+  component comA(x, z) => (y, Z.y, z) where {
     val y = x + Z.x
-    return (y, Z.y, z)
   }
 }
 
 /*
-// PASS - component defs, poly arg and return
+// PASS - component defs, poly arg and =>
 K :: (Z :: { comB :: a -> b, z :: c })
      -> { comA :: a -> (b, c) }
 */
 module K(Z) {
-  component comA(x) {
+  component comA(x) => (y, Z.z) where {
     val y = Z.comB(x)
-    return (y, Z.z)
   }
 }
 
@@ -117,9 +113,8 @@ J :: (A :: { z :: Float }, A :: { z :: Float })
      -> { y :: Float }
 */
 module L(A, A) {
-  component comA(x) {
+  component comA(x) => (y) where {
     val y = A.z + 1
-    return (y)
   }
 }
 

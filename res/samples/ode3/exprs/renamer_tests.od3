@@ -3,9 +3,8 @@
 module A {
     val z = x + y(x) + 2
     val x = 1
-    component y(x) {
+    component y(x) => (x+y) where {
     	val y = 1
-    	return (x + y)
     }
 }
 */
@@ -15,9 +14,8 @@ module A {
 module B {
     val w = 0
     val x = 1
-    component y(x) {
+    component y(x) => (x + y) where {
     	val y = 1 + w
-    	return (x + y)
     }
     val z = x + y(x)
 }
@@ -26,14 +24,11 @@ module B {
 // PASS - multiple bindings  with same value - should fail
 module C {
     val y = 0
-    component y(x) {
+    component y(x) => (x + y) where {
     	val y = 1 + y
-    	return (x + y)
     }
     val z = y(y)
 }
-
-
 
 /*
 PASS - tests functors namespacing/scopting
@@ -48,10 +43,10 @@ module D(A, B) {
     
     val a = b(A.a, A.b)
     
-    component b(a, b) {
+    component b(a, b) => (x + y) where {
         val x = a + A.a + B.b
         val y = x + y
-        return (x + y)
     }    
 }
 */
+

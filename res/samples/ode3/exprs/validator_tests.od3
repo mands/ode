@@ -1,16 +1,14 @@
 // PASS - component bindings devined multiple times, should fail
 module C1 {
-    component y(x) {
+    component y(x) => (x+1) where {
         val x = 1
-        return (x+1)
     }
     val z = y(1)
 }
 module C2 {
-    component y(x) {
+    component y(x) => (b+x) where {
         val a, b = 1
         val b = 2
-        return (b+x)
     }
     val z = y(1)
 }

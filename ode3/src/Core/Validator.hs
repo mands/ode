@@ -38,6 +38,7 @@ validate mod@(M.FunctorMod funArgs exprMap modData) = M.FunctorMod <$> funArgs' 
     funArgKeys = OrdMap.keys funArgs
 validate mod@(M.AppMod _ _) = pure mod
 
+-- we don't check for top-level bindings here, as the ordering is not determined yet
 validTopExpr :: M.ExprMap E.SrcId -> MExcept (M.ExprMap E.SrcId)
 validTopExpr exprMap = (\_ -> exprMap) <$> DF.traverse_ t exprMap
   where

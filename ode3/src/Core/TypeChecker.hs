@@ -54,7 +54,7 @@ typeCheck mod@(M.LitMod exprMap modData) = do
     tEnv' <- subTVars tEnv tVarMap False
     let modData' = updateModData modData tEnv'
 
-    return $ M.LitMod (trace (show exprMap) exprMap) modData'
+    return $ M.LitMod (trace ("(TC) " ++ show exprMap) exprMap) modData'
 
 typeCheck mod@(M.FunctorMod args exprMap modData) = do
     let ((tEnv, mTEnv), tCons) = constrain exprMap

@@ -63,7 +63,7 @@ modFileTop modEnv = do
     -- add the new mods to the moduleEnv
     -- TODO - output, don't swallow the error msg here
     let modEnv' = DF.foldlM MD.newModuleDriver modEnv mods'
-    return $ trace (show imports) (trace (show mods') modEnv')
+    return $ trace ("(MP) " ++ show imports) (trace ("(MP) " ++ show mods') modEnv')
 
   where
     filterLit m = case m of

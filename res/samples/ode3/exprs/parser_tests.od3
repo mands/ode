@@ -1,12 +1,12 @@
 
 // new module syntax
 module B {
-  component comA (x,y) => (a, b+2) {
+  component comA (x,y) => (a, b+2) where {
     val a = 3
     val b = x > y
   }
 
-  component comB (x) => (x+1)
+  component comB (x) => (x+1) where { }
 
 }
 
