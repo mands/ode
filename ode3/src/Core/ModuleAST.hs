@@ -16,7 +16,7 @@
 
 module Core.ModuleAST (
 ModImport, TopMod(..), Module(..), ModuleData(..), ModuleEnv, ExprMap, SigMap, TypeMap, FunArgs, IdBimap, debugModuleExpr,
-SafeExprMap, insertTopExpr, emptySafeExprMap
+SafeExprMap, insertTopExpr, emptySafeExprMap, convertExprMap
 ) where
 
 import Control.Monad
@@ -88,20 +88,27 @@ debugModuleExpr (AppMod _ _) = "Application - no exprs"
 
 
 -- TODO - move this error detection elsewhere, perhaps into validator
-type SafeExprMap a = (Set.Set a, ExprMap a)
+newtype SafeExprMap a = SafeExprMap (SafeExprMapC a)
+data SafeExprMapC a = SafeExprMapC (Set.Set a) (ExprMap a)
+
+emptySafeExprMap :: SafeExprMap a
+emptySafeExprMap = SafeExprMap (SafeExprMapC Set.empty OrdMap.empty)
+
 -- | Util func to safely insert a top expression into an expremap with the given binding,
 -- throws an exception if the binding exists in the map
 insertTopExpr :: (Show a, Ord a) => E.Top a -> SafeExprMap a -> MExcept (SafeExprMap a)
-insertTopExpr topExpr (curBinds, exprMap) = case topExpr of
-    (E.TopAbs b'@(E.AbsBind b) _ _) -> (,) <$> (addBinding curBinds b) <*> addExprMap' b'
-    (E.TopLet b'@(E.LetBind bs) _) -> (,) <$> (DF.foldlM addBinding curBinds bs) <*> addExprMap' b'
+insertTopExpr topExpr (SafeExprMap (SafeExprMapC curBinds exprMap)) = case topExpr of
+    (E.TopAbs b'@(E.AbsBind b) _ _) -> liftA SafeExprMap $ SafeExprMapC <$> (addBinding curBinds b) <*> addExprMap' b'
+    (E.TopLet b'@(E.LetBind bs) _) -> liftA SafeExprMap $ SafeExprMapC <$> (DF.foldlM addBinding curBinds bs) <*> addExprMap' b'
   where
     addBinding curBinds b = case Set.member b curBinds of
         True -> throwError $ "(MO01) - Top-level binding " ++ (show b) ++ " already exists in module"
         False -> pure $ (Set.insert b curBinds)
     addExprMap' b = pure (OrdMap.insert b topExpr exprMap)
 
-emptySafeExprMap = (Set.empty, OrdMap.empty)
+convertExprMap :: SafeExprMap a -> ExprMap a
+convertExprMap (SafeExprMap (SafeExprMapC curBinds exprMap)) = exprMap
+
 
 -- standard typeclass instances
 -- | Make LitMod a instnace of monoid, where mappend a b imppiles adding the module b to occur after module a

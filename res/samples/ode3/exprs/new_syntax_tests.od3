@@ -84,7 +84,7 @@ module F {
 */
 
 // tupes type system - let-exprs
-
+/*
 module G {
   component compTestB (a) => (1, 2) where {
     // val b,c = 1 + a
@@ -94,11 +94,60 @@ module G {
     val f,g = e
   }
 }
-
+*/
 
 // validation errors
+/*
 module H {
   val a = 1
   val a = 2
+}
+*/
+
+/*
+// desugarer tests
+module J {
+
+  // no inputs - OK, checked by parser
+  // component compTestA () => (1, 2) where { }
+
+  // no outputs - OK, checked by parser
+  // component compTestB (b) => () where { }
+
+  // component inputs - OK, checked by validator
+  // component compTestC (b, b) => (1) where { }
+
+  // empty tuple - OK, actually is unit
+  // val a = ()
+}
+*/
+
+/*
+// new component parsers, single elem/tuple tests
+module K {
+  // tuple outputs
+  component compTestA (a) => (1+a, 2) where { }
+  component compTestB (a) => 1+a where { }
+  component compTestC (a) => (1+a) where { }
+
+  // sing/tuple inputs
+  component compTestD a => (1+a, 2) where { }
+  component compTestE (a, b) => a+b where { }
+  component compTestF (a) => (1+a) where { }
+
+  // empty comp body/where
+  component compTestG a => (1+a, 2)
+}
+*/
+
+// val lets
+module J {
+  val a = b where {
+    val c = 1
+    val d = 2
+    val b = 1 + 2    
+  }
+   
+
 }
 

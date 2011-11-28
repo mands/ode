@@ -51,7 +51,7 @@ data ValueDef = ValueDef { vName :: [ValId], vValue :: Expr } deriving Show
 -- |each independent component, it is essentially a function abstraction
 -- components may be defined inline, with name, ins, outs, and body
 -- or they may be a reference to a component defined in a module param and re-exported here
-data Component  = Component { cName :: SrcId, cInputs :: [ValId], cOutputs :: [Expr], cBody :: [CompStmt]}
+data Component  = Component { cName :: SrcId, cInputs :: [ValId], cOutputs :: Expr, cBody :: [CompStmt]}
                 | ComponentRef SrcId ModLocalId
                 deriving Show
 

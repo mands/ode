@@ -49,8 +49,8 @@ compDef = do
     compParse cName =
         O.ComponentRef <$> pure cName <*> (reservedOp "=" *> modElemIdentifier)
         -- <|> (uncurry <$> (O.Component <$> pure cName <*> paramList identifier) <*> braces compBody)
-        <|> O.Component <$> pure cName <*> paramList valIdentifier <*>
-            (reservedOp "=>" *> paramList compExpr) <*> (reserved "where" *> compBody)
+        <|> O.Component <$> pure cName <*> singOrList valIdentifier <*>
+            (reservedOp "=>" *> compExpr) <*> option [] (reserved "where" *> compBody)
         <?> "component definition"
 
     compBody = braces $ many compStmt
@@ -118,7 +118,7 @@ compTerm =  try (parens compExpr)
             <|> try (braces piecewiseTerm)
             <|> try (O.Call <$> modLocalIdentifier <*> paramList compExpr)
             <|> O.ValueRef <$> modLocalIdentifier
-            <|> O.Tuple <$> paramList compExpr
+            <|> O.Tuple <$> tuple compExpr
             <?> "valid term"
 
 

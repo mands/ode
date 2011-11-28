@@ -9,8 +9,8 @@
 -- Portability :
 --
 -- | Desugarer - takes an Ode AST and desugars/converts into the Core AST
--- Can issue errors due to user defined model
---
+-- Can issue errors due to user defined model, however it shouldn't, desugaring should be
+-- deterministic, always convertiable to Core, and errors are checked there
 -----------------------------------------------------------------------------
 
 {-# LANGUAGE TypeSynonymInstances #-}
@@ -79,7 +79,8 @@ instance Applicative TmpSupply where
 --    procParams (O.ModuleAppParams funcId (Just args)) = C.AppMod funcId (map procParams args)
 
 desugarMod :: [O.TopElem] -> MExcept (M.ExprMap C.SrcId)
-desugarMod elems = evalSupplyVars $ snd <$> foldM desugarModElems M.emptySafeExprMap elems
+desugarMod elems = evalSupplyVars $ M.convertExprMap <$> foldM desugarModElems M.emptySafeExprMap elems
+
 
 -- | desugar a top-level value constant(s)
 -- throws an error if a top-level is already defined
@@ -102,19 +103,20 @@ desugarModElems sExprMap (O.TopElemComponent (O.Component name ins outs body)) =
 
 -- | desugars and converts a component into a \c abstraction
 -- not in tail-call form, could blow out the stack, but unlikely
-desugarComp :: O.SrcId -> [O.SrcId] -> [O.Expr] -> [O.CompStmt] -> TmpSupply (C.Expr C.SrcId)
-desugarComp argName [] outs body  = lift $ throwError ("(DS01) Component has zero inputs")
-desugarComp argName ins [] body = lift $ throwError ("(DS02) Component has zero outputs")
+desugarComp :: O.SrcId -> [O.SrcId] -> O.Expr -> [O.CompStmt] -> TmpSupply (C.Expr C.SrcId)
+-- desugarComp argName [] outs body  = lift $ throwError ("(DS01) Component has zero inputs")
+-- desugarComp argName ins [] body = lift $ throwError ("(DS02) Component has zero outputs")
 desugarComp argName ins outs body = case ins of
                                     (singIn:[]) -> dsCompBody body
-                                    _ | length ins == (length . nub) ins  -> dsCompIns ins
-                                    _ | otherwise -> lift $ throwError ("(DS03) Component has inputs with the same name")
+                                    _ -> dsCompIns ins
+                                    -- _ | length ins == (length . nub) ins  -> dsCompIns ins
+                                    -- _ | otherwise -> lift $ throwError ("(DS03) Component has inputs with the same name")
   where
     -- unpack the input params, a custom fold over the multiple ins
     dsCompIns bs = C.Let (C.LetBind bs) (C.Var (C.LocalVar argName)) <$> dsCompBody body
 
     -- process the body by pattern-matching on the statement types
-    dsCompBody [] = dsCompOuts outs
+    dsCompBody [] = dsExpr outs
     -- very similar to top-level value def - need to handle single elem diff to mult
     dsCompBody ((O.CompValue (O.ValueDef ids e)):xs) = do
         ids' <- DT.mapM subDontCares ids
@@ -154,7 +156,6 @@ dsExpr (O.ValueRef (O.LocalId id)) = return $ C.Var (C.LocalVar id)
 dsExpr (O.ValueRef (O.ModId mId id)) = return $ C.Var (C.ModVar mId id)
 dsExpr (O.Tuple exprs) = C.Tuple <$> DT.mapM dsExpr exprs
 
-
 -- create nested set of ifs for piecewise expression
 dsExpr (O.Piecewise cases e) = dsIf cases
   where
@@ -168,23 +169,24 @@ dsExpr (O.Call (O.ModId mId id) exprs) = liftM (C.App (C.ModVar mId id)) $ packE
 -- any unknown/unimplemented paths - mainly modules for now
 dsExpr a = trace (show a) (error "(DS) Unknown ODE3 expression")
 
--- |Simple test to see if an expression contains only a single element or is a packed tuple
+-- | Simple test to see if an expression contains only a single element or is a packed tuple
 isSingleElem es = length es == 1
--- |Retrieve the single expression within a tuple, may cause exception
+-- | Retrieve the single expression within a tuple, may cause exception
 singleElem es = head es
 
--- |packs up elements, if required, to use when calling a comp or setting up comp outputs
+-- | packs up elements, if required, to use when calling a comp or setting up comp outputs
 -- needed as \c-supports both single values and tuples
 packElems es = if (isSingleElem es)
     then dsExpr $ singleElem es
     else liftM C.Tuple $ mapM dsExpr es
 
+-- | creates new unique variable identifiers for all don't care values
 subDontCares :: O.ValId -> TmpSupply C.SrcId
 subDontCares O.DontCare = supply
 subDontCares (O.ValId i) = return i
 
 
--- |simple patttern matching convertor, boring but gotta be done...
+-- | simple patttern matching convertor, boring but gotta be done...
 binOps :: O.BinOp -> C.Op
 binOps O.Add = C.Add
 binOps O.Sub = C.Sub

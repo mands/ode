@@ -38,12 +38,21 @@ validate mod@(M.FunctorMod funArgs exprMap modData) = M.FunctorMod <$> funArgs' 
     funArgKeys = OrdMap.keys funArgs
 validate mod@(M.AppMod _ _) = pure mod
 
--- we don't check for top-level bindings here, as the ordering is not determined yet
+-- check for duplicated top-level bindings here
 validTopExpr :: M.ExprMap E.SrcId -> MExcept (M.ExprMap E.SrcId)
-validTopExpr exprMap = (\_ -> exprMap) <$> DF.traverse_ t exprMap
+validTopExpr exprMap = (\_ -> exprMap) <$> DF.foldlM t Set.empty exprMap
   where
-    t (E.TopAbs b arg expr) = validExpr (Set.singleton arg) expr
-    t (E.TopLet b expr) = validExpr (Set.empty) expr
+    t :: (Set.Set E.SrcId) -> E.Top E.SrcId -> MExcept (Set.Set E.SrcId)
+    t topBinds (E.TopAbs b arg expr) = validExpr (Set.singleton arg) expr *> addTopBinding topBinds b
+    t topBinds (E.TopLet b expr) = validExpr (Set.empty) expr *> addTopBinding topBinds b
+
+    addTopBinding topBinds b = case b of
+        E.AbsBind ab -> addBinding topBinds ab
+        E.LetBind bs -> DF.foldlM addBinding topBinds bs
+      where
+        addBinding topBinds b = case Set.member b topBinds of
+            True -> throwError $ "(VL05) - Top Binding " ++ (show b) ++ " already exists in module"
+            False -> pure $ (Set.insert b topBinds)
 
 -- check several properties for expression tree, passes state down into exp, doesn't bother returning it for now
 validExpr :: (Set.Set E.SrcId) -> E.Expr E.SrcId -> MExcept ()

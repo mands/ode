@@ -67,6 +67,11 @@ insert k v (OrdMapC m) = OrdMapC $ maybe insert' update' mInd
     insert' = m ++ [(k,v)]
     mInd = List.elemIndex k (keys (OrdMapC m))
 
+-- only insert if the value doesn't already exist, else error
+safeInsert :: (Ord k) => k -> v -> OrdMap k v -> Maybe (OrdMap k v)
+safeInsert k v m = maybe (Just $ insert k v m) (\_ -> Nothing) (lookup k m)
+
+
 delete :: (Ord k) => k -> OrdMap k v -> OrdMap k v
 delete k (OrdMapC m) = OrdMapC $ maybe m delete' mInd
   where
@@ -114,7 +119,7 @@ mapAccum f z m = foldl f' (z, empty) m
   where
     f' (acc, m) (k, v) = let (acc', v') = f acc v in (acc', insert k v' m)
 
--- |Basic instances
+-- | Basic instances
 -- this can't be done as the contained object within OrdModel is not the same as that within the sequence (i.e. b vs Top b)
 -- instead need to get the seq directly to fold over
 

@@ -111,6 +111,15 @@ upperIdentifier = (:) <$> upper <*> many alphaNum <?> "module identifier"
 -- | comma sepated parameter list of any parser, e.g. (a,b,c)
 paramList = parens . commaSep1
 
+-- | tuple, requires at least two values, comma separated
+tuple :: Parser a -> Parser [a]
+tuple p = parens $ (:) <$> (p <* comma) <*> commaSep1 p
+
+singOrList :: Parser a -> Parser [a]
+singOrList p = try ((\p -> p:[]) <$> (p))
+                <|> paramList p
+                <?> "single element or list"
+
 -- |a parameterised single attribute parser for a given attriibute identifier
 -- TODO - fix the comma separated list of attribute, commaSep?
 -- attrib :: String -> Parser String
