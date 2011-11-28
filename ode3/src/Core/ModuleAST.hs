@@ -16,7 +16,7 @@
 
 module Core.ModuleAST (
 ModImport, TopMod(..), Module(..), ModuleData(..), ModuleEnv, ExprMap, SigMap, TypeMap, FunArgs, IdBimap, debugModuleExpr,
-SafeExprMap, insertTopExpr, emptySafeExprMap, convertExprMap
+SafeExprMap, insertTopExpr, emptySafeExprMap, convertExprMap, ExprList
 ) where
 
 import Control.Monad
@@ -48,6 +48,8 @@ type ModImport = [String]
 -- | Top level module variables
 data TopMod a = TopMod E.SrcId (Module a) deriving (Show, Eq)
 
+type ExprList = [E.Top E.SrcId]
+
 type ExprMap a = OrdMap.OrdMap (E.Bind a) (E.Top a)
 
 -- | FunArgs are the list of module parameters, and thier required signatures, for a functor application
@@ -65,7 +67,7 @@ data Module a = LitMod  (ExprMap a) ModuleData -- Expr, ModType, IntType, Bimap,
                 deriving (Show, Eq)
 
 -- | Metadata regarding a module
-data ModuleData =   ModuleData {modSig :: SigMap, modTMap :: TypeMap, modIdBimap :: IdBimap, modFreeId :: Maybe Id}
+data ModuleData =   ModuleData {modSig :: SigMap, modTMap :: TypeMap, modIdBimap :: IdBimap, modFreeId :: Maybe Id, modExprList :: ExprList}
                     deriving (Show, Eq)
 
 -- | bidirectional map between internal ids and source ids for all visible/top-level defined vars
@@ -130,7 +132,7 @@ instance Monoid (Module Id) where
 
 
 instance Monoid ModuleData where
-    mempty = (ModuleData { modSig = Map.empty, modTMap = Map.empty, modIdBimap = Bimap.empty, modFreeId = Nothing })
+    mempty = (ModuleData { modSig = Map.empty, modTMap = Map.empty, modIdBimap = Bimap.empty, modFreeId = Nothing, modExprList = [] })
     mappend a b = a
       where
         modSig' = undefined
@@ -150,7 +152,7 @@ instance (Show a) => PrettyPrint (Module a) where
 
 -- show the module signature
 instance PrettyPrint ModuleData where
-    prettyPrint (ModuleData sig tMap idBimap mFreeId) = show sig
+    prettyPrint (ModuleData sig tMap idBimap mFreeId _) = show sig
 
 instance PrettyPrint FunArgs where
     prettyPrint funArgs = List.intercalate "," $ List.map (\(m, sig) -> show m ++ " :: {" ++ show sig ++ "}") (OrdMap.toList funArgs)

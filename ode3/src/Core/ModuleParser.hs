@@ -60,8 +60,7 @@ modFileTop modEnv = do
     -- HACK - filter and leave only LitMods for now
     let mods' = filter filterLit mods
 
-    -- add the new mods to the moduleEnv
-    -- TODO - output, don't swallow the error msg here
+    -- instantiate each module and add to the moduleEnv
     let modEnv' = DF.foldlM MD.newModuleDriver modEnv mods'
     return $ trace ("(MP) " ++ show imports) (trace ("(MP) " ++ show mods') modEnv')
 
@@ -80,10 +79,10 @@ moduleDef modEnv = M.TopMod <$> (reserved "module" *> modIdentifier) <*> modPars
   where
     modParse =
         (reservedOp "=" *> moduleAppParams)
-        <|> M.FunctorMod <$> (funcArgs <$> paramList modIdentifier) <*> modBody <*> pure modData
-        <|> M.LitMod <$> modBody <*> pure modData
+        <|> M.FunctorMod <$> (funcArgs <$> paramList modIdentifier) <*> pure OrdMap.empty <*> modData
+        <|> M.LitMod <$> pure OrdMap.empty <*> modData
         <?> "module definition"
-    modData = M.ModuleData Map.empty Map.empty Bimap.empty Nothing
+    modData = M.ModuleData Map.empty Map.empty Bimap.empty Nothing <$> modBody
     funcArgs args = OrdMap.fromList $ map (\arg -> (arg, Map.empty)) args
 
 -- | parse a chain/tree of module applications
@@ -95,14 +94,11 @@ moduleAppParams = procParams <$> modIdentifier <*> optionMaybe (paramList module
     procParams funcId (Just args) = M.AppMod funcId args
 
 
--- TODO - errors during desugaring are swallowed
 -- | parses a Ode module body and desugars into a Core AST
-modBody :: Parser (M.ExprMap E.SrcId)
+modBody :: Parser (M.ExprList)
 modBody = do
     modElems <- braces (many1 OP.moduleBody)
-    case (desugarMod modElems) of
-        Left err -> return OrdMap.empty
-        Right exprMap -> return exprMap
+    either (\_ -> return []) (\exprList -> return exprList) (desugarMod modElems)
 
 -- Util functions - need to refactor and place elsewhere
 -- | Function that takes an ODE Module and fully converts it into a Core Module

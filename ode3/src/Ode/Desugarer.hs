@@ -11,6 +11,7 @@
 -- | Desugarer - takes an Ode AST and desugars/converts into the Core AST
 -- Can issue errors due to user defined model, however it shouldn't, desugaring should be
 -- deterministic, always convertiable to Core, and errors are checked there
+-- however, due to bindings we need
 -----------------------------------------------------------------------------
 
 {-# LANGUAGE TypeSynonymInstances #-}
@@ -54,6 +55,7 @@ instance Applicative TmpSupply where
     (<*>) = ap
 
 
+
 -- | desugar function takes an ODE module representaiton and converts it into a lower-level Core AST
 -- use the supply monad to generate unique names
 --desugarMod :: O.Module -> MExcept (C.TopMod Id)
@@ -78,27 +80,25 @@ instance Applicative TmpSupply where
 --    procParams (O.ModuleAppParams modId Nothing) = C.VarMod modId
 --    procParams (O.ModuleAppParams funcId (Just args)) = C.AppMod funcId (map procParams args)
 
-desugarMod :: [O.TopElem] -> MExcept (M.ExprMap C.SrcId)
-desugarMod elems = evalSupplyVars $ M.convertExprMap <$> foldM desugarModElems M.emptySafeExprMap elems
+desugarMod :: [O.TopElem] -> MExcept M.ExprList
+desugarMod elems = evalSupplyVars $ mapM desugarModElems elems
 
 -- | desugar a top-level value constant(s)
 -- throws an error if a top-level is already defined
-desugarModElems :: (M.SafeExprMap C.SrcId) -> O.TopElem -> TmpSupply (M.SafeExprMap C.SrcId)
-desugarModElems sExprMap (O.TopElemValue (O.ValueDef ids value body)) = do
+desugarModElems :: O.TopElem -> TmpSupply (C.Top C.SrcId)
+desugarModElems (O.TopElemValue (O.ValueDef ids value body)) = do
     v' <- desugarCompStmts body value
     ids' <- DT.mapM subDontCares ids
-    let mB = C.LetBind ids'
-    lift $ M.insertTopExpr (C.TopLet mB v') sExprMap
+    return $ C.TopLet (C.LetBind ids') v'
 
 -- | desugar a top level component
-desugarModElems sExprMap (O.TopElemComponent (O.Component name ins outs body)) = do
+desugarModElems (O.TopElemComponent (O.Component name ins outs body)) = do
     -- sub the ins
     ins' <- DT.mapM subDontCares ins
     -- create a new tmpArg only if multiple elems
     arg <- if (isSingleElem ins') then return (singleElem ins') else supply
     v <- desugarComp arg ins'
-    let topAbs = C.TopAbs (C.AbsBind name) arg v
-    lift $ M.insertTopExpr topAbs sExprMap
+    return $ C.TopAbs (C.AbsBind name) arg v
   where
         -- | desugars and converts a component into a \c abstraction
     -- not in tail-call form, could blow out the stack, but unlikely
@@ -125,7 +125,6 @@ desugarCompStmts ((O.CompValue (O.ValueDef ids e vOuts)):xs) outs = do
 desugarCompStmts ((O.InitValueDef ids e):xs) _ = lift $ throwError "test"
 desugarCompStmts ((O.OdeDef id init e):xs) _ = error "(DS) got ODE"
 desugarCompStmts ((O.RreDef id (from, to) e):xs) _ = error "(DS) got RRE"
-
 
 -- | Expression desugarer - basically a big pattern amtch on all possible types
 -- should prob enable warnings to pick up all unmatched patterns

@@ -56,9 +56,9 @@ moduleDriver baseModules = do
   where
     -- processes a module and displays the results
     procMod :: M.ModuleEnv -> M.TopMod E.SrcId -> IO M.ModuleEnv
-    procMod modEnv (M.TopMod name mod) = either
-        (\err -> errorOut err >> return modEnv)
-        (\mod -> succOut mod >> return (Map.insert name mod modEnv)) interpretRes
+    procMod modEnv (M.TopMod name mod) = case interpretRes of
+        Left err -> errorOut err >> return modEnv
+        Right mod -> succOut mod >> return (Map.insert name mod modEnv)
       where
         interpretRes = checkName *> interpretModule modEnv mod
         -- check if module already exists

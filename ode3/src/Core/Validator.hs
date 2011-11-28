@@ -31,24 +31,24 @@ import Utils.Utils
 import qualified Utils.OrdMap as OrdMap
 
 validate :: M.Module E.SrcId -> MExcept (M.Module E.SrcId)
-validate mod@(M.LitMod exprMap modData) = M.LitMod <$> validTopExpr exprMap <*> pure modData
-validate mod@(M.FunctorMod funArgs exprMap modData) = M.FunctorMod <$> funArgs' <*> validTopExpr exprMap <*> pure modData
+validate mod@(M.LitMod _ modData) = M.LitMod <$> createTopExprs (M.modExprList modData) <*> pure (modData { modExprList = [] })
+validate mod@(M.FunctorMod funArgs _ modData) = M.FunctorMod <$> funArgs' <*> createTopExprs (M.modExprList modData) <*> pure (modData { modExprList = [] })
   where
     funArgs' = if (length funArgKeys == (length . nub) funArgKeys) then pure funArgs else throwError ("(VL05) - Functor has arguments with the same name")
     funArgKeys = OrdMap.keys funArgs
 validate mod@(M.AppMod _ _) = pure mod
 
--- check for duplicated top-level bindings here
-validTopExpr :: M.ExprMap E.SrcId -> MExcept (M.ExprMap E.SrcId)
-validTopExpr exprMap = (\_ -> exprMap) <$> DF.foldlM t Set.empty exprMap
+-- create the expression map and check for duplicated top-level bindings
+createTopExprs :: M.ExprList -> MExcept (M.ExprMap E.SrcId)
+createTopExprs exprList = (\(_, exprMap) -> exprMap) <$> DF.foldlM t (Set.empty, OrdMap.empty) exprList
   where
-    t :: (Set.Set E.SrcId) -> E.Top E.SrcId -> MExcept (Set.Set E.SrcId)
-    t topBinds (E.TopAbs b arg expr) = validExpr (Set.singleton arg) expr *> addTopBinding topBinds b
-    t topBinds (E.TopLet b expr) = validExpr (Set.empty) expr *> addTopBinding topBinds b
+    t :: (Set.Set E.SrcId, M.ExprMap E.SrcId) -> E.Top E.SrcId -> MExcept (Set.Set E.SrcId, M.ExprMap E.SrcId)
+    t s topExpr@(E.TopAbs b arg expr) = validExpr (Set.singleton arg) expr *> addTopBinding s b topExpr
+    t s topExpr@(E.TopLet b expr) = validExpr (Set.empty) expr *> addTopBinding s b topExpr
 
-    addTopBinding topBinds b = case b of
-        E.AbsBind ab -> addBinding topBinds ab
-        E.LetBind bs -> DF.foldlM addBinding topBinds bs
+    addTopBinding (topBinds, exprMap) b expr = case b of
+        E.AbsBind ab -> (,) <$> addBinding topBinds ab <*> pure (OrdMap.insert b expr exprMap)
+        E.LetBind bs -> (,) <$> DF.foldlM addBinding topBinds bs <*> pure (OrdMap.insert b expr exprMap)
       where
         addBinding topBinds b = case Set.member b topBinds of
             True -> throwError $ "(VL05) - Top Binding " ++ (show b) ++ " already exists in module"

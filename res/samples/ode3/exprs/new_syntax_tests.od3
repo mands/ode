@@ -97,12 +97,12 @@ module G {
 */
 
 // validation errors
-/*
+
 module H {
   val a = 1
   val a = 2
 }
-*/
+
 
 /*
 // desugarer tests
@@ -140,6 +140,7 @@ module K {
 }
 */
 
+/*
 // val lets
 module J {
 
@@ -179,8 +180,7 @@ module J {
       val c = 1
       val d = 2      
     }
-  }
-
-  
+  } 
 }
 
+*/
