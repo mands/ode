@@ -142,12 +142,45 @@ module K {
 
 // val lets
 module J {
-  val a = b where {
-    val c = 1
-    val d = 2
-    val b = 1 + 2    
-  }
-   
 
+  // PASS
+//  val a = 1
+  
+  // PASS
+//  val b = 1 where { }
+
+  // PASS
+//  val c = z where {
+//    val x = 1
+//    val y = 2
+//    val z = x + y
+//  }
+
+  // out-of-order - OK
+//  val d = z where {
+//    val z = x + y
+//    val x = 1
+//    val y = 2
+//  }
+
+  // inside comp
+  component compA x => y where {
+    // PASS
+    val y = x+1
+
+    // PASS
+    val y1 = z where {
+      val z = 1
+    }
+
+    // FAIL - reorder doesn't work nested
+    val y2 = b where {
+      val b = c + d
+      val c = 1
+      val d = 2      
+    }
+  }
+
+  
 }
 

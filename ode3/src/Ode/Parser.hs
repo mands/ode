@@ -80,7 +80,9 @@ compStmt =  --O.CompCallDef <$> commaSep1 identifier <*> (reservedOp "=" *> iden
 -- e.g., val x = expr
 valueDef :: Parser O.ValueDef
 valueDef = O.ValueDef   <$> (reserved "val" *> commaSep1 valIdentifier) <*> (reservedOp "=" *> compExpr)
-
+                        <*> option [] (reserved "where" *> valBody)
+  where
+    valBody = braces $ many compStmt
 
 -- |parse a rre attribute definition
 rreDef = permute (O.RreDef ""

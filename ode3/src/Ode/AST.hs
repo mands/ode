@@ -46,7 +46,7 @@ data TopElem = TopElemComponent Component
 
 -- |value defintion
 -- they are constant, at least during single timestep
-data ValueDef = ValueDef { vName :: [ValId], vValue :: Expr } deriving Show
+data ValueDef = ValueDef { vName :: [ValId], vValue :: Expr, vBody :: [CompStmt] } deriving Show
 
 -- |each independent component, it is essentially a function abstraction
 -- components may be defined inline, with name, ins, outs, and body

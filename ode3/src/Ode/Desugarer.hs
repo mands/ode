@@ -81,12 +81,11 @@ instance Applicative TmpSupply where
 desugarMod :: [O.TopElem] -> MExcept (M.ExprMap C.SrcId)
 desugarMod elems = evalSupplyVars $ M.convertExprMap <$> foldM desugarModElems M.emptySafeExprMap elems
 
-
 -- | desugar a top-level value constant(s)
 -- throws an error if a top-level is already defined
 desugarModElems :: (M.SafeExprMap C.SrcId) -> O.TopElem -> TmpSupply (M.SafeExprMap C.SrcId)
-desugarModElems sExprMap (O.TopElemValue (O.ValueDef ids value)) = do
-    v' <- dsExpr value
+desugarModElems sExprMap (O.TopElemValue (O.ValueDef ids value body)) = do
+    v' <- desugarCompStmts body value
     ids' <- DT.mapM subDontCares ids
     let mB = C.LetBind ids'
     lift $ M.insertTopExpr (C.TopLet mB v') sExprMap
@@ -97,38 +96,36 @@ desugarModElems sExprMap (O.TopElemComponent (O.Component name ins outs body)) =
     ins' <- DT.mapM subDontCares ins
     -- create a new tmpArg only if multiple elems
     arg <- if (isSingleElem ins') then return (singleElem ins') else supply
-    v <- desugarComp arg ins' outs body
+    v <- desugarComp arg ins'
     let topAbs = C.TopAbs (C.AbsBind name) arg v
     lift $ M.insertTopExpr topAbs sExprMap
-
--- | desugars and converts a component into a \c abstraction
--- not in tail-call form, could blow out the stack, but unlikely
-desugarComp :: O.SrcId -> [O.SrcId] -> O.Expr -> [O.CompStmt] -> TmpSupply (C.Expr C.SrcId)
--- desugarComp argName [] outs body  = lift $ throwError ("(DS01) Component has zero inputs")
--- desugarComp argName ins [] body = lift $ throwError ("(DS02) Component has zero outputs")
-desugarComp argName ins outs body = case ins of
-                                    (singIn:[]) -> dsCompBody body
-                                    _ -> dsCompIns ins
-                                    -- _ | length ins == (length . nub) ins  -> dsCompIns ins
-                                    -- _ | otherwise -> lift $ throwError ("(DS03) Component has inputs with the same name")
   where
+        -- | desugars and converts a component into a \c abstraction
+    -- not in tail-call form, could blow out the stack, but unlikely
+    desugarComp :: O.SrcId -> [O.SrcId] -> TmpSupply (C.Expr C.SrcId)
+    -- desugarComp argName [] outs body  = lift $ throwError ("(DS01) Component has zero inputs")
+    -- desugarComp argName ins [] body = lift $ throwError ("(DS02) Component has zero outputs")
+    desugarComp argName (singIn:[]) = desugarCompStmts body outs
+    desugarComp argName ins = C.Let (C.LetBind ins) (C.Var (C.LocalVar argName)) <$> desugarCompStmts body outs
+                                            -- _ | length ins == (length . nub) ins  -> dsCompIns ins
+                                        -- _ | otherwise -> lift $ throwError ("(DS03) Component has inputs with the same name")
     -- unpack the input params, a custom fold over the multiple ins
-    dsCompIns bs = C.Let (C.LetBind bs) (C.Var (C.LocalVar argName)) <$> dsCompBody body
+    --dsCompIns bs =
 
-    -- process the body by pattern-matching on the statement types
-    dsCompBody [] = dsExpr outs
-    -- very similar to top-level value def - need to handle single elem diff to mult
-    dsCompBody ((O.CompValue (O.ValueDef ids e)):xs) = do
+desugarCompStmts :: [O.CompStmt] -> O.Expr  -> TmpSupply (C.Expr C.SrcId)
+-- process the body by pattern-matching on the statement types
+desugarCompStmts [] outs = dsExpr outs
+-- very similar to top-level value def
+desugarCompStmts ((O.CompValue (O.ValueDef ids e vOuts)):xs) outs = do
         ids' <- DT.mapM subDontCares ids
         let mB = C.LetBind ids'
-        C.Let mB <$> dsExpr e <*> dsCompBody xs
+        C.Let mB <$> desugarCompStmts vOuts e <*> desugarCompStmts xs outs
 
-    -- TODO - we ignore for now
-    dsCompBody ((O.InitValueDef ids e):xs) = lift $ throwError "test"
-    dsCompBody ((O.OdeDef id init e):xs) = error "(DS) got ODE"
-    dsCompBody ((O.RreDef id (from, to) e):xs) = error "(DS) got RRE"
+-- TODO - we ignore for now
+desugarCompStmts ((O.InitValueDef ids e):xs) _ = lift $ throwError "test"
+desugarCompStmts ((O.OdeDef id init e):xs) _ = error "(DS) got ODE"
+desugarCompStmts ((O.RreDef id (from, to) e):xs) _ = error "(DS) got RRE"
 
-    dsCompOuts outs = packElems outs
 
 -- | Expression desugarer - basically a big pattern amtch on all possible types
 -- should prob enable warnings to pick up all unmatched patterns
