@@ -11,7 +11,7 @@
 -- | Renamer takes a reordered AST and renames all variables into unique values (ints starting from 0),
 -- thus it also deals with all scoping issues - as only are two scopes this should be fairly easy.
 -- It also checks for all vlaue declarations, unused values, undefined values, and so on
--- Can issue errors due to user defined model
+-- Can, but currently doesn't, issue errors due to user defined model
 --
 -----------------------------------------------------------------------------
 
@@ -27,7 +27,6 @@ import qualified Data.Traversable as DT
 import qualified Data.Bimap as Bimap
 
 import Debug.Trace -- love this shit!
-
 import Control.Monad
 import Control.Monad.State
 import Control.Monad.Error
@@ -41,18 +40,17 @@ import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap
 
 -- we need a supply of uniques, use monad supply again but with user-start param
+type IntSupply = SupplyT Int (State ExprBinds)
+
+-- TODO - may need this monad when unify AST in order to process errors
 --newtype IntSupply a = IntSupply { runIntSupply :: SupplyT Int (StateT ExprBinds (MExcept)) a }
 --    deriving (Monad, MonadSupply Int)
---type IntSupply = SupplyT Int (StateT ExprBinds (MExcept))
-type IntSupply = SupplyT Int (State ExprBinds)
 
 -- main types
 newtype ExprBinds = ExprBinds (Map.Map E.SrcId E.Id) deriving Show
 newtype TopBinds =  TopBinds (Map.Map E.SrcId E.Id) deriving Show
 
--- TODO - store idBimap and maxId in the ModuleData
 -- | Main rename function, takes a model bound by Ids and returns a single-scoped model bound by unique ints
--- I don't think this function can ever fail
 rename :: M.Module E.SrcId -> MExcept (M.Module Int)
 rename (M.LitMod exprMap modData) = trace ("(RN) " ++ (show res)) (Right res)
   where
@@ -107,8 +105,6 @@ renTop :: M.ExprMap E.SrcId -> (M.ExprMap Int, TopBinds, Int)
 renTop exprMap = (exprMap', topBinds, head uniqs)
   where
     ((topBinds, exprMap'), uniqs) = evalState (runSupplyT exprMapM [0..]) (ExprBinds Map.empty)
---    ((_, model'), uniqs) <- evalState (runSupplyT mModel [1..]) (ExprBinds Map.empty)
-
     exprMapM = DF.foldlM convTopBind (TopBinds Map.empty, OrdMap.empty) exprMap
 
     -- map over each expr, using the topmap, converting lets and building a new scopemap
@@ -136,10 +132,8 @@ renTop exprMap = (exprMap', topBinds, head uniqs)
         let model' = OrdMap.insert b' (E.TopAbs b' arg' expr') model
         return (map'', model')
 
-
 -- | Basic traverse over the expression structure - make into Data.Traversable
 renExpr :: TopBinds -> E.Expr E.SrcId -> IntSupply (E.Expr Int)
-
 -- need to check the expr and top bindings
 renExpr tB (E.Var (E.LocalVar v)) = (bLookup v tB) >>= (\v -> return $ E.Var (E.LocalVar v))
 -- we don't rename module vars, least not yet - they are renamed during functor application
@@ -170,30 +164,10 @@ renExpr tB (E.Let b bExpr expr) = do
 
 -- just traverse the structure
 renExpr tB (E.Lit l) = return (E.Lit l)
-
 renExpr tB (E.Op op expr) = liftM (E.Op op) (renExpr tB expr)
-
 renExpr tB (E.If bExpr tExpr fExpr) = return E.If `ap` (re bExpr) `ap` (re tExpr) `ap` (re fExpr)
   where
     re = renExpr tB
 
 -- need to map (or fold?) over the elements - map should be okay as a tuple should never create sub-bindings
 renExpr tB (E.Tuple exprs) = liftM E.Tuple $ DT.mapM (\e -> renExpr tB e) exprs
-
-
---renError :: String -> IntSupply a
---renError s = lift . lift $ throwError s
-
--- PROB - these don't work, just use state monad instead
--- prob is the ExprBinds, which need to be carried and updating thru the bindings/threading
--- and the expression, which changes and thus must be passed as a parameter to the functions
--- monadic binding can be used to thread the ExprBinds, but not the expression
--- lift/ap can be used to pass in expression, but then would not thread/update the ExprBindings
---   instead it only threads whatever is held in the monad
--- SOL - could manually unpack/thread state using do-notation, easier just to use State monad
-
-exprAp :: (Monad m) => (b -> c) -> m (a, b) -> m (a, c)
-exprAp f m = m >>= (\(eB, e) -> return (eB, f e))
-
-pairExpr :: ExprBinds -> IntSupply (E.Expr Int) -> IntSupply (ExprBinds, E.Expr Int)
-pairExpr a b = pairM (return a) b

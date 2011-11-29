@@ -36,8 +36,6 @@ import qualified Ode.AST as O
 import qualified Core.ExprAST as C
 import qualified Core.ModuleAST as M
 
---type Id = C.SrcId
-
 -- We need a supply of unique Ids
 -- supply type, transformed with Error/Except Monad
 -- have to (lift throwError) as didn't create a newtype with auto-Deriving
@@ -49,36 +47,9 @@ evalSupplyVars x = evalSupplyT x $ map (\x -> tmpPrefix ++ x) vars
     vars = [replicate k ['A'..'Z'] | k <- [1..]] >>= sequence
     tmpPrefix = "des"
 
-
 instance Applicative TmpSupply where
     pure = return
     (<*>) = ap
-
-
-
--- | desugar function takes an ODE module representaiton and converts it into a lower-level Core AST
--- use the supply monad to generate unique names
---desugarMod :: O.Module -> MExcept (C.TopMod Id)
---desugarMod (O.ModuleAbs name Nothing elems) =
---    evalSupplyVars $ (\(_, exprMap) -> C.TopMod name (C.LitMod exprMap modData)) <$> deRes
---  where
---    modData = C.ModuleData Map.empty Map.empty Bimap.empty Nothing
---    -- fold over the list of elems within the module creating the exprMap
---    deRes = (foldM desugarModElems CMod.emptySafeExprMap elems)
---
---desugarMod (O.ModuleAbs name (Just args) elems) =
---    evalSupplyVars $ (\(_, exprMap) -> C.TopMod name (C.FunctorMod args' exprMap modData)) <$> deRes
---  where
---    modData = C.ModuleData Map.empty Map.empty Bimap.empty Nothing
---    args' = OrdMap.fromList $ map (\arg -> (arg, Map.empty)) args
---    -- fold over the list of elems within the module creating the exprMap
---    deRes = foldM desugarModElems CMod.emptySafeExprMap elems
---
---desugarMod (O.ModuleApp name params) = return $ C.TopMod name (procParams params)
---  where
---    -- need to desugar into nested set of appMods and varMods
---    procParams (O.ModuleAppParams modId Nothing) = C.VarMod modId
---    procParams (O.ModuleAppParams funcId (Just args)) = C.AppMod funcId (map procParams args)
 
 desugarMod :: [O.TopElem] -> MExcept M.ExprList
 desugarMod elems = evalSupplyVars $ mapM desugarModElems elems
@@ -100,17 +71,11 @@ desugarModElems (O.TopElemComponent (O.Component name ins outs body)) = do
     v <- desugarComp arg ins'
     return $ C.TopAbs (C.AbsBind name) arg v
   where
-        -- | desugars and converts a component into a \c abstraction
-    -- not in tail-call form, could blow out the stack, but unlikely
+    -- | desugars and converts a component into a \c abstraction, not in tail-call form, could blow out the stack, but unlikely
     desugarComp :: O.SrcId -> [O.SrcId] -> TmpSupply (C.Expr C.SrcId)
-    -- desugarComp argName [] outs body  = lift $ throwError ("(DS01) Component has zero inputs")
-    -- desugarComp argName ins [] body = lift $ throwError ("(DS02) Component has zero outputs")
     desugarComp argName (singIn:[]) = desugarCompStmts body outs
     desugarComp argName ins = C.Let (C.LetBind ins) (C.Var (C.LocalVar argName)) <$> desugarCompStmts body outs
-                                            -- _ | length ins == (length . nub) ins  -> dsCompIns ins
-                                        -- _ | otherwise -> lift $ throwError ("(DS03) Component has inputs with the same name")
-    -- unpack the input params, a custom fold over the multiple ins
-    --dsCompIns bs =
+
 
 desugarCompStmts :: [O.CompStmt] -> O.Expr  -> TmpSupply (C.Expr C.SrcId)
 -- process the body by pattern-matching on the statement types
@@ -130,7 +95,7 @@ desugarCompStmts ((O.RreDef id (from, to) e):xs) _ = error "(DS) got RRE"
 -- should prob enable warnings to pick up all unmatched patterns
 dsExpr :: O.Expr -> TmpSupply (C.Expr C.SrcId)
 -- TODO - fix!
---dsExpr (O.UnExpr O.Not e) = liftM (C.Op C.Not) (dsExpr e)
+-- dsExpr (O.UnExpr O.Not e) = liftM (C.Op C.Not) (dsExpr e)
 
 -- convert unary negation into (* -1)
 dsExpr (O.UnExpr O.Neg e) = do
@@ -180,7 +145,6 @@ packElems es = if (isSingleElem es)
 subDontCares :: O.ValId -> TmpSupply C.SrcId
 subDontCares O.DontCare = supply
 subDontCares (O.ValId i) = return i
-
 
 -- | simple patttern matching convertor, boring but gotta be done...
 binOps :: O.BinOp -> C.Op

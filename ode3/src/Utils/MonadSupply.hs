@@ -9,7 +9,7 @@
 -- Portability :
 --
 -- |Simple implementation of Supply monad - taken from haskellwiki
--- a wrapper around State monad, takes a list of values to genereate supply
+-- a wrapper around State monad, takes a list of values to generate supply
 --
 -----------------------------------------------------------------------------
 
@@ -47,6 +47,3 @@ evalSupply (Supply s) supp = evalSupplyT s supp
 
 runSupplyT (SupplyT s) supp = runStateT s supp
 runSupply (Supply s) supp = runSupplyT s supp
-
---runSupplyVars x = runSupply x vars
---    where vars = [replicate k ['a'..'z'] | k <- [1..]] >>= sequence

@@ -19,12 +19,9 @@ module Common.AST (
 
 -- | an individual number type, not sure if needed, used to convert from double to integer
 type NumTy = Double
--- | identifier - is converted later on
--- type Id = String
 
 -- TODO - change to newtype?
 -- | Identifier - basicially RdrName - needs to become parameterised
 type SrcId = String
-
 type UntypedId = Int
 type Id = UntypedId

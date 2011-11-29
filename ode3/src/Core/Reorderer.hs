@@ -17,7 +17,6 @@
 -----------------------------------------------------------------------------
 
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
--- {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
 
 module Core.Reorderer (
 reorder
@@ -28,11 +27,10 @@ import Control.Monad.Error
 
 import qualified Data.Map as Map
 import qualified Data.Traversable as DT
-import Debug.Trace -- love this shit!
+import Debug.Trace
 import Control.Applicative
 import Data.Graph.Inductive
--- import qualified Data.Graph.Inductive.Example as E
-import Data.Graph.Inductive.Tree -- maybe swtich to PatriciaTree implementation?
+import Data.Graph.Inductive.Tree -- TODO - maybe switch to PatriciaTree implementation?
 import Data.Graph.Inductive.Query.DFS
 import Data.Maybe (fromJust)
 
@@ -45,12 +43,6 @@ import qualified Utils.OrdMap as OrdMap
 -- need a topgraph and a topmap - place them both in a state monad and done
 type TopGraph = Gr (E.Bind E.SrcId) ()
 data TopExpr = LTopLet (E.Bind E.SrcId) | LTopAbs (E.Bind E.SrcId) E.SrcId  deriving Show
-
---data TopExpr :: *
---  where
---    LTopLet :: (E.Bind E.SrcId) -> TopExpr
---    LTopAbs :: (E.Bind E.SrcId) -> E.SrcId -> TopExpr
---    deriving Show
 
 type ExprGraph = Gr ExprNodeLabel ()
 data ExprNodeLabel = ExprNodeLabel (E.Bind E.SrcId) (E.Expr E.SrcId) deriving Show

@@ -24,17 +24,18 @@ import Data.List (nub)
 import qualified Data.Traversable as DT
 import qualified Data.Foldable as DF
 import qualified Data.Set as Set
-
-import Core.ExprAST as E
-import Core.ModuleAST as M
 import Utils.Utils
 import qualified Utils.OrdMap as OrdMap
+import qualified Core.ExprAST as E
+import qualified Core.ModuleAST as M
 
 validate :: M.Module E.SrcId -> MExcept (M.Module E.SrcId)
-validate mod@(M.LitMod _ modData) = M.LitMod <$> createTopExprs (M.modExprList modData) <*> pure (modData { modExprList = [] })
-validate mod@(M.FunctorMod funArgs _ modData) = M.FunctorMod <$> funArgs' <*> createTopExprs (M.modExprList modData) <*> pure (modData { modExprList = [] })
+validate mod@(M.LitMod _ modData) = M.LitMod <$> createTopExprs (M.modExprList modData) <*> pure (modData { M.modExprList = [] })
+validate mod@(M.FunctorMod funArgs _ modData) = M.FunctorMod <$> funArgs' <*> createTopExprs (M.modExprList modData)
+                                                <*> pure (modData { M.modExprList = [] })
   where
-    funArgs' = if (length funArgKeys == (length . nub) funArgKeys) then pure funArgs else throwError ("(VL05) - Functor has arguments with the same name")
+    funArgs' =  if (length funArgKeys == (length . nub) funArgKeys) then pure funArgs
+                else throwError ("(VL05) - Functor has arguments with the same name")
     funArgKeys = OrdMap.keys funArgs
 validate mod@(M.AppMod _ _) = pure mod
 
@@ -62,14 +63,13 @@ validExpr curBinds (E.App v e1) = validExpr curBinds e1 *> pure ()
 
 validExpr curBinds (E.Let b'@(E.LetBind bs) e1 e2) = do
     curBinds' <- DF.foldlM addBinding curBinds bs
-    --E.Let <$> pure b' <*> (validExpr curBinds' e1) <*> (validExpr curBinds' e2)
     (validExpr curBinds e1) *> (validExpr curBinds' e2) *> pure ()
   where
     addBinding curBinds b = case Set.member b curBinds of
         True -> throwError $ "(VL04) - Binding " ++ (show b) ++ " already exists in component"
         False -> pure $ (Set.insert b curBinds)
 
-validExpr curBinds (E.Op op e) = (validExpr curBinds e) *> pure () --E.Op <$> pure op <*> (validExpr curBinds e)
+validExpr curBinds (E.Op op e) = (validExpr curBinds e) *> pure ()
 validExpr curBinds (E.If eB eT eF) =
     (validExpr curBinds eB) *> (validExpr curBinds eT) *> (validExpr curBinds eF) *> pure ()
 validExpr _ (E.Tuple []) = throwError "(VL01) Empty tuple found"
@@ -78,7 +78,9 @@ validExpr curBinds (E.Tuple es) = DF.traverse_ (validExpr curBinds) es
 validExpr _ e = pure ()
 
 
---travExpr :: (E.Expr E.SrcId -> b) -> E.Expr E.SrcId -> b
+-- TraveExpr applies a function f over all sub-expressions within the expression
+-- is it a functor?
+-- travExpr :: (E.Expr E.SrcId -> b) -> E.Expr E.SrcId -> b
 travExpr f e@(E.Var v) = f e
 travExpr f e@(E.Lit l) = f e
 travExpr f (E.App v e1) = f (E.App v (travExpr f e1))
@@ -87,6 +89,4 @@ travExpr f (E.Op op e) = f (E.Op op (travExpr f e))
 travExpr f (E.If eB eT eF) = f (E.If (travExpr f eB) (travExpr f eT) (travExpr f eF))
 travExpr f (E.Tuple es) = f $ E.Tuple (map (travExpr f) es)
 travExpr f e = f e
-
-
 

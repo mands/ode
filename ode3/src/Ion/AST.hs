@@ -21,10 +21,6 @@ import Control.Monad.Error
 -- |identifier - is converted later on
 type Id = String
 
--- can switch within the hpc implemenations as needed, also need bools?
---type NumTy = Double
---type IntTy = Int
-
 -- |top level model, maybe switch to map indexed by channel name
 type IonModel = [IonChannel]
 

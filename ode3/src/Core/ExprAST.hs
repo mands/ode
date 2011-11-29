@@ -8,7 +8,7 @@
 -- Stability   :  alpha
 -- Portability :
 --
--- |A lower-level desuagred AST that represents the mian language features
+-- | A lower-level desuagred AST that represents the mian language features
 -- is parameterised by the types of values
 -- a reference interpreter exists that may execute on the type-checked Core AST
 -- bascially the lambda-calculus style IR
@@ -24,7 +24,6 @@ SrcId, Id, VarId(..), Bind(..), Type(..), travTypesM,
 Top(..), Expr(..), Op(..), Literal(..),
 ) where
 
-
 import Control.Monad
 import qualified Data.Map as Map
 import qualified Data.IntMap as IntMap
@@ -37,56 +36,12 @@ import Data.Maybe (fromJust, isJust)
 import Utils.Utils
 import Common.AST
 
--- |Basic \-Calc
--- not used - just for reference
--- Positives
--- * Simple, and unified expression and top-level
--- * known basic optimisations, is a known quantity with huge amount of literature
--- * beautiful and expressive
--- Negatives
--- * Allows only single argument for Abstractions, thus result to currying, pair-consing, or tuples for fixed arity funcs
---   (and lists for mult-values, unknown arity expressions)
---   Thus have discord between input params, that are curried, and output params, that would be tuples for mult-vals
---   Currying requires closure creation and optimisation, expensive and complicated while are not expressed in front-end language
---   (tho may make type-cechking easier)
--- * It allows HOF, closures and anonymous functions, the increased flexability/power of these are not required/supported in the front-end
---   and add additional complexity and flexability
--- * It makes it harder to see actual structure of program, need to apply the AST to tell what it's doing,
---   for instance is Apply to a anon func, a local-let func, or a top-level let func?
--- * People modify/extend the \-calc all the time for specific use cases - that is novel in itself and worth it
-
-data LTop       = LTopLet SrcId LExpr
-
-data LExpr      = LVar SrcId
-                | LLit Literal
-                | LAbs SrcId LExpr
-                | LApp LExpr LExpr
-                | LLet SrcId LExpr LExpr
-                | LPair LExpr LExpr
-                | LOp Op
-                deriving Show
-
-
-
--- TODO - change to newtype?
--- | Identifier - basicially RdrName - needs to become parameterised
---type SrcId = String
---type UntypedId = Int
-data TypedId = TypedId Int Type
-    deriving (Show, Eq, Ord)
---type Id = UntypedId
---data ModId a =  LocalId a -- Binding
---                | ModId SrcId a -- Module Name and Binding
---                deriving (Show, Eq, Ord)
---type TestId = ModId SrcId
 data VarId a =  LocalVar a
                 | ModVar SrcId SrcId
                 deriving (Show, Eq, Ord)
 
 -- | DetailId - holds both a (parameterised) identifier and a string that represetns the (closest) original/source variable and line num
--- make use mod id
 --data DetailId a = DetailId a SrcId Int deriving (Show, Eq, Ord)
---type Id a = DetailId a
 
 -- | Types
 data Type :: * where
@@ -98,6 +53,11 @@ data Type :: * where
     TTuple :: [Type] -> Type -- don't want to allow tuples of tuples
     deriving (Show, Eq, Ord)
 
+-- TODO
+-- | Unit Dimensions
+data Dimensions = Dimensions
+
+-- | Bindings, may be a tuple unpacking
 -- could eventually optimise this and make more type-safe but this works for now
 data Bind b = AbsBind b | LetBind [b]
     deriving (Show, Eq, Ord)
@@ -108,10 +68,6 @@ data Top b :: * where
     TopLet :: (Bind b) -> (Expr b) -> Top b    -- binding, expr
     TopAbs :: (Bind b) -> b -> (Expr b) -> Top b -- binding, abs name, expr
     deriving (Show, Eq, Ord)
-
-getTopBinding :: Top b -> (Bind b, Top b)
-getTopBinding t@(TopLet b _) = (b,t)
-getTopBinding t@(TopAbs b _ _) = (b,t)
 
 -- | Main body of a \c-calc expression
 -- is parameterised by the binding type b - used for RdrNames/Ids, Uniques, Uniques+Types
@@ -162,7 +118,8 @@ data Op = Add | Sub | Mul | Div | Mod
         | And | Or | Not
         deriving (Show, Eq, Ord)
 
--- is this some type of type-class?
+-- Helper functions
+-- is this some type of type-class? Functor?
 travTypesM :: (Monad m) => Type -> (Type -> m Type) -> m Type
 travTypesM (TArr fromT toT) f = liftM2 TArr (travTypesM fromT f) (travTypesM toT f)
 travTypesM (TTuple ts) f = liftM TTuple $ mapM f ts
@@ -171,7 +128,6 @@ travTypesM t f = f t
 -- |Standard functor defintion, could be derived automatically but still...
 -- only applicable for the binding parameter, so maybe useless
 -- could be used to determine bindings/fv, etc.
-
 instance Functor Bind where
     fmap f (AbsBind b) = AbsBind $ f b
     fmap f (LetBind b) = LetBind $ map f b
@@ -192,57 +148,4 @@ instance Functor Expr where
     fmap f (If e1 e2 e3) = If (fmap f e1) (fmap f e2) (fmap f e3)
     fmap f (Pair e1 e2) = Pair (fmap f e1) (fmap f e2)
     fmap f (Tuple es) = Tuple (List.map (\e -> fmap f e) es)
-
-
-instance PrettyPrint Op where
-    prettyPrint Add = "+"
-    prettyPrint Sub = "-"
-    prettyPrint Mul = "*"
-    prettyPrint Div = "/"
-    prettyPrint Mod = "%"
-
-    prettyPrint Core.ExprAST.LT = "<"
-    prettyPrint LE = "<="
-    prettyPrint Core.ExprAST.GT = ">"
-    prettyPrint GE = ">="
-    prettyPrint Core.ExprAST.EQ = "=="
-    prettyPrint NEQ = "!="
-
-    prettyPrint And = "&&"
-    prettyPrint Or = "!!"
-    prettyPrint Not = "!"
-
-instance PrettyPrint Literal where
-    prettyPrint (Num a) = show a
-    prettyPrint (NumSeq a) = show a
-    prettyPrint (Boolean a) = show a
-
-instance PrettyPrint SrcId where
-    prettyPrint id = show id
-
-instance (Show a) => PrettyPrint (Top a) where
-    prettyPrint (TopLet x expr) = "let " ++ show x ++ " = " ++ prettyPrint expr
-    prettyPrint (TopAbs x arg expr) = show x ++ " = \\" ++ show arg ++ ". " ++ prettyPrint expr
-
-instance (Show a) => PrettyPrint (Expr a) where
-    prettyPrint (Var x) = show x
-    prettyPrint (Lit x) = case x of
-                            Num y -> show y
-                            NumSeq ys -> show ys
-                            Boolean b -> show b
-
-    prettyPrint (App x expr) = show x ++ prettyPrint expr
-
-    prettyPrint (Let x bindExpr inExpr) = "let " ++ show x ++ " = " ++ prettyPrint bindExpr ++ " in \n" ++ prettyPrint inExpr
-
-    prettyPrint (Op op expr) = prettyPrint op ++ prettyPrint expr
-    prettyPrint (If ifExpr tExpr fExpr) = "if (" ++ prettyPrint ifExpr ++ ") then " ++ prettyPrint tExpr ++ " else " ++
-                                            prettyPrint fExpr
-
-    prettyPrint (Pair e1 e2) = "(" ++ prettyPrint e1 ++ ", " ++ prettyPrint e2 ++ ")"
-
-    prettyPrint (Tuple es) = "(" ++ tuples ++ ")"
-      where
-        tuples = concat . Prelude.map (\e -> (prettyPrint e) ++ ", ") $ es
-
 

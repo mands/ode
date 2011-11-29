@@ -15,9 +15,8 @@
 -----------------------------------------------------------------------------
 
 module Core.ModuleDriver (
-moduleDriver, interpretModule, newModuleDriver
+moduleDriver, interpretModule
 ) where
-
 
 import Debug.Trace
 import qualified Data.Traversable as DT
@@ -30,9 +29,7 @@ import Control.Applicative
 import Control.Monad.Trans
 import Control.Monad
 import Control.Monad.Error
-
 import System.Log.Logger
-
 import qualified Core.ExprAST as E
 import qualified Core.ModuleAST as M
 import Core.ModuleAST (debugModuleExpr)
@@ -43,35 +40,9 @@ import Core.TypeChecker --(typeCheck, TypeVarEnv, TypeCons)
 import Utils.Utils
 import qualified Utils.OrdMap as OrdMap
 
-
--- | moduleDriver takes a list of base modules and creates a runtime module envinroment that is used create close modules
--- for simulation
-moduleDriver :: [M.TopMod E.SrcId] -> IO (Maybe M.ModuleEnv)
-moduleDriver baseModules = do
-    -- a rudimentary controlelr that sets up the iteration over the luist of module commands, altering state as we fold
-    modEnv <- DF.foldlM procMod Map.empty baseModules
-    infoM "ode3.moduleDriver" "No fatal errors"
-    infoM "ode3.moduleDriver" ("Final module environment - " ++ (show $ Map.keys modEnv))
-    return $ Just modEnv
-  where
-    -- processes a module and displays the results
-    procMod :: M.ModuleEnv -> M.TopMod E.SrcId -> IO M.ModuleEnv
-    procMod modEnv (M.TopMod name mod) = case interpretRes of
-        Left err -> errorOut err >> return modEnv
-        Right mod -> succOut mod >> return (Map.insert name mod modEnv)
-      where
-        interpretRes = checkName *> interpretModule modEnv mod
-        -- check if module already exists
-        checkName = if Map.member name modEnv then throwError ("(MD06) - Module with name " ++ (show name) ++ " already defined") else pure ()
-        errorOut err = errorM "ode3.moduleDriver" ("Error processing module " ++ name ++ " " ++ err)
-        succOut mod = infoM "ode3.moduleDriver" ("Processed module " ++ name ++ " - " ++ prettyPrint mod) >>
-            debugM "ode3.moduleDriver" ("Module toplevel - \n" ++ debugModuleExpr mod)
-
-
-
-newModuleDriver :: M.ModuleEnv -> M.TopMod E.SrcId -> MExcept M.ModuleEnv
-newModuleDriver modEnv topMod@(M.TopMod name mod) =
-    Map.insert <$> pure name <*> eRes <*> pure modEnv
+-- | moduleDriver takes a the current modEnv and processes the given module against it
+moduleDriver :: M.ModuleEnv -> M.TopMod E.SrcId -> MExcept M.ModuleEnv
+moduleDriver modEnv topMod@(M.TopMod name mod) = Map.insert <$> pure name <*> eRes <*> pure modEnv
   where
     eRes = checkName *> interpretModule modEnv mod
     -- check if module already exists
@@ -96,7 +67,6 @@ interpretModule modEnv mod@(M.VarMod modId) = case (Map.lookup modId modEnv) of
     Nothing -> throwError $ "(MD07) - Referenced module " ++ (show modId) ++ " not found in envirnoment"
 
 interpretModule modEnv mod@(M.AppMod fModId argMods) = do
-
     -- need to check that the application is valid, if so then create a new module
     -- involves several steps with specialised pipeline operations
 
@@ -107,7 +77,6 @@ interpretModule modEnv mod@(M.AppMod fModId argMods) = do
 
     -- order is, args/sig check, typecheck, rename, reorder
     -- should return a new closed module that can be reused later on
-
     fMod <- eFMod
     appModEnv <- (getAppModEnv fMod) =<< eArgMods
     (fMod', appModEnv') <- typeCheckApp fMod appModEnv
@@ -123,8 +92,6 @@ interpretModule modEnv mod@(M.AppMod fModId argMods) = do
             _ -> throwError ("(MD01) - Module " ++ fModId ++ " is not a functor")
         Nothing -> throwError ("(MD02) - Functor module " ++ fModId ++ " not found")
 
-
-    -- TODO - need typecheck
     -- interpret the args, either eval inline apps or lookup
     -- map and sequence thru interpretation of the args, using the same env
     eArgMods :: MExcept [M.Module E.Id]
@@ -150,6 +117,7 @@ applyFunctor fMod@(M.FunctorMod fArgs fExprMap fModData) modEnv = resMod
     baseMod = M.LitMod fExprMap fModData
     resMod = Map.foldrWithKey appendModule baseMod modEnv
 
+-- adds one module into another, basically mappend
 appendModule :: E.SrcId -> M.Module E.Id -> M.Module E.Id -> M.Module E.Id
 appendModule argName argMod@(M.LitMod argExprMap argModData) baseMod@(M.LitMod baseExprMap baseModData) = baseMod'
   where
@@ -192,22 +160,5 @@ appendModuleData argModData baseModData = baseModData { M.modTMap = typeMap', M.
     typeMap' = Map.union (M.modTMap argModData) (Map.mapKeys (+ deltaId) (M.modTMap baseModData)) -- update the base ids and merge
     idBimap' = Bimap.fromList . map (\(srcId, id) -> (srcId, id + deltaId)) . Bimap.toList . M.modIdBimap $ baseModData   -- update the base ids only
     freeId' = liftM2 (+) (M.modFreeId argModData) (M.modFreeId baseModData) -- sum of both numbers
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

@@ -39,7 +39,7 @@ import qualified Core.ModuleDriver as MD
 import Ode.Desugarer (desugarMod)
 
 -- | modParse takes an input file and a current snapshot of the module env, and parse within this context
--- sucessfuylly parsed modules are then converted into (Module E.Id) and added to the env
+-- sucessfully parsed modules are then converted into (Module E.Id) and added to the env
 modParse :: FilePath -> String -> M.ModuleEnv ->  MExcept M.ModuleEnv
 modParse fileName fileData modEnv =
     case parseRes of
@@ -61,7 +61,7 @@ modFileTop modEnv = do
     let mods' = filter filterLit mods
 
     -- instantiate each module and add to the moduleEnv
-    let modEnv' = DF.foldlM MD.newModuleDriver modEnv mods'
+    let modEnv' = DF.foldlM MD.moduleDriver modEnv mods'
     return $ trace ("(MP) " ++ show imports) (trace ("(MP) " ++ show mods') modEnv')
 
   where
@@ -99,26 +99,5 @@ modBody :: Parser (M.ExprList)
 modBody = do
     modElems <- braces (many1 OP.moduleBody)
     either (\_ -> return []) (\exprList -> return exprList) (desugarMod modElems)
-
--- Util functions - need to refactor and place elsewhere
--- | Function that takes an ODE Module and fully converts it into a Core Module
--- (i.e. desugar, reorder, rename, typecheck) with respect to the current ModuleEnv
---odeCoreConvert :: M.ModuleEnv -> (M.TopMod E.SrcId)  -> MExcept (M.ModuleEnv)
---odeCoreConvert modEnv mod = MD.newModuleDriver modEnv mod
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

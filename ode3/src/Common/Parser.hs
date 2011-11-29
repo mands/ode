@@ -75,7 +75,6 @@ braces      = T.braces lexer
 brackets    = T.brackets lexer
 dot         = T.dot lexer
 
-
 -- |number parser, parses most formats
 number :: Parser Double
 number =    try float
@@ -115,14 +114,14 @@ paramList = parens . commaSep1
 tuple :: Parser a -> Parser [a]
 tuple p = parens $ (:) <$> (p <* comma) <*> commaSep1 p
 
+-- | used to parse a single element by itself, a, or contained eithin a comma-sep list, (a,...)
 singOrList :: Parser a -> Parser [a]
 singOrList p = try ((\p -> p:[]) <$> (p))
                 <|> paramList p
                 <?> "single element or list"
 
--- |a parameterised single attribute parser for a given attriibute identifier
+-- |a parameterised single attribute parser for a given attribute identifier
 -- TODO - fix the comma separated list of attribute, commaSep?
 -- attrib :: String -> Parser String
 attrib res p = reserved res *> colon *> p <* optional comma
-
 

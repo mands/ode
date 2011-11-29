@@ -36,6 +36,8 @@ import Utils.Utils
 import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap
 
+-- Types ---------------------------------------------------------------------------------------------------------------
+
 type TypeEnv    = M.TypeMap
 type TypeVarEnv = Map.Map E.Id E.Type
 -- type env for modules, only one needed as vars should be unique, holds a type var for the first occurance of a module var
@@ -43,6 +45,7 @@ type ModTypeEnv = Map.Map (E.VarId E.Id) E.Type
 type TypeCons   = Set.Set (E.Type, E.Type)
 type TypeConsM  = SupplyT Int (State TypeCons)
 
+-- Main Interface ------------------------------------------------------------------------------------------------------
 
 -- TODO - un-Do this!
 typeCheck :: M.Module E.Id -> MExcept (M.Module E.Id)
@@ -127,7 +130,6 @@ updateModData modData tEnv = modData { M.modTMap = tEnv, M.modSig = modSig }
 -- | use the TVar map to undate a type enviroment and substitute all TVars
 subTVars :: Map.Map b E.Type -> TypeVarEnv -> Bool -> MExcept (Map.Map b E.Type)
 subTVars tEnv tVarMap allowPoly = DT.mapM (\t -> E.travTypesM t updateType) tEnv
-
   where
     -- try to substitute a tvar if it exists - this will behave differently depending on closed/open modules
     updateType :: E.Type -> MExcept E.Type
@@ -137,17 +139,7 @@ subTVars tEnv tVarMap allowPoly = DT.mapM (\t -> E.travTypesM t updateType) tEnv
     updateType t = return t
 
 
-
--- TODO - clean up
--- | run a map over the model replacing all bindings with typemap equiv
---typeExprs :: E.ExprMap Int -> TypeEnv -> E.ExprMap E.TypedId
---typeExprs exprMap tM = DF.foldl createModel OrdMap.empty newSeq
---  where
---    newSeq = fmap convBinding (OrdMap.elems exprMap)
---    convBinding t = fmap (\i -> E.TypedId i (tM Map.! i)) t
---    createModel m topExpr = OrdMap.insert b v m
---      where
---        (b, v) = E.getTopBinding topExpr
+-- Constraint Generation -----------------------------------------------------------------------------------------------
 
 addConstraint :: E.Type -> E.Type -> TypeConsM ()
 addConstraint t1 t2 = do
@@ -160,14 +152,6 @@ newTypevar = liftM E.TVar supply
 
 -- | Adds a set of constraints for linking a multibind to a TVar
 multiBindConstraint :: E.Bind Int -> E.Type -> TypeEnv -> TypeConsM TypeEnv
---multiBindConstraint (E.LetBind bs) (E.TVar v) tEnv = do
---    -- create the new tvars for each binding
---    bTs <- mapM (\_ -> newTypevar) bs
---    -- add the constaint
---    addConstraint (E.TTuple bTs) (E.TVar v)
---    -- add the tvars to the type map
---    DF.foldlM (\tEnv (b, bT) -> return $ Map.insert b bT tEnv) tEnv (zip bs bTs)
-
 multiBindConstraint (E.LetBind bs) t tEnv = do
     -- create the new tvars for each binding
     bTs <- mapM (\_ -> newTypevar) bs
@@ -175,7 +159,6 @@ multiBindConstraint (E.LetBind bs) t tEnv = do
     addConstraint (E.TTuple bTs) t
     -- add the tvars to the type map
     DF.foldlM (\tEnv (b, bT) -> return $ Map.insert b bT tEnv) tEnv (zip bs bTs)
-
 
 
 constrain :: M.ExprMap Int -> ((TypeEnv, ModTypeEnv), TypeCons)
@@ -192,7 +175,7 @@ constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
             (E.TTuple ts) | (length bs == length ts) -> return $ (foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv' (zip bs ts), mTEnv')
             -- true for individual elems, handle same as tuple above
             t | length bs == 1 -> return $ (Map.insert (head bs) eT tEnv', mTEnv')
-            -- basic handling, is common case that subsumes special cases above, basically teat bothsides as tuples
+            -- basic handling, is common case that subsumes special cases above, basically treat both sides as tuples
             -- (with tvars), create contstrains and let unificiation solve it instead
             t | (length bs > 1) -> (multiBindConstraint (E.LetBind bs) t tEnv') >>= (\tEnv -> return (tEnv, mTEnv'))
             _ -> trace (errorDump [show bs, show eT, show tEnv']) (error "(TYPECHECKER) - toplet shit\n")
@@ -234,7 +217,7 @@ constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
 
     -- TODO - is this right?!
     consExpr tEnv mTEnv (E.App mv@(E.ModVar m v) e) = do
-        -- similet to var - check if the type is already created, if not create a newTypeVar that
+        -- similar to var - check if the type is already created, if not create a newTypeVar that
         -- we can constrain later
         fT <- if (Map.member mv mTEnv) then return (mTEnv Map.! mv) else newTypevar
         -- TODO - want to create and add in same step
@@ -257,7 +240,7 @@ constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
             (E.TTuple ts) | (length bs == length ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv' (zip bs ts)
             -- true for individual elems, handle same as tuple above
             t | length bs == 1 -> return $ Map.insert (head bs) e1T tEnv'
-            -- basic handling, is common case that subsumes special cases above, basically teat bothsides as tuples
+            -- basic handling, is common case that subsumes special cases above, basically treat both sides as tuples
             -- (with tvars), create contstrains and let unificiation solve it instead
             t | (length bs > 1) -> multiBindConstraint (E.LetBind bs) t tEnv'
             _ -> trace (errorDump [show bs, show e1T, show tEnv']) (error "(TYPECHECKER) - let shit\n")
@@ -320,6 +303,8 @@ getOpType op = case op of
     binRel = E.TArr (E.TTuple [E.TFloat, E.TFloat]) E.TBool
     binLog = E.TArr (E.TTuple [E.TBool, E.TBool]) E.TBool
 
+
+-- Unification ---------------------------------------------------------------------------------------------------------
 
 -- | unify takes a set of type contraints and attempts to unify all types, inc TVars
 -- based on HM - standard constraint unification algorithm
