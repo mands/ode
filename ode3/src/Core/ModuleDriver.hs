@@ -33,7 +33,7 @@ import System.Log.Logger
 import qualified Core.ExprAST as E
 import qualified Core.ModuleAST as M
 import Core.ModuleAST (debugModuleExpr)
-import Core.Reorderer (reorder)
+--import Core.Reorderer (reorder)
 import Core.Renamer (rename)
 import Core.Validator (validate)
 import Core.TypeChecker --(typeCheck, TypeVarEnv, TypeCons)
@@ -53,12 +53,14 @@ moduleDriver modEnv topMod@(M.TopMod name mod) = Map.insert <$> pure name <*> eR
 interpretModule :: M.ModuleEnv -> M.Module E.SrcId -> MExcept (M.Module E.Id)
 interpretModule modEnv mod@(M.LitMod _ _) = do
     -- reorder, rename and typecheck the expressinons within module, adding to the module metadata
-    mod' <- validate >=> reorder >=> rename >=> typeCheck $ mod
+    -- mod' <- validate >=> reorder >=> rename >=> typeCheck $ mod
+    mod' <- validate >=> rename >=> typeCheck $ mod
     return mod'
 
 interpretModule modEnv mod@(M.FunctorMod _ _ _) = do
     -- reorder, rename and typecheck the expressinons within functor module, adding to the module metadata
-    mod' <- validate >=> reorder >=> rename >=> typeCheck $ mod
+    -- mod' <- validate >=> reorder >=> rename >=> typeCheck $ mod
+    mod' <- validate >=> rename >=> typeCheck $ mod
     return mod'
 
 -- simply lookup the id within the env and return the module
@@ -129,12 +131,11 @@ appendModule argName argMod@(M.LitMod argExprMap argModData) baseMod@(M.LitMod b
     exprMap' = OrdMap.union argExprMap (OrdMap.map updateExprs baseExprMap)
     updateExprs (topB, topExpr) = (fmap (+ deltaId) topB, topExpr'')
       where
-        topExpr' = fmap (+ deltaId) topExpr
-        topExpr'' = case topExpr' of
-                    (E.TopLet b expr) -> E.TopLet b (updateVars expr)
-                    (E.TopAbs b arg expr) -> E.TopAbs b arg (updateVars expr)
+        topExpr'@(E.TopLet b expr) = fmap (+ deltaId) topExpr
+        topExpr'' = E.TopLet b (updateVars expr)
 
         -- change all refernces from ModVar to LocalVar using the new ids, use the arg Id Bimap to calc
+        -- TODO - use a traversable?
         argIdBimap = M.modIdBimap argModData
 
         updateVars :: E.Expr E.Id -> E.Expr E.Id
@@ -145,6 +146,7 @@ appendModule argName argMod@(M.LitMod argExprMap argModData) baseMod@(M.LitMod b
             | modId == argName = E.App (E.LocalVar (argIdBimap Bimap.! id)) (updateVars expr)
         updateVars (E.App vId expr) = E.App vId (updateVars expr)
 
+        updateVars (E.Abs v expr) = E.Abs v (updateVars expr)
         updateVars (E.Let b e1 e2) = E.Let b (updateVars e1) (updateVars e2)
         updateVars (E.Op op e) = E.Op op (updateVars e)
         updateVars (E.If eIf eT eF) = E.If (updateVars eIf) (updateVars eT) (updateVars eF)

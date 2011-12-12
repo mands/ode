@@ -152,7 +152,7 @@ newTypevar = liftM E.TVar supply
 
 -- | Adds a set of constraints for linking a multibind to a TVar
 multiBindConstraint :: E.Bind Int -> E.Type -> TypeEnv -> TypeConsM TypeEnv
-multiBindConstraint (E.LetBind bs) t tEnv = do
+multiBindConstraint (E.MultiBind bs) t tEnv = do
     -- create the new tvars for each binding
     bTs <- mapM (\_ -> newTypevar) bs
     -- add the constaint
@@ -167,7 +167,7 @@ constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
     consM :: TypeConsM (TypeEnv, ModTypeEnv)
     consM = DF.foldlM consTop (Map.empty, Map.empty) (OrdMap.elems exprMap)
 
-    consTop (tEnv, mTEnv) (E.TopLet (E.LetBind bs) e) = do
+    consTop (tEnv, mTEnv) (E.TopLet (E.MultiBind bs) e) = do
         (eT, tEnv', mTEnv') <- consExpr tEnv mTEnv e
         -- extend and return tEnv
         case eT of
@@ -177,18 +177,13 @@ constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
             t | length bs == 1 -> return $ (Map.insert (head bs) eT tEnv', mTEnv')
             -- basic handling, is common case that subsumes special cases above, basically treat both sides as tuples
             -- (with tvars), create contstrains and let unificiation solve it instead
-            t | (length bs > 1) -> (multiBindConstraint (E.LetBind bs) t tEnv') >>= (\tEnv -> return (tEnv, mTEnv'))
+            t | (length bs > 1) -> (multiBindConstraint (E.MultiBind bs) t tEnv') >>= (\tEnv -> return (tEnv, mTEnv'))
             _ -> trace (errorDump [show bs, show eT, show tEnv']) (error "(TYPECHECKER) - toplet shit\n")
 
-    consTop (tEnv, mTEnv) (E.TopAbs (E.AbsBind b) arg e) = do
-        fromT <- newTypevar
-        -- extend the tEnv
-        let tEnv' = Map.insert arg fromT tEnv
-        (toT, tEnv'', mTEnv') <- consExpr tEnv' mTEnv e
-        -- add a constraint?
-        -- extend and return tEnv
-        return $ (Map.insert b (E.TArr fromT toT) tEnv'', mTEnv')
-
+    consTop (tEnv, mTEnv) (E.TopLet (E.SingBind b) e) = do
+        (eT, tEnv', mTEnv') <- consExpr tEnv mTEnv e
+        -- true for individual elems, handle same as tuple above
+        return $ (Map.insert b eT tEnv', mTEnv')
 
     -- TODO - do we need to uniquely refer to each expression within AST?, or just bindings?
     -- | map over the expression elements, creating constraints as needed,
@@ -230,9 +225,17 @@ constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
         addConstraint fT (E.TArr eT toT)
         return (toT, tEnv', mTEnv'')
 
+    consExpr tEnv mTEnv (E.Abs arg e) = do
+        fromT <- newTypevar
+        -- extend the tEnv
+        let tEnv' = Map.insert arg fromT tEnv
+        (toT, tEnv'', mTEnv') <- consExpr tEnv' mTEnv e
+        -- add a constraint?
+        return $ (E.TArr fromT toT, tEnv'', mTEnv')
+
 
     -- NOTE - do we need to return the new tEnv here?
-    consExpr tEnv mTEnv (E.Let (E.LetBind bs) e1 e2) = do
+    consExpr tEnv mTEnv (E.Let (E.MultiBind bs) e1 e2) = do
         (e1T, tEnv', mTEnv') <- consExpr tEnv mTEnv e1
         -- extend tEnv with new env
         tEnv'' <- case e1T of
@@ -242,7 +245,7 @@ constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
             t | length bs == 1 -> return $ Map.insert (head bs) e1T tEnv'
             -- basic handling, is common case that subsumes special cases above, basically treat both sides as tuples
             -- (with tvars), create contstrains and let unificiation solve it instead
-            t | (length bs > 1) -> multiBindConstraint (E.LetBind bs) t tEnv'
+            t | (length bs > 1) -> multiBindConstraint (E.MultiBind bs) t tEnv'
             _ -> trace (errorDump [show bs, show e1T, show tEnv']) (error "(TYPECHECKER) - let shit\n")
 
         consExpr tEnv'' mTEnv' e2

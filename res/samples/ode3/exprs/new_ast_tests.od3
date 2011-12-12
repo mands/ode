@@ -1,0 +1,13 @@
+/*
+module A {
+  val a = 1
+  val b = 2
+}
+*/
+
+module B {
+  component comA a => (1 + a) where {}
+  
+  val b = comA(2)
+
+}

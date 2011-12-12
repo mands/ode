@@ -75,12 +75,12 @@ updateModData modData (TopBinds map) freeId = modData { M.modIdBimap = idBimap',
 
 
 convBind :: E.Bind E.SrcId -> Map.Map E.SrcId Int -> IntSupply (E.Bind Int, Map.Map E.SrcId Int)
-convBind (E.AbsBind b) map = do
+convBind (E.SingBind b) map = do
     b' <- supply
     let map' = Map.insert b b' map
-    return (E.AbsBind b', map')
+    return (E.SingBind b', map')
 
-convBind (E.LetBind bs) map = liftM (mapFst (E.LetBind . reverse)) $ DF.foldlM t ([], map) bs
+convBind (E.MultiBind bs) map = liftM (mapFst (E.MultiBind . reverse)) $ DF.foldlM t ([], map) bs
   where
     t (bs', map) b = do
         b' <- supply
@@ -120,18 +120,6 @@ renTop exprMap = (exprMap', topBinds, head uniqs)
         let model' = OrdMap.insert b' (E.TopLet b' expr') model
         return (map'', model')
 
-    convTopBind (TopBinds map, model) (E.TopAbs b arg e) = do
-        (b', map') <- convBind b map
-        let map'' = TopBinds $ map'
-        arg' <- supply
-        let exprMap = Map.singleton arg arg'
-        -- reset exprbinds
-        lift $ put (ExprBinds $ exprMap)
-        -- should traverse over the expression here
-        expr' <- renExpr map'' e
-        let model' = OrdMap.insert b' (E.TopAbs b' arg' expr') model
-        return (map'', model')
-
 -- | Basic traverse over the expression structure - make into Data.Traversable
 renExpr :: TopBinds -> E.Expr E.SrcId -> IntSupply (E.Expr Int)
 -- need to check the expr and top bindings
@@ -147,6 +135,18 @@ renExpr tB (E.App (E.LocalVar b) expr) = liftM2 E.App (liftM E.LocalVar v') expr
 renExpr tB (E.App (E.ModVar m v) expr) = liftM2 E.App (return $ E.ModVar m v) expr'
   where
     expr' = renExpr tB expr
+
+-- TODO - a bit hacky on binding
+renExpr tB (E.Abs b expr) = do
+    -- get the exprBinds
+    (ExprBinds eB) <- lift get
+    -- get the unique id for the arg and update the binding
+    (E.SingBind b', eB') <- convBind (E.SingBind b) eB
+    -- put the new binding back
+    lift $ put (ExprBinds eB')
+    -- process the abs expr
+    expr' <- renExpr tB expr
+    return $ E.Abs b' expr'
 
 -- need to create a new binding and keep processing
 renExpr tB (E.Let b bExpr expr) = do
