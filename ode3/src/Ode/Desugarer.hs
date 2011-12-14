@@ -56,11 +56,11 @@ desugarMod elems = evalSupplyVars $ mapM desugarModElems elems
 
 -- | desugar a top-level value constant(s)
 -- throws an error if a top-level is already defined
-desugarModElems :: O.TopElem -> TmpSupply (C.Top C.SrcId)
+desugarModElems :: O.TopElem -> TmpSupply (C.TopLet C.SrcId)
 desugarModElems (O.TopElemValue (O.ValueDef ids value body)) = do
     v' <- desugarCompStmts body value
     ids' <- DT.mapM subDontCares ids
-    return $ C.TopLet (C.MultiBind ids') v'
+    return $ C.TopLet (C.Bind ids') v'
 
 -- | desugar a top level component
 desugarModElems (O.TopElemComponent (O.Component name ins outs body)) = do
@@ -69,12 +69,12 @@ desugarModElems (O.TopElemComponent (O.Component name ins outs body)) = do
     -- create a new tmpArg only if multiple elems
     arg <- if (isSingleElem ins') then return (singleElem ins') else supply
     v <- desugarComp arg ins'
-    return $ C.TopLet (C.SingBind name) (C.Abs arg v)
+    return $ C.TopLet (C.Bind [name]) (C.Abs arg v)
   where
     -- | desugars and converts a component into a \c abstraction, not in tail-call form, could blow out the stack, but unlikely
     desugarComp :: O.SrcId -> [O.SrcId] -> TmpSupply (C.Expr C.SrcId)
     desugarComp argName (singIn:[]) = desugarCompStmts body outs
-    desugarComp argName ins = C.Let (C.MultiBind ins) (C.Var (C.LocalVar argName)) <$> desugarCompStmts body outs
+    desugarComp argName ins = C.Let (C.Bind ins) (C.Var (C.LocalVar argName)) <$> desugarCompStmts body outs
 
 
 desugarCompStmts :: [O.CompStmt] -> O.Expr  -> TmpSupply (C.Expr C.SrcId)
@@ -83,7 +83,7 @@ desugarCompStmts [] outs = dsExpr outs
 -- very similar to top-level value def
 desugarCompStmts ((O.CompValue (O.ValueDef ids e vOuts)):xs) outs = do
         ids' <- DT.mapM subDontCares ids
-        let mB = C.MultiBind ids'
+        let mB = C.Bind ids'
         C.Let mB <$> desugarCompStmts vOuts e <*> desugarCompStmts xs outs
 
 -- TODO - we ignore for now

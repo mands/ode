@@ -40,9 +40,9 @@ import Utils.Utils
 type ModImport = [String]
 -- data ModImport = ModImport String (Maybe String) deriving (Show, Eq, Ord)
 
-type ExprList = [E.Top E.SrcId]
+type ExprList = [E.TopLet E.SrcId]
 -- | ExprMap is the basic collection of expressions that make up a module
-type ExprMap a = OrdMap.OrdMap (E.Bind a) (E.Top a)
+type ExprMap a = OrdMap.OrdMap (E.Bind a) (E.TopLet a)
 
 -- | FunArgs are the list of module parameters, and thier required signatures, for a functor application
 type FunArgs = OrdMap.OrdMap SrcId SigMap

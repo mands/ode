@@ -11,3 +11,8 @@ module B {
   val b = comA(2)
 
 }
+
+// need more tests
+// - nested comps
+// - comp params
+// - nested lets

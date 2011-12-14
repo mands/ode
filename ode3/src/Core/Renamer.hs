@@ -75,12 +75,12 @@ updateModData modData (TopBinds map) freeId = modData { M.modIdBimap = idBimap',
 
 
 convBind :: E.Bind E.SrcId -> Map.Map E.SrcId Int -> IntSupply (E.Bind Int, Map.Map E.SrcId Int)
-convBind (E.SingBind b) map = do
-    b' <- supply
-    let map' = Map.insert b b' map
-    return (E.SingBind b', map')
+--convBind (E.SingBind b) map = do
+--    b' <- supply
+--    let map' = Map.insert b b' map
+--    return (E.SingBind b', map')
 
-convBind (E.MultiBind bs) map = liftM (mapFst (E.MultiBind . reverse)) $ DF.foldlM t ([], map) bs
+convBind (E.Bind bs) map = liftM (mapFst (E.Bind . reverse)) $ DF.foldlM t ([], map) bs
   where
     t (bs', map) b = do
         b' <- supply
@@ -109,7 +109,7 @@ renTop exprMap = (exprMap', topBinds, head uniqs)
 
     -- map over each expr, using the topmap, converting lets and building a new scopemap
     -- as traversing expr, as order is fixed this should be ok
-    convTopBind :: (TopBinds, M.ExprMap Int) -> E.Top E.SrcId -> IntSupply (TopBinds, M.ExprMap Int)
+    convTopBind :: (TopBinds, M.ExprMap Int) -> E.TopLet E.SrcId -> IntSupply (TopBinds, M.ExprMap Int)
     convTopBind (TopBinds map, model) (E.TopLet b e) = do
         (b', map') <- convBind b map
         let map'' = TopBinds $ map'
@@ -136,12 +136,12 @@ renExpr tB (E.App (E.ModVar m v) expr) = liftM2 E.App (return $ E.ModVar m v) ex
   where
     expr' = renExpr tB expr
 
--- TODO - a bit hacky on binding
 renExpr tB (E.Abs b expr) = do
     -- get the exprBinds
     (ExprBinds eB) <- lift get
     -- get the unique id for the arg and update the binding
-    (E.SingBind b', eB') <- convBind (E.SingBind b) eB
+    b' <- supply
+    let eB' = Map.insert b b' eB
     -- put the new binding back
     lift $ put (ExprBinds eB')
     -- process the abs expr

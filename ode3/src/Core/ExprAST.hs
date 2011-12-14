@@ -23,7 +23,7 @@
 
 module Core.ExprAST (
 SrcId, Id, VarId(..), Bind(..), Type(..), travTypesM,
-Top(..), Expr(..), Op(..), Literal(..),
+TopLet(..), Expr(..), Op(..), Literal(..),
 ) where
 
 import Control.Monad
@@ -61,14 +61,21 @@ data Dimensions = Dimensions
 
 -- | Bindings, may be a tuple unpacking
 -- could eventually optimise this and make more type-safe but this works for now
--- do we need this?
-data Bind b = SingBind b | MultiBind [b]
+-- a unused GADT approach
+data TMultiBind
+data TSingBind
+data TBind :: * -> * -> * where
+    TBindM :: [b] -> TBind b TMultiBind
+    TBindS :: b -> TBind b TSingBind
+    --deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
+
+data Bind b = Bind [b]
     deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
 
 -- TODO - could we use the Bind type to unify both b and [b], or use GADTs and type-classes for extra type-safety
 -- |Main model elements - maybe move these into a Map indexed by Id
-data Top b :: * where
-    TopLet :: (Bind b) -> (Expr b) -> Top b    -- binding, expr
+data TopLet :: * -> * where
+    TopLet :: (Bind b) -> (Expr b) -> TopLet b    -- binding, expr
     deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
 
 -- | Main body of a \c-calc expression
@@ -76,16 +83,16 @@ data Top b :: * where
 -- is restricted from default \-calc to disallow nested functions, HOF, currying, anony functions and more
 -- is extended from default \-calc to support literals (inc. numbers, bools), pairs, and built-in operators (effectily Vars)
 -- disabling currying means that all functions take only a single parameter, and evalute to an expression,
--- thus to pass/return multiple values simple used pair consing
+-- thus to pass/return multiple values use tuples
 -- TODO - should this be a GADT??, should "b" be an instance of Ord
 data Expr b = Var (VarId b)             -- a reference to any let-defined expressions
                                         -- could potentially ref to a top-level abs but unlikely, would be optimised
 
             | App (VarId b) (Expr b)    -- name of top-level func, expression to apply
-                                        -- by using an Id instead of Expr we effecitively disallow anon-funcs and HOF, we can only
+                                        -- by using an Id instead of Expr w`e effecitively disallow anon-funcs and HOF, we can only
                                         -- call top-level variables that may then be applied
 
-            | Abs b (Expr b)            -- abs param name, expr
+            | Abs b (Expr b)            -- abs arg, expr
 
 
             | Let (Bind b) (Expr b) (Expr b)  -- basic let within sub-expression

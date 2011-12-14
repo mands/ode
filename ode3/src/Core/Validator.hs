@@ -43,12 +43,12 @@ validate mod@(M.AppMod _ _) = pure mod
 createTopExprs :: M.ExprList -> MExcept (M.ExprMap E.SrcId)
 createTopExprs exprList = (\(_, exprMap) -> exprMap) <$> DF.foldlM t (Set.empty, OrdMap.empty) exprList
   where
-    t :: (Set.Set E.SrcId, M.ExprMap E.SrcId) -> E.Top E.SrcId -> MExcept (Set.Set E.SrcId, M.ExprMap E.SrcId)
+    t :: (Set.Set E.SrcId, M.ExprMap E.SrcId) -> E.TopLet E.SrcId -> MExcept (Set.Set E.SrcId, M.ExprMap E.SrcId)
     t s topExpr@(E.TopLet b expr) = validExpr (Set.empty) expr *> addTopBinding s b topExpr
 
     addTopBinding (topBinds, exprMap) b expr = case b of
-        E.SingBind ab -> (,) <$> addBinding topBinds ab <*> pure (OrdMap.insert b expr exprMap)
-        E.MultiBind bs -> (,) <$> DF.foldlM addBinding topBinds bs <*> pure (OrdMap.insert b expr exprMap)
+        -- E.SingBind ab -> (,) <$> addBinding topBinds ab <*> pure (OrdMap.insert b expr exprMap)
+        E.Bind bs -> (,) <$> DF.foldlM addBinding topBinds bs <*> pure (OrdMap.insert b expr exprMap)
       where
         addBinding topBinds b = case Set.member b topBinds of
             True -> throwError $ "(VL05) - Top Binding " ++ (show b) ++ " already exists in module"
@@ -56,13 +56,14 @@ createTopExprs exprList = (\(_, exprMap) -> exprMap) <$> DF.foldlM t (Set.empty,
 
 -- check several properties for expression tree, passes state down into exp, doesn't bother returning it for now
 validExpr :: (Set.Set E.SrcId) -> E.Expr E.SrcId -> MExcept ()
-validExpr bs e@(E.Var v) = pure ()
-validExpr bs e@(E.Lit l) = pure ()
+-- validExpr _ e@(E.Var v) = pure ()
+-- validExpr _ e@(E.Lit l) = pure ()
+
 validExpr curBinds (E.App v e) = validExpr curBinds e
 
 validExpr curBinds (E.Abs b e) = validExpr curBinds e
 
-validExpr curBinds (E.Let b'@(E.MultiBind bs) e1 e2) = do
+validExpr curBinds (E.Let (E.Bind bs) e1 e2) = do
     curBinds' <- DF.foldlM addBinding curBinds bs
     (validExpr curBinds e1) *> (validExpr curBinds' e2)
   where
@@ -72,9 +73,11 @@ validExpr curBinds (E.Let b'@(E.MultiBind bs) e1 e2) = do
 
 validExpr curBinds (E.Op op e) = validExpr curBinds e
 validExpr curBinds (E.If eB eT eF) = (validExpr curBinds eB) *> (validExpr curBinds eT) *> (validExpr curBinds eF)
-validExpr _ (E.Tuple []) = throwError "(VL01) Empty tuple found"
-validExpr _ (E.Tuple (e:[])) = throwError "(VL02) Tuple with only one element found"
+
+validExpr curBinds (E.Tuple []) = throwError "(VL01) Empty tuple found"
+validExpr curBinds (E.Tuple (e:[])) = throwError "(VL02) Tuple with only one element found"
 validExpr curBinds (E.Tuple es) = DF.traverse_ (validExpr curBinds) es
+
 validExpr _ e = pure ()
 
 
