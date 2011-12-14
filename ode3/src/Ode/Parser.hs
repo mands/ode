@@ -28,10 +28,20 @@ import Utils.Utils
 import qualified Ode.AST as O
 
 -- |parse the body of a module
-moduleBody :: Parser O.TopElem
-moduleBody =    O.TopElemComponent <$> compDef
-                <|> O.TopElemValue <$> valueDef
+moduleBody = stmt
+
+stmt :: Parser O.Stmt
+stmt =    O.StmtComponent <$> compDef
+                <|> O.StmtValue <$> valueDef
                 <?> "component or value defintion"
+
+-- |parse a value definition
+-- e.g., val x = expr
+valueDef :: Parser O.Value
+valueDef = O.Value  <$> (reserved "val" *> commaSep1 valIdentifier) <*> (reservedOp "=" *> compExpr)
+                    <*> option [] (reserved "where" *> valBody)
+  where
+    valBody = braces $ many stmt
 
 -- |parser for defining a component, where either a defintion or module parameter component may follow
 compDef :: Parser O.Component
@@ -46,33 +56,27 @@ compDef = do
         <?> "component definition"
 
     -- | parser for the component body, a list of statements
-    compBody = braces $ many compStmt
+    compBody = braces $ many stmt
 
 -- |parser for the statements allowed within a component body
-compStmt :: Parser O.CompStmt
-compStmt =  --O.CompCallDef <$> commaSep1 identifier <*> (reservedOp "=" *> identifier) <*> paramList compExpr
-            O.CompValue <$> valueDef
-            <|> O.InitValueDef <$> (reserved "init" *> commaSep1 identifier) <*> (reservedOp "=" *> compExpr)
-            <|> updateOde <$> (reserved "ode" *> identifier) <*> (reservedOp "=" *> braces odeDef)
-            <|> updateRre <$> (reserved "rre" *> identifier) <*> (reservedOp "=" *> braces rreDef)
-            <?> "valid component statement"
-  where
-    updateOde n ode = ode {O.odeName = n}
-    updateRre n rre = rre {O.rreName = n}
+--compStmt :: Parser O.CompStmt
+--compStmt =  --O.CompCallDef <$> commaSep1 identifier <*> (reservedOp "=" *> identifier) <*> paramList compExpr
+--            O.CompComp <$> compDef
+--            <|> O.CompValue <$> valueDef
+--            <|> O.InitValueDef <$> (reserved "init" *> commaSep1 identifier) <*> (reservedOp "=" *> compExpr)
+--            <|> updateOde <$> (reserved "ode" *> identifier) <*> (reservedOp "=" *> braces odeDef)
+--            <|> updateRre <$> (reserved "rre" *> identifier) <*> (reservedOp "=" *> braces rreDef)
+--            <?> "valid component statement"
+--  where
+--    updateOde n ode = ode {O.odeName = n}
+--    updateRre n rre = rre {O.rreName = n}
 
--- |parse a value definition
--- e.g., val x = expr
-valueDef :: Parser O.ValueDef
-valueDef = O.ValueDef   <$> (reserved "val" *> commaSep1 valIdentifier) <*> (reservedOp "=" *> compExpr)
-                        <*> option [] (reserved "where" *> valBody)
-  where
-    valBody = braces $ many compStmt
 
 -- |parse a rre attribute definition
-rreDef = permute (O.RreDef ""
-            <$$> (attrib "reaction" ((,) <$> identifier <*> (reservedOp "->" *> identifier)))
-            <||> (attrib "rate" compExpr)
-            ) <?> "rre definition"
+--rreDef = permute (O.RreDef ""
+--            <$$> (attrib "reaction" ((,) <$> identifier <*> (reservedOp "->" *> identifier)))
+--            <||> (attrib "rate" compExpr)
+--            ) <?> "rre definition"
 
 {-
 TODO - File GHC/Parsec bug
@@ -86,10 +90,10 @@ odeDef n = permute (n
 -}
 
 -- |parse an ode attribute definition
-odeDef = permute (O.OdeDef ""
-            <$$> (attrib "init" number)
-            <||> (attrib "delta" compExpr)
-            ) <?> "ode definition"
+--odeDef = permute (O.OdeDef ""
+--            <$$> (attrib "init" number)
+--            <||> (attrib "delta" compExpr)
+--            ) <?> "ode definition"
 
 
 -- |parse a term - the value on either side of an operator

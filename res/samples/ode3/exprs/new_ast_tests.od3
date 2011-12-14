@@ -5,14 +5,39 @@ module A {
 }
 */
 
+/*
 module B {
   component comA a => (1 + a) where {}
   
   val b = comA(2)
 
 }
+*/
 
 // need more tests
-// - nested comps
 // - comp params
-// - nested lets
+
+// - nested vals
+/*
+module C {
+  val a = b where {
+    val b = 1  
+  }
+}
+*/
+
+
+// - nested comps
+module D {
+
+  component comA a => (1 + d) where {
+
+    component comB b => (2 + c) where {
+      val c = b + 3
+    }
+  
+    val d = comB(4 + a)
+
+  }
+}
+

@@ -272,7 +272,7 @@ constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
         consTuple (eTs, tEnv, mTEnv) = (E.TTuple (reverse eTs), tEnv, mTEnv)
 
     -- other exprs - not needed as match all
-    consExpr tEnv mTEnv e = error ("(TC02) unknown expr - " ++ show e)
+    -- consExpr tEnv mTEnv e = error ("(TC02) unknown expr - " ++ show e)
 
 
 -- NOTE - should these two functions be moved into the AST?

@@ -94,14 +94,10 @@ data Expr b = Var (VarId b)             -- a reference to any let-defined expres
 
             | Abs b (Expr b)            -- abs arg, expr
 
-
             | Let (Bind b) (Expr b) (Expr b)  -- basic let within sub-expression
                                         -- test to try multi-lets within an expressino - handles unpacking with context
 
-
             | Lit Literal               -- basic built-in constant literals
-
-
 
             | Op Op (Expr b)    -- is basically identical to App - however is used to refer to built-in/run-time functions
                                 -- we could but don't curry as would like to apply same optimsations to both sys/user functions

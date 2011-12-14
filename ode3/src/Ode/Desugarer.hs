@@ -51,51 +51,90 @@ instance Applicative TmpSupply where
     pure = return
     (<*>) = ap
 
-desugarMod :: [O.TopElem] -> MExcept M.ExprList
-desugarMod elems = evalSupplyVars $ mapM desugarModElems elems
+desugarMod :: [O.Stmt] -> MExcept M.ExprList
+desugarMod elems = evalSupplyVars $ DT.mapM desugarTopStmt elems
 
 -- | desugar a top-level value constant(s)
 -- throws an error if a top-level is already defined
-desugarModElems :: O.TopElem -> TmpSupply (C.TopLet C.SrcId)
-desugarModElems (O.TopElemValue (O.ValueDef ids value body)) = do
-    v' <- desugarCompStmts body value
+
+
+desugarTopStmt :: O.Stmt -> TmpSupply (C.TopLet C.SrcId)
+desugarTopStmt stmt = do
+    (ids, expr) <- desugarStmt stmt
+    return $ C.TopLet (C.Bind ids) expr
+
+desugarStmt :: O.Stmt -> TmpSupply ([C.SrcId], C.Expr C.SrcId)
+desugarStmt (O.StmtValue (O.Value ids value body)) = do
+    v' <- desugarS' body value
     ids' <- DT.mapM subDontCares ids
-    return $ C.TopLet (C.Bind ids') v'
+    return $ (ids', v')
 
 -- | desugar a top level component
-desugarModElems (O.TopElemComponent (O.Component name ins outs body)) = do
+desugarStmt (O.StmtComponent (O.Component name ins outs body)) = do
     -- sub the ins
     ins' <- DT.mapM subDontCares ins
     -- create a new tmpArg only if multiple elems
     arg <- if (isSingleElem ins') then return (singleElem ins') else supply
     v <- desugarComp arg ins'
-    return $ C.TopLet (C.Bind [name]) (C.Abs arg v)
+    return $ ([name], (C.Abs arg v))
   where
     -- | desugars and converts a component into a \c abstraction, not in tail-call form, could blow out the stack, but unlikely
     desugarComp :: O.SrcId -> [O.SrcId] -> TmpSupply (C.Expr C.SrcId)
-    desugarComp argName (singIn:[]) = desugarCompStmts body outs
-    desugarComp argName ins = C.Let (C.Bind ins) (C.Var (C.LocalVar argName)) <$> desugarCompStmts body outs
+    desugarComp argName (singIn:[]) = desugarS' body outs
+    desugarComp argName ins = C.Let (C.Bind ins) (C.Var (C.LocalVar argName)) <$> desugarS' body outs
 
 
-desugarCompStmts :: [O.CompStmt] -> O.Expr  -> TmpSupply (C.Expr C.SrcId)
--- process the body by pattern-matching on the statement types
-desugarCompStmts [] outs = dsExpr outs
--- very similar to top-level value def
-desugarCompStmts ((O.CompValue (O.ValueDef ids e vOuts)):xs) outs = do
-        ids' <- DT.mapM subDontCares ids
-        let mB = C.Bind ids'
-        C.Let mB <$> desugarCompStmts vOuts e <*> desugarCompStmts xs outs
+desugarS' :: [O.Stmt] -> O.Expr  -> TmpSupply (C.Expr C.SrcId)
+desugarS' [] outs = dsExpr outs
+desugarS' (s@(O.StmtValue _):xs) outs = do
+        (ids, expr) <- desugarStmt s
+        C.Let (C.Bind ids) expr <$> desugarS' xs outs
+desugarS' (s@(O.StmtComponent _):xs) outs = do
+        (ids, expr) <- desugarStmt s
+        C.Let (C.Bind ids) expr <$> desugarS' xs outs
 
--- TODO - we ignore for now
-desugarCompStmts ((O.InitValueDef ids e):xs) _ = lift $ throwError "test"
-desugarCompStmts ((O.OdeDef id init e):xs) _ = error "(DS) got ODE"
-desugarCompStmts ((O.RreDef id (from, to) e):xs) _ = error "(DS) got RRE"
+--error (show s)
+
+
+--desugarModElems :: O.Stmt -> TmpSupply (C.TopLet C.SrcId)
+--desugarModElems (O.StmtValue (O.Value ids value body)) = do
+--    v' <- desugarCompStmts body value
+--    ids' <- DT.mapM subDontCares ids
+--    return $ C.TopLet (C.Bind ids') v'
+--
+---- | desugar a top level component
+--desugarModElems (O.StmtComponent (O.Component name ins outs body)) = do
+--    -- sub the ins
+--    ins' <- DT.mapM subDontCares ins
+--    -- create a new tmpArg only if multiple elems
+--    arg <- if (isSingleElem ins') then return (singleElem ins') else supply
+--    v <- desugarComp arg ins'
+--    return $ C.TopLet (C.Bind [name]) (C.Abs arg v)
+--  where
+--    -- | desugars and converts a component into a \c abstraction, not in tail-call form, could blow out the stack, but unlikely
+--    desugarComp :: O.SrcId -> [O.SrcId] -> TmpSupply (C.Expr C.SrcId)
+--    desugarComp argName (singIn:[]) = desugarCompStmts body outs
+--    desugarComp argName ins = C.Let (C.Bind ins) (C.Var (C.LocalVar argName)) <$> desugarCompStmts body outs
+--
+--
+--desugarCompStmts :: [O.Stmt] -> O.Expr  -> TmpSupply (C.Expr C.SrcId)
+---- process the body by pattern-matching on the statement types
+--desugarCompStmts [] outs = dsExpr outs
+---- very similar to top-level value def
+--desugarCompStmts ((O.StmtValue (O.Value ids e vOuts)):xs) outs = do
+--        ids' <- DT.mapM subDontCares ids
+--        let mB = C.Bind ids'
+--        C.Let mB <$> desugarCompStmts vOuts e <*> desugarCompStmts xs outs
+
+-- TODO - we ignore for nowddd
+--desugarCompStmts ((O.InitValueDef ids e):xs) _ = lift $ throwError "test"
+--desugarCompStmts ((O.OdeDef id init e):xs) _ = error "(DS) got ODE"
+--desugarCompStmts ((O.RreDef id (from, to) e):xs) _ = error "(DS) got RRE"
 
 -- | Expression desugarer - basically a big pattern amtch on all possible types
 -- should prob enable warnings to pick up all unmatched patterns
 dsExpr :: O.Expr -> TmpSupply (C.Expr C.SrcId)
--- TODO - fix!
--- dsExpr (O.UnExpr O.Not e) = liftM (C.Op C.Not) (dsExpr e)
+dsExpr (O.UnExpr O.Not e) = liftM (C.Op C.Not) (dsExpr e)
 
 -- convert unary negation into (* -1)
 dsExpr (O.UnExpr O.Neg e) = do
@@ -127,8 +166,8 @@ dsExpr (O.Piecewise cases e) = dsIf cases
 dsExpr (O.Call (O.LocalId id) exprs) = liftM (C.App (C.LocalVar id)) $ packElems exprs
 dsExpr (O.Call (O.ModId mId id) exprs) = liftM (C.App (C.ModVar mId id)) $ packElems exprs
 
--- any unknown/unimplemented paths - mainly modules for now
-dsExpr a = trace (show a) (error "(DS) Unknown ODE3 expression")
+-- any unknown/unimplemented paths - not needed as match all
+-- dsExpr a = trace (show a) (error "(DS) Unknown ODE3 expression")
 
 -- | Simple test to see if an expression contains only a single element or is a packed tuple
 isSingleElem es = length es == 1

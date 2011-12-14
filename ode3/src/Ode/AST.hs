@@ -15,8 +15,8 @@
 -----------------------------------------------------------------------------
 
 module Ode.AST (
-    ModLocalId(..), ValId(..), TopElem(..),
-    Component(..), ValueDef(..), CompStmt(..), Expr(..), BinOp(..), UnOp(..),
+    ModLocalId(..), ValId(..), Stmt(..),
+    Component(..), Value(..), Expr(..), BinOp(..), UnOp(..),
     SrcId, NumTy,
 ) where
 
@@ -31,28 +31,29 @@ data ModLocalId = LocalId SrcId | ModId SrcId SrcId
 data ValId = ValId SrcId | DontCare deriving (Show, Ord, Eq)
 
 -- | elements allowed within a module, basically components or top-level constant values
-data TopElem = TopElemComponent Component
-                | TopElemValue ValueDef
-                deriving Show
+data Stmt = StmtComponent Component
+         | StmtValue Value
+         deriving Show
 
 -- | value defintion
 -- they are constant, at least during single timestep
-data ValueDef = ValueDef { vName :: [ValId], vValue :: Expr, vBody :: [CompStmt] } deriving Show
+data Value = Value { vName :: [ValId], vValue :: Expr, vBody :: [Stmt] } deriving Show
 
--- | each independent component, it is essentially a function abstraction
+-- | each independent component, is basically function abstraction
 -- components may be defined inline, with name, ins, outs, and body
 -- or they may be a reference to a component defined in a module param and re-exported here
-data Component  = Component { cName :: SrcId, cInputs :: [ValId], cOutputs :: Expr, cBody :: [CompStmt]}
+data Component  = Component { cName :: SrcId, cInputs :: [ValId], cOutputs :: Expr, cBody :: [Stmt]}
                 | ComponentRef SrcId ModLocalId
                 deriving Show
 
 -- | statments allowed within a component, these include,
 -- constant value defintinos, intial value defintions, odes and rres
-data CompStmt   = CompValue ValueDef
-                | InitValueDef { ivName :: [SrcId], ivValue :: Expr }
-                | OdeDef { odeName :: SrcId, odeInit :: Double, odeExp :: Expr}
-                | RreDef { rreName :: SrcId, reaction :: (SrcId, SrcId), rate :: Expr}
-                deriving Show
+--data CompStmt   = CompValue Value       -- nested value
+--                | CompComp Component    -- nested component
+--                | InitValueDef { ivName :: [SrcId], ivValue :: Expr }
+--                | OdeDef { odeName :: SrcId, odeInit :: Double, odeExp :: Expr}
+--                | RreDef { rreName :: SrcId, reaction :: (SrcId, SrcId), rate :: Expr}
+--                deriving Show
 
 -- | tree for basic arithmetic expressions, these are recursive and may include
 -- binary and unary opertors, literal numbers, number sequences ([a,b..c]),
