@@ -93,7 +93,7 @@ convBind (E.Bind bs) map = liftM (mapFst (E.Bind . reverse)) $ DF.foldlM t ([], 
 bLookup :: E.SrcId -> TopBinds -> IntSupply Int
 bLookup v (TopBinds tB) = do
     (ExprBinds eB) <- lift get
-    let m = Map.lookup v eB
+    let m = trace (mkTrace [show v, show eB, show tB]) $ Map.lookup v eB
     case m of
         Just x -> return x
         -- This should never throw an error (reorderer now catches all unknown variable references)
@@ -160,6 +160,9 @@ renExpr tB (E.Let b bExpr expr) = do
     lift $ put (ExprBinds eB')
     -- process the main expr
     expr' <- renExpr tB expr
+
+    -- now put back the
+
     return $ E.Let b' bExpr' expr'
 
 -- just traverse the structure

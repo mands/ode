@@ -13,7 +13,7 @@
 -----------------------------------------------------------------------------
 
 module Utils.Utils (
-MExcept, PrettyPrint(..), mapFst, mapSnd, pairM, errorDump,
+MExcept, PrettyPrint(..), mapFst, mapSnd, pairM, errorDump, mkTrace
 ) where
 
 import Control.Monad
@@ -35,5 +35,10 @@ pairM a b = liftM2 (,) a b
 class PrettyPrint a where
     prettyPrint :: a -> String
 
+
+-- TODO - use existentials
 errorDump :: [String] -> String
 errorDump msgs = "ERROR DUMP \n" ++ (intercalate "\n" msgs)
+
+mkTrace :: [String] -> String
+mkTrace msgs = intercalate ", " msgs

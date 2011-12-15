@@ -51,7 +51,7 @@ createTopExprs exprList = (\(_, exprMap) -> exprMap) <$> DF.foldlM t (Set.empty,
         E.Bind bs -> (,) <$> DF.foldlM addBinding topBinds bs <*> pure (OrdMap.insert b expr exprMap)
       where
         addBinding topBinds b = case Set.member b topBinds of
-            True -> throwError $ "(VL05) - Top Binding " ++ (show b) ++ " already exists in module"
+            True -> throwError $ "(VL06) - Top Binding " ++ (show b) ++ " already exists in module"
             False -> pure $ (Set.insert b topBinds)
 
 -- check several properties for expression tree, passes state down into exp, doesn't bother returning it for now
@@ -65,10 +65,10 @@ validExpr curBinds (E.Abs b e) = validExpr curBinds e
 
 validExpr curBinds (E.Let (E.Bind bs) e1 e2) = do
     curBinds' <- DF.foldlM addBinding curBinds bs
-    (validExpr curBinds e1) *> (validExpr curBinds' e2)
+    (validExpr Set.empty e1) *> (validExpr curBinds' e2)
   where
     addBinding curBinds b = case Set.member b curBinds of
-        True -> throwError $ "(VL04) - Binding " ++ (show b) ++ " already exists in component"
+        True -> throwError $ "(VL04) - Binding " ++ (show b) ++ " already exists at this scoping level"
         False -> pure $ (Set.insert b curBinds)
 
 validExpr curBinds (E.Op op e) = validExpr curBinds e

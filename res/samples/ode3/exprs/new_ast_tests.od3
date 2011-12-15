@@ -25,10 +25,28 @@ module C {
   }
 }
 */
+// multiple nested vals
+/*
+module D {
+  val a = b where {
+    val b = c where {
+      val c = 1
+    }
+  }
+  
+  val b = c where {
+    val d = 1
 
+    val c = e where {
+      val e = d
+    }
+  }
+}
+*/
 
 // - nested comps
-module D {
+/*
+module E {
 
   component comA a => (1 + d) where {
 
@@ -40,4 +58,80 @@ module D {
 
   }
 }
+*/
+
+
+// nested comps and vals
+/*
+module F {
+
+  component comA a => (1 + d + a) where {
+
+    component comB b => (2 + c) where {      
+      val c = b + 3
+    }
+  
+    val d = e where {
+      component comC f => g where {
+        val g = comB(4 + f)
+      }
+      val e = comC(5)
+    }
+  }
+}
+*/
+
+/*
+module G {
+
+  val a = 1
+  
+  val b = a where {
+    val a = 2
+  }
+  
+  val c = a
+}
+
+module H {
+  val a = 1
+
+  component comA a => b where {
+    val b = a + 1  
+  }  
+  val c = comA(a)
+
+}
+*/
+
+
+// ERROR - out-of-scope a can be referenced
+
+module I {
+  component comA a => (b + a) where {
+    val x = a
+    val b = a where {
+      val a = 1
+    }
+  }
+
+  // for type-checking  
+  val b = comA(1)
+}
+
+
+
+// FIXED - differing scope val c conflict
+/*
+module I {
+  val a = b where {
+    val c = 1
+    val d = c where {
+      val c = 2
+    }
+    val b = c
+  }
+}
+*/
+
 
