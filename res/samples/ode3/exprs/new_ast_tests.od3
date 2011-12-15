@@ -62,7 +62,7 @@ module E {
 
 
 // nested comps and vals
-/*
+
 module F {
 
   component comA a => (1 + d + a) where {
@@ -72,14 +72,14 @@ module F {
     }
   
     val d = e where {
-      component comC f => g where {
-        val g = comB(4 + f)
+      component comC a => b where {
+        val b = comB(4 + a)
       }
       val e = comC(5)
     }
   }
 }
-*/
+
 
 /*
 module G {
@@ -105,8 +105,8 @@ module H {
 */
 
 
-// ERROR - out-of-scope a can be referenced
-
+// FIXED - renaming follows scoping rules correctly
+/*
 module I {
   component comA a => (b + a) where {
     val x = a
@@ -114,13 +114,8 @@ module I {
       val a = 1
     }
   }
-
-  // for type-checking  
-  val b = comA(1)
 }
-
-
-
+*/
 // FIXED - differing scope val c conflict
 /*
 module I {
