@@ -178,7 +178,7 @@ constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
             -- basic handling, is common case that subsumes special cases above, basically treat both sides as tuples
             -- (with tvars), create contstrains and let unificiation solve it instead
             t | (length bs > 1) -> (multiBindConstraint (E.Bind bs) t tEnv') >>= (\tEnv -> return (tEnv, mTEnv'))
-            _ -> trace (errorDump [show bs, show eT, show tEnv']) (error "(TYPECHECKER) - toplet shit\n")
+            _ -> errorDump [MkSB bs, MkSB eT, MkSB tEnv'] "(TYPECHECKER) - toplet shit\n"
 
 --    consTop (tEnv, mTEnv) (E.TopLet (E.SingBind b) e) = do
 --        (eT, tEnv', mTEnv') <- consExpr tEnv mTEnv e
@@ -246,7 +246,7 @@ constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
             -- basic handling, is common case that subsumes special cases above, basically treat both sides as tuples
             -- (with tvars), create contstrains and let unificiation solve it instead
             t | (length bs > 1) -> multiBindConstraint (E.Bind bs) t tEnv'
-            _ -> trace (errorDump [show bs, show e1T, show tEnv']) (error "(TYPECHECKER) - let shit\n")
+            _ -> errorDump [MkSB bs, MkSB e1T, MkSB tEnv'] "(TYPECHECKER) - let shit\n"
 
         consExpr tEnv'' mTEnv' e2
 
@@ -344,7 +344,7 @@ unify tCons = liftM snd $ unify' (tCons, Map.empty)
     uCon (E.TTuple xs, E.TTuple ys) st = DF.foldlM (\st (x, y) -> uCon (x, y) st) st (zip xs ys)
 
     -- can't unfiy types
-    uCon (x, y) st = trace (errorDump [show x, show y, show st]) $ throwError (printf "(TC01) - cannot unify %s and %s" (show x) (show y))
+    uCon (x, y) st = trace' [MkSB x, MkSB y, MkSB st] "Type Error" $ throwError (printf "(TC01) - cannot unify %s and %s" (show x) (show y))
 
     -- replaces all occurances of tVar x with y in tCons
     subStack x y tCons = Set.map subTCon tCons

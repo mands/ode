@@ -47,22 +47,18 @@ module D {
 // - nested comps
 /*
 module E {
-
   component comA a => (1 + d) where {
-
     component comB b => (2 + c) where {
       val c = b + 3
     }
-  
     val d = comB(4 + a)
-
   }
 }
 */
 
 
 // nested comps and vals
-
+/*
 module F {
 
   component comA a => (1 + d + a) where {
@@ -79,7 +75,7 @@ module F {
     }
   }
 }
-
+*/
 
 /*
 module G {
@@ -117,7 +113,7 @@ module I {
 }
 */
 // FIXED - differing scope val c conflict
-/*
+
 module I {
   val a = b where {
     val c = 1
@@ -127,6 +123,18 @@ module I {
     val b = c
   }
 }
+
+
+
+// Comp Params
+/*
+module J {
+  val a = b where {
+    val c = 1
+    val d = c where {
+      val c = 2
+    }
+    val b = c
+  }
+}
 */
-
-
