@@ -1,0 +1,55 @@
+---- Module I output
+
+TopLet (Bind ["comA"]) (Abs "a" 
+  (Let (Bind ["b"]) 
+    (Let (Bind ["a"]) (Lit (Num 1.0)) 
+    (Var (LocalVar "a"))) 
+  (Op Add (Tuple [Var (LocalVar "b"),Var (LocalVar "a")]))))
+
+TopLet (Bind [0]) (Abs 1 
+  (Let (Bind [3]) 
+    (Let (Bind [2]) (Lit (Num 1.0)) 
+    (Var (LocalVar 2))) 
+  (Op Add (Tuple [Var (LocalVar 3),Var (LocalVar 2)]))))
+
+TopLet (Bind ["comA"]) (Abs "a" 
+  (Let (Bind ["x"]) (Var (LocalVar "a")) 
+  (Let (Bind ["b"]) 
+    (Let (Bind ["a"]) (Lit (Num 1.0)) 
+    (Var (LocalVar "a"))) 
+  (Op Add (Tuple [Var (LocalVar "b"),Var (LocalVar "a")])))))
+
+TopLet (Bind [0]) (Abs 1 
+  (Let (Bind [2]) (Var (LocalVar 1))
+  (Let (Bind [4]) 
+    (Let (Bind [3]) (Lit (Num 1.0)) 
+    (Var (LocalVar 3)))
+  (Op Add (Tuple [Var (LocalVar 4),Var (LocalVar 1)]))))))
+
+
+---- Module J output
+
+TopLet (Bind ["a"]) 
+  (Let (Bind ["c"]) (Lit (Num 1.0)) 
+  (Let (Bind ["d"]) 
+    (Let (Bind ["c"]) (Lit (Num 2.0)) 
+    (Var (LocalVar "c"))) 
+  (Let (Bind ["b"]) (Var (LocalVar "c")) 
+    (Var (LocalVar "b")))))
+    
+---- Module K output
+0 :: (Float -> Float) -> TVar 2, 1 :: (Float -> Float)
+TopLet (Bind [0]) (Abs 1 (App (LocalVar 1) (Lit (Num 1.0))))
+
+2 :: (Float -> Float)
+TopLet (Bind [2]) (Abs 3 (Op Add (Tuple [Var (LocalVar 3),Lit (Num 1.0)])))
+
+4 :: TVar 4
+TopLet (Bind [4]) (App (LocalVar 0) (Var (LocalVar 2)))
+
+tCons
+TVar 1 = TArr TFloat (TVar 2)
+TArr (TVar 1) (TVar 2) = TArr (TArr (TVar 3) TFloat) (TVar 4)
+TTuple [TFloat,TFloat] = TTuple [TVar 3,TFloat]
+
+

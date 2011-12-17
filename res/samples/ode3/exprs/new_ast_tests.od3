@@ -112,21 +112,7 @@ module I {
   }
 }
 */
-// FIXED - differing scope val c conflict
-
-module I {
-  val a = b where {
-    val c = 1
-    val d = c where {
-      val c = 2
-    }
-    val b = c
-  }
-}
-
-
-
-// Comp Params
+// FIXED - differing scope val c conflict when adding
 /*
 module J {
   val a = b where {
@@ -134,7 +120,50 @@ module J {
     val d = c where {
       val c = 2
     }
-    val b = c
+    val b = 3
   }
 }
 */
+
+
+// Comp Params (Closed)
+/*
+module K {
+  component comA comParam => comParam(1) where { }
+  
+  component comB a => (a + 1) where { }
+  
+  val call = comA(comB)
+}
+*/
+
+// Comp Params (Open)
+/*
+module L {
+  val x = True
+  
+  component comA comParam => comParam(1) where { }
+  
+  component comB a => x where { }
+  
+  val call = comA(comB)
+}
+*/
+
+// Comp Params (Multiple args)
+/*
+module M {
+
+  component comA (comParam, arg) => comParam(arg, arg) where { }
+  
+  component comB (a, b) => (a, b) where { }
+  
+  val call = comA(comB, 1)
+}
+*/
+
+// nested tuples
+module N {
+
+}
+

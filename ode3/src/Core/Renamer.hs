@@ -91,7 +91,7 @@ bLookup :: E.SrcId -> TopBinds -> IntSupply Int
 bLookup v tB =
     -- This should never throw an error (reorderer now catches all unknown variable references)
     -- maybe (renError ("Referenced variable " ++ v ++ " not found")) (\x -> return x) (Map.lookup v tB)
-    return $ maybe (error "(RNO1)") id $ trace' [MkSB v, MkSB tB] "Scope Mappings" (Map.lookup v tB)
+    return $ maybe (error "(RNO1)") id $ (Map.lookup v tB) -- trace' [MkSB v, MkSB tB] "Scope Mappings"
 
 -- |Need to build a conversion map of the top values first
 renTop :: M.ExprMap E.SrcId -> (M.ExprMap Int, TopBinds, Int)

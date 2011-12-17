@@ -128,14 +128,16 @@ updateModData modData tEnv = modData { M.modTMap = tEnv, M.modSig = modSig }
 
 
 -- | use the TVar map to undate a type enviroment and substitute all TVars
-subTVars :: Map.Map b E.Type -> TypeVarEnv -> Bool -> MExcept (Map.Map b E.Type)
+-- Bool argument determinst wheter the checking should allow polymophism and not fully-unify
+subTVars :: Show b => Map.Map b E.Type -> TypeVarEnv -> Bool -> MExcept (Map.Map b E.Type)
 subTVars tEnv tVarMap allowPoly = DT.mapM (\t -> E.travTypesM t updateType) tEnv
   where
     -- try to substitute a tvar if it exists - this will behave differently depending on closed/open modules
     updateType :: E.Type -> MExcept E.Type
     updateType t@(E.TVar i) = case (Map.lookup i tVarMap) of
                                 Just t' -> return t'
-                                Nothing -> if allowPoly then return t else throwError "(TC03) - Type-variable found in non-polymorphic closed module"
+                                Nothing -> if allowPoly then return t else
+                                            trace' [MkSB tEnv, MkSB tVarMap] "Poly error" $ throwError "(TC03) - Type-variable found in non-polymorphic closed module"
     updateType t = return t
 
 
@@ -311,12 +313,11 @@ getOpType op = case op of
 
 -- | unify takes a set of type contraints and attempts to unify all types, inc TVars
 -- based on HM - standard constraint unification algorithm
--- Bool argument determinst wheter the checking should allow polymophism and not fully-unify
 unify :: TypeCons -> MExcept TypeVarEnv
-unify tCons = liftM snd $ unify' (tCons, Map.empty)
+unify tCons = trace' [MkSB tCons] "Initial Unify tCons" $ liftM snd $ unify' (tCons, Map.empty)
   where
     unify' :: (TypeCons, TypeVarEnv) ->  MExcept (TypeCons, TypeVarEnv)
-    unify' (tCons, tMap) = case (Set.minView tCons) of
+    unify' (tCons, tMap) = trace' [MkSB tCons, MkSB tMap] "Unify iteration" $ case (Set.minView tCons) of
                         Just (constraint, tCons') -> (uCon constraint (tCons', tMap)) >>= unify'
                         Nothing -> return (tCons, tMap)
 
@@ -325,16 +326,16 @@ unify tCons = liftM snd $ unify' (tCons, Map.empty)
     uCon (E.TVar xId, E.TVar yId) st
        | (xId == yId) = return st
 
-    uCon (x, y) st
-       | (x == y) = return st
-
     -- replace all x with y
-    uCon (x@(E.TVar _), y) (tCons, tMap)
-        | not (occursCheck x y) = return (subStack x y tCons, subMap x y tMap)
+    uCon (x@(E.TVar xId), y) (tCons, tMap)
+        | not (occursCheck x y) = case Map.lookup xId tMap of
+                                    Just xT -> return (Set.insert (xT, y) tCons, tMap) -- the tvar has already been updated, use this and recheck
+                                    --Just xT -> uCon (xT, y) (tCons, tMap) -- can also, but neater to reinsert into the tCons
+                                    Nothing -> return (subStack x y tCons, subAddMap x y tMap) -- tvar doesn't exist, add and sub
 
     -- replace all y with x
-    uCon (x, y@(E.TVar _)) (tCons, tMap)
-        | not (occursCheck y x) = return (subStack y x tCons, subMap y x tMap)
+    uCon (x, y@(E.TVar _)) st = uCon (y, x) st
+--        | not (occursCheck y x) = return (subStack y x tCons, subMap y x tMap)
 
     -- composite types
     uCon (E.TArr x1 x2, E.TArr y1 y2) st = do
@@ -342,6 +343,9 @@ unify tCons = liftM snd $ unify' (tCons, Map.empty)
         uCon (x2, y2) st'
 
     uCon (E.TTuple xs, E.TTuple ys) st = DF.foldlM (\st (x, y) -> uCon (x, y) st) st (zip xs ys)
+
+    uCon (x, y) st
+       | (x == y) = return st
 
     -- can't unfiy types
     uCon (x, y) st = trace' [MkSB x, MkSB y, MkSB st] "Type Error" $ throwError (printf "(TC01) - cannot unify %s and %s" (show x) (show y))
@@ -351,8 +355,8 @@ unify tCons = liftM snd $ unify' (tCons, Map.empty)
       where
         subTCon (a, b) = (subTTerm x y a, subTTerm x y b)
 
-    -- replaces all occurances of tVar x with y in tMap
-    subMap x@(E.TVar xId) y tMap = Map.insert xId y tMap'
+    -- replaces all occurances of (tVar x) with y in tMap, then add [x->y] to the tMap
+    subAddMap x@(E.TVar xId) y tMap = Map.insert xId y tMap'
       where
         tMap' = Map.map (subTTerm x y) tMap
 
