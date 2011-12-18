@@ -49,7 +49,17 @@ TopLet (Bind [4]) (App (LocalVar 0) (Var (LocalVar 2)))
 
 tCons
 TVar 1 = TArr TFloat (TVar 2)
-TArr (TVar 1) (TVar 2) = TArr (TArr (TVar 3) TFloat) (TVar 4)
-TTuple [TFloat,TFloat] = TTuple [TVar 3,TFloat]
+TArr (TVar 1) (TVar 2) = TArr (TArr (TVar 3) TFloat) (TVar 4) =>
+  TVar 2 = TVar 4
+  TVar 1 = TArr (TVar 3) TFloat =>
+    TVar3 = Float
+    TVar2 = Float =>
+      TVar4 = Float
+
+TTuple [TFloat,TFloat] = TTuple [TVar 3,TFloat] =>
+  TVar 3 = Float
+=>
+
+---- module N1 output
 
 

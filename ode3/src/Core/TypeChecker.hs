@@ -342,7 +342,7 @@ unify tCons = trace' [MkSB tCons] "Initial Unify tCons" $ liftM snd $ unify' (tC
         st' <- uCon (x1, y1) st
         uCon (x2, y2) st'
 
-    uCon (E.TTuple xs, E.TTuple ys) st = DF.foldlM (\st (x, y) -> uCon (x, y) st) st (zip xs ys)
+    uCon (E.TTuple xs, E.TTuple ys) st | (length xs == length ys) = DF.foldlM (\st (x, y) -> uCon (x, y) st) st (zip xs ys)
 
     uCon (x, y) st
        | (x == y) = return st

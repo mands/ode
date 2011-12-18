@@ -163,7 +163,30 @@ module M {
 */
 
 // nested tuples
-module N {
 
+module N {
+  // OK, standard tuple
+  val a = (True,False)
+  // OK, nested
+  val b = (a, 3, 4)
+
+  // OK, nested unpacking
+  val c, d, e = b
+  val c1, c2 = c
+  // IGNORE - parse error, nested unpacking
+  // val ((z, x), y, w) = b
+
+  // FIXED - type/unpacking error - check use of zip in typechecker
+  // val f, g = b
+
+  // FIXED - type/unpacking error
+  //val h, i, j = a
 }
 
+/*
+module N1 {
+  // ERROR, standard tuple
+  val a, b = (True,False,True)
+  val c,d,e = (1,2)
+}
+*/
