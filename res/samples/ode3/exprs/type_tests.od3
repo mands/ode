@@ -70,4 +70,23 @@ module A {
 //    val X9 = X1(1,2)
 //    val Y9 = add + 2
 
+// PASS - tuple unpacking error
+  val a, b = (True,False,True)
+  val c,d,e = (1,2)
+
+
+
+
 }
+
+// PASS - component params/HOFs
+// multiple tvars are set to each each other in contrainsts,
+// substitution and insertion during pattern matching now handles updates by readding sub to constraint set
+module K {
+  component comA comParam => comParam(1) where { }
+  
+  component comB a => (a + 1) where { }
+  
+  val call = comA(comB)
+}
+

@@ -13,3 +13,66 @@ module C2 {
     val z = y(1)
 }
 
+
+// PASS - simple component test
+module A {
+    component comA(x, y) => (x+y) where { }
+}
+
+// PASS - componetns with inputs with same name, should fail
+/*
+module B {
+    val y = 1
+    component comA(x, x) => (x + y) where { }
+}
+*/
+
+// PASS - componetns with no inputs, should fail
+/*
+module C {
+    val x = 1
+    val y = 1
+    component comA() => (x + y) where { }
+}
+*/
+
+// PASS - componetns with no outputs, should fail
+/*
+module D {
+    val x = 1
+    val y = 1
+    component comA(x) => () where { }
+}
+*/
+
+// PASS - top-level binding devined multiple times, should fail
+/*
+module E {
+    val y = 0
+    component y(x) => (x+1) where { }
+    val z = y(y)
+}
+*/
+
+// FAIL - test cration of private identifiers
+module F {
+    val _x = 2
+    component _comA(x, y) => (x+y) where { }
+}
+
+
+// FIXED - differing scope val c conflict when adding
+/*
+module G {
+  val a = b where {
+    val c = 1
+    val d = c where {
+      val c = 2
+    }
+    val b = 3
+  }
+}
+*/
+
+
+

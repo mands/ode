@@ -1,0 +1,159 @@
+/*
+module A {
+  val a = 1
+  val b = 2
+}
+*/
+
+/*
+module B {
+  component comA a => (1 + a) where {}
+  
+  val b = comA(2)
+
+}
+*/
+
+// need more tests
+// - comp params
+
+// - nested vals
+/*
+module C {
+  val a = b where {
+    val b = 1  
+  }
+}
+*/
+// multiple nested vals
+/*
+module D {
+  val a = b where {
+    val b = c where {
+      val c = 1
+    }
+  }
+  
+  val b = c where {
+    val d = 1
+
+    val c = e where {
+      val e = d
+    }
+  }
+}
+*/
+
+// - nested comps
+/*
+module E {
+  component comA a => (1 + d) where {
+    component comB b => (2 + c) where {
+      val c = b + 3
+    }
+    val d = comB(4 + a)
+  }
+}
+*/
+
+
+// nested comps and vals
+/*
+module F {
+
+  component comA a => (1 + d + a) where {
+
+    component comB b => (2 + c) where {      
+      val c = b + 3
+    }
+  
+    val d = e where {
+      component comC a => b where {
+        val b = comB(4 + a)
+      }
+      val e = comC(5)
+    }
+  }
+}
+*/
+
+/*
+module G {
+
+  val a = 1
+  
+  val b = a where {
+    val a = 2
+  }
+  
+  val c = a
+}
+
+module H {
+  val a = 1
+
+  component comA a => b where {
+    val b = a + 1  
+  }  
+  val c = comA(a)
+
+}
+*/
+
+
+// Comp Params (Closed)
+/*
+module K {
+  component comA comParam => comParam(1) where { }
+  
+  component comB a => (a + 1) where { }
+  
+  val call = comA(comB)
+}
+*/
+
+// Comp Params (Open)
+/*
+module L {
+  val x = True
+  
+  component comA comParam => comParam(1) where { }
+  
+  component comB a => x where { }
+  
+  val call = comA(comB)
+}
+*/
+
+// Comp Params (Multiple args)
+/*
+module M {
+
+  component comA (comParam, arg) => comParam(arg, arg) where { }
+  
+  component comB (a, b) => (a, b) where { }
+  
+  val call = comA(comB, 1)
+}
+*/
+
+// nested tuples
+module N {
+  // OK, standard tuple
+  val a = (True,False)
+  // OK, nested
+  val b = (a, 3, 4)
+
+  // OK, nested unpacking
+  val c, d, e = b
+  val c1, c2 = c
+  // IGNORE - parse error, nested unpacking
+  // val ((z, x), y, w) = b
+
+  // FIXED - type/unpacking error - check use of zip in typechecker
+  // val f, g = b
+
+  // FIXED - type/unpacking error
+  //val h, i, j = a
+}
+

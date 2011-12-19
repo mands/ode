@@ -1,4 +1,3 @@
-
 // new module syntax
 module B {
   component comA (x,y) => (a, b+2) where {
@@ -10,3 +9,189 @@ module B {
 
 }
 
+// basic tests for the new syntax
+
+// new comp syntax
+/*
+module A {
+
+  val valTest = 1
+
+  component compTest (a,b) => (d,e) where {
+    val d = a + 1
+    val e = b + 1
+  }
+}
+*/
+
+// time term
+/*
+module B {
+  val valTest = 1 + time
+}
+*/
+
+// Unit term
+/*
+module C {
+  val valTest = ()
+  component compTest (unused) => (()) where {
+    val a = 0
+//    val b = unused
+  }
+  val start = compTest(valTest)
+}
+*/
+
+// dont care vals
+/*
+module D {
+  val _ = 1
+  component compTest (a) => (()) where {
+    val _ = 1 + a
+  }
+  val _ = compTest(1)
+}
+*/
+
+// dont care components
+/*
+module E {
+  component compTestA (_) => (1,2) where {
+  }
+  component compTestB (_, a) => (()) where {
+    val _ = a + 1
+  }
+  val _ = compTestB(compTestA(()))
+}
+*/
+
+// basic tuples exprs
+/*
+module E {
+  val c = (1+1)
+  val a,b = (1, 2)
+}
+*/
+
+
+// tuples type system - toplevel
+/*
+module F {
+    // val a,b = True
+
+    val c,d = (1,2)
+    
+    val e = (1,2)
+    val f,g = e
+
+    val h = compTestA(1) // OK
+    val i,j = compTestA(1) // OK
+
+  component compTestA (a) => (1, 2) where {
+    val b = 1+a
+  }
+}
+*/
+
+// tupes type system - let-exprs
+/*
+module G {
+  component compTestB (a) => (1, 2) where {
+    // val b,c = 1 + a
+    val b = 1+a
+    val c,d = (1,2)   
+    val e = (1,2)
+    val f,g = e
+  }
+}
+*/
+
+// validation errors
+
+module H {
+  val a = 1
+  val a = 2
+}
+
+
+/*
+// desugarer tests
+module J {
+
+  // no inputs - OK, checked by parser
+  // component compTestA () => (1, 2) where { }
+
+  // no outputs - OK, checked by parser
+  // component compTestB (b) => () where { }
+
+  // component inputs - OK, checked by validator
+  // component compTestC (b, b) => (1) where { }
+
+  // empty tuple - OK, actually is unit
+  // val a = ()
+}
+*/
+
+/*
+// new component parsers, single elem/tuple tests
+module K {
+  // tuple outputs
+  component compTestA (a) => (1+a, 2) where { }
+  component compTestB (a) => 1+a where { }
+  component compTestC (a) => (1+a) where { }
+
+  // sing/tuple inputs
+  component compTestD a => (1+a, 2) where { }
+  component compTestE (a, b) => a+b where { }
+  component compTestF (a) => (1+a) where { }
+
+  // empty comp body/where
+  component compTestG a => (1+a, 2)
+}
+*/
+
+/*
+// val lets
+module J {
+
+  // PASS
+//  val a = 1
+  
+  // PASS
+//  val b = 1 where { }
+
+  // PASS
+//  val c = z where {
+//    val x = 1
+//    val y = 2
+//    val z = x + y
+//  }
+
+  // out-of-order - OK
+//  val d = z where {
+//    val z = x + y
+//    val x = 1
+//    val y = 2
+//  }
+
+  // inside comp
+  component compA x => y where {
+    // PASS
+    val y = x+1
+
+    // PASS
+    val y1 = z where {
+      val z = 1
+    }
+
+    // FAIL - reorder doesn't work nested
+    val y2 = b where {
+      val b = c + d
+      val c = 1
+      val d = 2      
+    }
+  } 
+}
+
+*/

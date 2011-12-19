@@ -1,4 +1,4 @@
----- Module I output
+---- RenamerTests.E output
 
 TopLet (Bind ["comA"]) (Abs "a" 
   (Let (Bind ["b"]) 
@@ -27,7 +27,7 @@ TopLet (Bind [0]) (Abs 1
   (Op Add (Tuple [Var (LocalVar 4),Var (LocalVar 1)]))))))
 
 
----- Module J output
+---- ValidatorTests.G output
 
 TopLet (Bind ["a"]) 
   (Let (Bind ["c"]) (Lit (Num 1.0)) 

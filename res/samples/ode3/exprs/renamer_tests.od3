@@ -50,3 +50,16 @@ module D(A, B) {
 }
 */
 
+
+// FIXED - renaming follows scoping rules correctly
+/*
+module E {
+  component comA a => (b + a) where {
+    val x = a
+    val b = a where {
+      val a = 1
+    }
+  }
+}
+*/
+
