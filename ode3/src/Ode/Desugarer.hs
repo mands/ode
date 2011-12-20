@@ -59,7 +59,7 @@ desugarMod elems = evalSupplyVars $ DT.mapM desugarTopStmt elems
 
 
 desugarTopStmt :: O.Stmt -> TmpSupply (C.TopLet C.SrcId)
-desugarTopStmt stmt@(O.StmtSValue _) = do
+desugarTopStmt stmt@(O.SValue _ _) = do
     (ids, expr) <- desugarStmt stmt
     return $ C.TopLet True (C.Bind ids) expr
 
@@ -68,12 +68,12 @@ desugarTopStmt stmt = do
     return $ C.TopLet False (C.Bind ids) expr
 
 desugarStmt :: O.Stmt -> TmpSupply ([C.SrcId], C.Expr C.SrcId)
-desugarStmt (O.StmtValue (O.Value ids value body)) = do
+desugarStmt (O.Value ids value body) = do
     v' <- desugarS' body value
     ids' <- DT.mapM subDontCares ids
     return $ (ids', v')
 
-desugarStmt (O.StmtSValue (O.SValue ids values)) = do
+desugarStmt (O.SValue ids values) = do
     let vs' = map (C.Lit . C.Num) values
     let vs'' = case vs' of
                     v:[] -> v
@@ -82,7 +82,7 @@ desugarStmt (O.StmtSValue (O.SValue ids values)) = do
     return $ (ids', vs'')
 
 -- | desugar a top level component
-desugarStmt (O.StmtComponent (O.Component name ins outs body)) = do
+desugarStmt (O.Component name ins outs body) = do
     -- sub the ins
     ins' <- DT.mapM subDontCares ins
     -- create a new tmpArg only if multiple elems
@@ -98,15 +98,15 @@ desugarStmt (O.StmtComponent (O.Component name ins outs body)) = do
 
 desugarS' :: [O.Stmt] -> O.Expr  -> TmpSupply (C.Expr C.SrcId)
 desugarS' [] outs = dsExpr outs
-desugarS' (s@(O.StmtValue _):xs) outs = do
+desugarS' (s@(O.Value _ _ _):xs) outs = do
         (ids, expr) <- desugarStmt s
         C.Let False (C.Bind ids) expr <$> desugarS' xs outs
 
-desugarS' (s@(O.StmtSValue _):xs) outs = do
+desugarS' (s@(O.SValue _ _):xs) outs = do
         (ids, expr) <- desugarStmt s
         C.Let True (C.Bind ids) expr <$> desugarS' xs outs
 
-desugarS' (s@(O.StmtComponent _):xs) outs = do
+desugarS' (s@(O.Component _ _ _ _):xs) outs = do
         (ids, expr) <- desugarStmt s
         C.Let False (C.Bind ids) expr <$> desugarS' xs outs
 

@@ -31,34 +31,34 @@ import qualified Ode.AST as O
 moduleBody = stmt
 
 stmt :: Parser O.Stmt
-stmt =  O.StmtComponent <$> compDef
-        <|> O.StmtValue <$> valueDef
-        <|> O.StmtSValue <$> sValueDef
+stmt =  compDef
+        <|> valueDef
+        <|> sValueDef
         <?> "component or value defintion"
 
 -- |parse a value definition
 -- e.g., val x = expr
-valueDef :: Parser O.Value
+valueDef :: Parser O.Stmt
 valueDef = O.Value  <$> (reserved "val" *> commaSep1 valIdentifier) <*> (reservedOp "=" *> compExpr)
                     <*> option [] (reserved "where" *> valBody)
   where
     valBody = braces $ many stmt
 
 -- |parse a sval def
-sValueDef :: Parser O.SValue
+sValueDef :: Parser O.Stmt
 sValueDef = O.SValue <$> (reserved "sval" *> commaSep1 valIdentifier) <*> (reservedOp "=" *> singOrList number)
 
 
 -- |parser for defining a component, where either a defintion or module parameter component may follow
-compDef :: Parser O.Component
+compDef :: Parser O.Stmt
 compDef = do
     cName <- reserved "component" *> identifier
     compParse cName
   where
-    compParse cName =
-        O.ComponentRef <$> pure cName <*> (reservedOp "=" *> modElemIdentifier)
-        <|> O.Component <$> pure cName <*> singOrList valIdentifier <*>
+    compParse cName = O.Component <$> pure cName <*> singOrList valIdentifier <*>
             (reservedOp "=>" *> compExpr) <*> option [] (reserved "where" *> compBody)
+        -- O.ComponentRef <$> pure cName <*> (reservedOp "=" *> modElemIdentifier)
+        -- <|>
         <?> "component definition"
 
     -- | parser for the component body, a list of statements

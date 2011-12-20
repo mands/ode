@@ -16,7 +16,6 @@
 
 module Ode.AST (
     ModLocalId(..), ValId(..), Stmt(..),
-    Component(..), Value(..), SValue(..),
     Expr(..), BinOp(..), UnOp(..),
     SrcId, NumTy,
 ) where
@@ -32,25 +31,17 @@ data ModLocalId = LocalId SrcId | ModId SrcId SrcId
 data ValId = ValId SrcId | DontCare deriving (Show, Ord, Eq)
 
 -- | elements allowed within a module, basically components or top-level constant values
-data Stmt = StmtComponent Component
-         | StmtValue Value
-         | StmtSValue SValue
-         deriving (Show, Eq, Ord)
-
--- | value defintion
--- they are constant, at least during single timestep
-data Value = Value { vName :: [ValId], vValue :: Expr, vBody :: [Stmt] } deriving (Show, Eq, Ord)
-
--- | state value defintion - indirectly mutable, stateful, values
-data SValue = SValue { svName :: [ValId], svValue :: [Double] } deriving (Show, Eq, Ord)
-
-
--- | each independent component, is basically function abstraction
--- components may be defined inline, with name, ins, outs, and body
--- or they may be a reference to a component defined in a module param and re-exported here
-data Component  = Component { cName :: SrcId, cInputs :: [ValId], cOutputs :: Expr, cBody :: [Stmt]}
-                | ComponentRef SrcId ModLocalId
-                deriving (Show, Eq, Ord)
+data Stmt = -- each independent component, is basically function abstraction
+            -- components may be defined inline, with name, ins, outs, and body
+            Component { cName :: SrcId, cInputs :: [ValId], cOutputs :: Expr, cBody :: [Stmt]}
+            -- value defintion
+            -- they are constant, at least during single timestep
+            | Value { vName :: [ValId], vValue :: Expr, vBody :: [Stmt] }
+            -- state value defintion - indirectly mutable, stateful, values
+            | SValue { svName :: [ValId], svValue :: [Double] }
+            -- or they may be a reference to a component defined in a module param and re-exported here
+            -- | ComponentRef SrcId ModLocalId
+            deriving (Show, Eq, Ord)
 
 -- | statments allowed within a component, these include,
 -- constant value defintinos, intial value defintions, odes and rres
