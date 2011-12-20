@@ -103,12 +103,12 @@ renTop exprMap = (exprMap', topBinds, head uniqs)
     -- map over each expr, using the topmap, converting lets and building a new scopemap
     -- as traversing expr, as order is fixed this should be ok
     convTopBind :: (TopBinds, M.ExprMap Int) -> E.TopLet E.SrcId -> IntSupply (TopBinds, M.ExprMap Int)
-    convTopBind (tB, model) (E.TopLet b e) = do
+    convTopBind (tB, model) (E.TopLet s b e) = do
         -- convert the bindings
         (b', tB') <- convBind b tB
         -- traverse over the expression
         (_, expr') <- renExpr tB e
-        let model' = OrdMap.insert b' (E.TopLet b' expr') model
+        let model' = OrdMap.insert b' (E.TopLet s b' expr') model
         -- return the new bindmap and model
         return (tB', model')
 
@@ -138,14 +138,14 @@ renExpr tB (E.Abs b expr) = do
     return (tB, E.Abs b' expr')
 
 -- need to create a new binding and keep processing
-renExpr tB (E.Let b bExpr expr) = do
+renExpr tB (E.Let s b bExpr expr) = do
     -- process the binding bExpr with the existing tB
     (_, bExpr') <- renExpr tB bExpr
     -- get the unique ids and update the binding
     (b', tB') <- convBind b tB
     -- process the main expr
     (_, expr') <- renExpr tB' expr
-    return $ (tB, E.Let b' bExpr' expr')
+    return $ (tB, E.Let s b' bExpr' expr')
 
 -- just traverse the structure
 renExpr tB (E.Lit l) = pairM (pure tB) $ return (E.Lit l)

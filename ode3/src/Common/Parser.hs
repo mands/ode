@@ -32,7 +32,7 @@ commonLangDef = javaStyle
                             "module", "import", "as",
                             -- ode
                             "component", "where",
-                            "val", "init",
+                            "val", "init", "sval",
                             "ode", "delta",
                             "rre", "reaction", "rate",
                             "default",

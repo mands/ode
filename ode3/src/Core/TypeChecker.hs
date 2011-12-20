@@ -169,7 +169,7 @@ constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
     consM :: TypeConsM (TypeEnv, ModTypeEnv)
     consM = DF.foldlM consTop (Map.empty, Map.empty) (OrdMap.elems exprMap)
 
-    consTop (tEnv, mTEnv) (E.TopLet (E.Bind bs) e) = do
+    consTop (tEnv, mTEnv) (E.TopLet s (E.Bind bs) e) = do
         (eT, tEnv', mTEnv') <- consExpr tEnv mTEnv e
         -- extend and return tEnv
         case eT of
@@ -237,7 +237,7 @@ constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
 
 
     -- NOTE - do we need to return the new tEnv here?
-    consExpr tEnv mTEnv (E.Let (E.Bind bs) e1 e2) = do
+    consExpr tEnv mTEnv (E.Let s (E.Bind bs) e1 e2) = do
         (e1T, tEnv', mTEnv') <- consExpr tEnv mTEnv e1
         -- extend tEnv with new env
         tEnv'' <- case e1T of

@@ -44,7 +44,7 @@ createTopExprs :: M.ExprList -> MExcept (M.ExprMap E.SrcId)
 createTopExprs exprList = (\(_, exprMap) -> exprMap) <$> DF.foldlM t (Set.empty, OrdMap.empty) exprList
   where
     t :: (Set.Set E.SrcId, M.ExprMap E.SrcId) -> E.TopLet E.SrcId -> MExcept (Set.Set E.SrcId, M.ExprMap E.SrcId)
-    t s topExpr@(E.TopLet b expr) = validExpr (Set.empty) expr *> addTopBinding s b topExpr
+    t s topExpr@(E.TopLet sv b expr) = validExpr (Set.empty) expr *> addTopBinding s b topExpr
 
     addTopBinding (topBinds, exprMap) b expr = case b of
         -- E.SingBind ab -> (,) <$> addBinding topBinds ab <*> pure (OrdMap.insert b expr exprMap)
@@ -63,7 +63,7 @@ validExpr curBinds (E.App v e) = validExpr curBinds e
 
 validExpr curBinds (E.Abs b e) = validExpr curBinds e
 
-validExpr curBinds (E.Let (E.Bind bs) e1 e2) = do
+validExpr curBinds (E.Let s (E.Bind bs) e1 e2) = do
     curBinds' <- DF.foldlM addBinding curBinds bs
     (validExpr Set.empty e1) *> (validExpr curBinds' e2)
   where
@@ -87,7 +87,7 @@ validExpr _ e = pure ()
 travExpr f e@(E.Var v) = f e
 travExpr f e@(E.Lit l) = f e
 travExpr f (E.App v e1) = f (E.App v (travExpr f e1))
-travExpr f (E.Let b e1 e2) = f (E.Let b (travExpr f e1) (travExpr f e2))
+travExpr f (E.Let s b e1 e2) = f (E.Let s b (travExpr f e1) (travExpr f e2))
 travExpr f (E.Op op e) = f (E.Op op (travExpr f e))
 travExpr f (E.If eB eT eF) = f (E.If (travExpr f eB) (travExpr f eT) (travExpr f eF))
 travExpr f (E.Tuple es) = f $ E.Tuple (map (travExpr f) es)

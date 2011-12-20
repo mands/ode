@@ -75,7 +75,7 @@ data Bind b = Bind [b]
 -- TODO - could we use the Bind type to unify both b and [b], or use GADTs and type-classes for extra type-safety
 -- |Main model elements - maybe move these into a Map indexed by Id
 data TopLet :: * -> * where
-    TopLet :: (Bind b) -> (Expr b) -> TopLet b    -- binding, expr
+    TopLet :: Bool -> (Bind b) -> (Expr b) -> TopLet b    -- binding, expr
     deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
 
 -- | Main body of a \c-calc expression
@@ -94,8 +94,9 @@ data Expr b = Var (VarId b)             -- a reference to any let-defined expres
 
             | Abs b (Expr b)            -- abs arg, expr
 
-            | Let (Bind b) (Expr b) (Expr b)  -- basic let within sub-expression
+            | Let Bool (Bind b) (Expr b) (Expr b)  -- basic let within sub-expression
                                         -- test to try multi-lets within an expressino - handles unpacking with context
+                                         -- can be stateful bindings that are held between time-steps if 1st param=True
 
             | Lit Literal               -- basic built-in constant literals
 

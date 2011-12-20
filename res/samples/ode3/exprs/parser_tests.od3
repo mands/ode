@@ -1,4 +1,5 @@
 // new module syntax
+/*
 module B {
   component comA (x,y) => (a, b+2) where {
     val a = 3
@@ -6,8 +7,8 @@ module B {
   }
 
   component comB (x) => (x+1) where { }
-
 }
+*/
 
 // basic tests for the new syntax
 
@@ -107,13 +108,6 @@ module G {
 }
 */
 
-// validation errors
-
-module H {
-  val a = 1
-  val a = 2
-}
-
 
 /*
 // desugarer tests
@@ -195,3 +189,26 @@ module J {
 }
 
 */
+
+// state vals
+module K {
+  // top level
+  sval a = 1
+  sval b = 2.0
+  
+  // nested
+  val c = d where {
+    sval d = 0.2
+  }
+}
+
+// ODEs
+module L {
+  // top level
+  ode a = 1.0 + a
+  
+}
+
+
+
+

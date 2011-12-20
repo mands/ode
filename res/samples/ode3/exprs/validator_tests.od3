@@ -13,6 +13,13 @@ module C2 {
     val z = y(1)
 }
 
+// validation errors
+/*
+module H {
+  val a = 1
+  val a = 2
+}
+*/
 
 // PASS - simple component test
 module A {

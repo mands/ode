@@ -16,7 +16,8 @@
 
 module Ode.AST (
     ModLocalId(..), ValId(..), Stmt(..),
-    Component(..), Value(..), Expr(..), BinOp(..), UnOp(..),
+    Component(..), Value(..), SValue(..),
+    Expr(..), BinOp(..), UnOp(..),
     SrcId, NumTy,
 ) where
 
@@ -25,7 +26,7 @@ import Common.AST
 
 -- | SrcIdentifier that may be local to current block or refer to a module parameter
 data ModLocalId = LocalId SrcId | ModId SrcId SrcId
-                deriving Show
+                deriving (Show, Eq, Ord)
 
 -- | used for differntiatin between actual ids and _ vals
 data ValId = ValId SrcId | DontCare deriving (Show, Ord, Eq)
@@ -33,18 +34,23 @@ data ValId = ValId SrcId | DontCare deriving (Show, Ord, Eq)
 -- | elements allowed within a module, basically components or top-level constant values
 data Stmt = StmtComponent Component
          | StmtValue Value
-         deriving Show
+         | StmtSValue SValue
+         deriving (Show, Eq, Ord)
 
 -- | value defintion
 -- they are constant, at least during single timestep
-data Value = Value { vName :: [ValId], vValue :: Expr, vBody :: [Stmt] } deriving Show
+data Value = Value { vName :: [ValId], vValue :: Expr, vBody :: [Stmt] } deriving (Show, Eq, Ord)
+
+-- | state value defintion - indirectly mutable, stateful, values
+data SValue = SValue { svName :: [ValId], svValue :: [Double] } deriving (Show, Eq, Ord)
+
 
 -- | each independent component, is basically function abstraction
 -- components may be defined inline, with name, ins, outs, and body
 -- or they may be a reference to a component defined in a module param and re-exported here
 data Component  = Component { cName :: SrcId, cInputs :: [ValId], cOutputs :: Expr, cBody :: [Stmt]}
                 | ComponentRef SrcId ModLocalId
-                deriving Show
+                deriving (Show, Eq, Ord)
 
 -- | statments allowed within a component, these include,
 -- constant value defintinos, intial value defintions, odes and rres
@@ -62,14 +68,14 @@ data Component  = Component { cName :: SrcId, cInputs :: [ValId], cOutputs :: Ex
 -- expressions are may be multiple types, these are determined later on
 data Expr   = BinExpr BinOp Expr Expr | UnExpr UnOp Expr | Number Double | NumSeq Double Double Double | Boolean Bool
             | Time | Unit | Call ModLocalId [Expr] | ValueRef ModLocalId | Piecewise [(Expr, Expr)] Expr | Tuple [Expr]
-            deriving Show
+            deriving (Show, Eq, Ord)
 
 -- | basic binary expression operators
 data BinOp  = Add | Sub | Mul | Div | Mod
             | LT | LE | GT | GE | EQ | NEQ
             | And | Or
-            deriving Show
+            deriving (Show, Eq, Ord)
 
 -- | basic unary expression operators
 data UnOp   = Not | Neg
-            deriving Show
+            deriving (Show, Eq, Ord)

@@ -31,9 +31,10 @@ import qualified Ode.AST as O
 moduleBody = stmt
 
 stmt :: Parser O.Stmt
-stmt =    O.StmtComponent <$> compDef
-                <|> O.StmtValue <$> valueDef
-                <?> "component or value defintion"
+stmt =  O.StmtComponent <$> compDef
+        <|> O.StmtValue <$> valueDef
+        <|> O.StmtSValue <$> sValueDef
+        <?> "component or value defintion"
 
 -- |parse a value definition
 -- e.g., val x = expr
@@ -42,6 +43,11 @@ valueDef = O.Value  <$> (reserved "val" *> commaSep1 valIdentifier) <*> (reserve
                     <*> option [] (reserved "where" *> valBody)
   where
     valBody = braces $ many stmt
+
+-- |parse a sval def
+sValueDef :: Parser O.SValue
+sValueDef = O.SValue <$> (reserved "sval" *> commaSep1 valIdentifier) <*> (reservedOp "=" *> singOrList number)
+
 
 -- |parser for defining a component, where either a defintion or module parameter component may follow
 compDef :: Parser O.Component

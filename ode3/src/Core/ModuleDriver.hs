@@ -131,8 +131,8 @@ appendModule argName argMod@(M.LitMod argExprMap argModData) baseMod@(M.LitMod b
     exprMap' = OrdMap.union argExprMap (OrdMap.map updateExprs baseExprMap)
     updateExprs (topB, topExpr) = (fmap (+ deltaId) topB, topExpr'')
       where
-        topExpr'@(E.TopLet b expr) = fmap (+ deltaId) topExpr
-        topExpr'' = E.TopLet b (updateVars expr)
+        topExpr'@(E.TopLet s b expr) = fmap (+ deltaId) topExpr
+        topExpr'' = E.TopLet s b (updateVars expr)
 
         -- change all refernces from ModVar to LocalVar using the new ids, use the arg Id Bimap to calc
         -- TODO - use a traversable?
@@ -147,7 +147,7 @@ appendModule argName argMod@(M.LitMod argExprMap argModData) baseMod@(M.LitMod b
         updateVars (E.App vId expr) = E.App vId (updateVars expr)
 
         updateVars (E.Abs v expr) = E.Abs v (updateVars expr)
-        updateVars (E.Let b e1 e2) = E.Let b (updateVars e1) (updateVars e2)
+        updateVars (E.Let s b e1 e2) = E.Let s b (updateVars e1) (updateVars e2)
         updateVars (E.Op op e) = E.Op op (updateVars e)
         updateVars (E.If eIf eT eF) = E.If (updateVars eIf) (updateVars eT) (updateVars eF)
         updateVars (E.Tuple es) = E.Tuple $ map updateVars es
