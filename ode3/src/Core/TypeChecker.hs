@@ -249,7 +249,6 @@ constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
             -- (with tvars), create contstrains and let unificiation solve it instead
             t | (length bs > 1) -> multiBindConstraint (E.Bind bs) t tEnv'
             _ -> errorDump [MkSB bs, MkSB e1T, MkSB tEnv'] "(TYPECHECKER) - let shit\n"
-
         consExpr tEnv'' mTEnv' e2
 
 
@@ -273,9 +272,25 @@ constrain exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
         consElem (eTs, tEnv, mTEnv) e = consExpr tEnv mTEnv e >>= (\(eT, tEnv', mTEnv') -> return (eT:eTs, tEnv', mTEnv'))
         consTuple (eTs, tEnv, mTEnv) = (E.TTuple (reverse eTs), tEnv, mTEnv)
 
+    consExpr tEnv mTEnv (E.Ode (E.LocalVar v) eD) = do
+        -- constrain the ode state val to be a float
+        let vT = tEnv Map.! v
+        addConstraint vT E.TFloat
+        -- add the deltaExpr type
+        (eDT, tEnv', mTEnv') <- consExpr tEnv mTEnv eD
+        addConstraint eDT E.TFloat
+        return (E.TUnit, tEnv', mTEnv')
+
+    consExpr tEnv mTEnv (E.Rre (E.LocalVar src) (E.LocalVar dest) _) = do
+        -- constrain both state vals to be floats
+        let srcT = tEnv Map.! src
+        addConstraint srcT E.TFloat
+        let destT = tEnv Map.! dest
+        addConstraint destT E.TFloat
+        return (E.TUnit, tEnv, mTEnv)
+
     -- other exprs - not needed as match all
     -- consExpr tEnv mTEnv e = error ("(TC02) unknown expr - " ++ show e)
-
 
 -- NOTE - should these two functions be moved into the AST?
 getLitType :: E.Literal -> E.Type

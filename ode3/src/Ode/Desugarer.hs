@@ -23,6 +23,7 @@ desugarMod
 import qualified Data.Map as Map
 import qualified Data.Bimap as Bimap
 import qualified Data.Traversable as DT
+import qualified Data.Foldable as DF
 import Data.List (nub)
 import Debug.Trace
 import Control.Applicative
@@ -52,21 +53,57 @@ instance Applicative TmpSupply where
     (<*>) = ap
 
 desugarMod :: [O.Stmt] -> MExcept M.ExprList
-desugarMod elems = evalSupplyVars $ DT.mapM desugarTopStmt elems
+desugarMod elems = liftM reverse $ evalSupplyVars $ DF.foldlM desugarTopStmt [] elems
 
 -- | desugar a top-level value constant(s)
 -- throws an error if a top-level is already defined
-
-
-desugarTopStmt :: O.Stmt -> TmpSupply (C.TopLet C.SrcId)
-desugarTopStmt stmt@(O.SValue _ _) = do
+desugarTopStmt :: M.ExprList -> O.Stmt -> TmpSupply (M.ExprList)
+desugarTopStmt es stmt@(O.SValue _ _) = do
     (ids, expr) <- desugarStmt stmt
-    return $ C.TopLet True (C.Bind ids) expr
+    return $ C.TopLet True (C.Bind ids) expr : es
 
-desugarTopStmt stmt = do
+desugarTopStmt es stmt@(O.OdeDef name init _) = do
+    (odeVar, odeExpr) <- desugarStmt stmt
+    let initExpr = C.Lit (C.Num init)
+    let es' = C.TopLet True (C.Bind [name]) initExpr : es
+    return $ C.TopLet False (C.Bind odeVar) odeExpr : es'
+
+desugarTopStmt es stmt@(O.RreDef _ _  _) = do
+    (rreVar, rreExpr) <- desugarStmt stmt
+    return $ C.TopLet False (C.Bind rreVar) rreExpr : es
+
+desugarTopStmt es stmt = do
     (ids, expr) <- desugarStmt stmt
-    return $ C.TopLet False (C.Bind ids) expr
+    return $ C.TopLet False (C.Bind ids) expr : es
 
+
+-- desugar a nested let binding
+desugarS' :: [O.Stmt] -> O.Expr  -> TmpSupply (C.Expr C.SrcId)
+desugarS' [] outs = dsExpr outs
+desugarS' (s@(O.Value _ _ _):xs) outs = do
+    (ids, expr) <- desugarStmt s
+    C.Let False (C.Bind ids) expr <$> desugarS' xs outs
+
+desugarS' (s@(O.SValue _ _):xs) outs = do
+    (ids, expr) <- desugarStmt s
+    C.Let True (C.Bind ids) expr <$> desugarS' xs outs
+
+desugarS' (s@(O.OdeDef name init _):xs) outs = do
+    (odeVar, odeExpr) <- desugarStmt s
+    let subExpr' = C.Let False (C.Bind odeVar) odeExpr <$> desugarS' xs outs
+    let initExpr = C.Lit (C.Num init)
+    C.Let True (C.Bind [name]) <$> pure initExpr <*> subExpr'
+
+desugarS' (s@(O.RreDef _ _ _):xs) outs = do
+    (rreVar, rreExpr) <- desugarStmt s
+    C.Let False (C.Bind rreVar) rreExpr <$> desugarS' xs outs
+
+desugarS' (s@(O.Component _ _ _ _):xs) outs = do
+    (ids, expr) <- desugarStmt s
+    C.Let False (C.Bind ids) expr <$> desugarS' xs outs
+
+
+-- Main desugaring
 desugarStmt :: O.Stmt -> TmpSupply ([C.SrcId], C.Expr C.SrcId)
 desugarStmt (O.Value ids value body) = do
     v' <- desugarS' body value
@@ -81,6 +118,17 @@ desugarStmt (O.SValue ids values) = do
     ids' <- DT.mapM subDontCares ids
     return $ (ids', vs'')
 
+desugarStmt (O.OdeDef name init expr) = do
+    odeExpr <- C.Ode <$> pure (C.LocalVar name) <*> dsExpr expr
+    odeVar <- supply
+    return $ ([odeVar], odeExpr)
+
+desugarStmt (O.RreDef src dest rate) = do
+    rreVar <- supply
+    rreExpr <- C.Rre <$> pure (C.LocalVar src) <*> pure (C.LocalVar dest) <*> pure rate
+    return $ ([rreVar], rreExpr)
+
+
 -- | desugar a top level component
 desugarStmt (O.Component name ins outs body) = do
     -- sub the ins
@@ -94,21 +142,6 @@ desugarStmt (O.Component name ins outs body) = do
     desugarComp :: O.SrcId -> [O.SrcId] -> TmpSupply (C.Expr C.SrcId)
     desugarComp argName (singIn:[]) = desugarS' body outs
     desugarComp argName ins = C.Let False (C.Bind ins) (C.Var (C.LocalVar argName)) <$> desugarS' body outs
-
-
-desugarS' :: [O.Stmt] -> O.Expr  -> TmpSupply (C.Expr C.SrcId)
-desugarS' [] outs = dsExpr outs
-desugarS' (s@(O.Value _ _ _):xs) outs = do
-        (ids, expr) <- desugarStmt s
-        C.Let False (C.Bind ids) expr <$> desugarS' xs outs
-
-desugarS' (s@(O.SValue _ _):xs) outs = do
-        (ids, expr) <- desugarStmt s
-        C.Let True (C.Bind ids) expr <$> desugarS' xs outs
-
-desugarS' (s@(O.Component _ _ _ _):xs) outs = do
-        (ids, expr) <- desugarStmt s
-        C.Let False (C.Bind ids) expr <$> desugarS' xs outs
 
 --error (show s)
 

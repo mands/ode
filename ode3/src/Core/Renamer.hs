@@ -156,3 +156,18 @@ renExpr tB (E.If bExpr tExpr fExpr) = pairM (pure tB) $ E.If <$> re bExpr <*> re
 
 -- need to map (or fold?) over the elements - map should be okay as a tuple should never create sub-bindings
 renExpr tB (E.Tuple exprs) = pairM (pure tB) $ E.Tuple <$> DT.mapM (\e -> snd <$> renExpr tB e) exprs
+
+renExpr tB (E.Ode (E.LocalVar v) expr) = do
+    v' <- E.LocalVar <$> bLookup v tB
+    (_, expr') <- renExpr tB expr
+    return $ (tB, E.Ode v' expr')
+
+renExpr tB (E.Rre (E.LocalVar src) (E.LocalVar dest) rate) = do
+    src' <- E.LocalVar <$> bLookup src tB
+    dest' <- E.LocalVar <$> bLookup dest tB
+    return $ (tB, E.Rre src' dest' rate)
+
+
+
+
+

@@ -108,6 +108,9 @@ data Expr b = Var (VarId b)             -- a reference to any let-defined expres
 
             | Tuple [Expr b]            -- a collection of expressions
                                         -- do we allow nested tuples? if not, do we use GADTs to enforce unnested?
+            | Ode (VarId b) (Expr b)   -- an Ode, uses a state variable defined in b, and runs the expression,
+
+            | Rre (VarId b) (VarId b) Double -- an RRE, from var->var with given rate
 
             -- now add the simulation stuff!
             deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)

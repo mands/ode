@@ -39,6 +39,10 @@ data Stmt = -- each independent component, is basically function abstraction
             | Value { vName :: [ValId], vValue :: Expr, vBody :: [Stmt] }
             -- state value defintion - indirectly mutable, stateful, values
             | SValue { svName :: [ValId], svValue :: [Double] }
+            -- ODE - a SValue and ODE def combined
+            | OdeDef { odeName :: SrcId, odeInit :: Double, odeExpr :: Expr}
+            -- RRE - takes two SValues and a rate parameter
+            | RreDef { src :: SrcId, dest :: SrcId, rate :: Double }
             -- or they may be a reference to a component defined in a module param and re-exported here
             -- | ComponentRef SrcId ModLocalId
             deriving (Show, Eq, Ord)

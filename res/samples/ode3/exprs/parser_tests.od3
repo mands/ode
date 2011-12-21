@@ -190,6 +190,7 @@ module J {
 
 */
 
+/*
 // state vals
 module K {
   // top level
@@ -201,6 +202,7 @@ module K {
     sval d = 0.2
   }
 }
+*/
 
 /*
 // ODEs
@@ -208,8 +210,21 @@ module L {
   // top level
   ode a = 1.0 + a
   
+  // nested
+  val c = e where {
+    ode e = 2.0 + e
+  }  
 }
 */
 
+// RREs
+module K {
+  // top level
+  sval a = 1.0
+  sval b = 2
+  rre = a -> b
+  
+  // nested
+}
 
 

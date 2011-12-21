@@ -34,7 +34,9 @@ stmt :: Parser O.Stmt
 stmt =  compDef
         <|> valueDef
         <|> sValueDef
-        <?> "component or value defintion"
+        <|> odeDef
+        <|> rreDef
+        <?> "component, value or simulation defintion"
 
 -- |parse a value definition
 -- e.g., val x = expr
@@ -63,6 +65,13 @@ compDef = do
 
     -- | parser for the component body, a list of statements
     compBody = braces $ many stmt
+
+odeDef :: Parser O.Stmt
+odeDef = O.OdeDef <$> (reserved "ode" *> identifier) <*> pure 0.0 <*> (reservedOp "=" *> compExpr)
+
+rreDef :: Parser O.Stmt
+rreDef = O.RreDef <$> (reserved "rre" *> reservedOp "=" *> identifier) <*> (reservedOp "->" *> identifier) <*> pure 0.0
+
 
 -- |parser for the statements allowed within a component body
 --compStmt :: Parser O.CompStmt
