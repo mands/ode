@@ -41,16 +41,17 @@ import Utils.Utils
 import qualified Utils.OrdMap as OrdMap
 
 -- | moduleDriver takes a the current modEnv and processes the given module against it
-moduleDriver :: M.ModuleEnv -> M.TopMod E.SrcId -> MExcept M.ModuleEnv
+moduleDriver :: M.ModuleEnv -> M.TopMod E.DesId -> MExcept M.ModuleEnv
 moduleDriver modEnv topMod@(M.TopMod name mod) = Map.insert <$> pure name <*> eRes <*> pure modEnv
   where
+    eRes :: MExcept (M.Module E.Id)
     eRes = checkName *> interpretModule modEnv mod
     -- check if module already exists
     checkName = if Map.member name modEnv then throwError ("(MD06) - Module with name " ++ (show name) ++ " already defined") else pure ()
 
 
 -- a basic interpreter over the set of module types, interpres the modules with regards tro the moduleenv
-interpretModule :: M.ModuleEnv -> M.Module E.SrcId -> MExcept (M.Module E.Id)
+interpretModule :: M.ModuleEnv -> M.Module E.DesId -> MExcept (M.Module E.Id)
 interpretModule modEnv mod@(M.LitMod _ _) = do
     -- reorder, rename and typecheck the expressinons within module, adding to the module metadata
     -- mod' <- validate >=> reorder >=> rename >=> typeCheck $ mod

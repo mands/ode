@@ -40,7 +40,8 @@ import Utils.Utils
 type ModImport = [String]
 -- data ModImport = ModImport String (Maybe String) deriving (Show, Eq, Ord)
 
-type ExprList = [E.TopLet E.SrcId]
+
+type ExprList = [E.TopLet E.DesId]
 -- | ExprMap is the basic collection of expressions that make up a module
 type ExprMap a = OrdMap.OrdMap (E.Bind a) (E.TopLet a)
 

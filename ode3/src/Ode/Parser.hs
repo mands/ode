@@ -67,11 +67,13 @@ compDef = do
     compBody = braces $ many stmt
 
 odeDef :: Parser O.Stmt
-odeDef = O.OdeDef <$> (reserved "ode" *> identifier) <*> pure 0.0 <*> (reservedOp "=" *> compExpr)
+odeDef = O.OdeDef <$> (reserved "ode" *> valIdentifier) <*> pure 0.0 <*> (reservedOp "=" *> compExpr)
 
 rreDef :: Parser O.Stmt
-rreDef = O.RreDef <$> (reserved "rre" *> reservedOp "=" *> identifier) <*> (reservedOp "->" *> identifier) <*> pure 0.0
-
+rreDef = O.RreDef <$> (reserved "rre" *> braces rreAttribs) <*> (reservedOp "=" *> identifier) <*> (reservedOp "->" *> identifier)
+  where
+    -- |parse a rre attribute definition
+    rreAttribs = attrib "rate" number
 
 -- |parser for the statements allowed within a component body
 --compStmt :: Parser O.CompStmt
@@ -87,7 +89,6 @@ rreDef = O.RreDef <$> (reserved "rre" *> reservedOp "=" *> identifier) <*> (rese
 --    updateRre n rre = rre {O.rreName = n}
 
 
--- |parse a rre attribute definition
 --rreDef = permute (O.RreDef ""
 --            <$$> (attrib "reaction" ((,) <$> identifier <*> (reservedOp "->" *> identifier)))
 --            <||> (attrib "rate" compExpr)
@@ -170,5 +171,22 @@ modLocalIdentifier =    try modElemIdentifier
 -- | value identifier, allows use of don't care vals
 valIdentifier :: Parser O.ValId
 valIdentifier = reservedOp "_" *> pure O.DontCare
-                <|> O.ValId <$> identifier
+                <|> O.ValId <$> identifier <*> optionMaybe (braces unitAttrib)
                 <?> "value identifier"
+  where
+    unitAttrib = attrib "unit" (many alphaNum)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

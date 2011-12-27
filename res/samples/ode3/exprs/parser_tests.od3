@@ -218,13 +218,33 @@ module L {
 */
 
 // RREs
+/*
 module K {
   // top level
   sval a = 1.0
   sval b = 2
-  rre = a -> b
+  rre {rate : 0.3 } = a -> b
   
   // nested
 }
+*/
+
+// attributes
+module L {
+  val a {unit : m} = 1
+  
+/*
+  component comA a {unit:m} => b where {
+    val b {unit: m} = a + 1
+  }
+
+  ode c {unit : m, init: 70} = c + 1
+
+  sval c {unit : m} = 1.0
+  sval d {unit : m}= 2
+  rre {rate : 0.3 } = a -> b
+*/  
+}
+
 
 

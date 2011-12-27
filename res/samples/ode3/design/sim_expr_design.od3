@@ -1,0 +1,33 @@
+
+// using new syntax
+component environment(x, y) {
+  // now add the body statements
+  component comA a => a + 1
+
+  val b {unit:m} = 2
+
+  // possible ode syntax
+  
+  // name not linked to ode, 
+  d = ode {init : 34, delta: cur + 1};
+  // could allow - not wanted
+  d = ode {init : 34, delta: cur + 1} + 1??;
+
+  // single statement - allows side-effects
+  ode d {init: 32, delta: d + 1, unit:m/s}
+  // or  
+  ode d {init:32, unit:m} = 30 // delta expr {unit:m/s}
+  // syntatic sugar for the below,
+  init d {unit: m} = 32
+  ode _ {val : d} = d + 1
+
+  // rres
+  // what does it return - unit?? (float, float) - is it even in the AST?
+  // why does it need a name?
+  // requires 2 state vars
+  init e {unit: m} = 2.3
+  init f {unit: m} = 0.1
+  rre  _ {rate: 2} = e -> f
+
+}
+

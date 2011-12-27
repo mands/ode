@@ -52,6 +52,7 @@ instance Applicative TmpSupply where
     pure = return
     (<*>) = ap
 
+
 desugarMod :: [O.Stmt] -> MExcept M.ExprList
 desugarMod elems = liftM reverse $ evalSupplyVars $ DF.foldlM desugarTopStmt [] elems
 
@@ -62,10 +63,10 @@ desugarTopStmt es stmt@(O.SValue _ _) = do
     (ids, expr) <- desugarStmt stmt
     return $ C.TopLet True (C.Bind ids) expr : es
 
-desugarTopStmt es stmt@(O.OdeDef name init _) = do
+desugarTopStmt es stmt@(O.OdeDef (O.ValId name unit) init _) = do
     (odeVar, odeExpr) <- desugarStmt stmt
     let initExpr = C.Lit (C.Num init)
-    let es' = C.TopLet True (C.Bind [name]) initExpr : es
+    let es' = C.TopLet True (C.Bind [(name, unit)]) initExpr : es
     return $ C.TopLet False (C.Bind odeVar) odeExpr : es'
 
 desugarTopStmt es stmt@(O.RreDef _ _  _) = do
@@ -76,9 +77,8 @@ desugarTopStmt es stmt = do
     (ids, expr) <- desugarStmt stmt
     return $ C.TopLet False (C.Bind ids) expr : es
 
-
 -- desugar a nested let binding
-desugarS' :: [O.Stmt] -> O.Expr  -> TmpSupply (C.Expr C.SrcId)
+desugarS' :: [O.Stmt] -> O.Expr  -> TmpSupply (C.Expr C.DesId)
 desugarS' [] outs = dsExpr outs
 desugarS' (s@(O.Value _ _ _):xs) outs = do
     (ids, expr) <- desugarStmt s
@@ -88,11 +88,11 @@ desugarS' (s@(O.SValue _ _):xs) outs = do
     (ids, expr) <- desugarStmt s
     C.Let True (C.Bind ids) expr <$> desugarS' xs outs
 
-desugarS' (s@(O.OdeDef name init _):xs) outs = do
+desugarS' (s@(O.OdeDef (O.ValId name unit) init _):xs) outs = do
     (odeVar, odeExpr) <- desugarStmt s
     let subExpr' = C.Let False (C.Bind odeVar) odeExpr <$> desugarS' xs outs
     let initExpr = C.Lit (C.Num init)
-    C.Let True (C.Bind [name]) <$> pure initExpr <*> subExpr'
+    C.Let True (C.Bind [(name, unit)]) <$> pure initExpr <*> subExpr'
 
 desugarS' (s@(O.RreDef _ _ _):xs) outs = do
     (rreVar, rreExpr) <- desugarStmt s
@@ -104,7 +104,7 @@ desugarS' (s@(O.Component _ _ _ _):xs) outs = do
 
 
 -- Main desugaring
-desugarStmt :: O.Stmt -> TmpSupply ([C.SrcId], C.Expr C.SrcId)
+desugarStmt :: O.Stmt -> TmpSupply ([C.DesId], C.Expr C.DesId)
 desugarStmt (O.Value ids value body) = do
     v' <- desugarS' body value
     ids' <- DT.mapM subDontCares ids
@@ -118,30 +118,30 @@ desugarStmt (O.SValue ids values) = do
     ids' <- DT.mapM subDontCares ids
     return $ (ids', vs'')
 
-desugarStmt (O.OdeDef name init expr) = do
-    odeExpr <- C.Ode <$> pure (C.LocalVar name) <*> dsExpr expr
+-- TODO - need to add the correct unit for the delta expr here
+desugarStmt (O.OdeDef (O.ValId name unit) init expr) = do
+    odeExpr <- C.Ode <$> pure (C.LocalVar (name, unit)) <*> dsExpr expr
     odeVar <- supply
-    return $ ([odeVar], odeExpr)
+    return $ ([(odeVar, Nothing)], odeExpr)
 
-desugarStmt (O.RreDef src dest rate) = do
+desugarStmt (O.RreDef rate src dest) = do
     rreVar <- supply
-    rreExpr <- C.Rre <$> pure (C.LocalVar src) <*> pure (C.LocalVar dest) <*> pure rate
-    return $ ([rreVar], rreExpr)
-
+    rreExpr <- C.Rre <$> pure (C.LocalVar (src, Nothing)) <*> pure (C.LocalVar (dest, Nothing)) <*> pure rate
+    return $ ([(rreVar, Nothing)], rreExpr)
 
 -- | desugar a top level component
 desugarStmt (O.Component name ins outs body) = do
     -- sub the ins
     ins' <- DT.mapM subDontCares ins
     -- create a new tmpArg only if multiple elems
-    arg <- if (isSingleElem ins') then return (singleElem ins') else supply
-    v <- desugarComp arg ins'
-    return $ ([name], (C.Abs arg v))
+    argName <- if (isSingleElem ins') then return (fst $ singleElem ins') else supply
+    v <- desugarComp argName ins'
+    return $ ([(name, Nothing)], (C.Abs (argName, Nothing) v))
   where
     -- | desugars and converts a component into a \c abstraction, not in tail-call form, could blow out the stack, but unlikely
-    desugarComp :: O.SrcId -> [O.SrcId] -> TmpSupply (C.Expr C.SrcId)
-    desugarComp argName (singIn:[]) = desugarS' body outs
-    desugarComp argName ins = C.Let False (C.Bind ins) (C.Var (C.LocalVar argName)) <$> desugarS' body outs
+    desugarComp :: O.SrcId -> [C.DesId] -> TmpSupply (C.Expr C.DesId)
+    desugarComp _ (singIn:[]) = desugarS' body outs
+    desugarComp argName ins = C.Let False (C.Bind ins) (C.Var (C.LocalVar (argName, Nothing))) <$> desugarS' body outs
 
 --error (show s)
 
@@ -183,7 +183,7 @@ desugarStmt (O.Component name ins outs body) = do
 
 -- | Expression desugarer - basically a big pattern amtch on all possible types
 -- should prob enable warnings to pick up all unmatched patterns
-dsExpr :: O.Expr -> TmpSupply (C.Expr C.SrcId)
+dsExpr :: O.Expr -> TmpSupply (C.Expr C.DesId)
 dsExpr (O.UnExpr O.Not e) = liftM (C.Op C.Not) (dsExpr e)
 
 -- convert unary negation into (* -1)
@@ -202,7 +202,7 @@ dsExpr (O.NumSeq a b c) = return $ C.Lit (C.NumSeq $ enumFromThenTo a b c)
 dsExpr (O.Boolean b) = return $ C.Lit (C.Boolean b)
 dsExpr (O.Time) = return $ C.Lit (C.Time)
 dsExpr (O.Unit) = return $ C.Lit (C.Unit)
-dsExpr (O.ValueRef (O.LocalId id)) = return $ C.Var (C.LocalVar id)
+dsExpr (O.ValueRef (O.LocalId id)) = return $ C.Var (C.LocalVar (id, Nothing))
 dsExpr (O.ValueRef (O.ModId mId id)) = return $ C.Var (C.ModVar mId id)
 dsExpr (O.Tuple exprs) = C.Tuple <$> DT.mapM dsExpr exprs
 
@@ -213,7 +213,7 @@ dsExpr (O.Piecewise cases e) = dsIf cases
     dsIf ((testExpr, runExpr):xs) = liftM3 C.If (dsExpr testExpr) (dsExpr runExpr) (dsIf xs)
 
 -- convert call to a app, need to convert ins/args into a tuple first
-dsExpr (O.Call (O.LocalId id) exprs) = liftM (C.App (C.LocalVar id)) $ packElems exprs
+dsExpr (O.Call (O.LocalId id) exprs) = liftM (C.App (C.LocalVar (id, Nothing))) $ packElems exprs
 dsExpr (O.Call (O.ModId mId id) exprs) = liftM (C.App (C.ModVar mId id)) $ packElems exprs
 
 -- any unknown/unimplemented paths - not needed as match all
@@ -231,9 +231,9 @@ packElems es = if (isSingleElem es)
     else liftM C.Tuple $ mapM dsExpr es
 
 -- | creates new unique variable identifiers for all don't care values
-subDontCares :: O.ValId -> TmpSupply C.SrcId
-subDontCares O.DontCare = supply
-subDontCares (O.ValId i) = return i
+subDontCares :: O.ValId -> TmpSupply C.DesId
+subDontCares O.DontCare = (,) <$> supply <*> pure Nothing
+subDontCares (O.ValId v u) = return (v, u)
 
 -- | simple patttern matching convertor, boring but gotta be done...
 binOps :: O.BinOp -> C.Op

@@ -44,19 +44,20 @@
           <keyword>component</keyword>
           <keyword>where</keyword>
           <keyword>val</keyword>
-
+          <keyword>sval</keyword>
+ 
           <keyword>ode</keyword>          
           <keyword>rre</keyword>
-          <keyword>init</keyword>
         </context>
 
         <context id="types" style-ref="type">
           <keyword>init</keyword>
-          <keyword>delta</keyword>
+          <keyword>unit</keyword>
           <keyword>rate</keyword>
+<!--
+
           <keyword>reaction</keyword>
           <keyword>default</keyword>
-<!--
           <keyword>double</keyword>
 -->
         </context>

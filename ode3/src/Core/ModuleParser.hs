@@ -74,7 +74,7 @@ moduleOpen :: Parser M.ModImport
 moduleOpen = reserved "import" *> modPathIdentifier
 
 -- | parse a module, either an entire definition/abstraction or an application
-moduleDef :: M.ModuleEnv -> Parser (M.TopMod E.SrcId)
+moduleDef :: M.ModuleEnv -> Parser (M.TopMod E.DesId)
 moduleDef modEnv = M.TopMod <$> (reserved "module" *> modIdentifier) <*> modParse
   where
     modParse =
@@ -86,7 +86,7 @@ moduleDef modEnv = M.TopMod <$> (reserved "module" *> modIdentifier) <*> modPars
     funcArgs args = OrdMap.fromList $ map (\arg -> (arg, Map.empty)) args
 
 -- | parse a chain/tree of module applications
-moduleAppParams :: Parser (M.Module E.SrcId)
+moduleAppParams :: Parser (M.Module E.DesId)
 moduleAppParams = procParams <$> modIdentifier <*> optionMaybe (paramList moduleAppParams)
   where
     -- need to desugar into nested set of appMods and varMods

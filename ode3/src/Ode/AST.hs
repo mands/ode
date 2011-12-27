@@ -17,7 +17,7 @@
 module Ode.AST (
     ModLocalId(..), ValId(..), Stmt(..),
     Expr(..), BinOp(..), UnOp(..),
-    SrcId, NumTy,
+    SrcId, NumTy, UnitT
 ) where
 
 import Data.Map as Map
@@ -27,8 +27,8 @@ import Common.AST
 data ModLocalId = LocalId SrcId | ModId SrcId SrcId
                 deriving (Show, Eq, Ord)
 
--- | used for differntiatin between actual ids and _ vals
-data ValId = ValId SrcId | DontCare deriving (Show, Ord, Eq)
+-- | used for creating new bindings that may differntiatin between actual ids and _ vals
+data ValId = ValId SrcId (Maybe UnitT) | DontCare deriving (Show, Ord, Eq)
 
 -- | elements allowed within a module, basically components or top-level constant values
 data Stmt = -- each independent component, is basically function abstraction
@@ -40,9 +40,9 @@ data Stmt = -- each independent component, is basically function abstraction
             -- state value defintion - indirectly mutable, stateful, values
             | SValue { svName :: [ValId], svValue :: [Double] }
             -- ODE - a SValue and ODE def combined
-            | OdeDef { odeName :: SrcId, odeInit :: Double, odeExpr :: Expr}
+            | OdeDef { odeName :: ValId, odeInit :: Double, odeExpr :: Expr}
             -- RRE - takes two SValues and a rate parameter
-            | RreDef { src :: SrcId, dest :: SrcId, rate :: Double }
+            | RreDef { rreRate :: Double, rreSrc :: SrcId, rreDest :: SrcId }
             -- or they may be a reference to a component defined in a module param and re-exported here
             -- | ComponentRef SrcId ModLocalId
             deriving (Show, Eq, Ord)

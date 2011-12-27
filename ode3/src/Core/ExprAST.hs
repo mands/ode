@@ -23,7 +23,7 @@
 
 module Core.ExprAST (
 SrcId, Id, VarId(..), Bind(..), Type(..), travTypesM,
-TopLet(..), Expr(..), Op(..), Literal(..),
+TopLet(..), Expr(..), Op(..), Literal(..), UnitT, DesId,
 ) where
 
 import Control.Monad
@@ -37,10 +37,6 @@ import Data.Functor
 import Data.Maybe (fromJust, isJust)
 import Utils.Utils
 import Common.AST
-
-data VarId a =  LocalVar a
-                | ModVar SrcId SrcId
-                deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
 
 -- | DetailId - holds both a (parameterised) identifier and a string that represetns the (closest) original/source variable and line num
 --data DetailId a = DetailId a SrcId Int deriving (Show, Eq, Ord)
@@ -71,6 +67,10 @@ data TBind :: * -> * -> * where
 
 data Bind b = Bind [b]
     deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
+
+data VarId a =  LocalVar a
+                | ModVar SrcId SrcId
+                deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
 
 -- TODO - could we use the Bind type to unify both b and [b], or use GADTs and type-classes for extra type-safety
 -- |Main model elements - maybe move these into a Map indexed by Id

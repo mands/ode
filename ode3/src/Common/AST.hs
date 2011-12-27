@@ -14,14 +14,20 @@
 
 module Common.AST (
     NumTy, UntypedId, Id,
-    SrcId
+    SrcId, UnitT, DesId
 ) where
 
 -- | an individual number type, not sure if needed, used to convert from double to integer
 type NumTy = Double
 
+type UnitT = String
+
 -- TODO - change to newtype?
--- | Identifier - basicially RdrName - needs to become parameterised
+-- | Identifier - basicially RdrName - needs to become parameterised, hold the id and the optional unit annotation
 type SrcId = String
 type UntypedId = Int
 type Id = UntypedId
+type DesId = (SrcId, Maybe UnitT)
+
+
+

@@ -40,22 +40,23 @@ import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap
 
 -- we need a supply of uniques, use monad supply again but with user-start param
--- type IntSupply = SupplyT Int (State ExprBinds)
-type IntSupply = Supply Int
+-- type IdSupply = SupplyT Int (State ExprBinds)
+type IdSupply = Supply E.Id
 
 -- TODO - may need this monad when unify AST in order to process errors
---newtype IntSupply a = IntSupply { runIntSupply :: SupplyT Int (StateT ExprBinds (MExcept)) a }
+--newtype IdSupply a = IdSupply { runIdSupply :: SupplyT Int (StateT ExprBinds (MExcept)) a }
 --    deriving (Monad, MonadSupply Int)
 
-instance Applicative IntSupply where
+instance Applicative IdSupply where
     pure = return
     (<*>) = ap
 
 -- main types
-type TopBinds = Map.Map E.SrcId E.Id
+type BindMap = Map.Map E.SrcId E.Id
+type UnitMap = Map.Map E.Id E.UnitT
 
 -- | Main rename function, takes a model bound by Ids and returns a single-scoped model bound by unique ints
-rename :: M.Module E.SrcId -> MExcept (M.Module Int)
+rename :: M.Module E.DesId -> MExcept (M.Module E.Id)
 rename (M.LitMod exprMap modData) = trace ("(RN) " ++ (show res)) (Right res)
   where
     (exprMap', topBinds, freeId) = renTop exprMap
@@ -69,7 +70,7 @@ rename (M.FunctorMod args exprMap modData) = trace ("(RN) " ++ (show res)) (Righ
     res = (M.FunctorMod args exprMap' modData')
 
 -- | Update the module data with the idBimap and next free id
-updateModData :: M.ModuleData ->  TopBinds -> Int -> M.ModuleData
+updateModData :: M.ModuleData ->  BindMap -> E.Id -> M.ModuleData
 updateModData modData tB freeId = modData { M.modIdBimap = idBimap', M.modFreeId = Just freeId }
   where
     -- TODO - quick hack to convert
@@ -77,24 +78,8 @@ updateModData modData tB freeId = modData { M.modIdBimap = idBimap', M.modFreeId
     -- should never fail
     idBimap' = if (Bimap.valid idBimap) then idBimap else error "DUMP - invalid bimap!"
 
-
-convBind :: E.Bind E.SrcId -> Map.Map E.SrcId Int -> IntSupply (E.Bind Int, Map.Map E.SrcId Int)
-convBind (E.Bind bs) map = liftM (mapFst (E.Bind . reverse)) $ DF.foldlM t ([], map) bs
-  where
-    t (bs', map) b = do
-        b' <- supply
-        let map' = Map.insert b b' map
-        return (b':bs', map')
-
--- | Monadic binding lookup,
-bLookup :: E.SrcId -> TopBinds -> IntSupply Int
-bLookup v tB =
-    -- This should never throw an error (reorderer now catches all unknown variable references)
-    -- maybe (renError ("Referenced variable " ++ v ++ " not found")) (\x -> return x) (Map.lookup v tB)
-    return $ maybe (error "(RNO1)") id $ (Map.lookup v tB) -- trace' [MkSB v, MkSB tB] "Scope Mappings"
-
 -- |Need to build a conversion map of the top values first
-renTop :: M.ExprMap E.SrcId -> (M.ExprMap Int, TopBinds, Int)
+renTop :: M.ExprMap E.DesId -> (M.ExprMap E.Id, BindMap, E.Id)
 renTop exprMap = (exprMap', topBinds, head uniqs)
   where
     ((topBinds, exprMap'), uniqs) = fromJust $ runSupply exprMapM [0..]
@@ -102,7 +87,7 @@ renTop exprMap = (exprMap', topBinds, head uniqs)
 
     -- map over each expr, using the topmap, converting lets and building a new scopemap
     -- as traversing expr, as order is fixed this should be ok
-    convTopBind :: (TopBinds, M.ExprMap Int) -> E.TopLet E.SrcId -> IntSupply (TopBinds, M.ExprMap Int)
+    convTopBind :: (BindMap, M.ExprMap E.Id) -> E.TopLet E.DesId -> IdSupply (BindMap, M.ExprMap E.Id)
     convTopBind (tB, model) (E.TopLet s b e) = do
         -- convert the bindings
         (b', tB') <- convBind b tB
@@ -113,8 +98,25 @@ renTop exprMap = (exprMap', topBinds, head uniqs)
         return (tB', model')
 
 
+convBind :: E.Bind E.DesId -> BindMap -> IdSupply (E.Bind E.Id, BindMap)
+convBind (E.Bind bs) map = liftM (mapFst (E.Bind . reverse)) $ DF.foldlM t ([], map) bs
+  where
+    t (bs', map) (b, _) = do
+        b' <- supply
+        let map' = Map.insert b b' map
+        return (b':bs', map')
+
+
+-- | Monadic binding lookup,
+bLookup :: E.DesId -> BindMap -> IdSupply E.Id
+bLookup (v, _) tB =
+    -- This should never throw an error (reorderer now catches all unknown variable references)
+    -- maybe (renError ("Referenced variable " ++ v ++ " not found")) (\x -> return x) (Map.lookup v tB)
+    return $ maybe (error "(RNO1)") id $ (Map.lookup v tB) -- trace' [MkSB v, MkSB tB] "Scope Mappings"
+
+
 -- | Basic traverse over the expression structure - make into Data.Traversable
-renExpr :: TopBinds -> E.Expr E.SrcId -> IntSupply (TopBinds, E.Expr Int)
+renExpr :: BindMap -> E.Expr E.DesId -> IdSupply (BindMap, E.Expr E.Id)
 -- need to check the expr and top bindings
 renExpr tB (E.Var (E.LocalVar v)) = pairM (pure tB) (E.Var <$> E.LocalVar <$> bLookup v tB)
 -- we don't rename module vars, least not yet - they are renamed during functor application
@@ -129,7 +131,7 @@ renExpr tB (E.App (E.ModVar m v) expr) = pairM (pure tB) $ E.App <$> pure (E.Mod
   where
     expr' = snd <$> renExpr tB expr
 
-renExpr tB (E.Abs b expr) = do
+renExpr tB (E.Abs (b, _) expr) = do
     -- get the unique id for the arg and update the binding
     b' <- supply
     let tB' = Map.insert b b' tB

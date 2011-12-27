@@ -49,7 +49,7 @@ type TypeConsM  = SupplyT Int (State TypeCons)
 
 -- TODO - un-Do this!
 typeCheck :: M.Module E.Id -> MExcept (M.Module E.Id)
-typeCheck mod@(M.LitMod exprMap modData) = do
+typeCheck !mod@(M.LitMod exprMap modData) = do
     let ((tEnv, _), tCons) = constrain exprMap
     -- unify the types and get the new typemap
     tVarMap <- unify tCons

@@ -29,7 +29,7 @@ import qualified Utils.OrdMap as OrdMap
 import qualified Core.ExprAST as E
 import qualified Core.ModuleAST as M
 
-validate :: M.Module E.SrcId -> MExcept (M.Module E.SrcId)
+validate :: M.Module E.DesId -> MExcept (M.Module E.DesId)
 validate mod@(M.LitMod _ modData) = M.LitMod <$> createTopExprs (M.modExprList modData) <*> pure (modData { M.modExprList = [] })
 validate mod@(M.FunctorMod funArgs _ modData) = M.FunctorMod <$> funArgs' <*> createTopExprs (M.modExprList modData)
                                                 <*> pure (modData { M.modExprList = [] })
@@ -40,22 +40,22 @@ validate mod@(M.FunctorMod funArgs _ modData) = M.FunctorMod <$> funArgs' <*> cr
 validate mod@(M.AppMod _ _) = pure mod
 
 -- create the expression map and check for duplicated top-level bindings
-createTopExprs :: M.ExprList -> MExcept (M.ExprMap E.SrcId)
-createTopExprs exprList = (\(_, exprMap) -> exprMap) <$> DF.foldlM t (Set.empty, OrdMap.empty) exprList
+createTopExprs :: M.ExprList -> MExcept (M.ExprMap E.DesId)
+createTopExprs exprList = snd <$> DF.foldlM t (Set.empty, OrdMap.empty) exprList
   where
-    t :: (Set.Set E.SrcId, M.ExprMap E.SrcId) -> E.TopLet E.SrcId -> MExcept (Set.Set E.SrcId, M.ExprMap E.SrcId)
+    t :: (Set.Set E.SrcId, M.ExprMap E.DesId) -> E.TopLet E.DesId -> MExcept (Set.Set E.SrcId, M.ExprMap E.DesId)
     t s topExpr@(E.TopLet sv b expr) = validExpr (Set.empty) expr *> addTopBinding s b topExpr
 
     addTopBinding (topBinds, exprMap) b expr = case b of
         -- E.SingBind ab -> (,) <$> addBinding topBinds ab <*> pure (OrdMap.insert b expr exprMap)
         E.Bind bs -> (,) <$> DF.foldlM addBinding topBinds bs <*> pure (OrdMap.insert b expr exprMap)
       where
-        addBinding topBinds b = case Set.member b topBinds of
+        addBinding topBinds (b, _) = case Set.member b topBinds of
             True -> throwError $ "(VL06) - Top Binding " ++ (show b) ++ " already exists in module"
             False -> pure $ (Set.insert b topBinds)
 
 -- check several properties for expression tree, passes state down into exp, doesn't bother returning it for now
-validExpr :: (Set.Set E.SrcId) -> E.Expr E.SrcId -> MExcept ()
+validExpr :: (Set.Set E.SrcId) -> E.Expr E.DesId -> MExcept ()
 -- validExpr _ e@(E.Var v) = pure ()
 -- validExpr _ e@(E.Lit l) = pure ()
 
@@ -67,7 +67,7 @@ validExpr curBinds (E.Let s (E.Bind bs) e1 e2) = do
     curBinds' <- DF.foldlM addBinding curBinds bs
     (validExpr Set.empty e1) *> (validExpr curBinds' e2)
   where
-    addBinding curBinds b = case Set.member b curBinds of
+    addBinding curBinds (b, _) = case Set.member b curBinds of
         True -> throwError $ "(VL04) - Binding " ++ (show b) ++ " already exists at this scoping level"
         False -> pure $ (Set.insert b curBinds)
 
