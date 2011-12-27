@@ -71,10 +71,10 @@ rename (M.FunctorMod args exprMap modData) = trace ("(RN) " ++ (show res)) (Righ
 
 -- | Update the module data with the idBimap and next free id
 updateModData :: M.ModuleData ->  BindMap -> E.Id -> M.ModuleData
-updateModData modData tB freeId = modData { M.modIdBimap = idBimap', M.modFreeId = Just freeId }
+updateModData modData bMap freeId = modData { M.modIdBimap = idBimap', M.modFreeId = Just freeId }
   where
     -- TODO - quick hack to convert
-    idBimap = Bimap.fromList $ Map.toList tB
+    idBimap = Bimap.fromList $ Map.toList bMap
     -- should never fail
     idBimap' = if (Bimap.valid idBimap) then idBimap else error "DUMP - invalid bimap!"
 
@@ -88,14 +88,14 @@ renTop exprMap = (exprMap', topBinds, head uniqs)
     -- map over each expr, using the topmap, converting lets and building a new scopemap
     -- as traversing expr, as order is fixed this should be ok
     convTopBind :: (BindMap, M.ExprMap E.Id) -> E.TopLet E.DesId -> IdSupply (BindMap, M.ExprMap E.Id)
-    convTopBind (tB, model) (E.TopLet s b e) = do
+    convTopBind (bMap, model) (E.TopLet s b e) = do
         -- convert the bindings
-        (b', tB') <- convBind b tB
+        (b', bMap') <- convBind b bMap
         -- traverse over the expression
-        (_, expr') <- renExpr tB e
+        RenData expr' _ _ <- renExpr (RenData e bMap Map.empty)
         let model' = OrdMap.insert b' (E.TopLet s b' expr') model
         -- return the new bindmap and model
-        return (tB', model')
+        return (bMap', model')
 
 
 convBind :: E.Bind E.DesId -> BindMap -> IdSupply (E.Bind E.Id, BindMap)
@@ -109,65 +109,81 @@ convBind (E.Bind bs) map = liftM (mapFst (E.Bind . reverse)) $ DF.foldlM t ([], 
 
 -- | Monadic binding lookup,
 bLookup :: E.DesId -> BindMap -> IdSupply E.Id
-bLookup (v, _) tB =
+bLookup (v, _) bMap =
     -- This should never throw an error (reorderer now catches all unknown variable references)
-    -- maybe (renError ("Referenced variable " ++ v ++ " not found")) (\x -> return x) (Map.lookup v tB)
-    return $ maybe (error "(RNO1)") id $ (Map.lookup v tB) -- trace' [MkSB v, MkSB tB] "Scope Mappings"
+    -- maybe (renError ("Referenced variable " ++ v ++ " not found")) (\x -> return x) (Map.lookup v bMap)
+    return $ maybe (error "(RNO1)") id $ (Map.lookup v bMap) -- trace' [MkSB v, MkSB bMap] "Scope Mappings"
 
+
+data RenData a = RenData (E.Expr a) BindMap UnitMap
 
 -- | Basic traverse over the expression structure - make into Data.Traversable
-renExpr :: BindMap -> E.Expr E.DesId -> IdSupply (BindMap, E.Expr E.Id)
+renExpr :: RenData E.DesId -> IdSupply (RenData E.Id)
+-- renExpr :: RenData E.DesId -> BindMap -> E.Expr E.DesId -> IdSupply (BindMap, E.Expr E.Id)
 -- need to check the expr and top bindings
-renExpr tB (E.Var (E.LocalVar v)) = pairM (pure tB) (E.Var <$> E.LocalVar <$> bLookup v tB)
+renExpr (RenData (E.Var (E.LocalVar v)) bMap uMap) = do
+    v' <- bLookup v bMap
+    return $ RenData (E.Var (E.LocalVar v')) bMap uMap
+
 -- we don't rename module vars, least not yet - they are renamed during functor application
-renExpr tB (E.Var (E.ModVar m v)) = pairM (pure tB) $ pure (E.Var (E.ModVar m v))
+renExpr rD@(RenData (E.Var (E.ModVar m v)) bMap uMap) = pure $ RenData (E.Var (E.ModVar m v)) bMap uMap
+
 -- same as above
-renExpr tB (E.App (E.LocalVar b) expr) = do
-    v' <- bLookup b tB
-    (_, expr') <- renExpr tB expr
-    return $ (tB, E.App (E.LocalVar v') expr')
+renExpr (RenData (E.App (E.LocalVar b) expr) bMap uMap) = do
+    v' <- bLookup b bMap
+    RenData expr' _ _ <- renExpr (RenData expr bMap uMap)
+    return $ RenData (E.App (E.LocalVar v') expr') bMap uMap
 
-renExpr tB (E.App (E.ModVar m v) expr) = pairM (pure tB) $ E.App <$> pure (E.ModVar m v) <*> expr'
-  where
-    expr' = snd <$> renExpr tB expr
+renExpr (RenData (E.App (E.ModVar m v) expr) bMap uMap) = do
+    RenData expr' _ _ <- renExpr (RenData expr bMap uMap)
+    return $ RenData (E.App (E.ModVar m v) expr') bMap uMap
 
-renExpr tB (E.Abs (b, _) expr) = do
+renExpr (RenData (E.Abs (b, _) expr) bMap uMap) = do
     -- get the unique id for the arg and update the binding
     b' <- supply
-    let tB' = Map.insert b b' tB
+    let bMap' = Map.insert b b' bMap
     -- process the abs expr
-    (_, expr') <- renExpr tB' expr
-    return (tB, E.Abs b' expr')
+    RenData expr' _ _ <- renExpr (RenData expr bMap uMap)
+    return $ RenData (E.Abs b' expr') bMap uMap
 
 -- need to create a new binding and keep processing
-renExpr tB (E.Let s b bExpr expr) = do
-    -- process the binding bExpr with the existing tB
-    (_, bExpr') <- renExpr tB bExpr
+renExpr (RenData (E.Let s b bExpr expr) bMap uMap) = do
+    -- process the binding bExpr with the existing bMap
+    RenData bExpr' _ _ <- renExpr (RenData bExpr bMap uMap)
     -- get the unique ids and update the binding
-    (b', tB') <- convBind b tB
+    (b', bMap') <- convBind b bMap
     -- process the main expr
-    (_, expr') <- renExpr tB' expr
-    return $ (tB, E.Let s b' bExpr' expr')
+    RenData expr' _ _ <- renExpr (RenData expr bMap' uMap)
+    return $ RenData (E.Let s b' bExpr' expr') bMap uMap
 
 -- just traverse the structure
-renExpr tB (E.Lit l) = pairM (pure tB) $ return (E.Lit l)
-renExpr tB (E.Op op expr) = pairM (pure tB)  $ (E.Op op) <$> (snd <$> renExpr tB expr)
-renExpr tB (E.If bExpr tExpr fExpr) = pairM (pure tB) $ E.If <$> re bExpr <*> re tExpr <*> re fExpr
+renExpr (RenData (E.Lit l) bMap uMap) = return $ (RenData (E.Lit l) bMap uMap)
+renExpr (RenData (E.Op op expr) bMap uMap) =
+    renExpr (RenData expr bMap uMap) >>= (\(RenData expr' _ _) -> return $ RenData (E.Op op expr') bMap uMap)
+
+renExpr (RenData (E.If bExpr tExpr fExpr) bMap uMap) = do
+    expr' <- E.If <$> apExpr bExpr <*> apExpr tExpr <*> apExpr fExpr
+    return $ RenData expr' bMap uMap
   where
-    re expr = snd <$> renExpr tB expr
+    apExpr :: E.Expr E.DesId -> IdSupply (E.Expr E.Id)
+    apExpr expr = renExpr (RenData expr bMap uMap) >>= (\(RenData expr' _ _) -> return expr')
 
 -- need to map (or fold?) over the elements - map should be okay as a tuple should never create sub-bindings
-renExpr tB (E.Tuple exprs) = pairM (pure tB) $ E.Tuple <$> DT.mapM (\e -> snd <$> renExpr tB e) exprs
+renExpr (RenData (E.Tuple exprs) bMap uMap) = do
+    expr' <- E.Tuple <$> DT.mapM t exprs
+    return $ RenData expr' bMap uMap
+  where
+    t e = renExpr (RenData e bMap uMap) >>= (\(RenData expr' _ _) -> return expr')
 
-renExpr tB (E.Ode (E.LocalVar v) expr) = do
-    v' <- E.LocalVar <$> bLookup v tB
-    (_, expr') <- renExpr tB expr
-    return $ (tB, E.Ode v' expr')
+renExpr (RenData (E.Ode (E.LocalVar v) expr) bMap uMap) = do
+    v' <- E.LocalVar <$> bLookup v bMap
+    RenData expr' _ _ <- renExpr (RenData expr bMap uMap)
+    return $ RenData (E.Ode v' expr') bMap uMap
 
-renExpr tB (E.Rre (E.LocalVar src) (E.LocalVar dest) rate) = do
-    src' <- E.LocalVar <$> bLookup src tB
-    dest' <- E.LocalVar <$> bLookup dest tB
-    return $ (tB, E.Rre src' dest' rate)
+renExpr (RenData (E.Rre (E.LocalVar src) (E.LocalVar dest) rate) bMap uMap) = do
+    src' <- E.LocalVar <$> bLookup src bMap
+    dest' <- E.LocalVar <$> bLookup dest bMap
+    return $ RenData (E.Rre src' dest' rate) bMap uMap
 
 
 
