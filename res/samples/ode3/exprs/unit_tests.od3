@@ -1,0 +1,59 @@
+// standard dmless floats
+module A {
+	val X1 = 3
+	val Y1 = 3 + 3
+}
+
+// standard units
+module B {
+	val X1 {unit : m} = 3
+	val Y1 {unit : km} = 3
+}
+
+// simple conversion - not allowed
+module C {
+	val X1 {unit : m} = 3
+	val Y1 {unit : km} = Y1
+}
+
+// mixed units and dmless - not allowed??
+module D {
+	val X1 {unit : m} = 3
+	val Y1 {unit : km} = 3 + X1
+	val Y2 {unit : km} = X1 + 3
+}
+
+// multiple mixed units and dmless - not allowed
+module E {
+	val X1 {unit : m} = 3
+	val Y1 {unit : km} = 3
+	val Z1 {unit : km} = 3 + X1 + Y1
+	val Z2 {unit : km} = X1 + 3 + Y1
+	val Z3 {unit : km} = X1 + Y1 + 3
+}
+
+// multiple mixed units w/ conversion
+module F {
+	val X1 {unit : m} = 3
+	val Y1 {unit : km} = 3
+	val Z1 {unit : cm} = 3 + X1 + Y1
+}
+
+// sub expressions w/ conversion
+module G {
+	val W {unit : nm} = 3
+	val X {unit : m} = 3
+	val Y {unit : km} = 3
+	val Z {unit : cm} = W + ((3 + X) + (Y + 3))
+}
+
+
+
+/* todo
+* multi mixed dmless and units
+* auto-convesion
+* functor conversion
+* sub-expressions
+* inline units defs? leter i think
+*/
+

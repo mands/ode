@@ -231,13 +231,21 @@ module K {
 
 // attributes
 module L {
-  val a {unit : m} = 1
+
+//  val a {unit : m} = 1
   
-/*
+// component single arg - m -> km
   component comA a {unit:m} => b where {
-    val b {unit: m} = a + 1
+    val b {unit: km} = a + 1
   }
 
+// component multi arg - (m, km) -> m
+  component comA (a {unit:m}, b {unit:km}) => c where {
+    val c {unit: m} = a + b
+  }
+
+
+/*
   ode c {unit : m, init: 70} = c + 1
 
   sval c {unit : m} = 1.0
@@ -245,6 +253,5 @@ module L {
   rre {rate : 0.3 } = a -> b
 */  
 }
-
 
 

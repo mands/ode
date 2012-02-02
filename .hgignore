@@ -1,6 +1,7 @@
 syntax: glob
 ode2/dist
 ode3/dist
+res/scratch/unit-typeclass/dist
 *~
 *.o
 *.hi
