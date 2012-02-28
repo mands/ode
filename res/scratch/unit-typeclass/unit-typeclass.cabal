@@ -6,17 +6,13 @@ license: AllRightsReserved
 license-file: ""
 copyright:
 maintainer:
-build-depends: base -any
+build-depends: base -any, dimensional -any
 stability:
 homepage:
 package-url:
 bug-reports:
 synopsis: UnitTypeclass
-description:  
-             .
-             .
-             .
-             .
+description: .
 category:
 author:
 tested-with:
@@ -46,7 +42,7 @@ includes:
 install-includes:
 include-dirs:
 hs-source-dirs: src
-other-modules:
+other-modules: MyImp DimTest
 ghc-prof-options:
 ghc-shared-options:
 ghc-options:

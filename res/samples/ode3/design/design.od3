@@ -183,3 +183,42 @@ component environment(x, y) {
 
 
 
+// new tuple and possible record syntax
+component env () => () where {
+  // existing syntax
+  // create using ()-stynax
+  t1 = (1, 2, True)
+  // access via direct, full unpacking
+  a1, _, c1 = t1
+
+  // new unpack rule, access directly
+  a1 = t1.1
+
+  // NB - can never update/mutate, only create/assign new values
+  t1.1 = 2 // error
+  t2 = (2, t1.2, t1.3) // OK
+  t4 = t1 ( 1 : 2 )
+
+  // record syntax - exactly the same but uses known identifiers rather than index to access
+  r1 = { x : 1, y : 2 }
+  a2, b2 = r1
+  a2 = r1.x
+  
+  // again can't update
+  r1.x = 2 // error
+  r2 = { x : 2, y : r1.y } // OK
+
+  // need update syntatic sugar
+  r3 = r1 { x : 2 }
+}
+
+// new num seq syntax
+// not allowed, instead move to main entry params or implicit/global env module
+
+// signatures and newtypes for modules/records
+// do we need them - contrains the strucutral coerciosns and enables some form of type-safety
+// adds documentatoins and removes burden from users to creator of strucuture/module
+
+
+
+
