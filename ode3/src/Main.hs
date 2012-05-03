@@ -33,6 +33,7 @@ import qualified Core.ModuleAST as MA
 
 import Utils.Utils
 import Utils.OrdMap
+import ShellUI
 
 debugPipe :: FilePath
 debugPipe = "./.odepipe"
@@ -41,56 +42,31 @@ debugPipe = "./.odepipe"
 main :: IO ()
 main = do
     -- TODO - better args handling needed
-    -- get the input filename
-    fileName <- liftM head getArgs
-    compilerStart fileName
 
-compilerStart :: String -> IO ()
-compilerStart fileName = do
+    -- setup the logger
     updateGlobalLogger rootLoggerName (setLevel DEBUG)
     --filelogger <- fileHandler "output.log" DEBUG
     streamlogger <- verboseStreamHandler stdout DEBUG
     --updateGlobalLogger rootLoggerName (setHandlers [streamlogger, filelogger])
     updateGlobalLogger rootLoggerName (setHandlers [streamlogger])
 
+    -- some debug stuff
     progName <- getProgName
-
-    infoM "ode3.main" $ "Hello World from " ++ progName ++ "!"
-
+    debugM "ode3.main" $ "Hello from " ++ progName ++ "!"
     curDir <- getCurrentDirectory
-    infoM "ode3.main" $ "Running from " ++ curDir
-
-    -- read the input file
-    infoM "ode3.main" $ "parsing " ++ fileName
-
-
-    -- open up the named pipe
-    pExists <- (PF.fileExist debugPipe)
-    pStatus <- (PF.getFileStatus debugPipe)
-    infoM "ode3.main" $ "Exists - " ++ show pExists
-    infoM "ode3.main" $ "Named Pipe - " ++ show (PF.isNamedPipe pStatus)
-    hCmdPipe <- SIO.openFile debugPipe SIO.ReadMode
-    SIO.hSetBuffering hCmdPipe SIO.LineBuffering
-
-    -- read lines from the pipe until EOF
-    hshow <- SIO.hShow hCmdPipe
-    infoM "ode3.main" $ "Handle - " ++ hshow
-
-    --b <- SIO.hWaitForInput hCmdPipe (-1)
-    --infoM "ode3.main" $ "Wait - " ++ show b
-    readLoop hCmdPipe
+    debugM "ode3.main" $ "Running from " ++ curDir
 
     -- start the compiler
     -- resA <- modParser fileName
     -- TODO need to create a maybeT transformer - ignore for now
 
-    infoM "ode3.main" $ "Done"
+    shellEntry
 
-    -- Clean up
-    SIO.hClose hCmdPipe
+    debugM "ode3.main" $ "Quitting."
 
     -- TODO - return exit code depending on success/failure
     -- TODO - close filelogger
+
 
 
 readLoop :: Handle -> IO ()

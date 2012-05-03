@@ -21,6 +21,10 @@ def main(pipename):
               cmd = input("> ")
               pipe.write(cmd + '\n') # have to readd the newline
           except (EOFError, KeyboardInterrupt):
+              print("Connection closed by this side")
+              break
+          except (IOError):
+              print("Connection closed by other side")
               break
 
     print("Exiting")
