@@ -16,6 +16,10 @@ module TenTusscher2 {
   import SlowTimeDependentPotassiumCurrent
   import FastSodiumCurrent
   import SodiumBackgroundCurrent
+  import LTypeCaCurrent
+  import CalciumBackgroundCurrent
+  import TransientOutwardCurrent
+  import SodiumPotassiumPumpCurrent  
   import SodiumCalciumExchangerCurrent
   import CalciumPumpCurrent
   import PotassiumPumpCurrent
@@ -92,11 +96,8 @@ module Params {
   // top level constants
   val R = 8314.472 {unit : joule/mole * kelvin}
   val T = 310 {unit : kelvin}
-  val F = 96485.3415 {unit : coulomb / milli mole}
-  
+  val F = 96485.3415 {unit : coulomb / milli mole}  
 }
-
-
 
 module InwardRectifierPotassiumCurrent {
   // new current
@@ -392,8 +393,7 @@ module CalciumDynamics {
     ode Ca_i {init: 0.0002} = Ca_i_bufc * (i_leak - i_up + i_rel - 1 * (i_CaL + i_b_Ca + i_p_Ca - 2 * i_NaCa) / (2 * 1 * V_c * P.F) * Cm)
     val Ca_Dyn = {i : Ca_i, o : 2}
     ode Ca_SR {init: 0.2} = Ca_sr_bufsr * V_c / V_sr * (i_up - (i_rel + i_leak))
-  }
-  
+  } 
 }
 
 module SodiumDynamics {

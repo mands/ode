@@ -222,3 +222,16 @@ component env () => () where {
 
 
 
+// new sval syntax
+component environment(x, y) {
+  // normal, static and computied every ts
+  val x = 1.0
+
+  // sval, allow simple exprs, computed only once at start of sim, available throughtout comp
+  sval y = 1.0 + 2.0  
+  
+  // when inlined   
+
+}
+
+
