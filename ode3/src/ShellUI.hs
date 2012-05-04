@@ -20,6 +20,7 @@ import qualified System.IO as SIO
 import qualified System.Posix.Files as PF
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import qualified Data.List as List
 
 import Control.Monad
 import Control.Applicative
@@ -31,6 +32,10 @@ import System.Console.Shell.Backend.Readline
 
 import System.Environment(getArgs)
 import System.Log.Logger
+import Utils.Utils
+
+import qualified System.FilePath as FP
+import qualified Data.List.Split as ListSplit
 
 shellEntry = do
     argsLen <- liftM length getArgs
@@ -188,35 +193,24 @@ initShState = ShState   { stDebug = False
                         , stModules = Map.empty
                         }
 
+-- some module helper funcs, need to relocate
+data ModImport = ModImport FilePath ModName (Maybe String) deriving Show
+data ModName = ModSing FilePath | ModAll deriving Show
 
-openPipe :: FilePath -> IO SIO.Handle
-openPipe inName = do
-    -- open up the named pipe
-    -- pExists <- (PF.fileExist debugPipe)
-    -- pStatus <- (PF.getFileStatus debugPipe)
-    -- putStrLn $ "Exists - " ++ show pExists
-    -- putStrLn  $ "Named Pipe - " ++ show (PF.isNamedPipe pStatus)
-    hCmdPipe <- SIO.openFile inName SIO.ReadMode
-    SIO.hSetBuffering hCmdPipe SIO.NoBuffering
-    hshow <- SIO.hShow hCmdPipe
-    putStrLn  $ "Handle - " ++ hshow
-    return hCmdPipe
+-- | Takes a string and returns the modname
+loadModName :: String -> ModName
+loadModName "*" = ModAll
+loadModName x = ModSing x
 
-
-closePipe :: SIO.Handle -> IO ()
-closePipe = SIO.hClose
-
--- |read lines from the pipe until EOF
-readLoop :: SIO.Handle -> IO ()
-readLoop hCmdPipe = forever (SIO.hGetLine hCmdPipe >>= outCmd)
+-- | Takes a string representing the module URI and returns the path and module name
+-- i.e. W.X.Y.Z -> (W/X/Y, Z)
+uriToPath :: String -> (FilePath, ModName)
+uriToPath uri = (uriFilePath, uriModName)
   where
-    outCmd s = putStrLn s >> SIO.hFlush SIO.stdout
+    uriElems = ListSplit.splitOn "." uri
+    uriModName = loadModName $ List.last uriElems
 
-
-
-
-
-
+    uriFilePath = (FP.makeValid . FP.normalise . FP.joinPath . List.init $ uriElems) FP.<.> "od3"
 
 
 

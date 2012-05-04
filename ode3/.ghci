@@ -1,0 +1,16 @@
+-- default imports
+import Control.Applicative
+import Control.Monad
+
+-- look in correct dirs for src
+:set -idist/build/ode3/ode3-tmp:src:dist/build/autogen
+
+-- useful settings
+:set +t
+-- :set +m
+
+-- load ode
+:l src/Main
+
+-- :set prompt "> "
+

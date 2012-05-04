@@ -6,9 +6,9 @@ license: GPL-3
 license-file: LICENSE
 copyright: Copyright (C) 2010-2012 Mandeep Gill
 maintainer: mangil@comlab.ox.ac.uk
-build-depends: Shellac -any, Shellac-readline -any, base -any,
-               bimap -any, containers -any, directory -any, fgl -any,
-               hslogger -any, mtl -any, parsec -any, unix -any
+build-depends: unix -any, split -any, parsec -any, mtl -any,
+               hslogger -any, fgl -any, directory -any, containers -any,
+               bimap -any, base -any, Shellac-readline -any, Shellac -any
 stability: alpha
 homepage: http://www.comlab.ox.ac.uk/people/mangil/ode
 package-url:
@@ -46,8 +46,8 @@ includes:
 install-includes:
 include-dirs:
 hs-source-dirs: src
-other-modules: ShellUI Common.AST Common.Parser Utils.Utils
-               Utils.ShellHandleBackend Utils.OrdMap Utils.MonadSupply
+other-modules: Utils.OrdSet ShellUI Common.AST Common.Parser
+               Utils.Utils Utils.ShellHandleBackend Utils.OrdMap Utils.MonadSupply
                CoreANF.Interpreter CoreANF.Converter CoreANF.AST CoreANF.Optimiser
                Core.ModuleDriver Core.ExprAST Core.ModuleAST Core.TypeChecker
                Core.Interpreter Core.ModuleParser Core.Validator Core.Renamer

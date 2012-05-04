@@ -16,13 +16,15 @@
 
 module Utils.Utils (
 MExcept, PrettyPrint(..), mapFst, mapSnd, pairM,
-SB(..), trace', errorDump
+SB(..), trace', errorDump,
+openPipe, closePipe, readLoop
 ) where
 
 import Control.Monad
 import Control.Monad.Error
-import Data.List (intercalate)
+import qualified Data.List as List
 import Debug.Trace
+import qualified System.IO as SIO
 
 -- | my exception/error monad, could just import from Control.Monad.Error but anyway...
 type MExcept = Either String
@@ -51,8 +53,45 @@ instance Show SB where
 trace' :: [SB] -> String -> a -> a
 trace' vars msg res = trace outStr res
   where
-    showVars = intercalate "\n" $ map show vars
+    showVars = List.intercalate "\n" $ map show vars
     outStr = "TRACE - " ++ msg ++ "\n" ++ showVars
 
 errorDump :: [SB] -> String -> a
 errorDump vars msg = trace' vars msg (error "ERROR DUMP")
+
+
+-- some helper routines to open a file/named pipe for input
+
+openPipe :: FilePath -> IO SIO.Handle
+openPipe inName = do
+    -- open up the named pipe
+    -- pExists <- (PF.fileExist debugPipe)
+    -- pStatus <- (PF.getFileStatus debugPipe)
+    -- putStrLn $ "Exists - " ++ show pExists
+    -- putStrLn  $ "Named Pipe - " ++ show (PF.isNamedPipe pStatus)
+    hCmdPipe <- SIO.openFile inName SIO.ReadMode
+    SIO.hSetBuffering hCmdPipe SIO.NoBuffering
+    hshow <- SIO.hShow hCmdPipe
+    putStrLn  $ "Handle - " ++ hshow
+    return hCmdPipe
+
+
+closePipe :: SIO.Handle -> IO ()
+closePipe = SIO.hClose
+
+-- |read lines from the pipe until EOF
+readLoop :: SIO.Handle -> IO ()
+readLoop hCmdPipe = forever (SIO.hGetLine hCmdPipe >>= outCmd)
+  where
+    outCmd s = putStrLn s >> SIO.hFlush SIO.stdout
+
+
+
+-- | util function to split a list based on predicate function p
+splitList :: (a -> Bool) -> [a] -> [[a]]
+splitList p xs = h : t'
+  where
+    (h, t) = List.break p xs
+    t' = case t of x:xs -> splitList p xs
+                   [] -> []
+
