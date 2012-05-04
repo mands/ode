@@ -16,37 +16,44 @@ module ShellUI (
 shellEntry
 ) where
 
+import Control.Monad
+import Control.Monad.Trans(liftIO)
+import Control.Applicative
+import System.Environment(getArgs)
+import System.Log.Logger
+
 import qualified System.IO as SIO
 import qualified System.Posix.Files as PF
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.List as List
-
-import Control.Monad
-import Control.Applicative
+import qualified Data.List.Split as ListSplit
+import qualified System.FilePath as FP
+import qualified System.Directory as Dir
 
 import System.Console.Shell
 import System.Console.Shell.ShellMonad
+-- import System.Console.Shell.Backend.Readline
+import System.Console.Shell.Backend.Haskeline
 import Utils.ShellHandleBackend
-import System.Console.Shell.Backend.Readline
 
-import System.Environment(getArgs)
-import System.Log.Logger
+import qualified Utils.OrdSet as OrdSet
 import Utils.Utils
 
-import qualified System.FilePath as FP
-import qualified Data.List.Split as ListSplit
-
+shellEntry :: IO ()
 shellEntry = do
     argsLen <- liftM length getArgs
 
+    -- setup IO based actions here
+    initShState <- mkDefShState
+
     if argsLen == 0
       then do
-        debugM "ode3.shellui" "Using Readline"
-        st' <- runShell (initShellDesc) (readlineBackend) initShState
+        debugM "ode3.shellui" "Using Featured Shell Backend"
+        st' <- runShell (initShellDesc) (haskelineBackend) initShState
         putStrLn $ show st'
       else do
-        debugM "ode3.shellui" "Using Handle Backend"
+        debugM "ode3.shellui" "Using Basic Handle Backend"
         inName <- liftM head getArgs
         inHnd <- openPipe inName
 
@@ -135,12 +142,12 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
     repoAddCmd = cmd "addRepo" f "Add a directory path to the module repository"
       where
         f :: File -> Sh ShState ()
-        f (File x) = modifyShellSt (\st -> st {stRepos = Set.insert x (stRepos st)})
+        f (File x) = modifyShellSt (\st -> st {stRepos = addRepo x (stRepos st)})
 
     repoDelCmd = cmd "delRepo" f "Delete a directory path from the module repository"
       where
         f :: File -> Sh ShState ()
-        f (File x) = modifyShellSt (\st -> st {stRepos = Set.delete x (stRepos st)})
+        f (File x) = modifyShellSt (\st -> st {stRepos = delRepo x (stRepos st)})
 
 
     -- show takes second string parameter
@@ -161,7 +168,7 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
       where
         -- TODO - need to actually unload data from system
         f :: Sh ShState ()
-        f = putShellSt initShState
+        f = liftIO mkDefShState >>= putShellSt
 
 -- | Main shell eval function, takes the input string and passes to the parsec parser responsible for
 -- we use eval function for the run-time language, i.e. loading, applying and creating models for simulation
@@ -176,22 +183,27 @@ data ShState = ShState  { stDebug :: Bool               -- do we enable debug mo
                         , stSimTimestep :: Float        -- simulation timestep
                         , stOutPeriod     :: Integer    -- period with which to save simulation state to outfile, wrt timestep
                         , stOutFilename :: FilePath     -- output filename to save data to
-                        , stRepos :: Set.Set FilePath       -- list of enabled module repositories
+                        , stRepos :: RepoSet       -- list of enabled module repositories
                         , stModules :: Map.Map String Bool   -- map of loaded modules
 
                         -- what else??
                         } deriving Show
 
 -- | Sensible default values for initial system state
-initShState = ShState   { stDebug = False
+defShState = ShState   { stDebug = False
                         , stSimStart = 0
                         , stSimEnd = 60
                         , stSimTimestep = 0.001         -- 1ms
                         , stOutPeriod = 500             -- 0.5s
                         , stOutFilename = "output.bin"  -- default output file
-                        , stRepos = Set.empty           -- do we add the defaults here?
+                        , stRepos = OrdSet.empty           -- do we add the defaults here?
                         , stModules = Map.empty
                         }
+
+mkDefShState :: IO ShState
+mkDefShState = do
+    repos <- defRepos
+    return $ defShState { stRepos = repos }
 
 -- some module helper funcs, need to relocate
 data ModImport = ModImport FilePath ModName (Maybe String) deriving Show
@@ -211,6 +223,34 @@ uriToPath uri = (uriFilePath, uriModName)
     uriModName = loadModName $ List.last uriElems
 
     uriFilePath = (FP.makeValid . FP.normalise . FP.joinPath . List.init $ uriElems) FP.<.> "od3"
+
+-- | Holds the ordered set of enabled repositories
+type RepoSet = OrdSet.OrdSet FilePath
+
+addRepo :: FilePath -> RepoSet -> RepoSet
+addRepo repo repoSet = OrdSet.insertF repo repoSet
+
+delRepo :: FilePath -> RepoSet -> RepoSet
+delRepo repo repoSet = OrdSet.delete repo repoSet
+
+-- need to take out of IOdef
+defRepos :: IO RepoSet
+defRepos = repos
+  where
+    repos = liftM OrdSet.fromList $ sequence [curDir, userDir]
+    curDir = Dir.getCurrentDirectory
+    userDir = FP.combine <$> Dir.getAppUserDataDirectory "ode" <*> pure "repos"
+    sysDir = undefined
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -28,7 +28,7 @@ import System.Console.Shell
 -- import System.Console.Shell.Backend.Haskeline
 import ShellHandle
 import System.Console.Shell.ShellMonad
-import System.Console.Shell.Backend.Readline
+import System.Console.Shell.Backend.Haskeline
 
 import System.Environment(getArgs)
 
@@ -38,11 +38,11 @@ main = do
 
     if argsLen == 0
       then do
-        putStrLn "Using Readline"
-        st' <- runShell (initShellDesc) (readlineBackend) initShState
+        putStrLn "Using Featured Shell Backend"
+        st' <- runShell (initShellDesc) (haskelineBackend) initShState
         putStrLn $ show st'
       else do
-        putStrLn "Using Handle Backend"
+        putStrLn "Using Handle Shell Backend"
         inName <- liftM head getArgs
         inHnd <- openPipe inName
         st' <- runShell (initShellDesc) (basicBackend inHnd) initShState

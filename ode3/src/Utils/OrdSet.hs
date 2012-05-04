@@ -26,10 +26,15 @@ empty = OrdSetC []
 null (OrdSetC s) = List.null s
 
 -- check elem isn't already there, if not then insert at back of list
-insert v (OrdSetC s) =
+insertB v (OrdSetC s) =
     case (List.elem v s) of
     True -> OrdSetC s
     False -> OrdSetC $ s ++ [v]
+
+insertF v (OrdSetC s) =
+    case (List.elem v s) of
+    True -> OrdSetC s
+    False -> OrdSetC $ v : s
 
 delete v (OrdSetC s) = OrdSetC $ List.delete v s
 
@@ -43,4 +48,5 @@ intersect (OrdSetC s1) (OrdSetC s2) = OrdSetC $ List.intersect s1 s2
 
 toList (OrdSetC s) = s
 
-fromList s = OrdSetC s
+-- need to remove dups first
+fromList s = OrdSetC $ List.nub s
