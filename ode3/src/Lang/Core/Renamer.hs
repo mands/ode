@@ -17,7 +17,7 @@
 
 {-# LANGUAGE GeneralizedNewtypeDeriving, TypeSynonymInstances #-}
 
-module Core.Renamer (
+module Lang.Core.Renamer (
 rename
 ) where
 
@@ -33,8 +33,8 @@ import Control.Monad.Error
 import Control.Applicative
 import Data.Maybe (fromJust)
 
-import qualified Core.ExprAST as E
-import qualified Core.ModuleAST as M
+import qualified Lang.Core.AST as E
+import qualified Lang.Module.AST as M
 import Utils.Utils
 import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap

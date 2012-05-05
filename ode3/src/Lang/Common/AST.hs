@@ -12,7 +12,7 @@
 --
 -----------------------------------------------------------------------------
 
-module Common.AST (
+module Lang.Common.AST (
     NumTy, UntypedId, Id,
     SrcId, UnitT, DesId
 ) where

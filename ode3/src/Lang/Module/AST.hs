@@ -14,7 +14,7 @@
 
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures, FlexibleInstances, TypeSynonymInstances #-}
 
-module Core.ModuleAST (
+module Lang.Module.AST (
 ExprMap, ExprList, FunArgs,
 ModImport, TopMod(..), Module(..), ModuleEnv,
 ModuleData(..), SigMap, TypeMap, IdBimap, debugModuleExpr,
@@ -31,8 +31,8 @@ import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Bimap as Bimap
 
-import Common.AST
-import qualified Core.ExprAST as E
+import Lang.Common.AST
+import qualified Lang.Core.AST as E
 import qualified Utils.OrdMap as OrdMap
 import Utils.Utils
 

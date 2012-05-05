@@ -13,7 +13,7 @@
 --
 -----------------------------------------------------------------------------
 
-module Ode.Parser (
+module Lang.Ode.Parser (
 moduleBody
 ) where
 
@@ -23,9 +23,9 @@ import Text.Parsec.String
 import Text.Parsec.Expr
 import Text.Parsec.Perm
 
-import Common.Parser
+import Lang.Common.Parser
 import Utils.Utils
-import qualified Ode.AST as O
+import qualified Lang.Ode.AST as O
 
 -- |parse the body of a module
 moduleBody = stmt

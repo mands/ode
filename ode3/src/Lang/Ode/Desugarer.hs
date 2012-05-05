@@ -16,7 +16,7 @@
 
 {-# LANGUAGE TypeSynonymInstances #-}
 
-module Ode.Desugarer (
+module Lang.Ode.Desugarer (
 desugarMod
 ) where
 
@@ -33,9 +33,9 @@ import Control.Monad.Trans
 import Utils.Utils
 import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap
-import qualified Ode.AST as O
-import qualified Core.ExprAST as C
-import qualified Core.ModuleAST as M
+import qualified Lang.Ode.AST as O
+import qualified Lang.Core.AST as C
+import qualified Lang.Module.AST as M
 
 -- We need a supply of unique Ids
 -- supply type, transformed with Error/Except Monad

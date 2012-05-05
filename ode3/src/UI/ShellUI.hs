@@ -12,7 +12,7 @@
 --
 -----------------------------------------------------------------------------
 
-module ShellUI (
+module UI.ShellUI (
 shellEntry
 ) where
 

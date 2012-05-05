@@ -21,7 +21,7 @@
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
 
 
-module Core.ExprAST (
+module Lang.Core.AST (
 SrcId, Id, VarId(..), Bind(..), Type(..), travTypesM,
 TopLet(..), Expr(..), Op(..), Literal(..), UnitT, DesId,
 ) where
@@ -36,7 +36,7 @@ import qualified Data.Traversable as DT
 import Data.Functor
 import Data.Maybe (fromJust, isJust)
 import Utils.Utils
-import Common.AST
+import Lang.Common.AST
 
 -- | DetailId - holds both a (parameterised) identifier and a string that represetns the (closest) original/source variable and line num
 --data DetailId a = DetailId a SrcId Int deriving (Show, Eq, Ord)

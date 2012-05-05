@@ -13,7 +13,7 @@
 --
 -----------------------------------------------------------------------------
 
-module Core.ModuleParser (
+module Lang.Module.Parser (
 modParse
 ) where
 
@@ -30,13 +30,13 @@ import qualified Data.Bimap as Bimap
 import qualified Utils.OrdMap as OrdMap
 
 import Utils.Utils
-import Common.Parser
-import qualified Ode.AST as O
-import qualified Ode.Parser as OP
-import qualified Core.ModuleAST as M
-import qualified Core.ExprAST as E
-import qualified Core.ModuleDriver as MD
-import Ode.Desugarer (desugarMod)
+import Lang.Common.Parser
+import qualified Lang.Ode.AST as O
+import qualified Lang.Ode.Parser as OP
+import qualified Lang.Module.AST as M
+import qualified Lang.Core.AST as E
+import qualified Lang.Module.ModuleDriver as MD
+import Lang.Ode.Desugarer (desugarMod)
 
 -- | modParse takes an input file and a current snapshot of the module env, and parse within this context
 -- sucessfully parsed modules are then converted into (Module E.Id) and added to the env

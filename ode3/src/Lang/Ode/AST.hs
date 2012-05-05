@@ -14,14 +14,14 @@
 -- AST is basically a direct translation of the language syntax/file format
 -----------------------------------------------------------------------------
 
-module Ode.AST (
+module Lang.Ode.AST (
     ModLocalId(..), ValId(..), Stmt(..),
     Expr(..), BinOp(..), UnOp(..),
     SrcId, NumTy, UnitT
 ) where
 
 import Data.Map as Map
-import Common.AST
+import Lang.Common.AST
 
 -- | SrcIdentifier that may be local to current block or refer to a module parameter
 data ModLocalId = LocalId SrcId | ModId SrcId SrcId

@@ -14,7 +14,7 @@
 -- requires calling reorderer, renamer, typechecker, converter/interpreter
 -----------------------------------------------------------------------------
 
-module Core.ModuleDriver (
+module Lang.Module.ModuleDriver (
 moduleDriver, interpretModule
 ) where
 
@@ -30,13 +30,13 @@ import Control.Monad.Trans
 import Control.Monad
 import Control.Monad.Error
 import System.Log.Logger
-import qualified Core.ExprAST as E
-import qualified Core.ModuleAST as M
-import Core.ModuleAST (debugModuleExpr)
+import qualified Lang.Core.AST as E
+import qualified Lang.Module.AST as M
+import Lang.Module.AST (debugModuleExpr)
 --import Core.Reorderer (reorder)
-import Core.Renamer (rename)
-import Core.Validator (validate)
-import Core.TypeChecker --(typeCheck, TypeVarEnv, TypeCons)
+import Lang.Core.Renamer (rename)
+import Lang.Core.Validator (validate)
+import Lang.Core.TypeChecker --(typeCheck, TypeVarEnv, TypeCons)
 import Utils.Utils
 import qualified Utils.OrdMap as OrdMap
 

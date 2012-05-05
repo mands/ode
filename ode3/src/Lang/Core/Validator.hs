@@ -13,7 +13,7 @@
 --
 -----------------------------------------------------------------------------
 
-module Core.Validator (
+module Lang.Core.Validator (
 validate,
 ) where
 
@@ -26,8 +26,8 @@ import qualified Data.Foldable as DF
 import qualified Data.Set as Set
 import Utils.Utils
 import qualified Utils.OrdMap as OrdMap
-import qualified Core.ExprAST as E
-import qualified Core.ModuleAST as M
+import qualified Lang.Core.AST as E
+import qualified Lang.Module.AST as M
 
 validate :: M.Module E.DesId -> MExcept (M.Module E.DesId)
 validate mod@(M.LitMod _ modData) = M.LitMod <$> createTopExprs (M.modExprList modData) <*> pure (modData { M.modExprList = [] })

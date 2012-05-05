@@ -14,7 +14,7 @@
 -----------------------------------------------------------------------------
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
 
-module Core.TypeChecker (
+module Lang.Core.TypeChecker (
 typeCheck, typeCheckApp, TypeVarEnv, TypeCons, unify
 ) where
 
@@ -30,8 +30,8 @@ import Control.Monad.Error
 import Data.Maybe (fromJust)
 import Debug.Trace (trace)
 import Text.Printf (printf)
-import qualified Core.ExprAST as E
-import qualified Core.ModuleAST as M
+import qualified Lang.Core.AST as E
+import qualified Lang.Module.AST as M
 import Utils.Utils
 import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap

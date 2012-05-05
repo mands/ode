@@ -27,13 +27,13 @@ import qualified Data.Foldable as DF
 import qualified Data.Map as Map
 import qualified Data.List as List
 
-import Core.ModuleParser (modParse)
-import qualified Core.ExprAST as EA
-import qualified Core.ModuleAST as MA
+import Lang.Module.Parser (modParse)
+import qualified Lang.Core.AST as EA
+import qualified Lang.Module.AST as MA
 
 import Utils.Utils
 import Utils.OrdMap
-import ShellUI
+import UI.ShellUI
 
 debugPipe :: FilePath
 debugPipe = "./.odepipe"

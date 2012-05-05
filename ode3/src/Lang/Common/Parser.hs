@@ -13,7 +13,7 @@
 -----------------------------------------------------------------------------
 
 -- export everything
-module Common.Parser
+module Lang.Common.Parser
 where
 
 import Control.Applicative
