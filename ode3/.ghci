@@ -10,7 +10,7 @@ import Control.Monad
 -- :set +m
 
 -- load ode
-:l src/Main
+-- :l src/Main
 
 -- :set prompt "> "
 

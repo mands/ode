@@ -6,7 +6,7 @@
 --
 -- Maintainer  :  mangil@comlab.ox.ac.uk
 -- Stability   :  alpha
--- Portability :
+-- Portability :  Not implemented
 --
 --
 -----------------------------------------------------------------------------
@@ -18,4 +18,4 @@ interpret
 import qualified Core.AST as CA
 
 interpret :: CA.Model -> Int
-interpret cAST = 1
+interpret cAST = undefined

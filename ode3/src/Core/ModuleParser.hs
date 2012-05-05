@@ -8,7 +8,7 @@
 -- Stability   :  alpha
 -- Portability :
 --
--- | The main parser forntend, parsers modules of any type that must evaluate to a Core module
+-- | The main parser frontend, parsers modules of any type that must evaluate to a Core module
 -- | Respobible for performing module importing, setting up the module environment and so on
 --
 -----------------------------------------------------------------------------

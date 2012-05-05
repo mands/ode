@@ -28,16 +28,16 @@ commonLangDef = javaStyle
     {
         -- add more later
         T.reservedNames =   [
-                            -- core mod
+                            -- module lang
                             "module", "import", "as",
-                            -- ode
+                            -- main ode lang
                             "component", "where",
                             "val", "init", "sval",
                             "ode", "delta",
                             "rre", "reaction", "rate",
                             "default",
                             "True", "False", "time"
-                            -- ion...
+                            -- ion...implemented externally
                             ],
 
         -- unary ops and relational ops?
