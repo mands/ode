@@ -20,7 +20,7 @@ module Lang.Ode.AST (
     SrcId, NumTy, UnitT
 ) where
 
-import Data.Map as Map
+import qualified Data.Map as Map
 import Lang.Common.AST
 
 -- | SrcIdentifier that may be local to current block or refer to a module parameter

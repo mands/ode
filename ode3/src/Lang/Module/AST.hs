@@ -15,8 +15,9 @@
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures, FlexibleInstances, TypeSynonymInstances #-}
 
 module Lang.Module.AST (
+ModCmd(..), ModURIElems,
 ExprMap, ExprList, FunArgs,
-ModImport, TopMod(..), Module(..), ModuleEnv,
+ModURI, TopMod(..), Module(..), ModuleEnv,
 ModuleData(..), SigMap, TypeMap, IdBimap, debugModuleExpr,
 ) where
 
@@ -36,10 +37,20 @@ import qualified Lang.Core.AST as E
 import qualified Utils.OrdMap as OrdMap
 import Utils.Utils
 
--- | import created by import directive
-type ModImport = [String]
+-- 2nd level mod cmds AST, should combine with orig Module AST cmds
+data ModCmd = ModImport ModURIElems (Maybe String)  -- sep'd mod elems, alias
+            | ModAlias ModURI ModURI                -- an alias from one ModURI to another
+            deriving Show
+
+type ModURIElems = [ModURI]
+
+
+
+-- | a canoical module name
+type ModURI = String
 -- data ModImport = ModImport String (Maybe String) deriving (Show, Eq, Ord)
 
+-- Module Body Data
 
 type ExprList = [E.TopLet E.DesId]
 -- | ExprMap is the basic collection of expressions that make up a module
@@ -75,7 +86,7 @@ type TypeMap = Map.Map Id E.Type -- maybe switch to IntMap?
 
 
 -- | Module environment the run-time envirmornet used to create models and start simulations, holds the current results from interpreting the module system
-type ModuleEnv = Map.Map SrcId (Module Id)
+type ModuleEnv = Map.Map ModURI (Module Id)
 
 -- need to put more helper functions here
 -- for instance functions to union two exprMaps, modules, remap ids, etc.

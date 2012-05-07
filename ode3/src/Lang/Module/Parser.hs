@@ -14,7 +14,7 @@
 -----------------------------------------------------------------------------
 
 module Lang.Module.Parser (
-modParse
+modParse, parseModCmd
 ) where
 
 import qualified Data.Traversable as DT
@@ -26,30 +26,49 @@ import Text.Parsec.String
 import Debug.Trace (trace)
 
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import qualified Data.Bimap as Bimap
 import qualified Utils.OrdMap as OrdMap
 
 import Utils.Utils
 import Lang.Common.Parser
+import Lang.Module.AST
+
 import qualified Lang.Ode.AST as O
 import qualified Lang.Ode.Parser as OP
-import qualified Lang.Module.AST as M
 import qualified Lang.Core.AST as E
 import qualified Lang.Module.ModuleDriver as MD
 import Lang.Ode.Desugarer (desugarMod)
 
+
+-- TODO - put into IO
+-- example "import X.Y.Z"
+parseModCmd :: String -> MExcept ModCmd
+parseModCmd cmdStr =  case parseRes of
+                            Left err -> Left ("Input error at " ++ show err)
+                            Right res -> Right res
+  where
+    parseRes = parse (cmdModuleOpen <* eof) "<console>" cmdStr
+
+
+
+-- shell cmd parsers - need to unify to main parser?
+-- | parse the open directive
+cmdModuleOpen :: Parser ModCmd
+cmdModuleOpen = ModImport <$> (reserved "import" *> modPathIdentifier) <*> pure Nothing
+
+
 -- | modParse takes an input file and a current snapshot of the module env, and parse within this context
 -- sucessfully parsed modules are then converted into (Module E.Id) and added to the env
-modParse :: FilePath -> String -> M.ModuleEnv ->  MExcept M.ModuleEnv
-modParse fileName fileData modEnv =
-    case parseRes of
-        Left err -> Left ("Parse error at " ++ show err)
-        Right res -> res
+modParse :: FilePath -> String -> ModuleEnv ->  MExcept ModuleEnv
+modParse fileName fileData modEnv = case parseRes of
+                                        Left err -> Left ("Parse error at " ++ show err)
+                                        Right res -> res
   where
     parseRes = parse (modFileTop modEnv) fileName fileData
 
 -- | top level parser for a file
-modFileTop :: M.ModuleEnv -> Parser (MExcept M.ModuleEnv)
+modFileTop :: ModuleEnv -> Parser (MExcept ModuleEnv)
 modFileTop modEnv = do
     imports <- (whiteSpace *> many moduleOpen)
     -- TODO, should lookup the imports here and update the env
@@ -66,36 +85,36 @@ modFileTop modEnv = do
 
   where
     filterLit m = case m of
-        (M.TopMod _ (M.LitMod _ _)) -> True
+        (TopMod _ (LitMod _ _)) -> True
         _ -> False
 
 -- | parse the open directive
-moduleOpen :: Parser M.ModImport
+moduleOpen :: Parser ModURIElems
 moduleOpen = reserved "import" *> modPathIdentifier
 
 -- | parse a module, either an entire definition/abstraction or an application
-moduleDef :: M.ModuleEnv -> Parser (M.TopMod E.DesId)
-moduleDef modEnv = M.TopMod <$> (reserved "module" *> modIdentifier) <*> modParse
+moduleDef :: ModuleEnv -> Parser (TopMod E.DesId)
+moduleDef modEnv = TopMod <$> (reserved "module" *> modIdentifier) <*> modParse
   where
     modParse =
         (reservedOp "=" *> moduleAppParams)
-        <|> M.FunctorMod <$> (funcArgs <$> paramList modIdentifier) <*> pure OrdMap.empty <*> modData
-        <|> M.LitMod <$> pure OrdMap.empty <*> modData
+        <|> FunctorMod <$> (funcArgs <$> paramList modIdentifier) <*> pure OrdMap.empty <*> modData
+        <|> LitMod <$> pure OrdMap.empty <*> modData
         <?> "module definition"
-    modData = M.ModuleData Map.empty Map.empty Bimap.empty Nothing <$> modBody
+    modData = ModuleData Map.empty Map.empty Bimap.empty Nothing <$> modBody
     funcArgs args = OrdMap.fromList $ map (\arg -> (arg, Map.empty)) args
 
 -- | parse a chain/tree of module applications
-moduleAppParams :: Parser (M.Module E.DesId)
+moduleAppParams :: Parser (Module E.DesId)
 moduleAppParams = procParams <$> modIdentifier <*> optionMaybe (paramList moduleAppParams)
   where
     -- need to desugar into nested set of appMods and varMods
-    procParams modId Nothing = M.VarMod modId
-    procParams funcId (Just args) = M.AppMod funcId args
+    procParams modId Nothing = VarMod modId
+    procParams funcId (Just args) = AppMod funcId args
 
 
 -- | parses a Ode module body and desugars into a Core AST
-modBody :: Parser (M.ExprList)
+modBody :: Parser (ExprList)
 modBody = do
     modElems <- braces (many1 OP.moduleBody)
     either (\_ -> return []) (\exprList -> return exprList) (desugarMod modElems)

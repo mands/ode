@@ -13,7 +13,7 @@
 -----------------------------------------------------------------------------
 
 module UI.ShellUI (
-shellEntry
+shellEntry, ShState(..)
 ) where
 
 import Control.Monad
@@ -26,8 +26,6 @@ import qualified System.IO as SIO
 import qualified System.Posix.Files as PF
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import qualified Data.List as List
-import qualified Data.List.Split as ListSplit
 import qualified System.FilePath as FP
 import qualified System.Directory as Dir
 
@@ -36,9 +34,14 @@ import System.Console.Shell.ShellMonad
 -- import System.Console.Shell.Backend.Readline
 import System.Console.Shell.Backend.Haskeline
 import Utils.ShellHandleBackend
+import UI.ShellState
 
-import qualified Utils.OrdSet as OrdSet
 import Utils.Utils
+import qualified Utils.OrdSet as OrdSet
+import qualified Lang.Module.Parser as MP
+import qualified Lang.Module.AST as MA
+import qualified Lang.Module.IO as MIO
+
 
 shellEntry :: IO ()
 shellEntry = do
@@ -49,11 +52,11 @@ shellEntry = do
 
     if argsLen == 0
       then do
-        debugM "ode3.shellui" "Using Featured Shell Backend"
+        debugM "ode3.shell" "Using Featured Shell Backend"
         st' <- runShell (initShellDesc) (haskelineBackend) initShState
         putStrLn $ show st'
       else do
-        debugM "ode3.shellui" "Using Basic Handle Backend"
+        debugM "ode3.shell" "Using Basic Handle Backend"
         inName <- liftM head getArgs
         inHnd <- openPipe inName
 
@@ -142,12 +145,21 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
     repoAddCmd = cmd "addRepo" f "Add a directory path to the module repository"
       where
         f :: File -> Sh ShState ()
-        f (File x) = modifyShellSt (\st -> st {stRepos = addRepo x (stRepos st)})
+        f (File repoPath) = do
+            st <- getShellSt
+            dirEx <- liftIO $ Dir.doesDirectoryExist repoPath
+            if dirEx
+                then do
+                    let repos' = OrdSet.insertF repoPath (stRepos st)
+                    _ <- modifyShellSt (\st -> st { stRepos = repos' })
+                    shellPutInfoLn $ "Added " ++ repoPath ++ " to set of module repositories"
+                else shellPutInfoLn $ "Module repository dir " ++ repoPath ++ " not found"
+
 
     repoDelCmd = cmd "delRepo" f "Delete a directory path from the module repository"
       where
         f :: File -> Sh ShState ()
-        f (File x) = modifyShellSt (\st -> st {stRepos = delRepo x (stRepos st)})
+        f (File repoPath) = modifyShellSt (\st -> st {stRepos = OrdSet.delete repoPath (stRepos st)})
 
 
     -- show takes second string parameter
@@ -156,7 +168,7 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
         f :: String -> Sh ShState ()
         f "all" = (show <$> getShellSt) >>= shellPutInfoLn
         f "repos" = (show <$> stRepos <$> getShellSt) >>= shellPutInfoLn
-        f "modules" = (show <$> stModules <$> getShellSt) >>= shellPutInfoLn
+        f "modules" = (show <$> stModuleEnv <$> getShellSt) >>= shellPutInfoLn
         f _ = shellPutInfoLn "Pass <all, repos, modules> to display current state"
 
     typeCmd = cmd "type" f "Display the type of the loaded module"
@@ -172,86 +184,24 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
 
 -- | Main shell eval function, takes the input string and passes to the parsec parser responsible for
 -- we use eval function for the run-time language, i.e. loading, applying and creating models for simulation
+-- main REPL goes here, READ-EVAL-PRINT-LOOP
 shEval :: String -> Sh ShState ()
-shEval str = shellPutInfoLn str
+shEval str = do
+    shellPutInfoLn str
+    -- READ cmd, pass the string to our mod lang parser
+    case MP.parseModCmd str of
+        Left err -> shellPutErrLn err
+        -- then EVAL, cmd sent to interpreter with state
+        Right cmd -> do
+            st <- getShellSt
+            eRes <- liftIO $ MIO.interpretModCmd cmd st
+            -- update state and PRINT res
+            case eRes of
+                Left err -> shellPutErrLn err
+                Right st' -> putShellSt st' >> shellPutInfoLn "Command complete"
 
-
--- | Main system state used by the shell
-data ShState = ShState  { stDebug :: Bool               -- do we enable debug mode
-                        , stSimStart :: Float           -- simulation params
-                        , stSimEnd :: Float
-                        , stSimTimestep :: Float        -- simulation timestep
-                        , stOutPeriod     :: Integer    -- period with which to save simulation state to outfile, wrt timestep
-                        , stOutFilename :: FilePath     -- output filename to save data to
-                        , stRepos :: RepoSet       -- list of enabled module repositories
-                        , stModules :: Map.Map String Bool   -- map of loaded modules
-
-                        -- what else??
-                        } deriving Show
-
--- | Sensible default values for initial system state
-defShState = ShState   { stDebug = False
-                        , stSimStart = 0
-                        , stSimEnd = 60
-                        , stSimTimestep = 0.001         -- 1ms
-                        , stOutPeriod = 500             -- 0.5s
-                        , stOutFilename = "output.bin"  -- default output file
-                        , stRepos = OrdSet.empty           -- do we add the defaults here?
-                        , stModules = Map.empty
-                        }
-
-mkDefShState :: IO ShState
-mkDefShState = do
-    repos <- defRepos
-    return $ defShState { stRepos = repos }
-
--- some module helper funcs, need to relocate
-data ModImport = ModImport FilePath ModName (Maybe String) deriving Show
-data ModName = ModSing FilePath | ModAll deriving Show
-
--- | Takes a string and returns the modname
-loadModName :: String -> ModName
-loadModName "*" = ModAll
-loadModName x = ModSing x
-
--- | Takes a string representing the module URI and returns the path and module name
--- i.e. W.X.Y.Z -> (W/X/Y, Z)
-uriToPath :: String -> (FilePath, ModName)
-uriToPath uri = (uriFilePath, uriModName)
-  where
-    uriElems = ListSplit.splitOn "." uri
-    uriModName = loadModName $ List.last uriElems
-
-    uriFilePath = (FP.makeValid . FP.normalise . FP.joinPath . List.init $ uriElems) FP.<.> "od3"
-
--- | Holds the ordered set of enabled repositories
-type RepoSet = OrdSet.OrdSet FilePath
-
-addRepo :: FilePath -> RepoSet -> RepoSet
-addRepo repo repoSet = OrdSet.insertF repo repoSet
-
-delRepo :: FilePath -> RepoSet -> RepoSet
-delRepo repo repoSet = OrdSet.delete repo repoSet
-
--- need to take out of IOdef
-defRepos :: IO RepoSet
-defRepos = repos
-  where
-    repos = liftM OrdSet.fromList $ sequence [curDir, userDir]
-    curDir = Dir.getCurrentDirectory
-    userDir = FP.combine <$> Dir.getAppUserDataDirectory "ode" <*> pure "repos"
-    sysDir = undefined
-
-
-
-
-
-
-
-
-
-
-
+    -- return, setting up new LOOP
+    return ()
 
 
 
