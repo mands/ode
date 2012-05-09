@@ -29,7 +29,7 @@ commonLangDef = javaStyle
         -- add more later
         T.reservedNames =   [
                             -- module lang
-                            "module", "import", "as",
+                            "module", "import", "as", "let",
                             -- main ode lang
                             "component", "where",
                             "val", "init", "sval",

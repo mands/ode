@@ -58,15 +58,6 @@ uriToPath modElems = (uriFilePath, uriModName)
 canonicalModName :: ModURIElems -> ModURI
 canonicalModName modElems = List.intercalate "." modElems
 
--- dummy func to load a module from file cmd
-loadMod modElems = undefined
-  where
-    -- TODO - doesn't handle wildcard yet
-    canonName = canonicalModName modElems
-    (modFile, modName) = uriToPath modElems
-
-    -- now try check repos
-
 
 -- main REPL interpreter, maybe hook up to moduleDriver interpreter
 --
@@ -109,19 +100,19 @@ interpretModCmd (ModImport modElems (Just alias)) st = do
     -- import the module first
     st' <- interpretModCmd (ModImport modElems Nothing) st
     -- setup the alias
-    st'' <- interpretModCmd (ModAlias alias alias) st'
+    st'' <- interpretModCmd (ModAlias (canonicalModName modElems) alias) st'
     return st''
 
--- make x an alias of y
-interpretModCmd (ModAlias x y) st =
+-- | make aliasName an alias of origName
+interpretModCmd (ModAlias origName aliasName) st =
     -- check aliased module exists, if so then update modEnv
-    case Map.member y modEnv of
+    case Map.member origName modEnv of
         True -> return $ st { stModuleEnv = mkAlias }
-        False -> throwError (show y ++ " not found in current module environment")
+        False -> throwError $ show origName ++ " not found in current module environment"
   where
     modEnv = stModuleEnv st
-    -- insert an alias from X to Y in the modEnv, by creating a new VarMod pointer
-    mkAlias = Map.insert x (VarMod y) modEnv
+    -- insert an alias from Y to X in the modEnv, by creating a new VarMod pointer
+    mkAlias = Map.insert aliasName (VarMod origName) modEnv
 
 
 

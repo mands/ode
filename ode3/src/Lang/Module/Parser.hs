@@ -55,7 +55,7 @@ parseModCmd cmdStr =  case parseRes of
 -- shell cmd parsers - need to unify to main parser?
 -- | parse the open directive
 cmdModuleOpen :: Parser ModCmd
-cmdModuleOpen = ModImport <$> (reserved "import" *> modPathIdentifier) <*> pure Nothing
+cmdModuleOpen = ModImport <$> (reserved "import" *> modPathIdentifier) <*> optionMaybe (reserved "as" *> upperIdentifier)
 
 
 -- | modParse takes an input file and a current snapshot of the module env, and parse within this context
