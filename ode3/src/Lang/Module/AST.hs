@@ -69,7 +69,7 @@ data Module a = LitMod  (ExprMap a) ModuleData
                 | FunctorMod FunArgs (ExprMap a) ModuleData
                 | AppMod E.SrcId [Module a]     -- we never have access to the appmodules,
                                                 -- they are always immediatly applied and the resulting ClosedModule is saved under this name
-                | VarMod SrcId                  -- only used within appmods
+                | VarMod ModURI                  -- only used within appmods
                 deriving (Show, Eq)
 
 -- | Metadata regarding a module

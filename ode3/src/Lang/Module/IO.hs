@@ -17,6 +17,7 @@ interpretModCmd
 ) where
 
 import Control.Monad
+import Control.Monad.Error
 import Data.Foldable as DF
 
 import Control.Cond
@@ -69,7 +70,7 @@ loadMod modElems = undefined
 
 -- main REPL interpreter, maybe hook up to moduleDriver interpreter
 --
-interpretModCmd :: ModCmd -> ShState -> IO (MExcept ShState)
+interpretModCmd :: ModCmd -> ShState -> (MExcept ShState)
 interpretModCmd (ModImport modElems Nothing) st = do
     -- get canon name
     let canonName = canonicalModName modElems
@@ -114,13 +115,17 @@ interpretModCmd (ModImport modElems (Just alias)) st = do
     return $ Right st
 
 -- make x an alias of y
-interpretModCmd (ModAlias x y) st = do
-    -- check module to alias exists
+interpretModCmd (ModAlias x y) st =
+    -- check aliased module exists, if so then update modEnv
+    case Map.member y modEnv of
+        True -> return $ Right st { stModuleEnv = mkAlias }
+        False -> return $ Left (show y ++ " not found in current module environment")
+  where
+    modEnv = stModuleEnv st
+    -- insert an alias from X to Y in the modEnv, by creating a new VarMod pointer
+    mkAlias = Map.insert x (VarMod y) modEnv
 
-    -- check alias doesn't already exists/overwrite?
 
-    -- create a new alias in modEnv - using VarMod??
-    return $ Right st
 
 -- take everything for now
 loadModFile :: ModURIElems -> FilePath -> ModURI -> Maybe String -> ShState -> IO (MExcept ShState)
@@ -129,7 +134,7 @@ loadModFile modElems filePath canonName modName st = do
     case mFileExist of
         Nothing -> do
             --debugM "ode3.modules" $ "File " ++ show filePath ++ " not found in any module repositories"
-            return (Left $ "File " ++ show filePath ++ " not found in any module repositories")
+            return (throwError $ "File " ++ show filePath ++ " not found in any module repositories")
         Just modFilePath -> do
             -- need to load module - pass the data to orig mod parser
             debugM "ode3.modules" $ "Module found in " ++ modFilePath

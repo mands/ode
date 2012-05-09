@@ -15,7 +15,7 @@
 {-#LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
 
 module Utils.Utils (
-MExcept, PrettyPrint(..), mapFst, mapSnd, pairM,
+MExcept, MExceptIO, PrettyPrint(..), mapFst, mapSnd, pairM,
 SB(..), trace', errorDump,
 openPipe, closePipe, readLoop,
 ) where
@@ -28,6 +28,8 @@ import qualified System.IO as SIO
 
 -- | my exception/error monad, could just import from Control.Monad.Error but anyway...
 type MExcept = Either String
+type MExceptIO = ErrorT String IO
+
 
 mapFst :: (a -> b) -> (a, c) -> (b, c)
 mapFst f (x,y) = (f x,y)
