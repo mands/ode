@@ -21,6 +21,7 @@ import qualified Data.Traversable as DT
 import qualified Data.Foldable as DF
 import Control.Applicative
 import Control.Monad
+import Control.Monad.Error
 import Text.Parsec hiding (many, optional, (<|>))
 import Text.Parsec.String
 import Debug.Trace (trace)
@@ -43,10 +44,10 @@ import Lang.Ode.Desugarer (desugarMod)
 
 -- TODO - put into IO
 -- example "import X.Y.Z"
-parseModCmd :: String -> MExcept ModCmd
+parseModCmd :: String -> MExceptIO ModCmd
 parseModCmd cmdStr =  case parseRes of
-                            Left err -> Left ("Input error at " ++ show err)
-                            Right res -> Right res
+                            Left err -> throwError ("Input error at " ++ show err)
+                            Right res -> return res
   where
     parseRes = parse (cmdModuleOpen <* eof) "<console>" cmdStr
 
@@ -59,9 +60,10 @@ cmdModuleOpen = ModImport <$> (reserved "import" *> modPathIdentifier) <*> pure 
 
 -- | modParse takes an input file and a current snapshot of the module env, and parse within this context
 -- sucessfully parsed modules are then converted into (Module E.Id) and added to the env
+-- have to explictily case to convert the error type in the Either
 modParse :: FilePath -> String -> ModURI -> ModuleEnv ->  MExcept ModuleEnv
 modParse fileName fileData canonRoot modEnv = case parseRes of
-                                        Left err -> Left ("Parse error at " ++ show err)
+                                        Left err -> throwError ("Parse error at " ++ show err)
                                         Right res -> res
   where
     parseRes = parse (modFileTop canonRoot modEnv) fileName fileData

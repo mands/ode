@@ -17,6 +17,7 @@ shellEntry, ShState(..)
 ) where
 
 import Control.Monad
+import Control.Monad.Error
 import Control.Monad.Trans(liftIO)
 import Control.Applicative
 import System.Environment(getArgs)
@@ -188,20 +189,18 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
 shEval :: String -> Sh ShState ()
 shEval str = do
     shellPutInfoLn str
-    -- READ cmd, pass the string to our mod lang parser
-    case MP.parseModCmd str of
+    st <- getShellSt
+    eSt <- liftIO $ runErrorT (eval' st)
+    case eSt of
         Left err -> shellPutErrLn err
-        -- then EVAL, cmd sent to interpreter with state
-        Right cmd -> do
-            st <- getShellSt
-            eRes <- liftIO $ MIO.interpretModCmd cmd st
-            -- update state and PRINT res
-            case eRes of
-                Left err -> shellPutErrLn err
-                Right st' -> putShellSt st' >> shellPutInfoLn "Command complete"
-
+        -- update state and PRINT res
+        Right st' -> putShellSt st' >> shellPutInfoLn "Command complete"
     -- return, setting up new LOOP
     return ()
-
-
-
+  where
+    eval' :: ShState -> MExceptIO ShState
+    eval' st = do
+        -- READ cmd, pass the string to our mod lang parser
+        cmd <- MP.parseModCmd str
+        -- then EVAL, cmd sent to interpreter with state
+        MIO.interpretModCmd cmd st

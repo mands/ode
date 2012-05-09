@@ -70,7 +70,7 @@ loadMod modElems = undefined
 
 -- main REPL interpreter, maybe hook up to moduleDriver interpreter
 --
-interpretModCmd :: ModCmd -> ShState -> (MExcept ShState)
+interpretModCmd :: ModCmd -> ShState -> MExceptIO ShState
 interpretModCmd (ModImport modElems Nothing) st = do
     -- get canon name
     let canonName = canonicalModName modElems
@@ -78,28 +78,26 @@ interpretModCmd (ModImport modElems Nothing) st = do
     let (filePath, modName) = uriToPath modElems
 
     case (List.last modElems) of
-        "*" -> do
-            -- see if canon name is wildcard then check if both already loaded via FP and canon name in modEnv
-            -- load everything
-            if Set.member filePath (stParsedFiles st)
-                then debugM "ode3.modules" ("Modules in " ++ filePath ++ " already loaded, ignoring") >> return (Right st)
+        -- see if canon name is wildcard then check if both already loaded via FP and canon name in modEnv
+        -- load everything
+        "*" -> if Set.member filePath (stParsedFiles st)
+                then liftIO $ debugM "ode3.modules" ("Modules in " ++ filePath ++ " already loaded, ignoring") >> return st
                 else do
-                    debugM "ode3.modules" ("Modules in " ++ filePath ++ " not found, loading")
-                    res <- loadModFile modElems filePath canonName Nothing st
+                    liftIO $ debugM "ode3.modules" ("Modules in " ++ filePath ++ " not found, loading")
+                    st' <- loadModFile modElems filePath canonName Nothing st
                     -- update cache
-                    return $ res >>= (\st -> Right $ st { stParsedFiles = Set.insert filePath (stParsedFiles st) })
-        x -> do
-            -- see if canon name is already in modEnv
-            -- just load individual module (actually for now we load everything anyway)
-            if Map.member canonName (stModuleEnv st)
-                then debugM "ode3.modules" ("Module " ++ canonName ++ " already loaded into modEnv, ignoring") >> return (Right st)
+                    return $ st' { stParsedFiles = Set.insert filePath (stParsedFiles st') }
+
+        -- see if canon name is already in modEnv
+        -- just load individual module (actually for now we load everything anyway)
+        x -> if Map.member canonName (stModuleEnv st)
+                then liftIO $ debugM "ode3.modules" ("Module " ++ canonName ++ " already loaded into modEnv, ignoring") >> return st
                 else do
-                    debugM "ode3.modules" ("Module " ++ canonName ++ " not found in modEnv, loading")
-                    res <- loadModFile modElems filePath canonName (Just x) st
+                    liftIO $ debugM "ode3.modules" ("Module " ++ canonName ++ " not found in modEnv, loading")
+                    st' <- loadModFile modElems filePath canonName (Just x) st
                     -- update cache
                     -- HACK - we assume that we loaded all modules for a file for now and update cache accordingly
-                    return $ res >>= (\st -> Right $ st { stParsedFiles = Set.insert filePath (stParsedFiles st) })
-
+                    return $ st' { stParsedFiles = Set.insert filePath (stParsedFiles st') }
 
     -- if not for both tests, then load the module, else ifnore/print status message
 
@@ -109,17 +107,17 @@ interpretModCmd (ModImport modElems Nothing) st = do
 
 interpretModCmd (ModImport modElems (Just alias)) st = do
     -- import the module first
-    interpretModCmd (ModImport modElems Nothing) st
+    st' <- interpretModCmd (ModImport modElems Nothing) st
     -- setup the alias
-    interpretModCmd (ModAlias alias alias) st
-    return $ Right st
+    st'' <- interpretModCmd (ModAlias alias alias) st'
+    return st''
 
 -- make x an alias of y
 interpretModCmd (ModAlias x y) st =
     -- check aliased module exists, if so then update modEnv
     case Map.member y modEnv of
-        True -> return $ Right st { stModuleEnv = mkAlias }
-        False -> return $ Left (show y ++ " not found in current module environment")
+        True -> return $ st { stModuleEnv = mkAlias }
+        False -> throwError (show y ++ " not found in current module environment")
   where
     modEnv = stModuleEnv st
     -- insert an alias from X to Y in the modEnv, by creating a new VarMod pointer
@@ -128,21 +126,21 @@ interpretModCmd (ModAlias x y) st =
 
 
 -- take everything for now
-loadModFile :: ModURIElems -> FilePath -> ModURI -> Maybe String -> ShState -> IO (MExcept ShState)
+loadModFile :: ModURIElems -> FilePath -> ModURI -> Maybe String -> ShState -> MExceptIO ShState
 loadModFile modElems filePath canonName modName st = do
-    mFileExist <- repoFileSearch
+    mFileExist <- liftIO repoFileSearch
     case mFileExist of
-        Nothing -> do
-            --debugM "ode3.modules" $ "File " ++ show filePath ++ " not found in any module repositories"
-            return (throwError $ "File " ++ show filePath ++ " not found in any module repositories")
+        Nothing -> throwError $ "File " ++ show filePath ++ " not found in any module repositories"
+                --debugM "ode3.modules" $ "File " ++ show filePath ++ " not found in any module repositories"
         Just modFilePath -> do
             -- need to load module - pass the data to orig mod parser
-            debugM "ode3.modules" $ "Module found in " ++ modFilePath
-            modFileData <- readFile modFilePath
+            liftIO $ debugM "ode3.modules" $ "Module found in " ++ modFilePath
+            modFileData <- liftIO $ readFile modFilePath
             -- st' :: MExcept ShState
-            let st' = modParse modFilePath modFileData canonRoot (stModuleEnv st)
-                    >>= (\modEnv -> return $ st { stModuleEnv = modEnv })
-            return st'
+            -- have to explicty case from Error to ErrorT monad
+            case modParse modFilePath modFileData canonRoot (stModuleEnv st) of
+                Left e -> throwError e
+                Right mod' -> return $ st { stModuleEnv = mod' }
   where
     -- get the root canonName
     canonRoot = List.intercalate "." $ List.init modElems
