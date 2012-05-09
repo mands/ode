@@ -76,7 +76,7 @@ readLoop hCmdPipe = forever (SIO.hGetLine hCmdPipe >>= (\s -> infoM "ode3.main" 
 modParser :: FilePath -> IO ()
 modParser fileName = do
     fileData <- readFile fileName
-    let modEnv = modParse fileName fileData Map.empty
+    let modEnv = modParse fileName fileData "test" Map.empty
     either (\err -> errorM "ode3.modParser" err)
         (\res -> infoM "ode3.modParser" $ "Parsed modules - \n" ++ (show res)) modEnv
 

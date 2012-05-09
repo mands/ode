@@ -51,7 +51,6 @@ parseModCmd cmdStr =  case parseRes of
     parseRes = parse (cmdModuleOpen <* eof) "<console>" cmdStr
 
 
-
 -- shell cmd parsers - need to unify to main parser?
 -- | parse the open directive
 cmdModuleOpen :: Parser ModCmd
@@ -60,16 +59,16 @@ cmdModuleOpen = ModImport <$> (reserved "import" *> modPathIdentifier) <*> pure 
 
 -- | modParse takes an input file and a current snapshot of the module env, and parse within this context
 -- sucessfully parsed modules are then converted into (Module E.Id) and added to the env
-modParse :: FilePath -> String -> ModuleEnv ->  MExcept ModuleEnv
-modParse fileName fileData modEnv = case parseRes of
+modParse :: FilePath -> String -> ModURI -> ModuleEnv ->  MExcept ModuleEnv
+modParse fileName fileData canonRoot modEnv = case parseRes of
                                         Left err -> Left ("Parse error at " ++ show err)
                                         Right res -> res
   where
-    parseRes = parse (modFileTop modEnv) fileName fileData
+    parseRes = parse (modFileTop canonRoot modEnv) fileName fileData
 
 -- | top level parser for a file
-modFileTop :: ModuleEnv -> Parser (MExcept ModuleEnv)
-modFileTop modEnv = do
+modFileTop :: ModURI -> ModuleEnv -> Parser (MExcept ModuleEnv)
+modFileTop canonRoot modEnv = do
     imports <- (whiteSpace *> many moduleOpen)
     -- TODO, should lookup the imports here and update the env
 
@@ -80,7 +79,7 @@ modFileTop modEnv = do
     let mods' = filter filterLit mods
 
     -- instantiate each module and add to the moduleEnv
-    let modEnv' = DF.foldlM MD.moduleDriver modEnv mods'
+    let modEnv' = DF.foldlM (MD.moduleDriver canonRoot) modEnv mods'
     return $ trace ("(MP) " ++ show imports) (trace ("(MP) " ++ show mods') modEnv')
 
   where

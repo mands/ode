@@ -1,0 +1,11 @@
+// file-level imports
+// import DirA.DirB.FileA.ModB
+//import DirA.DirB.FileA.ModC as X
+
+module A {
+  val x = 2 + 2
+  val y = True or False
+}
+
+// now test usage...
+

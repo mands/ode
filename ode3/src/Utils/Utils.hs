@@ -18,7 +18,6 @@ module Utils.Utils (
 MExcept, PrettyPrint(..), mapFst, mapSnd, pairM,
 SB(..), trace', errorDump,
 openPipe, closePipe, readLoop,
-ifM, whenM
 ) where
 
 import Control.Monad
@@ -95,29 +94,6 @@ splitList p xs = h : t'
     (h, t) = List.break p xs
     t' = case t of x:xs -> splitList p xs
                    [] -> []
-
-ifM :: Monad m => m Bool -> m a -> m a -> m a
-ifM p t e = do b <- p
-               if b then t else e
-
-whenM :: Monad m => m Bool -> m () -> m ()
-whenM cond action = do
-  allow <- cond
-  when allow
-    action
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

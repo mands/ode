@@ -23,6 +23,7 @@ import qualified Data.Traversable as DT
 import qualified Data.Foldable as DF
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import qualified Data.List as List
 import qualified Data.Bimap as Bimap
 import Data.Maybe (fromJust)
 import Control.Applicative
@@ -40,14 +41,16 @@ import Lang.Core.TypeChecker --(typeCheck, TypeVarEnv, TypeCons)
 import Utils.Utils
 import qualified Utils.OrdMap as OrdMap
 
+
 -- | moduleDriver takes a the current modEnv and processes the given module against it
-moduleDriver :: M.ModuleEnv -> M.TopMod E.DesId -> MExcept M.ModuleEnv
-moduleDriver modEnv topMod@(M.TopMod name mod) = Map.insert <$> pure name <*> eRes <*> pure modEnv
+moduleDriver :: M.ModURI -> M.ModuleEnv -> M.TopMod E.DesId -> MExcept M.ModuleEnv
+moduleDriver canonRoot modEnv topMod@(M.TopMod name mod) = Map.insert <$> pure canonName <*> eRes <*> pure modEnv
   where
     eRes :: MExcept (M.Module E.Id)
     eRes = checkName *> interpretModule modEnv mod
     -- check if module already exists
     checkName = if Map.member name modEnv then throwError ("(MD06) - Module with name " ++ (show name) ++ " already defined") else pure ()
+    canonName = List.intercalate "." [canonRoot, name]
 
 
 -- a basic interpreter over the set of module types, interpres the modules with regards tro the moduleenv

@@ -19,6 +19,7 @@ interpretModCmd
 import Control.Monad
 import Data.Foldable as DF
 
+import Control.Cond
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
@@ -134,7 +135,7 @@ loadModFile modElems filePath canonName modName st = do
             debugM "ode3.modules" $ "Module found in " ++ modFilePath
             modFileData <- readFile modFilePath
             -- st' :: MExcept ShState
-            let st' = modParse modFilePath modFileData (stModuleEnv st)
+            let st' = modParse modFilePath modFileData canonRoot (stModuleEnv st)
                     >>= (\modEnv -> return $ st { stModuleEnv = modEnv })
             return st'
   where
