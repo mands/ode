@@ -27,6 +27,7 @@ import Text.Parsec.String
 import Debug.Trace (trace)
 
 import qualified Data.Map as Map
+import qualified Data.List as List
 import qualified Data.Set as Set
 import qualified Data.Bimap as Bimap
 import qualified Utils.OrdMap as OrdMap
@@ -49,13 +50,6 @@ modIdentifier = lexeme $ upperIdentifier `sepBy` (char '.')
 singModId :: Parser ModURI
 singModId = lexeme upperIdentifier
 
--- | lexeme parser for a module string in dot notation
-modPathImport :: Parser ModURIElems
-modPathImport = lexeme $ upperIdentifier `sepBy1` (char '.')
-
-modPathImportAll :: Parser ModURIElems
-modPathImportAll = lexeme $ upperIdentifier `sepEndBy` (char '.') <* (char '*')
-
 
 -- example "import X.Y.Z"
 parseModCmd :: String -> MExceptIO ModCmd
@@ -69,10 +63,20 @@ parseModCmd cmdStr =  case parseRes of
 -- shell cmd parsers - need to unify to main parser?
 -- | parse the open directive
 cmdModuleOpen :: Parser ModCmd
-cmdModuleOpen = try (ModImportAll <$> (reserved "import" *> modPathImportAll))
-                <|> ModImport <$> (reserved "import" *> modPathImport) <*> optionMaybe (reserved "as" *> singModId)
+cmdModuleOpen = try (ModImport <$> (reserved "import" *> modPathImportAll) <*> (pure Nothing))
+                <|> t' <$> (reserved "import" *> modPathImport) <*> optionMaybe (reserved "as" *> singModId)
                 <|> ModAlias <$> (reserved "let" *> singModId) <*> (reservedOp "=" *> modIdentifier)
                 <?> "valid module command"
+  where
+    t' :: ModURIElems -> (Maybe ModURI) -> ModCmd
+    t' modURI mAlias = ModImport (List.init modURI) (Just [(List.last modURI, mAlias)])
+
+    -- | lexeme parser for a module string in dot notation
+    modPathImport :: Parser ModURIElems
+    modPathImport = lexeme $ upperIdentifier `sepBy1` (char '.')
+
+    modPathImportAll :: Parser ModURIElems
+    modPathImportAll = lexeme $ upperIdentifier `sepEndBy` (char '.') <* (char '*')
 
 
 -- | modParse takes an input file and a current snapshot of the module env, and parse within this context
@@ -109,6 +113,8 @@ modFileTop canonRoot modEnv = do
 -- | parse the open directive
 moduleOpen :: Parser ModURIElems
 moduleOpen = reserved "import" *> modPathImport
+  where
+    modPathImport = lexeme $ upperIdentifier `sepBy1` (char '.')
 
 -- | parse a module, either an entire definition/abstraction or an application
 moduleDef :: ModuleEnv -> Parser (TopMod E.DesId)

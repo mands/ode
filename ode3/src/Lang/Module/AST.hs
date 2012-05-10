@@ -38,15 +38,12 @@ import qualified Utils.OrdMap as OrdMap
 import Utils.Utils
 
 -- 2nd level mod cmds AST, should combine with orig Module AST cmds
-data ModCmd = ModImport ModURIElems (Maybe String)  -- sep'd mod elems, alias
-            | ModImportAll ModURIElems              -- wildcarded import
-            | NewModImport ModURIElems (Maybe [(ModURI, Maybe ModURI)]) -- main import, has a module root/filename,
+data ModCmd = ModImport ModURIElems (Maybe [(ModURI, Maybe ModURI)]) -- main import, has a module root/filename,
                                                                         -- and list of indiv modules and potential alias
             | ModAlias ModURI ModURIElems           -- an alias from one ModURI to another
             deriving Show
 
 type ModURIElems = [ModURI]
-
 
 
 -- | a canoical module name
