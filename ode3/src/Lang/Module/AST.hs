@@ -39,7 +39,10 @@ import Utils.Utils
 
 -- 2nd level mod cmds AST, should combine with orig Module AST cmds
 data ModCmd = ModImport ModURIElems (Maybe String)  -- sep'd mod elems, alias
-            | ModAlias ModURI ModURI                -- an alias from one ModURI to another
+            | ModImportAll ModURIElems              -- wildcarded import
+            | NewModImport ModURIElems (Maybe [(ModURI, Maybe ModURI)]) -- main import, has a module root/filename,
+                                                                        -- and list of indiv modules and potential alias
+            | ModAlias ModURI ModURIElems           -- an alias from one ModURI to another
             deriving Show
 
 type ModURIElems = [ModURI]

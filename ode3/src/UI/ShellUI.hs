@@ -169,7 +169,7 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
         f :: String -> Sh ShState ()
         f "all" = (show <$> getShellSt) >>= shellPutInfoLn
         f "repos" = (show <$> stRepos <$> getShellSt) >>= shellPutInfoLn
-        f "modules" = (show <$> stModuleEnv <$> getShellSt) >>= shellPutInfoLn
+        f "modules" = (show <$> Map.keys <$> stModuleEnv <$> getShellSt) >>= shellPutInfoLn
         f _ = shellPutInfoLn "Pass <all, repos, modules> to display current state"
 
     typeCmd = cmd "type" f "Display the type of the loaded module"

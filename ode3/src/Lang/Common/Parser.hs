@@ -95,17 +95,9 @@ time = reserved "time" *> pure ()
 unit :: Parser ()
 unit = reservedOp "()" *> pure ()
 
--- | lexeme parser for module identifier
-modIdentifier :: Parser String
-modIdentifier = lexeme upperIdentifier
-
--- | lexeme parser for a module string in dot notation
-modPathIdentifier :: Parser [String]
-modPathIdentifier = lexeme $ upperIdentifier `sepBy1` (char '.')
-
 -- | parses a upper case identifier
 upperIdentifier :: Parser String
-upperIdentifier = (:) <$> upper <*> many alphaNum <?> "module identifier"
+upperIdentifier = (:) <$> upper <*> many alphaNum <?> "capitalised identifier"
 
 -- | comma sepated parameter list of any parser, e.g. (a,b,c)
 paramList = parens . commaSep1

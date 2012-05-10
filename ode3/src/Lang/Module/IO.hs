@@ -20,7 +20,7 @@ import Control.Monad
 import Control.Monad.Error
 import Data.Foldable as DF
 
-import Control.Cond
+import Control.Conditional
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
@@ -37,74 +37,61 @@ import Lang.Module.Parser
 import Utils.OrdSet as OrdSet
 import Utils.Utils
 
-data ModName = ModSing String | ModAll deriving Show
-
-
--- | Takes a string and returns the modname
-loadModName :: String -> ModName
-loadModName "*" = ModAll
-loadModName x = ModSing x
-
 -- | Takes a string representing the module URI and returns the path and module name
 -- i.e. W.X.Y.Z -> (W/X/Y, Z)
-uriToPath :: ModURIElems -> (FilePath, ModName)
-uriToPath modElems = (uriFilePath, uriModName)
-  where
-    -- uriElems = ListSplit.splitOn "." uri
-    uriModName = loadModName $ List.last modElems
-    uriFilePath = (FP.makeValid . FP.normalise . FP.joinPath . List.init $ modElems) FP.<.> "od3"
+uriToPath :: ModURIElems -> FilePath
+uriToPath modElems = (FP.makeValid . FP.normalise . FP.joinPath $ modElems) FP.<.> "od3"
+
+indivModName :: ModURIElems -> ModURI
+indivModName modElems = List.last modElems
 
 -- | Takes a ModURI and return the original canonical mod name
 canonicalModName :: ModURIElems -> ModURI
 canonicalModName modElems = List.intercalate "." modElems
 
-
 -- main REPL interpreter, maybe hook up to moduleDriver interpreter
 --
 interpretModCmd :: ModCmd -> ShState -> MExceptIO ShState
-interpretModCmd (ModImport modElems Nothing) st = do
-    -- get canon name
-    let canonName = canonicalModName modElems
+interpretModCmd (ModImportAll modElems) st =
+    -- see if canon name is wildcard then check if both already loaded via FP and canon name in modEnv
+    -- load everything
+    if Set.member filePath (stParsedFiles st)
+        then liftIO $ debugM "ode3.modules" ("Modules in " ++ filePath ++ " already loaded, ignoring") >> return st
+        else do
+            liftIO $ debugM "ode3.modules" ("Modules in " ++ filePath ++ " not found, loading")
+            st' <- loadModFile filePath canonRoot st
+            -- update cache
+            return $ st' { stParsedFiles = Set.insert filePath (stParsedFiles st') }
+  where
+    -- get canon name for root
+    canonRoot = canonicalModName modElems
     -- get FP
-    let (filePath, modName) = uriToPath modElems
+    filePath = uriToPath modElems
 
-    case (List.last modElems) of
-        -- see if canon name is wildcard then check if both already loaded via FP and canon name in modEnv
-        -- load everything
-        "*" -> if Set.member filePath (stParsedFiles st)
-                then liftIO $ debugM "ode3.modules" ("Modules in " ++ filePath ++ " already loaded, ignoring") >> return st
-                else do
-                    liftIO $ debugM "ode3.modules" ("Modules in " ++ filePath ++ " not found, loading")
-                    st' <- loadModFile modElems filePath canonName Nothing st
-                    -- update cache
-                    return $ st' { stParsedFiles = Set.insert filePath (stParsedFiles st') }
+interpretModCmd (ModImport modElems mAlias) st = do
+    -- see if canon name is already in modEnv
+    -- just load individual module (actually for now we load everything anyway)
+    st' <- if Map.member canonName (stModuleEnv st)
+        then liftIO $ debugM "ode3.modules" ("Module " ++ canonName ++ " already loaded into modEnv, ignoring") >> return st
+        else do
+            liftIO $ debugM "ode3.modules" ("Module " ++ canonName ++ " not found in modEnv, loading")
+            st' <- loadModFile filePath canonRoot st
+            -- update cache
+            -- HACK - we assume that we loaded all modules for a file for now and update cache accordingly
+            return $ st' { stParsedFiles = Set.insert filePath (stParsedFiles st') }
+    -- setup the alias if needed
+    maybe (return st') (\alias -> interpretModCmd (ModAlias alias modElems) st') mAlias
+  where
+    -- get canon name
+    canonName = canonicalModName modElems
+    canonRoot = canonicalModName $ List.init modElems
+    -- get FP
+    filePath = uriToPath $ List.init modElems
+    modName = indivModName modElems
 
-        -- see if canon name is already in modEnv
-        -- just load individual module (actually for now we load everything anyway)
-        x -> if Map.member canonName (stModuleEnv st)
-                then liftIO $ debugM "ode3.modules" ("Module " ++ canonName ++ " already loaded into modEnv, ignoring") >> return st
-                else do
-                    liftIO $ debugM "ode3.modules" ("Module " ++ canonName ++ " not found in modEnv, loading")
-                    st' <- loadModFile modElems filePath canonName (Just x) st
-                    -- update cache
-                    -- HACK - we assume that we loaded all modules for a file for now and update cache accordingly
-                    return $ st' { stParsedFiles = Set.insert filePath (stParsedFiles st') }
-
-    -- if not for both tests, then load the module, else ifnore/print status message
-
-    -- update the caches/state
-    -- return
-
-
-interpretModCmd (ModImport modElems (Just alias)) st = do
-    -- import the module first
-    st' <- interpretModCmd (ModImport modElems Nothing) st
-    -- setup the alias
-    st'' <- interpretModCmd (ModAlias (canonicalModName modElems) alias) st'
-    return st''
 
 -- | make aliasName an alias of origName
-interpretModCmd (ModAlias origName aliasName) st =
+interpretModCmd (ModAlias aliasName origElems) st =
     -- check aliased module exists, if so then update modEnv
     case Map.member origName modEnv of
         True -> return $ st { stModuleEnv = mkAlias }
@@ -113,12 +100,12 @@ interpretModCmd (ModAlias origName aliasName) st =
     modEnv = stModuleEnv st
     -- insert an alias from Y to X in the modEnv, by creating a new VarMod pointer
     mkAlias = Map.insert aliasName (VarMod origName) modEnv
-
+    origName = canonicalModName origElems
 
 
 -- take everything for now
-loadModFile :: ModURIElems -> FilePath -> ModURI -> Maybe String -> ShState -> MExceptIO ShState
-loadModFile modElems filePath canonName modName st = do
+loadModFile :: FilePath -> ModURI -> ShState -> MExceptIO ShState
+loadModFile filePath canonRoot st = do
     mFileExist <- liftIO repoFileSearch
     case mFileExist of
         Nothing -> throwError $ "File " ++ show filePath ++ " not found in any module repositories"
@@ -134,7 +121,7 @@ loadModFile modElems filePath canonName modName st = do
                 Right mod' -> return $ st { stModuleEnv = mod' }
   where
     -- get the root canonName
-    canonRoot = List.intercalate "." $ List.init modElems
+    --canonRoot = canonicalModName modElems
 
     -- search for filePath exists roots
     repoFileSearch :: IO (Maybe FilePath)

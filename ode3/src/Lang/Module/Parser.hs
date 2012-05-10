@@ -42,7 +42,21 @@ import qualified Lang.Module.ModuleDriver as MD
 import Lang.Ode.Desugarer (desugarMod)
 
 
--- TODO - put into IO
+-- | lexeme parser for module identifier, return a list of module URI elements
+modIdentifier :: Parser ModURIElems
+modIdentifier = lexeme $ upperIdentifier `sepBy` (char '.')
+
+singModId :: Parser ModURI
+singModId = lexeme upperIdentifier
+
+-- | lexeme parser for a module string in dot notation
+modPathImport :: Parser ModURIElems
+modPathImport = lexeme $ upperIdentifier `sepBy1` (char '.')
+
+modPathImportAll :: Parser ModURIElems
+modPathImportAll = lexeme $ upperIdentifier `sepEndBy` (char '.') <* (char '*')
+
+
 -- example "import X.Y.Z"
 parseModCmd :: String -> MExceptIO ModCmd
 parseModCmd cmdStr =  case parseRes of
@@ -55,7 +69,10 @@ parseModCmd cmdStr =  case parseRes of
 -- shell cmd parsers - need to unify to main parser?
 -- | parse the open directive
 cmdModuleOpen :: Parser ModCmd
-cmdModuleOpen = ModImport <$> (reserved "import" *> modPathIdentifier) <*> optionMaybe (reserved "as" *> upperIdentifier)
+cmdModuleOpen = try (ModImportAll <$> (reserved "import" *> modPathImportAll))
+                <|> ModImport <$> (reserved "import" *> modPathImport) <*> optionMaybe (reserved "as" *> singModId)
+                <|> ModAlias <$> (reserved "let" *> singModId) <*> (reservedOp "=" *> modIdentifier)
+                <?> "valid module command"
 
 
 -- | modParse takes an input file and a current snapshot of the module env, and parse within this context
@@ -91,15 +108,15 @@ modFileTop canonRoot modEnv = do
 
 -- | parse the open directive
 moduleOpen :: Parser ModURIElems
-moduleOpen = reserved "import" *> modPathIdentifier
+moduleOpen = reserved "import" *> modPathImport
 
 -- | parse a module, either an entire definition/abstraction or an application
 moduleDef :: ModuleEnv -> Parser (TopMod E.DesId)
-moduleDef modEnv = TopMod <$> (reserved "module" *> modIdentifier) <*> modParse
+moduleDef modEnv = TopMod <$> (reserved "module" *> singModId) <*> modParse
   where
     modParse =
         (reservedOp "=" *> moduleAppParams)
-        <|> FunctorMod <$> (funcArgs <$> paramList modIdentifier) <*> pure OrdMap.empty <*> modData
+        <|> FunctorMod <$> (funcArgs <$> paramList singModId) <*> pure OrdMap.empty <*> modData
         <|> LitMod <$> pure OrdMap.empty <*> modData
         <?> "module definition"
     modData = ModuleData Map.empty Map.empty Bimap.empty Nothing <$> modBody
@@ -107,7 +124,7 @@ moduleDef modEnv = TopMod <$> (reserved "module" *> modIdentifier) <*> modParse
 
 -- | parse a chain/tree of module applications
 moduleAppParams :: Parser (Module E.DesId)
-moduleAppParams = procParams <$> modIdentifier <*> optionMaybe (paramList moduleAppParams)
+moduleAppParams = procParams <$> singModId <*> optionMaybe (paramList moduleAppParams)
   where
     -- need to desugar into nested set of appMods and varMods
     procParams modId Nothing = VarMod modId
