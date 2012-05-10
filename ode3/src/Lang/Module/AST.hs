@@ -37,11 +37,18 @@ import qualified Lang.Core.AST as E
 import qualified Utils.OrdMap as OrdMap
 import Utils.Utils
 
+
+
+-- test combinging all file contents into single data
+data TestTop a  = TestModCmd ModCmd
+                | TestTopMod (TopMod a)
+                deriving (Show, Eq)
+
 -- 2nd level mod cmds AST, should combine with orig Module AST cmds
 data ModCmd = ModImport ModURIElems (Maybe [(ModURI, Maybe ModURI)]) -- main import, has a module root/filename,
                                                                         -- and list of indiv modules and potential alias
             | ModAlias ModURI ModURIElems           -- an alias from one ModURI to another
-            deriving Show
+            deriving (Show, Eq)
 
 type ModURIElems = [ModURI]
 

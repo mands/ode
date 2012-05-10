@@ -59,6 +59,16 @@ parseModCmd cmdStr =  case parseRes of
   where
     parseRes = parse (cmdModuleOpen <* eof) "<console>" cmdStr
 
+-- | modParse takes an input file and a current snapshot of the module env, and parse within this context
+-- sucessfully parsed modules are then converted into (Module E.Id) and added to the env
+-- have to explictily case to convert the error type in the Either
+modParse :: FilePath -> String -> ModURI -> ModuleEnv ->  MExcept ModuleEnv
+modParse fileName fileData canonRoot modEnv = case parseRes of
+                                        Left err -> throwError ("Parse error at " ++ show err)
+                                        Right res -> res
+  where
+    parseRes = parse (modFileTop canonRoot modEnv) fileName fileData
+
 
 -- shell cmd parsers - need to unify to main parser?
 -- | parse the open directive
@@ -79,15 +89,6 @@ cmdModuleOpen = try (ModImport <$> (reserved "import" *> modPathImportAll) <*> (
     modPathImportAll = lexeme $ upperIdentifier `sepEndBy` (char '.') <* (char '*')
 
 
--- | modParse takes an input file and a current snapshot of the module env, and parse within this context
--- sucessfully parsed modules are then converted into (Module E.Id) and added to the env
--- have to explictily case to convert the error type in the Either
-modParse :: FilePath -> String -> ModURI -> ModuleEnv ->  MExcept ModuleEnv
-modParse fileName fileData canonRoot modEnv = case parseRes of
-                                        Left err -> throwError ("Parse error at " ++ show err)
-                                        Right res -> res
-  where
-    parseRes = parse (modFileTop canonRoot modEnv) fileName fileData
 
 -- | top level parser for a file
 modFileTop :: ModURI -> ModuleEnv -> Parser (MExcept ModuleEnv)

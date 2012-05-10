@@ -84,9 +84,7 @@ interpretModCmd (ModImport modRootElems (Just mods)) st = do
             return $ st' { stParsedFiles = Set.insert filePath (stParsedFiles st') }
 
     -- setup the alias if needed
-    --maybe (return st') (\alias -> interpretModCmd (ModAlias alias modRootElems) st') mAlias
     st'' <- foldlM (\st alias -> interpretModCmd alias st) st' aliasCmds
-
 
     return st''
   where
