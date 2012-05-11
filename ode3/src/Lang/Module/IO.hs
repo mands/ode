@@ -34,6 +34,7 @@ import System.Log.Logger
 import UI.ShellState
 import Lang.Module.AST
 import Lang.Module.Parser
+import qualified Lang.Core.AST as E
 
 import qualified Utils.OrdSet as OrdSet
 import Utils.Utils
@@ -53,7 +54,7 @@ mkModName modRootURI indivName = (flattenURI modRootURI) ++ "." ++ indivName
 
 -- main REPL interpreter, maybe hook up to moduleDriver interpreter
 --
-interpretModCmd :: ModCmd -> ShState -> MExceptIO ShState
+interpretModCmd :: (OdeTopElem E.SrcId) -> ShState -> MExceptIO ShState
 interpretModCmd (ModImport modRootElems Nothing) st =
     -- import all modules from file
     -- check if file already loaded via FP and canon name in modEnv

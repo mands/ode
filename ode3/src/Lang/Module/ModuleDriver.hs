@@ -43,7 +43,7 @@ import qualified Utils.OrdMap as OrdMap
 
 
 -- | moduleDriver takes a the current modEnv and processes the given module against it
-moduleDriver :: M.ModURI -> M.ModuleEnv -> M.TopMod E.DesId -> MExcept M.ModuleEnv
+moduleDriver :: M.ModURI -> M.ModuleEnv -> M.OdeTopElem E.DesId -> MExcept M.ModuleEnv
 moduleDriver canonRoot modEnv topMod@(M.TopMod name mod) = Map.insert <$> pure canonName <*> eRes <*> pure modEnv
   where
     eRes :: MExcept (M.Module E.Id)

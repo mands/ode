@@ -15,9 +15,9 @@
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures, FlexibleInstances, TypeSynonymInstances #-}
 
 module Lang.Module.AST (
-ModCmd(..), ModURIElems,
+OdeTopElem(..), ModURIElems,
 ExprMap, ExprList, FunArgs,
-ModURI, TopMod(..), Module(..), ModuleEnv,
+ModURI, Module(..), ModuleEnv,
 ModuleData(..), SigMap, TypeMap, IdBimap, debugModuleExpr,
 ) where
 
@@ -38,20 +38,14 @@ import qualified Utils.OrdMap as OrdMap
 import Utils.Utils
 
 
-
--- test combinging all file contents into single data
-data TestTop a  = TestModCmd ModCmd
-                | TestTopMod (TopMod a)
-                deriving (Show, Eq)
-
--- 2nd level mod cmds AST, should combine with orig Module AST cmds
-data ModCmd = ModImport ModURIElems (Maybe [(ModURI, Maybe ModURI)]) -- main import, has a module root/filename,
-                                                                        -- and list of indiv modules and potential alias
-            | ModAlias ModURI ModURIElems           -- an alias from one ModURI to another
-            deriving (Show, Eq)
+-- | Top level module variables, represent the ast for an individual file, inc import cmds and module defs
+data OdeTopElem a   = TopMod ModURI (Module a)
+                    | ModImport ModURIElems (Maybe [(ModURI, Maybe ModURI)])    -- main import, has a module root/filename,
+                                                                                -- and list of indiv modules and potential alias
+                    | ModAlias ModURI ModURIElems                               -- an alias from one ModURI to another
+                    deriving (Show, Eq)
 
 type ModURIElems = [ModURI]
-
 
 -- | a canoical module name
 type ModURI = String
@@ -59,15 +53,14 @@ type ModURI = String
 
 -- Module Body Data
 
-type ExprList = [E.TopLet E.DesId]
+type ExprList = [E.TopLet DesId]
+
+
 -- | ExprMap is the basic collection of expressions that make up a module
 type ExprMap a = OrdMap.OrdMap (E.Bind a) (E.TopLet a)
 
 -- | FunArgs are the list of module parameters, and thier required signatures, for a functor application
 type FunArgs = OrdMap.OrdMap SrcId SigMap
-
--- | Top level module variables
-data TopMod a = TopMod E.SrcId (Module a) deriving (Show, Eq)
 
 -- | Main executable modules that can be combined at run-time, they represent a form of the simply-typed \-calc that is interpreted at runtime
 -- type-checking occurs in two-stage process, vars and abs are checked during parsing, applications are cehcked from the replicate
@@ -103,8 +96,9 @@ debugModuleExpr (FunctorMod _ exprMap _) = prettyPrint exprMap
 debugModuleExpr (AppMod _ _) = "Application - no exprs"
 
 
-instance (Show a) => PrettyPrint (TopMod a) where
+instance (Show a) => PrettyPrint (OdeTopElem a) where
     prettyPrint (TopMod name mod) = show name ++ " :: " ++ prettyPrint mod
+    prettyPrint _ = undefined
 
 instance (Show a) => PrettyPrint (Module a) where
     -- show the module signature
@@ -117,7 +111,7 @@ instance (Show a) => PrettyPrint (Module a) where
     prettyPrint mod@(AppMod functor args) = "Application - " ++ functor ++ "(" ++ show args ++ ")"
 
 -- show the module signature
-instance PrettyPrint ModuleData where
+instance PrettyPrint (ModuleData) where
     prettyPrint (ModuleData sig tMap idBimap mFreeId _) = show sig
 
 instance PrettyPrint FunArgs where
