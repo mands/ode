@@ -21,22 +21,10 @@ import System.Posix.Files as PF
 import System.Log.Logger
 import System.Log.Handler(close)
 import System.Log.Handler.Simple
-import Control.Monad.Trans
-import Control.Monad
-import qualified Data.Foldable as DF
-import qualified Data.Map as Map
-import qualified Data.List as List
-
-import Lang.Module.Parser (modParse)
-import qualified Lang.Core.AST as EA
-import qualified Lang.Module.AST as MA
 
 import Utils.Utils
 import Utils.OrdMap
 import UI.ShellUI
-
-debugPipe :: FilePath
-debugPipe = "./.odepipe"
 
 -- | main entry funtion
 main :: IO ()
@@ -56,30 +44,13 @@ main = do
     curDir <- getCurrentDirectory
     debugM "ode3.main" $ "Running from " ++ curDir
 
-    -- start the compiler
-    -- resA <- modParser fileName
-    -- TODO need to create a maybeT transformer - ignore for now
-
+    -- start the console interface to the compiler
     shellEntry
 
     debugM "ode3.main" $ "Quitting."
 
     -- TODO - return exit code depending on success/failure
     -- TODO - close filelogger
-
-
-
-readLoop :: Handle -> IO ()
-readLoop hCmdPipe = forever (SIO.hGetLine hCmdPipe >>= (\s -> infoM "ode3.main" $ "Read - " ++ s))
-
-
-modParser :: FilePath -> IO ()
-modParser fileName = do
-    fileData <- readFile fileName
-    let modEnv = modParse fileName fileData "test" Map.empty
-    either (\err -> errorM "ode3.modParser" err)
-        (\res -> infoM "ode3.modParser" $ "Parsed modules - \n" ++ (show res)) modEnv
-
 
 -- | driver for the middle-end of the compiler
 -- will run the middle-end of the compiler using the ANF/lowerlevel FIR - AST to be determined

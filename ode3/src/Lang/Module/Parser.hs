@@ -39,7 +39,7 @@ import Lang.Module.AST
 import qualified Lang.Ode.AST as O
 import qualified Lang.Ode.Parser as OP
 import qualified Lang.Core.AST as E
-import qualified Lang.Module.ModuleDriver as MD
+--import qualified Lang.Module.ModuleDriver as MD
 
 import Lang.Ode.Desugarer (desugarMod)
 

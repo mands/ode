@@ -47,12 +47,13 @@ includes:
 install-includes:
 include-dirs:
 hs-source-dirs: src
-other-modules: Utils.Utils Utils.ShellHandleBackend Utils.OrdMap
-               Utils.OrdSet Utils.MonadSupply UI.ShellUI UI.ShellState
-               Lang.Common.AST Lang.Common.Parser Lang.Core.TypeChecker
-               Lang.Core.AST Lang.Core.Validator Lang.Core.Renamer
-               Lang.Module.ModuleDriver Lang.Module.IO Lang.Module.AST
-               Lang.Module.Parser Lang.Ode.Desugarer Lang.Ode.AST Lang.Ode.Parser
+other-modules: Lang.Core.Reorderer Utils.Utils
+               Utils.ShellHandleBackend Utils.OrdMap Utils.OrdSet
+               Utils.MonadSupply UI.ShellUI UI.ShellState Lang.Common.AST
+               Lang.Common.Parser Lang.Core.TypeChecker Lang.Core.AST
+               Lang.Core.Validator Lang.Core.Renamer Lang.Module.ModuleDriver
+               Lang.Module.AST Lang.Module.Parser Lang.Ode.Desugarer Lang.Ode.AST
+               Lang.Ode.Parser
 ghc-prof-options:
 ghc-shared-options:
 ghc-options:

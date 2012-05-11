@@ -15,7 +15,7 @@
 {-#LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
 
 module Utils.Utils (
-MExcept, MExceptIO, PrettyPrint(..), mapFst, mapSnd, pairM,
+MExcept, MExceptIO, mkExceptIO,PrettyPrint(..), mapFst, mapSnd, pairM,
 SB(..), trace', errorDump,
 openPipe, closePipe, readLoop,
 ) where
@@ -29,6 +29,12 @@ import qualified System.IO as SIO
 -- | my exception/error monad, could just import from Control.Monad.Error but anyway...
 type MExcept = Either String
 type MExceptIO = ErrorT String IO
+
+-- | lift a monad from MExcept to MExceptIO
+mkExceptIO :: MExcept a -> MExceptIO a
+mkExceptIO m = case m of
+    Left err -> throwError err
+    Right res -> return res
 
 
 mapFst :: (a -> b) -> (a, c) -> (b, c)
@@ -86,7 +92,6 @@ readLoop :: SIO.Handle -> IO ()
 readLoop hCmdPipe = forever (SIO.hGetLine hCmdPipe >>= outCmd)
   where
     outCmd s = putStrLn s >> SIO.hFlush SIO.stdout
-
 
 
 -- | util function to split a list based on predicate function p

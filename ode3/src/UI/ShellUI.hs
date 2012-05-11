@@ -41,7 +41,7 @@ import Utils.Utils
 import qualified Utils.OrdSet as OrdSet
 import qualified Lang.Module.Parser as MP
 import qualified Lang.Module.AST as MA
-import qualified Lang.Module.IO as MIO
+import qualified Lang.Module.ModuleDriver as MD
 
 
 shellEntry :: IO ()
@@ -108,7 +108,7 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
                 , exitCommand "quit"
                 ]
   where
-    -- debug toggle
+    -- debug toggle, need to update the logger too
     debugCmd = toggle "debug" "Toggle Debug Mode" (\st -> stDebug st) (\b st -> st {stDebug = b} )
 
     -- basic cmds
@@ -201,6 +201,6 @@ shEval str = do
     eval' :: ShState -> MExceptIO ShState
     eval' st = do
         -- READ cmd, pass the string to our mod lang parser
-        cmd <- MP.parseModCmd str
+        cmd <- MP.consoleParse str
         -- then EVAL, cmd sent to interpreter with state
-        MIO.interpretModCmd cmd st
+        MD.evalTopElems st cmd
