@@ -72,19 +72,17 @@ mkModName modRootURI indivName = (flattenURI modRootURI) ++ "." ++ indivName
 -- | Main console and file evaluater
 -- takes the current state and processes the given top command/def against it
 evalTopElems :: ShState -> OdeTopElem E.DesId -> MExceptIO ShState
-evalTopElems st topMod@(TopMod name mod) = do
-    modEnv' <- mkExceptIO $ Map.insert <$> pure canonName <*> eRes <*> pure modEnv
+evalTopElems st topMod@(TopMod rootURI name mod) = do
+    modEnv' <- mkExceptIO $ Map.insert <$> pure fullModName <*> eRes <*> pure modEnv
     return $ st { stModuleEnv = modEnv' }
   where
     eRes :: MExcept (Module E.Id)
     eRes = checkName *> evalModDef modEnv mod
     -- check if module already exists
-    checkName = if Map.member name modEnv then throwError ("(MD06) - Module with name " ++ (show name) ++ " already defined") else pure ()
-    canonName = List.intercalate "." [canonRoot, name]
+    checkName = if Map.member fullModName modEnv then throwError ("(MD06) - Module with name " ++ (show name) ++ " already defined") else pure ()
+    fullModName = List.intercalate "." [rootURI, name]
     modEnv = stModuleEnv st
 
-    -- HACK
-    canonRoot = "unknown"
 
 
 evalTopElems st (ModImport modRootElems Nothing) =
@@ -174,7 +172,7 @@ loadModFile filePath canonRoot _ st = do
                 --debugM "ode3.modules" $ "File " ++ show filePath ++ " not found in any module repositories"
         Just modFilePath -> do
             -- need to load module - pass the data to orig mod parser
-            liftIO $ debugM "ode3.modules" $ "Module found in " ++ modFilePath
+            liftIO $ debugM "ode3.modules" $ "Modules may be found in file " ++ modFilePath
             -- load the contents of the file
             modFileData <- liftIO $ readFile modFilePath
             -- st' :: MExcept ShState

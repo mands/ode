@@ -329,12 +329,14 @@ getOpType op = case op of
 -- | unify takes a set of type contraints and attempts to unify all types, inc TVars
 -- based on HM - standard constraint unification algorithm
 unify :: TypeCons -> MExcept TypeVarEnv
-unify tCons = trace' [MkSB tCons] "Initial Unify tCons" $ liftM snd $ unify' (tCons, Map.empty)
+unify tCons = --trace' [MkSB tCons] "Initial Unify tCons" $
+    liftM snd $ unify' (tCons, Map.empty)
   where
     unify' :: (TypeCons, TypeVarEnv) ->  MExcept (TypeCons, TypeVarEnv)
-    unify' (tCons, tMap) = trace' [MkSB tCons, MkSB tMap] "Unify iteration" $ case (Set.minView tCons) of
-                        Just (constraint, tCons') -> (uCon constraint (tCons', tMap)) >>= unify'
-                        Nothing -> return (tCons, tMap)
+    unify' (tCons, tMap) = --trace' [MkSB tCons, MkSB tMap] "Unify iteration" $ case (Set.minView tCons) of
+                        case (Set.minView tCons) of
+                            Just (constraint, tCons') -> (uCon constraint (tCons', tMap)) >>= unify'
+                            Nothing -> return (tCons, tMap)
 
     uCon :: (E.Type, E.Type) -> (TypeCons, TypeVarEnv) -> MExcept (TypeCons, TypeVarEnv)
     -- two equal ids - remove from set and ignore

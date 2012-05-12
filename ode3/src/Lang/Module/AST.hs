@@ -39,7 +39,7 @@ import Utils.Utils
 
 
 -- | Top level module variables, represent the ast for an individual file, inc import cmds and module defs
-data OdeTopElem a   = TopMod ModURI (Module a)
+data OdeTopElem a   = TopMod ModURI ModURI (Module a)                           -- top level module def, inluding root and name
                     | ModImport ModURIElems (Maybe [(ModURI, Maybe ModURI)])    -- main import, has a module root/filename,
                                                                                 -- and list of indiv modules and potential alias
                     | ModAlias ModURI ModURIElems                               -- an alias from one ModURI to another
@@ -97,7 +97,7 @@ debugModuleExpr (AppMod _ _) = "Application - no exprs"
 
 
 instance (Show a) => PrettyPrint (OdeTopElem a) where
-    prettyPrint (TopMod name mod) = show name ++ " :: " ++ prettyPrint mod
+    prettyPrint (TopMod root name mod) = show root ++ "." ++ show name ++ " :: " ++ prettyPrint mod
     prettyPrint _ = undefined
 
 instance (Show a) => PrettyPrint (Module a) where
