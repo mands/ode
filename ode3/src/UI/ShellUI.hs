@@ -67,15 +67,6 @@ shellEntry = do
 
     putStrLn "Bye!"
 
-    -- s <- getLine
-    -- putStrLn $ "In - " ++ s
-    -- hCmdPipe <- openPipe
-    -- readLoop
-
-    -- hGetContents inHnd >>= (\s -> putStrLn s)
-
-    -- runShell (mkShellDescription [] react) (basicBackend inHnd)
-
 
 -- make shell monad instnace of applicative
 instance Applicative (Sh st) where
@@ -169,7 +160,7 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
         f :: String -> Sh ShState ()
         f "all" = (show <$> getShellSt) >>= shellPutInfoLn
         f "repos" = (show <$> stRepos <$> getShellSt) >>= shellPutInfoLn
-        f "modules" = (show <$> Map.keys <$> stModuleEnv <$> getShellSt) >>= shellPutInfoLn
+        f "modules" = (show <$> Map.keys <$> stLocalModEnv <$> getShellSt) >>= shellPutInfoLn
         f _ = shellPutInfoLn "Pass <all, repos, modules> to display current state"
 
     typeCmd = cmd "type" f "Display the type of the loaded module"

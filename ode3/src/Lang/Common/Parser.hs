@@ -20,7 +20,22 @@ import Control.Applicative
 import Text.Parsec hiding (many, optional, (<|>))
 import Text.Parsec.Language( javaStyle )
 import qualified Text.Parsec.Token as T
-import Text.Parsec.String
+-- import Text.Parsec.String
+import qualified Data.Set as Set
+import qualified Data.Map as Map
+import qualified Lang.Module.AST as MA
+
+
+data PState = PState    { stImports :: Set.Set MA.ModURIElems
+                        , stGlobalModEnv :: MA.GlobalModEnv
+                        }
+
+mkPState = PState   { stImports = Set.empty
+                    , stGlobalModEnv = Map.empty
+                    }
+
+type Parser = Parsec String PState
+
 
 -- Default Parser style
 -- | hijack the javaStyle default definition, gives us a bunch of ready-made parsers/behaviours
@@ -51,7 +66,7 @@ commonLangDef = javaStyle
         T.caseSensitive = True
     }
 
-lexer :: T.TokenParser ()
+lexer :: T.TokenParser PState
 lexer  = T.makeTokenParser commonLangDef
 
 -- For efficiency, we will bind all the used lexical parsers at toplevel.

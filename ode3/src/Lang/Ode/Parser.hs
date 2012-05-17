@@ -19,7 +19,7 @@ moduleBody
 
 import Control.Applicative
 import Text.Parsec hiding (many, optional, (<|>))
-import Text.Parsec.String
+--import Text.Parsec.String
 import Text.Parsec.Expr
 import Text.Parsec.Perm
 

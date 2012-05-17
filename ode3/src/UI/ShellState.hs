@@ -36,8 +36,9 @@ data ShState = ShState  { stDebug :: Bool               -- do we enable debug mo
                         , stOutPeriod     :: Integer    -- period with which to save simulation state to outfile, wrt timestep
                         , stOutFilename :: FilePath     -- output filename to save data to
                         , stRepos :: RepoSet       -- list of enabled module repositories
-                        , stModuleEnv :: MA.ModuleEnv   -- map of loaded modules
-                        , stParsedFiles :: Set.Set FilePath  -- a set of fully parsed files
+                        , stGlobalModEnv :: MA.GlobalModEnv   -- map of loaded modules
+                        , stLocalModEnv :: MA.LocalModEnv   -- map of loaded modules
+                        , stParsedFiles :: Set.Set MA.ModURIElems  -- a set of fully parsed files
                         -- what else??
                         } deriving Show
 
@@ -49,7 +50,9 @@ defShState = ShState   { stDebug = False
                         , stOutPeriod = 500             -- 0.5s
                         , stOutFilename = "output.bin"  -- default output file
                         , stRepos = OrdSet.empty           -- do we add the defaults here?
-                        , stModuleEnv = Map.empty
+                        , stGlobalModEnv = Map.empty -- map of loaded modules
+                        , stLocalModEnv = Map.empty  -- map of loaded modules
+
                         , stParsedFiles = Set.empty
                         }
 

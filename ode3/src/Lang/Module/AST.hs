@@ -17,8 +17,10 @@
 module Lang.Module.AST (
 OdeTopElem(..), ModURIElems,
 ExprMap, ExprList, FunArgs,
-ModURI, Module(..), ModuleEnv,
+ModURI, Module(..),
+GlobalModEnv, LocalModEnv, getGlobalMod,
 ModuleData(..), SigMap, TypeMap, IdBimap, debugModuleExpr,
+flattenURI, mkModName
 ) where
 
 import Control.Monad
@@ -36,6 +38,7 @@ import Lang.Common.AST
 import qualified Lang.Core.AST as E
 import qualified Utils.OrdMap as OrdMap
 import Utils.Utils
+import qualified System.FilePath as FP
 
 
 -- | Top level module variables, represent the ast for an individual file, inc import cmds and module defs
@@ -43,13 +46,23 @@ data OdeTopElem a   = TopMod ModURI ModURI (Module a)                           
                     | ModImport ModURIElems (Maybe [(ModURI, Maybe ModURI)])    -- main import, has a module root/filename,
                                                                                 -- and list of indiv modules and potential alias
                     | ModAlias ModURI ModURIElems                               -- an alias from one ModURI to another
-                    deriving (Show, Eq)
+                    deriving (Show, Eq, Ord)
 
 type ModURIElems = [ModURI]
 
 -- | a canoical module name
 type ModURI = String
 -- data ModImport = ModImport String (Maybe String) deriving (Show, Eq, Ord)
+
+-- | Flattens a list of URI elems into dot-notation
+flattenURI :: ModURIElems -> ModURI
+flattenURI = List.intercalate "."
+
+-- | takes a list of URI elems and modulename into a dot-notation
+mkModName :: ModURIElems -> ModURI -> ModURI
+mkModName modRootURI indivName = (flattenURI modRootURI) ++ "." ++ indivName
+
+
 
 -- Module Body Data
 
@@ -70,11 +83,11 @@ data Module a = LitMod  (ExprMap a) ModuleData
                 | AppMod E.SrcId [Module a]     -- we never have access to the appmodules,
                                                 -- they are always immediatly applied and the resulting ClosedModule is saved under this name
                 | VarMod ModURI                  -- only used within appmods
-                deriving (Show, Eq)
+                deriving (Show, Eq, Ord)
 
 -- | Metadata regarding a module
 data ModuleData =   ModuleData {modSig :: SigMap, modTMap :: TypeMap, modIdBimap :: IdBimap, modFreeId :: Maybe Id, modExprList :: ExprList}
-                    deriving (Show, Eq)
+                    deriving (Show, Eq, Ord)
 
 
 -- | bidirectional map between internal ids and source ids for all visible/top-level defined vars
@@ -87,6 +100,24 @@ type TypeMap = Map.Map Id E.Type -- maybe switch to IntMap?
 
 -- | Module environment the run-time envirmornet used to create models and start simulations, holds the current results from interpreting the module system
 type ModuleEnv = Map.Map ModURI (Module Id)
+
+-- | Global module env, a miror of the mod URI strcuture, first indexed by the modRoot,
+-- then the modName, returning the individual module after
+type GlobalModEnv = Map.Map ModURIElems (Map.Map ModURI (Module Id))
+
+-- | Local module env, used to hold modules currently accessible in scope
+type LocalModEnv = Map.Map ModURI (Module Id)
+
+-- | Retreive a module from the global modEnv
+getGlobalMod :: GlobalModEnv -> ModURIElems -> ModURI -> MExcept (Module Id)
+getGlobalMod modEnv modRoot modName = do
+    case mMod of
+        Nothing -> throwError $ "Module " ++ fullName ++ " not found or loaded in Global environment"
+        Just mod -> return mod
+  where
+    fullName = mkModName modRoot modName
+    mMod = (Map.lookup modRoot modEnv >>= \modEnv'' -> Map.lookup modName modEnv'')
+
 
 -- need to put more helper functions here
 -- for instance functions to union two exprMaps, modules, remap ids, etc.

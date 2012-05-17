@@ -80,7 +80,7 @@ typeCheck mod@(M.FunctorMod args exprMap modData) = do
             updateModArgs modMap = Just (Map.insert v t modMap)
 
 -- takes the funcModule, an closed enviroment of the module args,
-typeCheckApp :: M.Module E.Id -> M.ModuleEnv ->  MExcept (M.Module E.Id, M.ModuleEnv)
+typeCheckApp :: M.Module E.Id -> M.LocalModEnv ->  MExcept (M.Module E.Id, M.LocalModEnv)
 typeCheckApp fMod@(M.FunctorMod funArgs _ _) modEnv = do
     -- get the complete typevar map for an application
     tCons <- DF.foldlM constrainSigs Set.empty (OrdMap.toList funArgs)

@@ -25,6 +25,7 @@ import Control.Monad.Error
 import qualified Data.List as List
 import Debug.Trace
 import qualified System.IO as SIO
+import Data.Bimap
 
 -- | my exception/error monad, could just import from Control.Monad.Error but anyway...
 type MExcept = Either String
@@ -66,6 +67,11 @@ trace' vars msg res = trace outStr res
 
 errorDump :: [SB] -> String -> a
 errorDump vars msg = trace' vars msg (error "ERROR DUMP")
+
+
+-- Bimap Ord Instance
+instance (Ord a, Ord b) => Ord (Bimap a b) where
+    compare bx by = compare (toAscList bx) (toAscList by)
 
 
 -- some helper routines to open a file/named pipe for input

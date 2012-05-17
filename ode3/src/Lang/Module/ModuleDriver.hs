@@ -36,12 +36,11 @@ import qualified Data.List.Split as ListSplit
 import qualified Data.Bimap as Bimap
 import Data.Maybe (isJust, fromJust)
 
-import qualified System.FilePath as FP
 import qualified System.Directory as Dir
-
+import qualified System.FilePath as FP
 
 import Lang.Module.Parser
-
+import qualified Lang.Common.Parser as CP
 
 import qualified Utils.OrdMap as OrdMap
 import qualified Utils.OrdSet as OrdSet
@@ -55,51 +54,69 @@ import Lang.Core.TypeChecker --(typeCheck, TypeVarEnv, TypeCons)
 import Utils.Utils
 import UI.ShellState
 
+
+
 -- | Takes a string representing the module URI and returns the path and module name
 -- i.e. W.X.Y.Z -> (W/X/Y, Z)
 uriToPath :: ModURIElems -> FilePath
 uriToPath modElems = (FP.makeValid . FP.normalise . FP.joinPath $ modElems) FP.<.> "od3"
-
--- | Flattens a list of URI elems into dot-notation
-flattenURI :: ModURIElems -> ModURI
-flattenURI = List.intercalate "."
-
--- | takes a list of URI elems and modulename into a dot-notation
-mkModName :: ModURIElems -> ModURI -> ModURI
-mkModName modRootURI indivName = (flattenURI modRootURI) ++ "." ++ indivName
-
 
 -- | Main console and file evaluater
 -- takes the current state and processes the given top command/def against it
 evalTopElems :: ShState -> OdeTopElem E.DesId -> MExceptIO ShState
 evalTopElems st topMod@(TopMod rootURI name mod) = do
     modEnv' <- mkExceptIO $ Map.insert <$> pure fullModName <*> eRes <*> pure modEnv
-    return $ st { stModuleEnv = modEnv' }
+    return $ st { stLocalModEnv = modEnv' }
   where
     eRes :: MExcept (Module E.Id)
     eRes = checkName *> evalModDef modEnv mod
     -- check if module already exists
     checkName = if Map.member fullModName modEnv then throwError ("(MD06) - Module with name " ++ (show name) ++ " already defined") else pure ()
     fullModName = List.intercalate "." [rootURI, name]
-    modEnv = stModuleEnv st
+    modEnv = stLocalModEnv st
 
 
-
+-- import cmd - all modules from file
 evalTopElems st (ModImport modRootElems Nothing) =
     -- import all modules from file
     -- check if file already loaded via FP and canon name in modEnv
-    if Set.member filePath parsedFiles
+    if Set.member modRootElems parsedFiles
         then liftIO $ debugM "ode3.modules" ("Modules in " ++ filePath ++ " already loaded, ignoring") >> return st
         else do
             liftIO $ debugM "ode3.modules" ("Modules in " ++ filePath ++ " not found, loading")
-            fileElems <- loadModFile filePath canonRoot Nothing st
+            (fileElems, pSt) <- loadModFile filePath canonRoot Nothing st
 
             -- TODO - fix the order
             -- update cache
-            let st' = st { stParsedFiles = Set.insert filePath parsedFiles }
+            -- let st' = st { stParsedFiles = parsedFiles' }
+            let parsedFiles' = Set.insert modRootElems parsedFiles
+
+            -- should examine pSt now and determine if we need to import new files
+            let fileImports = CP.stImports pSt
+            -- new files not in globalenv we need to import
+            let newImports = fileImports Set.\\ parsedFiles'
+
+            -- create a list of new import commands to recursively feed into evalTopElems
+            let newCmds = map (\modURI -> ModImport modURI Nothing) $ Set.toList newImports
+
+
+            -- create new state
+            let st' = st { stParsedFiles = parsedFiles', stLocalModEnv = Map.empty }
+
+            -- fold over the new Import commands
+            -- import required files fully, making sure they type-check, etc., and add to the global modenv
+            st'' <- DF.foldlM evalTopElems st' newCmds
+
+            -- reset the local state
+            let st' = st { stParsedFiles = parsedFiles', stLocalModEnv = Map.empty }
 
             -- do we recurse here??
+            -- now we're ready to process the elems contained within the file, i.e imports, mod defs, etc. using the local env
             st'' <- DF.foldlM evalTopElems st' fileElems
+
+            -- have finished the file, so update the global modenv
+            let st''' = updateGEnv st''
+
             return $ st''
   where
     -- get canon name for root
@@ -109,7 +126,13 @@ evalTopElems st (ModImport modRootElems Nothing) =
     -- parsed Files
     parsedFiles = stParsedFiles st
 
+    -- update the global env
+    updateGEnv st = st { stLocalModEnv = Map.empty, stGlobalModEnv = globalEnv' }
+      where
+        globalEnv' =  Map.insert modRootElems (stLocalModEnv st) (stGlobalModEnv st)
 
+
+-- import cmd - only selected modules from file
 evalTopElems st (ModImport modRootElems (Just mods)) = do
     -- see if canon name is already in modEnv
     -- just load individual module (actually for now we load everything anyway)
@@ -117,10 +140,10 @@ evalTopElems st (ModImport modRootElems (Just mods)) = do
         then liftIO $ debugM "ode3.modules" ("Modules " ++ show (map fst mods) ++ " already loaded into modEnv, ignoring") >> return st
         else do
             liftIO $ debugM "ode3.modules" ("Modules " ++ show modsLoad ++ " not found in modEnv, loading")
-            fileElems <- loadModFile filePath canonRoot (Just modsLoad) st
+            (fileElems, pSt) <- loadModFile filePath canonRoot (Just modsLoad) st
             -- update cache
             -- HACK - we assume that we loaded all modules for a file for now and update cache accordingly
-            let st' = st { stParsedFiles = Set.insert filePath (stParsedFiles st') }
+            let st' = st { stParsedFiles = Set.insert modRootElems (stParsedFiles st') }
 
             -- do we recurse here??
             st'' <- DF.foldlM evalTopElems st' fileElems
@@ -138,7 +161,7 @@ evalTopElems st (ModImport modRootElems (Just mods)) = do
     -- set of modules to load from file
     modsLoad :: [ModURI]
     modsLoad = do
-        let modEnv = (stModuleEnv st)
+        let modEnv = (stLocalModEnv st)
         (m, _) <- mods
         let modName = mkModName modRootElems m
         guard $ Map.notMember modName modEnv
@@ -153,10 +176,10 @@ evalTopElems st (ModImport modRootElems (Just mods)) = do
 evalTopElems st (ModAlias aliasName origElems) =
     -- check aliased module exists, if so then update modEnv
     case Map.member origName modEnv of
-        True -> return $ st { stModuleEnv = mkAlias }
+        True -> return $ st { stLocalModEnv = mkAlias }
         False -> throwError $ show origName ++ " not found in current module environment"
   where
-    modEnv = stModuleEnv st
+    modEnv = stLocalModEnv st
     -- insert an alias from Y to X in the modEnv, by creating a new VarMod pointer
     mkAlias = Map.insert aliasName (VarMod origName) modEnv
     origName = flattenURI origElems
@@ -164,7 +187,7 @@ evalTopElems st (ModAlias aliasName origElems) =
 
 
 -- Loads an individual module file, taking the filename, module root, list of modules to load and current state
-loadModFile :: FilePath -> ModURI -> Maybe [ModURI] -> ShState -> MExceptIO ([OdeTopElem E.DesId])
+loadModFile :: FilePath -> ModURI -> Maybe [ModURI] -> ShState -> MExceptIO ([OdeTopElem E.DesId], CP.PState)
 loadModFile filePath canonRoot _ st = do
     mFileExist <- liftIO repoFileSearch
     case mFileExist of
@@ -191,7 +214,7 @@ loadModFile filePath canonRoot _ st = do
 
 
 -- a basic interpreter over the set of module types, interpres the modules with regards tro the moduleenv
-evalModDef :: ModuleEnv -> Module E.DesId -> MExcept (Module E.Id)
+evalModDef :: LocalModEnv -> Module E.DesId -> MExcept (Module E.Id)
 evalModDef modEnv mod@(LitMod _ _) = do
     -- reorder, rename and typecheck the expressinons within module, adding to the module metadata
     -- mod' <- validate >=> reorder >=> rename >=> typeCheck $ mod
@@ -247,13 +270,13 @@ evalModDef modEnv mod@(AppMod fModId argMods) = do
                 _ -> throwError ("(MD03) - Module argument to functor " ++ fModId ++ " is not a literal module")
 
     -- rename the argMods according to pos/ create a new modenv to evalulate the applciation within
-    getAppModEnv :: Module E.Id -> [Module E.Id] -> MExcept ModuleEnv
+    getAppModEnv :: Module E.Id -> [Module E.Id] -> MExcept LocalModEnv
     getAppModEnv (FunctorMod funArgs _ _) argMods = if (OrdMap.size funArgs == length argMods)
         then return (Map.fromList $ zip (OrdMap.keys funArgs) argMods)
         else throwError "(MD05) - Wrong number of arguments for functor application"
 
 -- actually evaluate the functor applciation, similar to evaluation of function application
-applyFunctor :: Module E.Id -> ModuleEnv -> Module E.Id
+applyFunctor :: Module E.Id -> LocalModEnv -> Module E.Id
 applyFunctor fMod@(FunctorMod fArgs fExprMap fModData) modEnv = resMod
   where
     -- best way to do this, create an empty lit mod, and add to it all the data by folding over the modEnv

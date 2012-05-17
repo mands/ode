@@ -23,7 +23,7 @@ import Control.Applicative
 import Control.Monad
 import Control.Monad.Error
 import Text.Parsec hiding (many, optional, (<|>))
-import Text.Parsec.String
+--import Text.Parsec.String
 import Debug.Trace (trace)
 
 import qualified Data.Map as Map
@@ -55,38 +55,48 @@ singModId = lexeme upperIdentifier
 -- | consoleParse parses a string given on the console command line, restricuted to moduleCmds only
 -- example "import X.Y.Z"
 consoleParse :: String -> MExceptIO (OdeTopElem E.DesId)
-consoleParse cmdStr =   case (parse parser "<console>" cmdStr) of
+consoleParse cmdStr =   case (runParser parser mkPState "<console>" cmdStr) of
                             Left err -> throwError ("Input error at " ++ show err)
-                            Right res -> return res
+                            Right (res, st) -> return res
   where
     -- parser for a single command string
-    parser :: Parser (OdeTopElem E.DesId)
-    parser = whiteSpace *> moduleCmd <* eof
+    parser :: Parser (OdeTopElem E.DesId, PState)
+    parser = do
+        elems <- whiteSpace *> importCmd <|> moduleCmd <* eof
+        st <- getState
+        return (elems, st)
 
 -- | fileParse takes an input file and a current snapshot of the module env, and parse within this context
 -- sucessfully parsed modules are then converted into (Module E.Id) and added to the env
 -- have to explictily case to convert the error type in the Either
-fileParse :: FilePath -> String -> ModURI -> MExcept ([OdeTopElem E.DesId])
-fileParse fileName fileData modRoot =  case parse parser fileName fileData of
-                                                    Left err -> throwError ("Parse error at " ++ show err)
-                                                    Right res -> return res
+fileParse :: FilePath -> String -> ModURI -> MExcept ([OdeTopElem E.DesId], PState)
+fileParse fileName fileData modRoot = case runParser parser mkPState fileName fileData of
+                                        Left err -> throwError ("Parse error at " ++ show err)
+                                        Right res -> return res
   where
     -- | parser for an Ode file, containing both module commands and definitions
-    parser :: Parser [OdeTopElem E.DesId]
-    parser = whiteSpace *> (many1 $ moduleCmd <|> moduleDef modRoot) <* eof
+    parser :: Parser ([OdeTopElem E.DesId], PState)
+    parser = do
+        elems <- whiteSpace *> (many1 $ importCmd <|> moduleCmd <|> moduleDef modRoot) <* eof
+        st <- getState
+        return (elems, st)
 
-
--- | modules commands, used to import and setup alias - used from console and files, both at top-level and within module?
-moduleCmd :: Parser (OdeTopElem E.DesId)
-moduleCmd = try (ModImport <$> (reserved "import" *> modPathImportAll) <*> (pure Nothing))
-                <|> importWrap <$> (reserved "import" *> modPathImport) <*> optionMaybe (reserved "as" *> singModId)
-                <|> try (TopMod <$> pure "" <*> (reserved "module" *> singModId) <*> (reservedOp "=" *> moduleAppParams))
-                -- test, this should be removed
-                <|> try (ModAlias <$> (reserved "module" *> singModId) <*> (reservedOp "=" *> modIdentifier))
-                <?> "valid module command"
+-- | commands to import modules into the system, either globally or within module
+importCmd :: Parser (OdeTopElem E.DesId)
+importCmd = try importAll
+            <|> importSing
   where
-    importWrap :: ModURIElems -> (Maybe ModURI) -> (OdeTopElem E.DesId)
-    importWrap modURI mAlias = ModImport (List.init modURI) (Just [(List.last modURI, mAlias)])
+    -- need a monad, not applicative, to modify the state
+    importAll = do
+        modURI <- (reserved "import" *> modPathImportAll)
+        addImport modURI
+        return $ ModImport modURI Nothing
+
+    importSing = do
+        modURI <- (reserved "import" *> modPathImport)
+        mAlias <- optionMaybe (reserved "as" *> singModId)
+        addImport modURI
+        return $ ModImport (List.init modURI) (Just [(List.last modURI, mAlias)])
 
     -- | lexeme parser for a module string in dot notation
     modPathImport :: Parser ModURIElems
@@ -94,6 +104,20 @@ moduleCmd = try (ModImport <$> (reserved "import" *> modPathImportAll) <*> (pure
 
     modPathImportAll :: Parser ModURIElems
     modPathImportAll = lexeme $ upperIdentifier `sepEndBy` (char '.') <* (char '*')
+
+    -- add modURI to set
+    addImport modURI = modifyState (\s -> s { stImports = Set.insert modURI (stImports s) } )
+
+
+-- | modules commands, used to import and setup alias - used from console and files, both at top-level and within module?
+moduleCmd :: Parser (OdeTopElem E.DesId)
+moduleCmd = modCmdParse
+  where
+    modCmdParse :: Parser (OdeTopElem E.DesId)
+    modCmdParse =   try (TopMod <$> pure "" <*> (reserved "module" *> singModId) <*> (reservedOp "=" *> moduleAppParams))
+                    -- test, this should be removed
+                    <|> try (ModAlias <$> (reserved "module" *> singModId) <*> (reservedOp "=" *> modIdentifier))
+                    <?> "valid module command"
 
     -- | parse a chain/tree of module applications
     moduleAppParams :: Parser (Module E.DesId)
