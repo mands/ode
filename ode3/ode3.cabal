@@ -6,10 +6,10 @@ license: GPL-3
 license-file: LICENSE
 copyright: Copyright (C) 2010-2012 Mandeep Gill
 maintainer: mangil@comlab.ox.ac.uk
-build-depends: Shellac -any, Shellac-haskeline -any, base -any,
-               bimap -any, cond -any, containers -any, directory -any, fgl -any,
-               filepath -any, hslogger -any, mtl -any, parsec -any, split -any,
-               unix -any
+build-depends: unix -any, split -any, parsec -any, mtl -any,
+               hslogger -any, filepath -any, fgl -any, directory -any,
+               containers -any, cond -any, bimap -any, base -any,
+               Shellac-haskeline -any, Shellac -any
 stability: alpha
 homepage: http://www.comlab.ox.ac.uk/people/mangil/ode
 package-url:
@@ -47,13 +47,13 @@ includes:
 install-includes:
 include-dirs:
 hs-source-dirs: src
-other-modules: Lang.Core.Reorderer Utils.Utils
-               Utils.ShellHandleBackend Utils.OrdMap Utils.OrdSet
-               Utils.MonadSupply UI.ShellUI UI.ShellState Lang.Common.AST
-               Lang.Common.Parser Lang.Core.TypeChecker Lang.Core.AST
-               Lang.Core.Validator Lang.Core.Renamer Lang.Module.ModuleDriver
-               Lang.Module.AST Lang.Module.Parser Lang.Ode.Desugarer Lang.Ode.AST
-               Lang.Ode.Parser
+other-modules: Lang.Module.ModDefDriver Lang.Module.ModCmdDriver
+               Lang.Core.Reorderer Utils.Utils Utils.ShellHandleBackend
+               Utils.OrdMap Utils.OrdSet Utils.MonadSupply UI.ShellUI
+               UI.ShellState Lang.Common.AST Lang.Common.Parser
+               Lang.Core.TypeChecker Lang.Core.AST Lang.Core.Validator
+               Lang.Core.Renamer Lang.Module.AST Lang.Module.Parser
+               Lang.Ode.Desugarer Lang.Ode.AST Lang.Ode.Parser
 ghc-prof-options:
 ghc-shared-options:
 ghc-options:

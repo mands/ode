@@ -30,6 +30,7 @@ import Control.Monad.Error
 import Data.Maybe (fromJust)
 import Debug.Trace (trace)
 import Text.Printf (printf)
+import Lang.Common.AST
 import qualified Lang.Core.AST as E
 import qualified Lang.Module.AST as M
 import Utils.Utils
@@ -91,7 +92,7 @@ typeCheckApp fMod@(M.FunctorMod funArgs _ _) modEnv = do
   where
     -- take a single mod arg for the functor, compare the sig with the one for the id within the modEnv,
     -- add all sigs to the typeCons via a foldr
-    constrainSigs :: TypeCons -> (E.SrcId, M.SigMap) -> MExcept TypeCons
+    constrainSigs :: TypeCons -> (ModName, M.SigMap) -> MExcept TypeCons
     constrainSigs typeCons (funcArgId, funcArgSig) = DF.foldrM compareTypes typeCons (Map.toList funcArgSig)
       where
         -- the module referenced by the arg
@@ -101,7 +102,7 @@ typeCheckApp fMod@(M.FunctorMod funArgs _ _) modEnv = do
           where
             typeCons' = case (Map.lookup b (M.modSig argModData)) of
                 Just tArg -> Right $ Set.insert (tFunc, tArg) typeCons
-                Nothing -> throwError $ "(MO05) - Invalid functor signature, cannot find ref " ++ show b ++ " in module argument" ++ funcArgId
+                Nothing -> throwError $ "(MO05) - Invalid functor signature, cannot find ref " ++ show b ++ " in module argument" ++ show funcArgId
 
     -- update a module based on the new type information
     updateMod :: TypeEnv -> M.Module E.Id -> MExcept (M.Module E.Id)

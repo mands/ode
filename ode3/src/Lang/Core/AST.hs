@@ -69,7 +69,7 @@ data Bind b = Bind [b]
     deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
 
 data VarId a =  LocalVar a
-                | ModVar SrcId SrcId
+                | ModVar ModName SrcId
                 deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
 
 -- TODO - could we use the Bind type to unify both b and [b], or use GADTs and type-classes for extra type-safety

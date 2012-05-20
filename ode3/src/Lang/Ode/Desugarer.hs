@@ -33,6 +33,7 @@ import Control.Monad.Trans
 import Utils.Utils
 import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap
+import Lang.Common.AST
 import qualified Lang.Ode.AST as O
 import qualified Lang.Core.AST as C
 import qualified Lang.Module.AST as M
@@ -203,7 +204,7 @@ dsExpr (O.Boolean b) = return $ C.Lit (C.Boolean b)
 dsExpr (O.Time) = return $ C.Lit (C.Time)
 dsExpr (O.Unit) = return $ C.Lit (C.Unit)
 dsExpr (O.ValueRef (O.LocalId id)) = return $ C.Var (C.LocalVar (id, Nothing))
-dsExpr (O.ValueRef (O.ModId mId id)) = return $ C.Var (C.ModVar mId id)
+dsExpr (O.ValueRef (O.ModId mId id)) = return $ C.Var (C.ModVar (ModName mId) id)
 dsExpr (O.Tuple exprs) = C.Tuple <$> DT.mapM dsExpr exprs
 
 -- create nested set of ifs for piecewise expression
@@ -214,7 +215,7 @@ dsExpr (O.Piecewise cases e) = dsIf cases
 
 -- convert call to a app, need to convert ins/args into a tuple first
 dsExpr (O.Call (O.LocalId id) exprs) = liftM (C.App (C.LocalVar (id, Nothing))) $ packElems exprs
-dsExpr (O.Call (O.ModId mId id) exprs) = liftM (C.App (C.ModVar mId id)) $ packElems exprs
+dsExpr (O.Call (O.ModId mId id) exprs) = liftM (C.App (C.ModVar (ModName mId) id)) $ packElems exprs
 
 -- any unknown/unimplemented paths - not needed as match all
 -- dsExpr a = trace (show a) (error "(DS) Unknown ODE3 expression")

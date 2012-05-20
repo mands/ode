@@ -34,6 +34,7 @@ import qualified Utils.OrdMap as OrdMap
 
 import Utils.Utils
 import Lang.Common.Parser
+import Lang.Common.AST
 import Lang.Module.AST
 
 import qualified Lang.Ode.AST as O
@@ -48,8 +49,8 @@ import Lang.Ode.Desugarer (desugarMod)
 modIdentifier :: Parser ModURIElems
 modIdentifier = lexeme $ upperIdentifier `sepBy` (char '.')
 
-singModId :: Parser ModURI
-singModId = lexeme upperIdentifier
+singModId :: Parser ModName
+singModId = ModName <$> lexeme upperIdentifier
 
 
 -- | consoleParse parses a string given on the console command line, restricuted to moduleCmds only
@@ -69,7 +70,7 @@ consoleParse cmdStr =   case (runParser parser mkPState "<console>" cmdStr) of
 -- | fileParse takes an input file and a current snapshot of the module env, and parse within this context
 -- sucessfully parsed modules are then converted into (Module E.Id) and added to the env
 -- have to explictily case to convert the error type in the Either
-fileParse :: FilePath -> String -> ModURI -> MExcept ([OdeTopElem E.DesId], PState)
+fileParse :: FilePath -> String -> ModRoot -> MExcept ([OdeTopElem E.DesId], PState)
 fileParse fileName fileData modRoot = case runParser parser mkPState fileName fileData of
                                         Left err -> throwError ("Parse error at " ++ show err)
                                         Right res -> return res
@@ -88,22 +89,23 @@ importCmd = try importAll
   where
     -- need a monad, not applicative, to modify the state
     importAll = do
-        modURI <- (reserved "import" *> modPathImportAll)
-        addImport modURI
-        return $ ModImport modURI Nothing
+        modRoot <- mkModRoot <$> (reserved "import" *> modPathImportAll)
+        addImport modRoot
+        return $ ModImport modRoot Nothing
+
+    modPathImportAll :: Parser ModURIElems
+    modPathImportAll = lexeme $ upperIdentifier `sepEndBy` (char '.') <* (char '*')
 
     importSing = do
         modURI <- (reserved "import" *> modPathImport)
         mAlias <- optionMaybe (reserved "as" *> singModId)
-        addImport modURI
-        return $ ModImport (List.init modURI) (Just [(List.last modURI, mAlias)])
+        let modRoot = mkModRoot $ List.init modURI
+        addImport modRoot
+        return $ ModImport modRoot (Just [(ModName $ List.last modURI, mAlias)])
 
     -- | lexeme parser for a module string in dot notation
     modPathImport :: Parser ModURIElems
     modPathImport = lexeme $ upperIdentifier `sepBy1` (char '.')
-
-    modPathImportAll :: Parser ModURIElems
-    modPathImportAll = lexeme $ upperIdentifier `sepEndBy` (char '.') <* (char '*')
 
     -- add modURI to set
     addImport modURI = modifyState (\s -> s { stImports = Set.insert modURI (stImports s) } )
@@ -114,9 +116,9 @@ moduleCmd :: Parser (OdeTopElem E.DesId)
 moduleCmd = modCmdParse
   where
     modCmdParse :: Parser (OdeTopElem E.DesId)
-    modCmdParse =   try (TopMod <$> pure "" <*> (reserved "module" *> singModId) <*> (reservedOp "=" *> moduleAppParams))
+    modCmdParse =   try (TopMod <$> pure (mkModRoot [""]) <*> (reserved "module" *> singModId) <*> (reservedOp "=" *> moduleAppParams))
                     -- test, this should be removed
-                    <|> try (ModAlias <$> (reserved "module" *> singModId) <*> (reservedOp "=" *> modIdentifier))
+                    <|> try (ModAlias <$> (reserved "module" *> singModId) <*> (reservedOp "=" *> singModId))
                     <?> "valid module command"
 
     -- | parse a chain/tree of module applications
@@ -124,11 +126,11 @@ moduleCmd = modCmdParse
     moduleAppParams = procParams <$> singModId <*> optionMaybe (paramList moduleAppParams)
       where
         -- need to desugar into nested set of appMods and varMods
-        procParams modId Nothing = VarMod modId
+        procParams modId Nothing = VarMod (mkModFullName Nothing modId)
         procParams funcId (Just args) = AppMod funcId args
 
 -- | module definitions, either an entire definition/abstraction or an application - only used from files
-moduleDef :: ModURI -> Parser (OdeTopElem E.DesId)
+moduleDef :: ModRoot -> Parser (OdeTopElem E.DesId)
 moduleDef modRoot = TopMod <$> pure modRoot <*> (reserved "module" *> singModId) <*> modParse
   where
     modParse =  FunctorMod <$> (funcArgs <$> paramList singModId) <*> pure OrdMap.empty <*> modData

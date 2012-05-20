@@ -15,12 +15,11 @@
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures, FlexibleInstances, TypeSynonymInstances #-}
 
 module Lang.Module.AST (
-OdeTopElem(..), ModURIElems,
+OdeTopElem(..),
 ExprMap, ExprList, FunArgs,
-ModURI, Module(..),
+Module(..),
 GlobalModEnv, LocalModEnv, getGlobalMod,
 ModuleData(..), SigMap, TypeMap, IdBimap, debugModuleExpr,
-flattenURI, mkModName
 ) where
 
 import Control.Monad
@@ -42,25 +41,11 @@ import qualified System.FilePath as FP
 
 
 -- | Top level module variables, represent the ast for an individual file, inc import cmds and module defs
-data OdeTopElem a   = TopMod ModURI ModURI (Module a)                           -- top level module def, inluding root and name
-                    | ModImport ModURIElems (Maybe [(ModURI, Maybe ModURI)])    -- main import, has a module root/filename,
+data OdeTopElem a   = TopMod ModRoot ModName (Module a)                           -- top level module def, inluding root and name
+                    | ModImport ModRoot (Maybe [(ModName, Maybe ModName)])    -- main import, has a module root/filename,
                                                                                 -- and list of indiv modules and potential alias
-                    | ModAlias ModURI ModURIElems                               -- an alias from one ModURI to another
+                    | ModAlias ModName ModName                               -- an alias from one ModURI to another
                     deriving (Show, Eq, Ord)
-
-type ModURIElems = [ModURI]
-
--- | a canoical module name
-type ModURI = String
--- data ModImport = ModImport String (Maybe String) deriving (Show, Eq, Ord)
-
--- | Flattens a list of URI elems into dot-notation
-flattenURI :: ModURIElems -> ModURI
-flattenURI = List.intercalate "."
-
--- | takes a list of URI elems and modulename into a dot-notation
-mkModName :: ModURIElems -> ModURI -> ModURI
-mkModName modRootURI indivName = (flattenURI modRootURI) ++ "." ++ indivName
 
 
 
@@ -73,16 +58,16 @@ type ExprList = [E.TopLet DesId]
 type ExprMap a = OrdMap.OrdMap (E.Bind a) (E.TopLet a)
 
 -- | FunArgs are the list of module parameters, and thier required signatures, for a functor application
-type FunArgs = OrdMap.OrdMap SrcId SigMap
+type FunArgs = OrdMap.OrdMap ModName SigMap
 
 -- | Main executable modules that can be combined at run-time, they represent a form of the simply-typed \-calc that is interpreted at runtime
 -- type-checking occurs in two-stage process, vars and abs are checked during parsing, applications are cehcked from the replicate
 -- var modeules must be closed anfd fully typered, abs/parameterisd modules are open (wrt to parameters) and may be polymorphic
 data Module a = LitMod  (ExprMap a) ModuleData
                 | FunctorMod FunArgs (ExprMap a) ModuleData
-                | AppMod E.SrcId [Module a]     -- we never have access to the appmodules,
+                | AppMod ModName [Module a]     -- we never have access to the appmodules,
                                                 -- they are always immediatly applied and the resulting ClosedModule is saved under this name
-                | VarMod ModURI                  -- only used within appmods
+                | VarMod ModFullName            -- only used within appmods
                 deriving (Show, Eq, Ord)
 
 -- | Metadata regarding a module
@@ -98,25 +83,31 @@ type SigMap = Map.Map SrcId E.Type
 type TypeMap = Map.Map Id E.Type -- maybe switch to IntMap?
 
 
--- | Module environment the run-time envirmornet used to create models and start simulations, holds the current results from interpreting the module system
-type ModuleEnv = Map.Map ModURI (Module Id)
-
 -- | Global module env, a miror of the mod URI strcuture, first indexed by the modRoot,
 -- then the modName, returning the individual module after
-type GlobalModEnv = Map.Map ModURIElems (Map.Map ModURI (Module Id))
+type GlobalModEnv = Map.Map ModRoot FileData
 
 -- | Local module env, used to hold modules currently accessible in scope
-type LocalModEnv = Map.Map ModURI (Module Id)
+-- Module environment the run-time envirmornet used to create models and start simulations, holds the current results from interpreting the module system
+type LocalModEnv = Map.Map ModName (Module Id)
 
+-- | Metadata regarding a file (we treat the console env as a special file)
+data FileData = FileData { fileImports :: Map.Map ModName ModFullName, fileModEnv :: LocalModEnv } deriving (Show, Eq)
+
+-- ModEnv helper functions
 -- | Retreive a module from the global modEnv
-getGlobalMod :: GlobalModEnv -> ModURIElems -> ModURI -> MExcept (Module Id)
-getGlobalMod modEnv modRoot modName = do
+getGlobalMod :: GlobalModEnv -> ModFullName -> MExcept (Module Id)
+getGlobalMod modEnv modFullName = do
     case mMod of
-        Nothing -> throwError $ "Module " ++ fullName ++ " not found or loaded in Global environment"
+        Nothing -> throwError $ "Module " ++ show modFullName ++ " not found or currently loaded"
         Just mod -> return mod
   where
-    fullName = mkModName modRoot modName
-    mMod = (Map.lookup modRoot modEnv >>= \modEnv'' -> Map.lookup modName modEnv'')
+    -- fullName = mkModFullName (Just modRoot) modName
+    (mModRoot, modName) = splitModFullName modFullName
+    mMod = do
+        modRoot <- mModRoot
+        fileData <- Map.lookup modRoot modEnv
+        Map.lookup modName (fileModEnv fileData)
 
 
 -- need to put more helper functions here
@@ -139,7 +130,7 @@ instance (Show a) => PrettyPrint (Module a) where
     prettyPrint (FunctorMod funcArgs exprMap modData) = "Functor :: (" ++ prettyPrint funcArgs ++ ") -> " ++ prettyPrint modData
 
     -- show the functor and args
-    prettyPrint mod@(AppMod functor args) = "Application - " ++ functor ++ "(" ++ show args ++ ")"
+    prettyPrint mod@(AppMod functor args) = "Application - " ++ show functor ++ "(" ++ show args ++ ")"
 
 -- show the module signature
 instance PrettyPrint (ModuleData) where

@@ -21,6 +21,7 @@ import Control.Monad
 import Control.Monad.Trans(liftIO)
 import Control.Applicative
 import qualified Utils.OrdSet as OrdSet
+import Lang.Common.AST
 import qualified Lang.Module.AST as MA
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -38,7 +39,7 @@ data ShState = ShState  { stDebug :: Bool               -- do we enable debug mo
                         , stRepos :: RepoSet       -- list of enabled module repositories
                         , stGlobalModEnv :: MA.GlobalModEnv   -- map of loaded modules
                         , stLocalModEnv :: MA.LocalModEnv   -- map of loaded modules
-                        , stParsedFiles :: Set.Set MA.ModURIElems  -- a set of fully parsed files
+                        , stParsedFiles :: Set.Set ModRoot  -- a set of fully parsed files
                         -- what else??
                         } deriving Show
 

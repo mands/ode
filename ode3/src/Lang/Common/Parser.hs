@@ -24,11 +24,12 @@ import qualified Text.Parsec.Token as T
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import qualified Lang.Module.AST as MA
+import Lang.Common.AST
 
 
-data PState = PState    { stImports :: Set.Set MA.ModURIElems
+data PState = PState    { stImports :: Set.Set ModRoot
                         , stGlobalModEnv :: MA.GlobalModEnv
-                        }
+                        } deriving (Show, Eq)
 
 mkPState = PState   { stImports = Set.empty
                     , stGlobalModEnv = Map.empty

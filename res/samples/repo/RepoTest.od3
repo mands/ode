@@ -3,9 +3,6 @@
 //import DirA.DirB.FileA.ModC as X
 
 module A {
-  val x = 2 + 2
-  val y = True or False
+  val x = 2
 }
-
-// now test usage...
 

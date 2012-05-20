@@ -1,0 +1,10 @@
+import RepoTest.*
+// import RepoTest.A
+
+module Z {
+  val x = 2
+}
+
+// now test usage...
+// module Y = Z
+
