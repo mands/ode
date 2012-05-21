@@ -47,12 +47,12 @@ import Lang.Module.ModDefDriver
 
 -- | Main console and file evaluater
 -- takes the current state and processes the given top command/def against it
-evalTopElems :: ShState -> OdeTopElem E.DesId -> MExceptIO ShState
-evalTopElems st topMod@(TopMod modRoot modName mod) = do
+evalTopElems :: (ShState, FileData) -> OdeTopElem E.DesId -> MExceptIO (ShState, FileData)
+evalTopElems (st, fd) topMod@(TopMod modRoot modName mod) = do
     modEnv' <- mkExceptIO $ Map.insert <$> pure modName <*> eRes <*> pure modEnv
-    return $ st { stLocalModEnv = modEnv' }
+    return $ (st, fd { fileModEnv = modEnv' })
   where
-    modEnv = stLocalModEnv st
+    modEnv = fileModEnv fd
     eRes :: MExcept (Module E.Id)
     eRes = checkName *> evalModDef modEnv mod
     -- check if module already exists
@@ -61,35 +61,35 @@ evalTopElems st topMod@(TopMod modRoot modName mod) = do
 
 
 -- top import, all modules, called from REPL or within a file
-evalTopElems st modCmd@(ModImport modRoot Nothing) =
+evalTopElems (st, fd) modCmd@(ModImport modRoot Nothing) =
     if Set.member modRoot parsedFiles -- if we've parsed this file already
         then if Map.member modRoot (stGlobalModEnv st) -- then it should be in global cache
-            then do -- so add it from glboal to local, overwriting any clashes that may occur
-                undefined
-
-
+            then do -- so add the imports to the cur filedata
+                fd' <- mkExceptIO $ addImportsToFile modRoot st fd
+                return (st, fd')
                 -- liftIO $ debugM "ode3.modules" ("Importing modules in " ++ show modRoot ++ " from global to local env")
                 -- let localEnv' = Map.union (fromJust . Map.lookup modRoot $ stGlobalModEnv st) (stLocalModEnv st)
                 -- return $ st { stLocalModEnv = localEnv' }
             else -- ifnot, shit, error, we must be in the process of analysing the file already, is parsed but not global cache
                 throwError $ "Modules " ++ show modRoot ++ " have already been parsed, import cycle detected"
-        else do -- module not parsed, this should only occur from within REPL, preemptive importing should catch other cases in files
+        else do -- module not parsed, this should can occur from within REPL or file
             liftIO $ debugM "ode3.modules" ("Searching for modules in " ++ show modRoot)
+            -- need to load module
             st' <- processImport st modRoot
-            -- now re-eval the cmd as we've loaded what we need to
-            evalTopElems st' modCmd
+            -- now process the import cmd
+            fd' <- mkExceptIO $ addImportsToFile modRoot st' fd
+            return (st', fd')
   where
     -- parsed Files
     parsedFiles = stParsedFiles st
 
-
 -- import cmd - only selected modules from file
-evalTopElems st (ModImport modRoot (Just mods)) = trace' [MkSB modRoot, MkSB mods] "In import.just" $ undefined
+evalTopElems (st, fd) (ModImport modRoot (Just mods)) = trace' [MkSB modRoot, MkSB mods] "In import.qualified" $ undefined
   where
     -- set of modules to load from file
     modsLoad :: [ModName]
     modsLoad = do
-        let modEnv = (stLocalModEnv st)
+        let modEnv = undefined -- (stLocalModEnv st)
         (m, _) <- mods
         -- let modName = mkModFullName modRootElems m
         -- guard $ Map.notMember modName modEnv -- do we need this?
@@ -106,34 +106,44 @@ evalTopElems st (ModImport modRoot (Just mods)) = trace' [MkSB modRoot, MkSB mod
             then liftIO $ debugM "ode3.modules" ("Modules " ++ show (map fst mods) ++ " already loaded into modEnv, ignoring") >> return st
             else do
                 liftIO $ debugM "ode3.modules" ("Modules " ++ show modsLoad ++ " not found in modEnv, loading")
-                (fileElems, pSt) <- loadModFile modRoot st
+                fileElems <- loadModFile modRoot st
                 -- update cache
                 -- HACK - we assume that we loaded all modules for a file for now and update cache accordingly
                 let st' = st { stParsedFiles = Set.insert modRoot (stParsedFiles st') }
 
                 -- do we recurse here??
-                st'' <- DF.foldlM evalTopElems st' fileElems
-                return $ st''
+                -- st'' <- DF.foldlM evalTopElems st' fileElems
+                --return $ st''
+                undefined
 
         -- setup the alias if needed
-        st'' <- DF.foldlM evalTopElems st' aliasCmds
+        --st'' <- DF.foldlM evalTopElems st' aliasCmds
 
-        return st''
+        --return st''
+        undefined
 
 
 -- | make aliasName an alias of origName
-evalTopElems st (ModAlias aliasName origName) =
+evalTopElems (st, fd) (ModAlias aliasName origName) =
     -- check aliased module exists, if so then update modEnv
     case Map.member origName modEnv of
-        True -> return $ st { stLocalModEnv = mkAlias }
+        True -> return $ undefined -- (st { stLocalModEnv = mkAlias }, fd)
         False -> throwError $ show origName ++ " not found in current module environment"
   where
-    modEnv = stLocalModEnv st
+    modEnv = undefined -- stLocalModEnv st
     -- insert an alias from Y to X in the modEnv, by creating a new VarMod pointer
     mkAlias = Map.insert aliasName (VarMod (mkModFullName Nothing origName)) modEnv
     -- origName = mkModRoot origElems
 
 
+
+-- | Imports the modules from file modRoot to the current fileData
+addImportsToFile modRoot st fd = do
+    -- get list of modules of imported file
+    impMods <- Map.keys <$> fileModEnv <$> getFileData (stGlobalModEnv st) modRoot
+    -- update the cur fd import map with those from the imported modules
+    let newImports = foldl (\imps modName -> Map.insert modName (mkModFullName (Just modRoot) modName) imps) (fileImports fd) impMods
+    return $ fd { fileImports = newImports }
 
 -- | Takes a string representing the module URI and returns the path and module name
 -- i.e. W.X.Y.Z -> (W/X/Y, Z)
@@ -145,22 +155,26 @@ uriToFilePath (ModRoot modRoot) = (FP.makeValid . FP.normalise . FP.joinPath $ m
 processImport :: ShState -> ModRoot -> MExceptIO ShState
 processImport st modRoot = do
     -- load the file
-    (fileElems, pSt) <- loadModFile modRoot st
+    fileElems <- loadModFile modRoot st
     -- update parsed files cache
     let st' = st { stParsedFiles = Set.insert modRoot (stParsedFiles st) }
+
     -- pre-emptively load all the referenced imports into the global env
-    st'' <- loadRefImports modRoot st' pSt
+    -- st'' <- loadRefImports modRoot st' pSt
+
+    -- create a new fileData to store the metadata
+    let fileData = mkFileData
+
     -- process the file, having reset the local modEnv
     -- now we're ready to process the elems contained within the file, i.e imports, mod defs, etc. using the local env
-    st''' <- DF.foldlM evalTopElems (st'' { stLocalModEnv = Map.empty }) fileElems
+    (st'', fileData') <- DF.foldlM evalTopElems (st', fileData) fileElems
     -- have finished the file, so update the global modenv
-    undefined
+    liftIO $ debugM "ode3.modules" $ "Finished processing " ++ show modRoot
+    return $ st'' { stGlobalModEnv = Map.insert modRoot fileData' (stGlobalModEnv st'') }
 
-
-    -- return $ st''' { stLocalModEnv = Map.empty, stGlobalModEnv = Map.insert modRoot (stLocalModEnv st''') (stGlobalModEnv st''') }
 
 -- Loads an individual module file, taking the filename, module root, list of modules to load and current state
-loadModFile :: ModRoot -> ShState -> MExceptIO ([OdeTopElem E.DesId], CP.PState)
+loadModFile :: ModRoot -> ShState -> MExceptIO [OdeTopElem E.DesId]
 loadModFile modRoot st = do
     mFileExist <- liftIO repoFileSearch
     case mFileExist of

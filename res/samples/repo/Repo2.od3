@@ -2,7 +2,7 @@ import RepoTest.*
 // import RepoTest.A
 
 module Z {
-  val x = 2
+  val y = 2
 }
 
 // now test usage...

@@ -15,7 +15,8 @@
 {-#LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
 
 module Utils.Utils (
-MExcept, MExceptIO, mkExceptIO,PrettyPrint(..), mapFst, mapSnd, pairM,
+MExcept, MExceptIO, mkExceptIO, maybeToExcept, maybeToExceptIO,
+PrettyPrint(..), mapFst, mapSnd, pairM,
 SB(..), trace', errorDump,
 openPipe, closePipe, readLoop,
 ) where
@@ -37,6 +38,12 @@ mkExceptIO m = case m of
     Left err -> throwError err
     Right res -> return res
 
+maybeToExcept :: Maybe a -> String -> MExcept a
+maybeToExcept m str =   case m of
+                           Nothing -> throwError str
+                           Just x -> return x
+
+maybeToExceptIO m = mkExceptIO . maybeToExcept m
 
 mapFst :: (a -> b) -> (a, c) -> (b, c)
 mapFst f (x,y) = (f x,y)

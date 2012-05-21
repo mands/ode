@@ -18,7 +18,7 @@ module Lang.Module.AST (
 OdeTopElem(..),
 ExprMap, ExprList, FunArgs,
 Module(..),
-GlobalModEnv, LocalModEnv, getGlobalMod,
+GlobalModEnv, LocalModEnv, FileData(..), mkFileData, getGlobalMod, getFileData,
 ModuleData(..), SigMap, TypeMap, IdBimap, debugModuleExpr,
 ) where
 
@@ -94,13 +94,13 @@ type LocalModEnv = Map.Map ModName (Module Id)
 -- | Metadata regarding a file (we treat the console env as a special file)
 data FileData = FileData { fileImports :: Map.Map ModName ModFullName, fileModEnv :: LocalModEnv } deriving (Show, Eq)
 
+mkFileData = FileData Map.empty Map.empty
+
 -- ModEnv helper functions
 -- | Retreive a module from the global modEnv
 getGlobalMod :: GlobalModEnv -> ModFullName -> MExcept (Module Id)
-getGlobalMod modEnv modFullName = do
-    case mMod of
-        Nothing -> throwError $ "Module " ++ show modFullName ++ " not found or currently loaded"
-        Just mod -> return mod
+getGlobalMod modEnv modFullName =
+    maybeToExcept mMod $ "Module " ++ show modFullName ++ " not found or currently loaded"
   where
     -- fullName = mkModFullName (Just modRoot) modName
     (mModRoot, modName) = splitModFullName modFullName
@@ -108,6 +108,20 @@ getGlobalMod modEnv modFullName = do
         modRoot <- mModRoot
         fileData <- Map.lookup modRoot modEnv
         Map.lookup modName (fileModEnv fileData)
+
+-- | Returns the filedata for a particvular modroot
+getFileData :: GlobalModEnv -> ModRoot -> MExcept FileData
+getFileData modEnv modRoot = maybeToExcept (Map.lookup modRoot modEnv) $ "Module root " ++ show modRoot ++ " not found or currently loaded"
+
+-- | Returns the filedata for a particvular modroot, if it doesn't exist then one is created
+getCreateFileData :: GlobalModEnv -> ModRoot -> FileData
+getCreateFileData modEnv modRoot = Map.findWithDefault mkFileData modRoot modEnv
+
+--getFileModEnv :: GlobalModEnv -> ModRoot -> FileData
+--getFileModEnv
+
+
+
 
 
 -- need to put more helper functions here

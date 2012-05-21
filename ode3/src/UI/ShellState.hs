@@ -38,8 +38,8 @@ data ShState = ShState  { stDebug :: Bool               -- do we enable debug mo
                         , stOutFilename :: FilePath     -- output filename to save data to
                         , stRepos :: RepoSet       -- list of enabled module repositories
                         , stGlobalModEnv :: MA.GlobalModEnv   -- map of loaded modules
-                        , stLocalModEnv :: MA.LocalModEnv   -- map of loaded modules
                         , stParsedFiles :: Set.Set ModRoot  -- a set of fully parsed files
+                        , stLocalFile :: MA.FileData        -- a speical file that holds the REPL mod data
                         -- what else??
                         } deriving Show
 
@@ -52,9 +52,8 @@ defShState = ShState   { stDebug = False
                         , stOutFilename = "output.bin"  -- default output file
                         , stRepos = OrdSet.empty           -- do we add the defaults here?
                         , stGlobalModEnv = Map.empty -- map of loaded modules
-                        , stLocalModEnv = Map.empty  -- map of loaded modules
-
                         , stParsedFiles = Set.empty
+                        , stLocalFile = MA.mkFileData
                         }
 
 mkDefShState :: IO ShState

@@ -160,7 +160,7 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
         f :: String -> Sh ShState ()
         f "all" = (show <$> getShellSt) >>= shellPutInfoLn
         f "repos" = (show <$> stRepos <$> getShellSt) >>= shellPutInfoLn
-        f "modules" = (show <$> Map.keys <$> stLocalModEnv <$> getShellSt) >>= shellPutInfoLn
+        f "modules" = (show <$> stLocalFile <$> getShellSt) >>= shellPutInfoLn
         f _ = shellPutInfoLn "Pass <all, repos, modules> to display current state"
 
     typeCmd = cmd "type" f "Display the type of the loaded module"
@@ -194,4 +194,6 @@ shEval str = do
         -- READ cmd, pass the string to our mod lang parser
         cmd <- MP.consoleParse str
         -- then EVAL, cmd sent to interpreter with state
-        MD.evalTopElems st cmd
+        (st', fd') <- MD.evalTopElems (st, (stLocalFile st)) cmd
+        -- return the modified state (with the newly updated local filedata)
+        return $ st' { stLocalFile = fd' }

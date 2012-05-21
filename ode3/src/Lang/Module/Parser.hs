@@ -70,10 +70,10 @@ consoleParse cmdStr =   case (runParser parser mkPState "<console>" cmdStr) of
 -- | fileParse takes an input file and a current snapshot of the module env, and parse within this context
 -- sucessfully parsed modules are then converted into (Module E.Id) and added to the env
 -- have to explictily case to convert the error type in the Either
-fileParse :: FilePath -> String -> ModRoot -> MExcept ([OdeTopElem E.DesId], PState)
+fileParse :: FilePath -> String -> ModRoot -> MExcept [OdeTopElem E.DesId]
 fileParse fileName fileData modRoot = case runParser parser mkPState fileName fileData of
                                         Left err -> throwError ("Parse error at " ++ show err)
-                                        Right res -> return res
+                                        Right (res, st) -> return res
   where
     -- | parser for an Ode file, containing both module commands and definitions
     parser :: Parser ([OdeTopElem E.DesId], PState)
