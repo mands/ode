@@ -60,12 +60,12 @@ evalTopElems (st, fd) topMod@(TopMod modRoot modName mod) = do
     fullModName = mkModFullName (Just modRoot) modName
 
 
--- top import, all modules, called from REPL or within a file
-evalTopElems (st, fd) modCmd@(ModImport modRoot Nothing) =
+-- top import, called from REPL or within a file
+evalTopElems (st, fd) (ModImport modRoot mMods) =
     if Set.member modRoot parsedFiles -- if we've parsed this file already
         then if Map.member modRoot (stGlobalModEnv st) -- then it should be in global cache
             then do -- so add the imports to the cur filedata
-                fd' <- mkExceptIO $ addImportsToFile modRoot st fd
+                fd' <- mkExceptIO $ addImportsToFile modRoot mMods st fd
                 return (st, fd')
                 -- liftIO $ debugM "ode3.modules" ("Importing modules in " ++ show modRoot ++ " from global to local env")
                 -- let localEnv' = Map.union (fromJust . Map.lookup modRoot $ stGlobalModEnv st) (stLocalModEnv st)
@@ -77,51 +77,11 @@ evalTopElems (st, fd) modCmd@(ModImport modRoot Nothing) =
             -- need to load module
             st' <- processImport st modRoot
             -- now process the import cmd
-            fd' <- mkExceptIO $ addImportsToFile modRoot st' fd
+            fd' <- mkExceptIO $ addImportsToFile modRoot mMods st' fd
             return (st', fd')
   where
     -- parsed Files
     parsedFiles = stParsedFiles st
-
--- import cmd - only selected modules from file
-evalTopElems (st, fd) (ModImport modRoot (Just mods)) = trace' [MkSB modRoot, MkSB mods] "In import.qualified" $ undefined
-  where
-    -- set of modules to load from file
-    modsLoad :: [ModName]
-    modsLoad = do
-        let modEnv = undefined -- (stLocalModEnv st)
-        (m, _) <- mods
-        -- let modName = mkModFullName modRootElems m
-        -- guard $ Map.notMember modName modEnv -- do we need this?
-        return m
-    -- list of modules to alias
-    aliasCmds = [ ModAlias (fromJust a) m | (m, a) <- mods, isJust a == True ]
-    -- parsed Files
-    parsedFiles = stParsedFiles st
-
-    old = do
-        -- see if canon name is already in modEnv
-        -- just load individual module (actually for now we load everything anyway)
-        st' <- if null modsLoad
-            then liftIO $ debugM "ode3.modules" ("Modules " ++ show (map fst mods) ++ " already loaded into modEnv, ignoring") >> return st
-            else do
-                liftIO $ debugM "ode3.modules" ("Modules " ++ show modsLoad ++ " not found in modEnv, loading")
-                fileElems <- loadModFile modRoot st
-                -- update cache
-                -- HACK - we assume that we loaded all modules for a file for now and update cache accordingly
-                let st' = st { stParsedFiles = Set.insert modRoot (stParsedFiles st') }
-
-                -- do we recurse here??
-                -- st'' <- DF.foldlM evalTopElems st' fileElems
-                --return $ st''
-                undefined
-
-        -- setup the alias if needed
-        --st'' <- DF.foldlM evalTopElems st' aliasCmds
-
-        --return st''
-        undefined
-
 
 -- | make aliasName an alias of origName
 evalTopElems (st, fd) (ModAlias aliasName origName) =
@@ -135,15 +95,22 @@ evalTopElems (st, fd) (ModAlias aliasName origName) =
     mkAlias = Map.insert aliasName (VarMod (mkModFullName Nothing origName)) modEnv
     -- origName = mkModRoot origElems
 
-
-
 -- | Imports the modules from file modRoot to the current fileData
-addImportsToFile modRoot st fd = do
+addImportsToFile modRoot mMods st fd = do
     -- get list of modules of imported file
-    impMods <- Map.keys <$> fileModEnv <$> getFileData (stGlobalModEnv st) modRoot
+    importedModEnv <- fileModEnv <$> getFileData (stGlobalModEnv st) modRoot
     -- update the cur fd import map with those from the imported modules
-    let newImports = foldl (\imps modName -> Map.insert modName (mkModFullName (Just modRoot) modName) imps) (fileImports fd) impMods
-    return $ fd { fileImports = newImports }
+    importMap <- DF.foldlM (addImport importedModEnv) (fileImports fd) (modList importedModEnv)
+    return $ fd { fileImports = importMap }
+  where
+    -- create a list of modules to import, either all, or the given selection
+    modList importedModEnv = maybe (map (\mod -> (mod, Nothing)) $ Map.keys importedModEnv) id mMods
+    -- create an import ref for the given modName, with potential alias
+    addImport importedModEnv impMap (modName, mAlias) =
+        if Map.member modName importedModEnv
+            then return $ Map.insert (maybe modName id mAlias) (mkModFullName (Just modRoot) modName) impMap
+            else throwError $ "Imported module " ++ show modName ++ " not found in " ++ show modRoot
+
 
 -- | Takes a string representing the module URI and returns the path and module name
 -- i.e. W.X.Y.Z -> (W/X/Y, Z)
