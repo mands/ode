@@ -13,7 +13,7 @@
 -----------------------------------------------------------------------------
 
 module UI.ShellUI (
-shellEntry, ShState(..)
+shellEntry
 ) where
 
 import Control.Monad
@@ -35,7 +35,7 @@ import System.Console.Shell.ShellMonad
 -- import System.Console.Shell.Backend.Readline
 import System.Console.Shell.Backend.Haskeline
 import Utils.ShellHandleBackend
-import UI.ShellState
+import UI.SysState
 
 import Utils.Utils
 import qualified Utils.OrdSet as OrdSet
@@ -49,19 +49,19 @@ shellEntry = do
     argsLen <- liftM length getArgs
 
     -- setup IO based actions here
-    initShState <- mkDefShState
+    initSysState <- mkDefSysState
 
     if argsLen == 0
       then do
         debugM "ode3.shell" "Using Featured Shell Backend"
-        st' <- runShell (initShellDesc) (haskelineBackend) initShState
+        st' <- runShell (initShellDesc) (haskelineBackend) initSysState
         putStrLn $ show st'
       else do
         debugM "ode3.shell" "Using Basic Handle Backend"
         inName <- liftM head getArgs
         inHnd <- openPipe inName
 
-        st' <- runShell (initShellDesc) (basicBackend inHnd) initShState
+        st' <- runShell (initShellDesc) (basicBackend inHnd) initSysState
         putStrLn $ show st'
         closePipe inHnd
 
@@ -74,7 +74,7 @@ instance Applicative (Sh st) where
     (<*>) = ap
 
 
-initShellDesc :: ShellDescription ShState
+initShellDesc :: ShellDescription SysState
 initShellDesc = desc'
   where
     desc = initialShellDescription
@@ -89,7 +89,7 @@ initShellDesc = desc'
 
 -- | Default commands used by the system, both toggles and cmd funcs
 -- we use commands to setup and control simulation
-defaultCmds :: [ShellCommand ShState]
+defaultCmds :: [ShellCommand SysState]
 defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
                 , simStartCmd
                 , startTimeCmd, stopTimeCmd, simTimestepCmd
@@ -106,37 +106,37 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
     -- damn record update syntax!
     startTimeCmd = cmd "startTime" f "Initial simulation time"
       where
-        f :: Float -> Sh ShState ()
+        f :: Float -> Sh SysState ()
         f x = modifyShellSt (\st -> st {stSimStart = x})
 
     stopTimeCmd = cmd "endTime" f "Final simulation time"
       where
-        f :: Float -> Sh ShState ()
+        f :: Float -> Sh SysState ()
         f x = modifyShellSt (\st -> st {stSimEnd = x})
 
     simTimestepCmd = cmd "timestep" f "Timestep to use for simulation"
       where
-        f :: Float -> Sh ShState ()
+        f :: Float -> Sh SysState ()
         f x = modifyShellSt (\st -> st {stSimTimestep = x})
 
     simStartCmd = cmd "start" f "Start a simulation"
       where
-        f :: Sh ShState ()
+        f :: Sh SysState ()
         f = shellPutInfoLn "Starting simulation..."
 
     outPeriodCmd = cmd "period" f "Period iterations to save simulation state to disk"
       where
-        f :: Integer -> Sh ShState ()
+        f :: Integer -> Sh SysState ()
         f x = modifyShellSt (\st -> st {stOutPeriod = x})
 
     outFilenameCmd = cmd "output" f "Filename to save simulation results"
       where
-        f :: File -> Sh ShState ()
+        f :: File -> Sh SysState ()
         f (File x) = modifyShellSt (\st -> st {stOutFilename = x})
 
     repoAddCmd = cmd "addRepo" f "Add a directory path to the module repository"
       where
-        f :: File -> Sh ShState ()
+        f :: File -> Sh SysState ()
         f (File repoPath) = do
             st <- getShellSt
             dirEx <- liftIO $ Dir.doesDirectoryExist repoPath
@@ -150,14 +150,14 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
 
     repoDelCmd = cmd "delRepo" f "Delete a directory path from the module repository"
       where
-        f :: File -> Sh ShState ()
+        f :: File -> Sh SysState ()
         f (File repoPath) = modifyShellSt (\st -> st {stRepos = OrdSet.delete repoPath (stRepos st)})
 
 
     -- show takes second string parameter
     showCmd = cmd "show" f "Pass <all, repos, modules> to display current state"
       where
-        f :: String -> Sh ShState ()
+        f :: String -> Sh SysState ()
         f "all" = (show <$> getShellSt) >>= shellPutInfoLn
         f "repos" = (show <$> stRepos <$> getShellSt) >>= shellPutInfoLn
         f "modules" = (show <$> stLocalFile <$> getShellSt) >>= shellPutInfoLn
@@ -165,19 +165,19 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
 
     typeCmd = cmd "type" f "Display the type of the loaded module"
       where
-        f :: String -> Sh ShState ()
+        f :: String -> Sh SysState ()
         f x = shellPutErrLn "Not yet implemented"
 
     clearCmd = cmd "clear" f "Remove all modules, reset system to defaults"
       where
         -- TODO - need to actually unload data from system
-        f :: Sh ShState ()
-        f = liftIO mkDefShState >>= putShellSt
+        f :: Sh SysState ()
+        f = liftIO mkDefSysState >>= putShellSt
 
 -- | Main shell eval function, takes the input string and passes to the parsec parser responsible for
 -- we use eval function for the run-time language, i.e. loading, applying and creating models for simulation
 -- main REPL goes here, READ-EVAL-PRINT-LOOP
-shEval :: String -> Sh ShState ()
+shEval :: String -> Sh SysState ()
 shEval str = do
     shellPutInfoLn str
     st <- getShellSt
@@ -189,7 +189,7 @@ shEval str = do
     -- return, setting up new LOOP
     return ()
   where
-    eval' :: ShState -> MExceptIO ShState
+    eval' :: SysState -> MExceptIO SysState
     eval' st = do
         -- READ cmd, pass the string to our mod lang parser
         cmd <- MP.consoleParse str

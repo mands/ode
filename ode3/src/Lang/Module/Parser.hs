@@ -17,31 +17,28 @@ module Lang.Module.Parser (
 consoleParse, fileParse
 ) where
 
-import qualified Data.Traversable as DT
-import qualified Data.Foldable as DF
+
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Error
-import Text.Parsec hiding (many, optional, (<|>))
---import Text.Parsec.String
-import Debug.Trace (trace)
 
+import qualified Data.Traversable as DT
+import qualified Data.Foldable as DF
 import qualified Data.Map as Map
 import qualified Data.List as List
 import qualified Data.Set as Set
 import qualified Data.Bimap as Bimap
 import qualified Utils.OrdMap as OrdMap
 
+import Text.Parsec hiding (many, optional, (<|>))
+
 import Utils.Utils
 import Lang.Common.Parser
+import qualified Lang.Ode.Parser as OP
 import Lang.Common.AST
 import Lang.Module.AST
-
 import qualified Lang.Ode.AST as O
-import qualified Lang.Ode.Parser as OP
 import qualified Lang.Core.AST as E
---import qualified Lang.Module.ModuleDriver as MD
-
 import Lang.Ode.Desugarer (desugarMod)
 
 
@@ -56,31 +53,25 @@ singModId = ModName <$> lexeme upperIdentifier
 -- | consoleParse parses a string given on the console command line, restricuted to moduleCmds only
 -- example "import X.Y.Z"
 consoleParse :: String -> MExceptIO (OdeTopElem E.DesId)
-consoleParse cmdStr =   case (runParser parser mkPState "<console>" cmdStr) of
+consoleParse cmdStr =   case (runParser parser () "<console>" cmdStr) of
                             Left err -> throwError ("Input error at " ++ show err)
-                            Right (res, st) -> return res
+                            Right res -> return res
   where
     -- parser for a single command string
-    parser :: Parser (OdeTopElem E.DesId, PState)
-    parser = do
-        elems <- whiteSpace *> topModImport <|> moduleCmd <* eof
-        st <- getState
-        return (elems, st)
+    parser :: Parser (OdeTopElem E.DesId)
+    parser = whiteSpace *> topModImport <|> moduleCmd <* eof
 
 -- | fileParse takes an input file and a current snapshot of the module env, and parse within this context
 -- sucessfully parsed modules are then converted into (Module E.Id) and added to the env
 -- have to explictily case to convert the error type in the Either
 fileParse :: FilePath -> String -> ModRoot -> MExcept [OdeTopElem E.DesId]
-fileParse fileName fileData modRoot = case runParser parser mkPState fileName fileData of
+fileParse fileName fileData modRoot = case runParser parser () fileName fileData of
                                         Left err -> throwError ("Parse error at " ++ show err)
-                                        Right (res, st) -> return res
+                                        Right res -> return res
   where
     -- | parser for an Ode file, containing both module commands and definitions
-    parser :: Parser ([OdeTopElem E.DesId], PState)
-    parser = do
-        elems <- whiteSpace *> (many1 $ topModImport <|> moduleCmd <|> moduleDef modRoot) <* eof
-        st <- getState
-        return (elems, st)
+    parser :: Parser [OdeTopElem E.DesId]
+    parser = whiteSpace *> (many1 $ topModImport <|> moduleCmd <|> moduleDef modRoot) <* eof
 
 topModImport = TopModImport <$> importCmd
 
@@ -92,7 +83,7 @@ importCmd = try importAll
     -- need a monad, not applicative, to modify the state
     importAll = do
         modRoot <- mkModRoot <$> (reserved "import" *> modPathImportAll)
-        addImport modRoot
+        -- addImport modRoot
         return $ ModImport modRoot Nothing
 
     modPathImportAll :: Parser ModURIElems
@@ -102,7 +93,7 @@ importCmd = try importAll
         modURI <- (reserved "import" *> modPathImport)
         mAlias <- optionMaybe (reserved "as" *> singModId)
         let modRoot = mkModRoot $ List.init modURI
-        addImport modRoot
+        -- addImport modRoot
         return $ ModImport modRoot (Just [(ModName $ List.last modURI, mAlias)])
 
     -- | lexeme parser for a module string in dot notation
@@ -110,7 +101,7 @@ importCmd = try importAll
     modPathImport = lexeme $ upperIdentifier `sepBy1` (char '.')
 
     -- add modURI to set
-    addImport modURI = modifyState (\s -> s { stImports = Set.insert modURI (stImports s) } )
+    -- addImport modURI = modifyState (\s -> s { stImports = Set.insert modURI (stImports s) } )
 
 
 -- | modules commands, used to import and setup alias - used from console and files, both at top-level and within module?

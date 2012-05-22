@@ -26,17 +26,7 @@ import qualified Data.Map as Map
 import qualified Lang.Module.AST as MA
 import Lang.Common.AST
 
-
-data PState = PState    { stImports :: Set.Set ModRoot
-                        , stGlobalModEnv :: MA.GlobalModEnv
-                        } deriving (Show, Eq)
-
-mkPState = PState   { stImports = Set.empty
-                    , stGlobalModEnv = Map.empty
-                    }
-
-type Parser = Parsec String PState
-
+type Parser = Parsec String ()
 
 -- Default Parser style
 -- | hijack the javaStyle default definition, gives us a bunch of ready-made parsers/behaviours
@@ -67,7 +57,7 @@ commonLangDef = javaStyle
         T.caseSensitive = True
     }
 
-lexer :: T.TokenParser PState
+lexer :: T.TokenParser ()
 lexer  = T.makeTokenParser commonLangDef
 
 -- For efficiency, we will bind all the used lexical parsers at toplevel.

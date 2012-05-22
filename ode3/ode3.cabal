@@ -47,10 +47,10 @@ includes:
 install-includes:
 include-dirs:
 hs-source-dirs: src
-other-modules: Lang.Module.ModDefDriver Lang.Module.ModCmdDriver
-               Lang.Core.Reorderer Utils.Utils Utils.ShellHandleBackend
-               Utils.OrdMap Utils.OrdSet Utils.MonadSupply UI.ShellUI
-               UI.ShellState Lang.Common.AST Lang.Common.Parser
+other-modules: UI.SysState Lang.Module.ModDefDriver
+               Lang.Module.ModCmdDriver Lang.Core.Reorderer Utils.Utils
+               Utils.ShellHandleBackend Utils.OrdMap Utils.OrdSet
+               Utils.MonadSupply UI.ShellUI Lang.Common.AST Lang.Common.Parser
                Lang.Core.TypeChecker Lang.Core.AST Lang.Core.Validator
                Lang.Core.Renamer Lang.Module.AST Lang.Module.Parser
                Lang.Ode.Desugarer Lang.Ode.AST Lang.Ode.Parser

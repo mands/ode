@@ -12,39 +12,42 @@
 --
 -----------------------------------------------------------------------------
 
-module UI.ShellState (
-ShState(..), mkDefShState,
+module UI.SysState (
+SysState(..), mkDefSysState,
 RepoSet
 ) where
 
+import Control.Applicative
 import Control.Monad
 import Control.Monad.Trans(liftIO)
-import Control.Applicative
-import qualified Utils.OrdSet as OrdSet
-import Lang.Common.AST
-import qualified Lang.Module.AST as MA
+
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+
 import qualified System.FilePath as FP
 import qualified System.Directory as Dir
 
+import Lang.Common.AST
+import qualified Lang.Module.AST as MA
+import qualified Utils.OrdSet as OrdSet
+
 
 -- | Main system state used by the shell
-data ShState = ShState  { stDebug :: Bool               -- do we enable debug mode
-                        , stSimStart :: Float           -- simulation params
-                        , stSimEnd :: Float
-                        , stSimTimestep :: Float        -- simulation timestep
-                        , stOutPeriod     :: Integer    -- period with which to save simulation state to outfile, wrt timestep
-                        , stOutFilename :: FilePath     -- output filename to save data to
-                        , stRepos :: RepoSet       -- list of enabled module repositories
-                        , stGlobalModEnv :: MA.GlobalModEnv   -- map of loaded modules
-                        , stParsedFiles :: Set.Set ModRoot  -- a set of fully parsed files
-                        , stLocalFile :: MA.FileData        -- a speical file that holds the REPL mod data
-                        -- what else??
-                        } deriving Show
+data SysState = SysState    { stDebug :: Bool               -- do we enable debug mode
+                            , stSimStart :: Float           -- simulation params
+                            , stSimEnd :: Float
+                            , stSimTimestep :: Float        -- simulation timestep
+                            , stOutPeriod     :: Integer    -- period with which to save simulation state to outfile, wrt timestep
+                            , stOutFilename :: FilePath     -- output filename to save data to
+                            , stRepos :: RepoSet       -- list of enabled module repositories
+                            , stGlobalModEnv :: MA.GlobalModEnv   -- map of loaded modules
+                            , stParsedFiles :: Set.Set ModRoot  -- a set of fully parsed files
+                            , stLocalFile :: MA.FileData        -- a speical file that holds the REPL mod data
+                            -- what else??
+                            } deriving Show
 
 -- | Sensible default values for initial system state
-defShState = ShState   { stDebug = False
+defSysState = SysState   { stDebug = False
                         , stSimStart = 0
                         , stSimEnd = 60
                         , stSimTimestep = 0.001         -- 1ms
@@ -56,10 +59,10 @@ defShState = ShState   { stDebug = False
                         , stLocalFile = MA.mkFileData
                         }
 
-mkDefShState :: IO ShState
-mkDefShState = do
+mkDefSysState :: IO SysState
+mkDefSysState = do
     repos <- defRepos
-    return $ defShState { stRepos = repos }
+    return $ defSysState { stRepos = repos }
 
 
 -- | Holds the ordered set of enabled repositories
