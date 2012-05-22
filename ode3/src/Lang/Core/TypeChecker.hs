@@ -121,7 +121,7 @@ typeCheckApp fMod@(M.FunctorMod funArgs _ _) modEnv = do
 
 -- | Update the module data with the public module signature and internal typemap
 -- we create the mod signature by mapping over the idbimap data and looking up each value from the internal typemap
-updateModData :: M.ModuleData -> TypeEnv -> M.ModuleData
+updateModData :: M.ModData -> TypeEnv -> M.ModData
 updateModData modData tEnv = modData { M.modTMap = tEnv, M.modSig = modSig }
   where
     idMap = Bimap.toMap (M.modIdBimap modData)

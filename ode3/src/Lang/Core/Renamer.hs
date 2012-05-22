@@ -70,7 +70,7 @@ rename (M.FunctorMod args exprMap modData) = trace ("(RN) " ++ (show res)) (Righ
     res = (M.FunctorMod args exprMap' modData')
 
 -- | Update the module data with the idBimap and next free id
-updateModData :: M.ModuleData ->  BindMap -> E.Id -> M.ModuleData
+updateModData :: M.ModData ->  BindMap -> E.Id -> M.ModData
 updateModData modData bMap freeId = modData { M.modIdBimap = idBimap', M.modFreeId = Just freeId }
   where
     -- TODO - quick hack to convert

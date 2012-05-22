@@ -63,7 +63,7 @@ consoleParse cmdStr =   case (runParser parser mkPState "<console>" cmdStr) of
     -- parser for a single command string
     parser :: Parser (OdeTopElem E.DesId, PState)
     parser = do
-        elems <- whiteSpace *> importCmd <|> moduleCmd <* eof
+        elems <- whiteSpace *> topModImport <|> moduleCmd <* eof
         st <- getState
         return (elems, st)
 
@@ -78,12 +78,14 @@ fileParse fileName fileData modRoot = case runParser parser mkPState fileName fi
     -- | parser for an Ode file, containing both module commands and definitions
     parser :: Parser ([OdeTopElem E.DesId], PState)
     parser = do
-        elems <- whiteSpace *> (many1 $ importCmd <|> moduleCmd <|> moduleDef modRoot) <* eof
+        elems <- whiteSpace *> (many1 $ topModImport <|> moduleCmd <|> moduleDef modRoot) <* eof
         st <- getState
         return (elems, st)
 
+topModImport = TopModImport <$> importCmd
+
 -- | commands to import modules into the system, either globally or within module
-importCmd :: Parser (OdeTopElem E.DesId)
+importCmd :: Parser ModImport
 importCmd = try importAll
             <|> importSing
   where
@@ -116,9 +118,9 @@ moduleCmd :: Parser (OdeTopElem E.DesId)
 moduleCmd = modCmdParse
   where
     modCmdParse :: Parser (OdeTopElem E.DesId)
-    modCmdParse =   try (TopMod <$> pure (mkModRoot [""]) <*> (reserved "module" *> singModId) <*> (reservedOp "=" *> moduleAppParams))
+    modCmdParse =   try (TopModDef <$> pure (mkModRoot [""]) <*> (reserved "module" *> singModId) <*> (reservedOp "=" *> moduleAppParams))
                     -- test, this should be removed
-                    <|> try (ModAlias <$> (reserved "module" *> singModId) <*> (reservedOp "=" *> singModId))
+                    -- <|> try (ModAlias <$> (reserved "module" *> singModId) <*> (reservedOp "=" *> singModId))
                     <?> "valid module command"
 
     -- | parse a chain/tree of module applications
@@ -131,16 +133,21 @@ moduleCmd = modCmdParse
 
 -- | module definitions, either an entire definition/abstraction or an application - only used from files
 moduleDef :: ModRoot -> Parser (OdeTopElem E.DesId)
-moduleDef modRoot = TopMod <$> pure modRoot <*> (reserved "module" *> singModId) <*> modParse
+moduleDef modRoot = TopModDef <$> pure modRoot <*> (reserved "module" *> singModId) <*> modParse
   where
     modParse =  FunctorMod <$> (funcArgs <$> paramList singModId) <*> pure OrdMap.empty <*> modData
                 <|> LitMod <$> pure OrdMap.empty <*> modData
                 <?> "module definition"
-    modData = ModuleData Map.empty Map.empty Bimap.empty Nothing <$> modBody
+
+    modData = modBody >>= (\(importCmds, exprList) -> return $ mkModData { modImportCmds = importCmds, modExprList = exprList })
+
     funcArgs args = OrdMap.fromList $ map (\arg -> (arg, Map.empty)) args
 
     -- | parses a Ode list of statements within module body, and automatically desugars into Core-lang
-    modBody :: Parser ExprList
+    modBody :: Parser ([ModImport], ExprList)
     modBody = do
-        modElems <- braces (many1 OP.moduleBody)
-        either (\_ -> return []) (\exprList -> return exprList) (desugarMod modElems)
+        -- parse the module imports here
+        (imports, modElems) <- braces ((,) <$> many importCmd <*> many1 OP.odeStmt)
+        case desugarMod modElems of
+            Left err -> unexpected "Unexpected error desugaring Ode into Core"
+            Right exprList -> return (imports, exprList)

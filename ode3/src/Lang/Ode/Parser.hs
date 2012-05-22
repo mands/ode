@@ -14,7 +14,7 @@
 -----------------------------------------------------------------------------
 
 module Lang.Ode.Parser (
-moduleBody
+odeStmt
 ) where
 
 import Control.Applicative
@@ -27,11 +27,8 @@ import Lang.Common.Parser
 import Utils.Utils
 import qualified Lang.Ode.AST as O
 
--- |parse the body of a module
-moduleBody = stmt
-
-stmt :: Parser O.Stmt
-stmt =  compDef
+odeStmt :: Parser O.Stmt
+odeStmt =  compDef
         <|> valueDef
         <|> sValueDef
         <|> odeDef
@@ -44,7 +41,7 @@ valueDef :: Parser O.Stmt
 valueDef = O.Value  <$> (reserved "val" *> commaSep1 valIdentifier) <*> (reservedOp "=" *> compExpr)
                     <*> option [] (reserved "where" *> valBody)
   where
-    valBody = braces $ many stmt
+    valBody = braces $ many odeStmt
 
 -- |parse a sval def
 sValueDef :: Parser O.Stmt
@@ -64,7 +61,7 @@ compDef = do
         <?> "component definition"
 
     -- | parser for the component body, a list of statements
-    compBody = braces $ many stmt
+    compBody = braces $ many odeStmt
 
 odeDef :: Parser O.Stmt
 odeDef = O.OdeDef <$> (reserved "ode" *> valIdentifier) <*> pure 0.0 <*> (reservedOp "=" *> compExpr)

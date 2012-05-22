@@ -15,11 +15,11 @@
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures, FlexibleInstances, TypeSynonymInstances #-}
 
 module Lang.Module.AST (
-OdeTopElem(..),
+OdeTopElem(..), ModImport(..),
 ExprMap, ExprList, FunArgs,
 Module(..),
-GlobalModEnv, LocalModEnv, FileData(..), mkFileData, getGlobalMod, getFileData,
-ModuleData(..), SigMap, TypeMap, IdBimap, debugModuleExpr,
+GlobalModEnv, LocalModEnv, FileData(..), mkFileData, getGlobalMod, getFileData, ImportMap,
+ModData(..), mkModData, SigMap, TypeMap, IdBimap, debugModuleExpr,
 ) where
 
 import Control.Monad
@@ -41,13 +41,14 @@ import qualified System.FilePath as FP
 
 
 -- | Top level module variables, represent the ast for an individual file, inc import cmds and module defs
-data OdeTopElem a   = TopMod ModRoot ModName (Module a)                           -- top level module def, inluding root and name
-                    | ModImport ModRoot (Maybe [(ModName, Maybe ModName)])    -- main import, has a module root/filename,
-                                                                                -- and list of indiv modules and potential alias
-                    | ModAlias ModName ModName                               -- an alias from one ModURI to another
+data OdeTopElem a   = TopModDef ModRoot ModName (Module a)  -- top level module def, inluding root and name
+                    | TopModImport ModImport                -- top level import
+                    -- | ModAlias ModName ModName              -- an alias from one ModURI to another
                     deriving (Show, Eq, Ord)
 
 
+-- | import cmds, has a module root/filename, and list of indiv modules and potential alias
+data ModImport = ModImport ModRoot (Maybe [(ModName, Maybe ModName)]) deriving (Show, Eq, Ord)
 
 -- Module Body Data
 
@@ -63,17 +64,20 @@ type FunArgs = OrdMap.OrdMap ModName SigMap
 -- | Main executable modules that can be combined at run-time, they represent a form of the simply-typed \-calc that is interpreted at runtime
 -- type-checking occurs in two-stage process, vars and abs are checked during parsing, applications are cehcked from the replicate
 -- var modeules must be closed anfd fully typered, abs/parameterisd modules are open (wrt to parameters) and may be polymorphic
-data Module a = LitMod  (ExprMap a) ModuleData
-                | FunctorMod FunArgs (ExprMap a) ModuleData
+data Module a = LitMod  (ExprMap a) ModData
+                | FunctorMod FunArgs (ExprMap a) ModData
                 | AppMod ModName [Module a]     -- we never have access to the appmodules,
                                                 -- they are always immediatly applied and the resulting ClosedModule is saved under this name
                 | VarMod ModFullName            -- only used within appmods
                 deriving (Show, Eq, Ord)
 
 -- | Metadata regarding a module
-data ModuleData =   ModuleData {modSig :: SigMap, modTMap :: TypeMap, modIdBimap :: IdBimap, modFreeId :: Maybe Id, modExprList :: ExprList}
-                    deriving (Show, Eq, Ord)
+data ModData = ModData  { modSig :: SigMap, modTMap :: TypeMap, modIdBimap :: IdBimap, modFreeId :: Maybe Id
+                        , modImportMap :: ImportMap, modImportCmds :: [ModImport]
+                        , modExprList :: ExprList
+                        } deriving (Show, Eq, Ord)
 
+mkModData = ModData Map.empty Map.empty Bimap.empty Nothing Map.empty [] []
 
 -- | bidirectional map between internal ids and source ids for all visible/top-level defined vars
 type IdBimap = Bimap.Bimap SrcId Id
@@ -91,8 +95,11 @@ type GlobalModEnv = Map.Map ModRoot FileData
 -- Module environment the run-time envirmornet used to create models and start simulations, holds the current results from interpreting the module system
 type LocalModEnv = Map.Map ModName (Module Id)
 
+type ImportMap = Map.Map ModName ModFullName
+
+
 -- | Metadata regarding a file (we treat the console env as a special file)
-data FileData = FileData { fileImports :: Map.Map ModName ModFullName, fileModEnv :: LocalModEnv } deriving (Show, Eq)
+data FileData = FileData { fileImportMap :: ImportMap, fileModEnv :: LocalModEnv } deriving (Show, Eq)
 
 mkFileData = FileData Map.empty Map.empty
 
@@ -122,8 +129,6 @@ getCreateFileData modEnv modRoot = Map.findWithDefault mkFileData modRoot modEnv
 
 
 
-
-
 -- need to put more helper functions here
 -- for instance functions to union two exprMaps, modules, remap ids, etc.
 debugModuleExpr :: (Show a) => Module a -> String
@@ -133,7 +138,7 @@ debugModuleExpr (AppMod _ _) = "Application - no exprs"
 
 
 instance (Show a) => PrettyPrint (OdeTopElem a) where
-    prettyPrint (TopMod root name mod) = show root ++ "." ++ show name ++ " :: " ++ prettyPrint mod
+    prettyPrint (TopModDef root name mod) = show root ++ "." ++ show name ++ " :: " ++ prettyPrint mod
     prettyPrint _ = undefined
 
 instance (Show a) => PrettyPrint (Module a) where
@@ -147,8 +152,8 @@ instance (Show a) => PrettyPrint (Module a) where
     prettyPrint mod@(AppMod functor args) = "Application - " ++ show functor ++ "(" ++ show args ++ ")"
 
 -- show the module signature
-instance PrettyPrint (ModuleData) where
-    prettyPrint (ModuleData sig tMap idBimap mFreeId _) = show sig
+instance PrettyPrint (ModData) where
+    prettyPrint (ModData sig _ _ _ _ _ _) = show sig
 
 instance PrettyPrint FunArgs where
     prettyPrint funArgs = List.intercalate "," $ List.map (\(m, sig) -> show m ++ " :: {" ++ show sig ++ "}") (OrdMap.toList funArgs)

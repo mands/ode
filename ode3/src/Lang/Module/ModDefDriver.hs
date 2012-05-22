@@ -166,7 +166,7 @@ appendModule argName argMod@(LitMod argExprMap argModData) baseMod@(LitMod baseE
 
 
 -- update mod data - sigMap doesn't change
-appendModuleData :: ModuleData -> ModuleData -> ModuleData
+appendModuleData :: ModData -> ModData -> ModData
 appendModuleData argModData baseModData = baseModData { modTMap = typeMap', modIdBimap = idBimap', modFreeId = freeId' }
   where
     deltaId = fromJust $ (modFreeId argModData)
