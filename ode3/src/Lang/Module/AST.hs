@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 --
--- Module      :  Core.AST.Module
+-- Module      :  Core.Module.AST
 -- Copyright   :  Copyright (C) 2010-2012 Mandeep Gill
 -- License     :  GPL (Just (Version {versionBranch = [3], versionTags = []}))
 --
@@ -18,7 +18,7 @@ module Lang.Module.AST (
 OdeTopElem(..), ModImport(..),
 ExprMap, ExprList, FunArgs,
 Module(..),
-GlobalModEnv, LocalModEnv, FileData(..), mkFileData, getGlobalMod, getFileData, ImportMap,
+GlobalModEnv, FileModEnv, FileData(..), mkFileData, getGlobalMod, getFileData, ImportMap, getIdType,
 ModData(..), mkModData, SigMap, TypeMap, IdBimap, debugModuleExpr,
 ) where
 
@@ -32,6 +32,8 @@ import qualified Data.Set as Set
 import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Bimap as Bimap
+import Text.Printf (printf)
+
 
 import Lang.Common.AST
 import qualified Lang.Core.AST as E
@@ -40,26 +42,18 @@ import Utils.Utils
 import qualified System.FilePath as FP
 
 
+-- Module/File Datatype ------------------------------------------------------------------------------------------------
+
 -- | Top level module variables, represent the ast for an individual file, inc import cmds and module defs
 data OdeTopElem a   = TopModDef ModRoot ModName (Module a)  -- top level module def, inluding root and name
                     | TopModImport ModImport                -- top level import
-                    -- | ModAlias ModName ModName              -- an alias from one ModURI to another
                     deriving (Show, Eq, Ord)
-
 
 -- | import cmds, has a module root/filename, and list of indiv modules and potential alias
 data ModImport = ModImport ModRoot (Maybe [(ModName, Maybe ModName)]) deriving (Show, Eq, Ord)
 
--- Module Body Data
 
-type ExprList = [E.TopLet DesId]
-
-
--- | ExprMap is the basic collection of expressions that make up a module
-type ExprMap a = OrdMap.OrdMap (E.Bind a) (E.TopLet a)
-
--- | FunArgs are the list of module parameters, and thier required signatures, for a functor application
-type FunArgs = OrdMap.OrdMap ModName SigMap
+-- Module Datatype -----------------------------------------------------------------------------------------------------
 
 -- | Main executable modules that can be combined at run-time, they represent a form of the simply-typed \-calc that is interpreted at runtime
 -- type-checking occurs in two-stage process, vars and abs are checked during parsing, applications are cehcked from the replicate
@@ -68,8 +62,18 @@ data Module a = LitMod  (ExprMap a) ModData
                 | FunctorMod FunArgs (ExprMap a) ModData
                 | AppMod ModName [Module a]     -- we never have access to the appmodules,
                                                 -- they are always immediatly applied and the resulting ClosedModule is saved under this name
-                | VarMod ModFullName            -- only used within appmods
+                | VarMod ModName            -- only used within appmods
                 deriving (Show, Eq, Ord)
+
+-- Module Body Data
+type ExprList = [E.TopLet DesId]
+
+-- | ExprMap is the basic collection of expressions that make up a module
+type ExprMap a = OrdMap.OrdMap (E.Bind a) (E.TopLet a)
+
+-- | FunArgs are the list of module parameters, and thier required signatures, for a functor application
+-- is initially populated with just the modname/args by the parser, then filled with sigMaps during type-checking
+type FunArgs = OrdMap.OrdMap ModName SigMap
 
 -- | Metadata regarding a module
 data ModData = ModData  { modSig :: SigMap, modTMap :: TypeMap, modIdBimap :: IdBimap, modFreeId :: Maybe Id
@@ -87,33 +91,43 @@ type SigMap = Map.Map SrcId E.Type
 type TypeMap = Map.Map Id E.Type -- maybe switch to IntMap?
 
 
+getIdType :: Module Id -> SrcId -> MExcept E.Type
+getIdType mod v = maybeToExcept (Map.lookup v sigMap) $ printf "Binding %s not found in module" (show v)
+  where
+    sigMap = case mod of
+        LitMod _ modData      -> modSig modData
+        FunctorMod _ _ modData  -> modSig modData
+        otherwise             -> Map.empty -- seems a bit hacky?
+
+
+-- Module Environments -------------------------------------------------------------------------------------------------
+
 -- | Global module env, a miror of the mod URI strcuture, first indexed by the modRoot,
 -- then the modName, returning the individual module after
 type GlobalModEnv = Map.Map ModRoot FileData
 
--- | Local module env, used to hold modules currently accessible in scope
--- Module environment the run-time envirmornet used to create models and start simulations, holds the current results from interpreting the module system
-type LocalModEnv = Map.Map ModName (Module Id)
+-- | File module env, used to hold modules currently avialable at the file level
+type FileModEnv = Map.Map ModName (Module Id)
 
+-- | Import map holds the modules imported by a file/module, and in scope
 type ImportMap = Map.Map ModName ModFullName
 
-
--- | Metadata regarding a file (we treat the console env as a special file)
-data FileData = FileData { fileImportMap :: ImportMap, fileModEnv :: LocalModEnv } deriving (Show, Eq)
+-- | Metadata regarding a file (we treat the console/REPL env as a special in-memory file)
+data FileData = FileData { fileImportMap :: ImportMap, fileModEnv :: FileModEnv } deriving (Show, Eq)
 
 mkFileData = FileData Map.empty Map.empty
 
--- ModEnv helper functions
 -- | Retreive a module from the global modEnv
-getGlobalMod :: GlobalModEnv -> ModFullName -> MExcept (Module Id)
-getGlobalMod modEnv modFullName =
-    maybeToExcept mMod $ "Module " ++ show modFullName ++ " not found or currently loaded"
+-- ModEnv helper functions
+getGlobalMod :: ModFullName -> GlobalModEnv -> MExcept (Module Id)
+getGlobalMod modFullName gModEnv =
+    maybeToExcept mMod $ "Referenced module " ++ show modFullName ++ " not found or currently loaded in global envirnoment"
   where
     -- fullName = mkModFullName (Just modRoot) modName
     (mModRoot, modName) = splitModFullName modFullName
     mMod = do
         modRoot <- mModRoot
-        fileData <- Map.lookup modRoot modEnv
+        fileData <- Map.lookup modRoot gModEnv
         Map.lookup modName (fileModEnv fileData)
 
 -- | Returns the filedata for a particvular modroot
@@ -124,10 +138,8 @@ getFileData modEnv modRoot = maybeToExcept (Map.lookup modRoot modEnv) $ "Module
 getCreateFileData :: GlobalModEnv -> ModRoot -> FileData
 getCreateFileData modEnv modRoot = Map.findWithDefault mkFileData modRoot modEnv
 
---getFileModEnv :: GlobalModEnv -> ModRoot -> FileData
---getFileModEnv
 
-
+-- Misc Functions ------------------------------------------------------------------------------------------------------
 
 -- need to put more helper functions here
 -- for instance functions to union two exprMaps, modules, remap ids, etc.

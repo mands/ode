@@ -2,11 +2,8 @@ import RepoTest.*
 // import RepoTest.A
 
 module A {
-  val y = 2
+  import RepoTest.A
+  
+  val y = 2 + A.x
 }
-
-// now test usage...
-module B = A
-
-
 

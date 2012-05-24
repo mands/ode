@@ -48,29 +48,35 @@ import Lang.Core.Validator (validate)
 import Lang.Core.TypeChecker
 
 
--- a basic interpreter over the set of module types, interpres the modules with regards tro the moduleenv
-evalModDef :: LocalModEnv -> Module DesId -> MExcept (Module Id)
-evalModDef modEnv mod@(LitMod _ _) = do
+-- Evaluate Module Defintions ------------------------------------------------------------------------------------------
+
+-- a basic interpreter over the set of module types, interpres the modules with regards to the moduleenv
+evalModDef :: GlobalModEnv -> FileData -> Module DesId -> MExcept (Module Id)
+evalModDef gModEnv fileData mod@(LitMod _ _) = do
     -- reorder, rename and typecheck the expressinons within module, adding to the module metadata
     -- mod' <- validate >=> reorder >=> rename >=> typeCheck $ mod
-    mod' <- validate >=> rename >=> typeCheck $ mod
+
+    -- TODO - these require gModEnv for in-module import lookups
+    (gModEnv', mod') <- validate >=> rename >=> typeCheck $ (gModEnv, mod)
     return mod'
 
-evalModDef modEnv mod@(FunctorMod _ _ _) = do
+evalModDef gModEnv fileData mod@(FunctorMod _ _ _) = do
     -- reorder, rename and typecheck the expressinons within functor module, adding to the module metadata
     -- mod' <- validate >=> reorder >=> rename >=> typeCheck $ mod
-    mod' <- validate >=> rename >=> typeCheck $ mod
+    (gModEnv', mod') <- validate >=> rename >=> typeCheck $ (gModEnv, mod)
     return mod'
 
--- TODO - this should look in the global modEnv too
--- simply lookup the id within the env and return the module
-evalModDef modEnv mod@(VarMod modId) = case (Map.lookup modName modEnv) of
-    Just mod -> return mod
-    Nothing -> throwError $ "(MD07) - Referenced module " ++ (show modId) ++ " not found in envirnoment"
-  where
-    (_, modName) = splitModFullName modId
+-- TODO - is this correct - shuold look at the file ImportMap right??
+-- simply looks up the id within both the file and then global env and return the module if found
+evalModDef gModEnv fileData mod@(VarMod modFullName) = undefined
+--    case (Map.lookup modName fModEnv) of
+--        Just mod    -> return mod
+--        Nothing     -> getGlobalMod modFullName gModEnv
+--  where
+--    (_, modName) = splitModFullName modFullName
+--    fModEnv = fileModEnv fileData
 
-evalModDef modEnv mod@(AppMod fModId argMods) = do
+evalModDef gModEnv fileData mod@(AppMod fModId argMods) = do
     -- need to check that the application is valid, if so then create a new module
     -- involves several steps with specialised pipeline operations
 
@@ -87,7 +93,7 @@ evalModDef modEnv mod@(AppMod fModId argMods) = do
     let mod' = applyFunctor fMod' appModEnv'
     return $ mod'
   where
-
+    modEnv = undefined -- TODO update
     -- lookup/evaluate the functor and params, dynamically type-check
     eFMod :: MExcept (Module Id)
     eFMod = case (Map.lookup fModId modEnv) of
@@ -102,19 +108,22 @@ evalModDef modEnv mod@(AppMod fModId argMods) = do
     eArgMods = DT.mapM interpretArgs argMods
       where
         interpretArgs argMod = do
-            mod <- evalModDef modEnv argMod
+            mod <- evalModDef gModEnv fileData argMod
             case mod of
                 (LitMod _ _) -> return mod
                 _ -> throwError ("(MD03) - Module argument to functor " ++ show fModId ++ " is not a literal module")
 
     -- rename the argMods according to pos/ create a new modenv to evalulate the applciation within
-    getAppModEnv :: Module Id -> [Module Id] -> MExcept LocalModEnv
+    getAppModEnv :: Module Id -> [Module Id] -> MExcept FileModEnv
     getAppModEnv (FunctorMod funArgs _ _) argMods = if (OrdMap.size funArgs == length argMods)
         then return (Map.fromList $ zip (OrdMap.keys funArgs) argMods)
         else throwError "(MD05) - Wrong number of arguments for functor application"
 
+
+-- Functor Application Helper Funcs ------------------------------------------------------------------------------------
+
 -- actually evaluate the functor applciation, similar to evaluation of function application
-applyFunctor :: Module Id -> LocalModEnv -> Module Id
+applyFunctor :: Module Id -> FileModEnv -> Module Id
 applyFunctor fMod@(FunctorMod fArgs fExprMap fModData) modEnv = resMod
   where
     -- best way to do this, create an empty lit mod, and add to it all the data by folding over the modEnv

@@ -13,6 +13,8 @@
 -- It also checks for all vlaue declarations, unused values, undefined values, and so on
 -- Can, but currently doesn't, issue errors due to user defined model
 --
+-- Auxillary Checks Performed
+-- * Referenced (local) binding does exist (within cur scope)
 -----------------------------------------------------------------------------
 
 {-# LANGUAGE GeneralizedNewtypeDeriving, TypeSynonymInstances #-}
@@ -26,7 +28,6 @@ import qualified Data.Foldable as DF
 import qualified Data.Traversable as DT
 import qualified Data.Bimap as Bimap
 
-import Debug.Trace -- love this shit!
 import Control.Monad
 import Control.Monad.State
 import Control.Monad.Error
@@ -56,18 +57,18 @@ instance Applicative IdSupply where
     (<*>) = ap
 
 -- | Main rename function, takes a model bound by Ids and returns a single-scoped model bound by unique ints
-rename :: M.Module E.DesId -> MExcept (M.Module E.Id)
-rename (M.LitMod exprMap modData) = trace ("(RN) " ++ (show res)) (Right res)
+rename :: (M.GlobalModEnv, M.Module E.DesId) -> MExcept (M.GlobalModEnv, M.Module E.Id)
+rename (gModEnv, mod@(M.LitMod exprMap modData)) = trace' [MkSB (show mod')] "Renamer" (return $ (gModEnv, mod'))
   where
     (exprMap', topBinds, freeId) = renTop exprMap
     modData' = updateModData modData topBinds freeId
-    res = (M.LitMod exprMap' modData')
+    mod' = (M.LitMod exprMap' modData')
 
-rename (M.FunctorMod args exprMap modData) = trace ("(RN) " ++ (show res)) (Right res)
+rename (gModEnv, mod@(M.FunctorMod args exprMap modData)) = trace' [MkSB (show mod')] "Renamer" (return $ (gModEnv, mod'))
   where
     (exprMap', topBinds, freeId) = renTop exprMap
     modData' = updateModData modData topBinds freeId
-    res = (M.FunctorMod args exprMap' modData')
+    mod' = (M.FunctorMod args exprMap' modData')
 
 -- | Update the module data with the idBimap and next free id
 updateModData :: M.ModData ->  BindMap -> E.Id -> M.ModData
@@ -76,7 +77,7 @@ updateModData modData bMap freeId = modData { M.modIdBimap = idBimap', M.modFree
     -- TODO - quick hack to convert
     idBimap = Bimap.fromList $ Map.toList bMap
     -- should never fail
-    idBimap' = if (Bimap.valid idBimap) then idBimap else error "DUMP - invalid bimap!"
+    idBimap' = if (Bimap.valid idBimap) then idBimap else errorDump [MkSB idBimap] "Invalid bimap!"
 
 -- |Need to build a conversion map of the top values first
 renTop :: M.ExprMap E.DesId -> (M.ExprMap E.Id, BindMap, E.Id)

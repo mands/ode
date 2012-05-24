@@ -32,7 +32,6 @@ import qualified System.Directory as Dir
 
 import System.Console.Shell
 import System.Console.Shell.ShellMonad
--- import System.Console.Shell.Backend.Readline
 import System.Console.Shell.Backend.Haskeline
 import Utils.ShellHandleBackend
 import UI.SysState

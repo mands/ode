@@ -56,12 +56,14 @@ evalTopElems :: (SysState, FileData) -> OdeTopElem DesId -> MExceptIO (SysState,
 evalTopElems (st, fd) topMod@(TopModDef modRoot modName mod) = do
     checkName
     (st', mod') <- processModImports -- import any ref'd modules here first
-    mod'' <- mkExceptIO $ evalModDef modEnv mod' -- eval the actual mod def
-    return $ (st', fd { fileModEnv = Map.insert modName mod'' modEnv }) -- insert the module into the file mod env
+    mod'' <- mkExceptIO $ evalModDef (stGlobalModEnv st) fd mod' -- eval the actual mod def, need to pass global and file modEnvs
+
+    -- TODO - do we add to globalmodenv here too, so subsequent modules within file can access this module ??
+    return $ (st', fd { fileModEnv = Map.insert modName mod'' (fileModEnv fd) }) -- insert the module into the file mod env
   where
-    modEnv = fileModEnv fd
-    -- check if module already exists
-    checkName = if Map.member modName modEnv then throwError ("(MD06) - Module with name " ++ (show modName) ++ " already defined") else pure ()
+    modEnv = fileModEnv fd -- we use the filemodEnv
+    -- check if module already exists in fileModEnv
+    checkName = if Map.member modName (fileModEnv fd) then throwError ("(MD06) - Module with name " ++ (show modName) ++ " already defined") else pure ()
 
     -- TODO - should this be here or in evalModDef?
     -- use importList to then process imports for the module and create an import map, can then validate/typecheck/etc. against it
@@ -74,8 +76,7 @@ evalTopElems (st, fd) topMod@(TopModDef modRoot modName mod) = do
         -- evalImport wrapper for modData
         processModImports' :: ModData -> MExceptIO (SysState, ModData)
         processModImports' modData =
-            mapSnd <$> pure (\importMap -> modData { modImportMap = importMap }) <*> DF.foldlM evalImport (st, Map.empty) (modImportCmds modData)
-
+            mapSnd <$> pure (\importMap -> modData { modImportMap = importMap, modImportCmds = [] }) <*> DF.foldlM evalImport (st, Map.empty) (modImportCmds modData)
 
 -- top import, called from REPL or within a file
 evalTopElems (st, fd) (TopModImport importCmd@(ModImport modRoot mMods)) =

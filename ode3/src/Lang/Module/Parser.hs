@@ -119,7 +119,7 @@ moduleCmd = modCmdParse
     moduleAppParams = procParams <$> singModId <*> optionMaybe (paramList moduleAppParams)
       where
         -- need to desugar into nested set of appMods and varMods
-        procParams modId Nothing = VarMod (mkModFullName Nothing modId)
+        procParams modId Nothing = VarMod modId
         procParams funcId (Just args) = AppMod funcId args
 
 -- | module definitions, either an entire definition/abstraction or an application - only used from files
