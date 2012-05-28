@@ -57,9 +57,7 @@ evalTopElems (st, fd) topMod@(TopModDef modRoot modName mod) = do
     checkName
     (st', mod') <- processModImports -- import any ref'd modules here first
     mod'' <- mkExceptIO $ evalModDef (stGlobalModEnv st) fd mod' -- eval the actual mod def, need to pass global and file modEnvs
-
-    -- TODO - do we add to globalmodenv here too, so subsequent modules within file can access this module ??
-    return $ (st', fd { fileModEnv = Map.insert modName mod'' (fileModEnv fd) }) -- insert the module into the file mod env
+    return $ updateState st' fd mod'' -- insert the module into the file mod env
   where
     modEnv = fileModEnv fd -- we use the filemodEnv
     -- check if module already exists in fileModEnv
@@ -77,6 +75,13 @@ evalTopElems (st, fd) topMod@(TopModDef modRoot modName mod) = do
         processModImports' :: ModData -> MExceptIO (SysState, ModData)
         processModImports' modData =
             mapSnd <$> pure (\importMap -> modData { modImportMap = importMap, modImportCmds = [] }) <*> DF.foldlM evalImport (st, Map.empty) (modImportCmds modData)
+
+    -- add to both fileData and globalmodenv, so subsequent modules within file can access this module
+    updateState :: SysState -> FileData -> Module Id -> (SysState, FileData)
+    updateState st fd mod = (st', fd')
+      where
+        fd' = fd { fileModEnv = Map.insert modName mod (fileModEnv fd) }
+        st' = st { stGlobalModEnv = Map.insert modRoot fd (stGlobalModEnv st) }
 
 -- top import, called from REPL or within a file
 evalTopElems (st, fd) (TopModImport importCmd@(ModImport modRoot mMods)) =

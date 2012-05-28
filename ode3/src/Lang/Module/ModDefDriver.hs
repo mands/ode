@@ -32,6 +32,7 @@ import qualified Data.List as List
 import qualified Data.List.Split as ListSplit
 import qualified Data.Bimap as Bimap
 import Data.Maybe (isJust, fromJust)
+import Text.Printf (printf)
 
 import qualified Utils.OrdMap as OrdMap
 import qualified Utils.OrdSet as OrdSet
@@ -66,16 +67,19 @@ evalModDef gModEnv fileData mod@(FunctorMod _ _ _) = do
     (gModEnv', mod') <- validate >=> rename >=> typeCheck $ (gModEnv, mod)
     return mod'
 
--- TODO - is this correct - shuold look at the file ImportMap right??
 -- simply looks up the id within both the file and then global env and return the module if found
-evalModDef gModEnv fileData mod@(VarMod modFullName) = undefined
---    case (Map.lookup modName fModEnv) of
---        Just mod    -> return mod
---        Nothing     -> getGlobalMod modFullName gModEnv
---  where
---    (_, modName) = splitModFullName modFullName
---    fModEnv = fileModEnv fileData
+evalModDef gModEnv fileData mod@(VarMod modName) = do
+    case (Map.lookup modName fModEnv) of -- look locally within fModEnv first
+        Just mod    -> return mod
+        Nothing     -> eModFullName >>= (\modFullName -> getGlobalMod modFullName gModEnv) -- if not local, check imnports and gModEnv
 
+  where
+    fModEnv = fileModEnv fileData
+    fImportMap = fileImportMap fileData
+    eModFullName = maybeToExcept (Map.lookup modName fImportMap) $ printf "Module %s not imported within file" (show modName)
+
+
+-- TODO - need to update to not actually apply the functor, just link and update the module sigMap
 evalModDef gModEnv fileData mod@(AppMod fModId argMods) = do
     -- need to check that the application is valid, if so then create a new module
     -- involves several steps with specialised pipeline operations
@@ -90,8 +94,9 @@ evalModDef gModEnv fileData mod@(AppMod fModId argMods) = do
     fMod <- eFMod
     appModEnv <- (getAppModEnv fMod) =<< eArgMods
     (fMod', appModEnv') <- typeCheckApp fMod appModEnv
-    let mod' = applyFunctor fMod' appModEnv'
-    return $ mod'
+    -- let mod' = applyFunctor fMod' appModEnv'
+    -- return $ mod'
+    return fMod'
   where
     modEnv = undefined -- TODO update
     -- lookup/evaluate the functor and params, dynamically type-check
@@ -121,6 +126,7 @@ evalModDef gModEnv fileData mod@(AppMod fModId argMods) = do
 
 
 -- Functor Application Helper Funcs ------------------------------------------------------------------------------------
+-- TODO - utilise this code later when we unfold all modules into a single block of code
 
 -- actually evaluate the functor applciation, similar to evaluation of function application
 applyFunctor :: Module Id -> FileModEnv -> Module Id

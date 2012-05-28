@@ -29,6 +29,7 @@ import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import qualified Data.Foldable as DF
 import qualified Data.Traversable as DT
+import Control.Applicative
 import Control.Monad
 import Control.Monad.State
 import Control.Monad.Error
@@ -53,7 +54,7 @@ type TypeVarEnv = Map.Map E.Id E.Type
 type ModTypeEnv = Map.Map (E.VarId E.Id) E.Type
 
 type TypeCons   = Set.Set (E.Type, E.Type)
-type TypeConsM  = SupplyT Int (State TypeCons)
+type TypeConsM  = SupplyT Int (StateT TypeCons MExcept)
 
 -- Main Interface ------------------------------------------------------------------------------------------------------
 
@@ -61,7 +62,7 @@ type TypeConsM  = SupplyT Int (State TypeCons)
 
 typeCheck :: (M.GlobalModEnv, M.Module E.Id) -> MExcept (M.GlobalModEnv, M.Module E.Id)
 typeCheck (gModEnv, mod@(M.LitMod exprMap modData)) = do
-    let ((tEnv, mTEnv), tCons) = constrain gModEnv (M.modImportMap modData) Nothing exprMap
+    ((tEnv, mTEnv), tCons) <- constrain gModEnv (M.modImportMap modData) Nothing exprMap
     -- unify the types and get the new typemap
     tVarMap <- unify tCons
     -- substitute to obtain the new type env
@@ -71,7 +72,7 @@ typeCheck (gModEnv, mod@(M.LitMod exprMap modData)) = do
     return $ (gModEnv, M.LitMod (trace ("(TC) " ++ show exprMap) exprMap) modData')
 
 typeCheck (gModEnv, mod@(M.FunctorMod args exprMap modData)) = do
-    let ((tEnv, mTEnv), tCons) = constrain gModEnv (M.modImportMap modData) (Just args) exprMap
+    ((tEnv, mTEnv), tCons) <- constrain gModEnv (M.modImportMap modData) (Just args) exprMap
     -- unify the types and get the new typemap
     tVarMap <- unify tCons
     -- substitute to obtain the new type env
@@ -156,12 +157,13 @@ subTVars tEnv tVarMap allowPoly = DT.mapM (\t -> E.travTypesM t updateType) tEnv
 
 addConstraint :: E.Type -> E.Type -> TypeConsM ()
 addConstraint t1 t2 = do
-    tS <- lift get
+    tS <- lift $ get
     let tS' = Set.insert (t1, t2) tS
     lift $ put tS'
 
 newTypevar :: TypeConsM E.Type
-newTypevar = liftM E.TVar supply
+newTypevar = E.TVar <$> supply
+
 
 -- | Adds a set of constraints for linking a multibind to a TVar
 multiBindConstraint :: E.Bind Int -> E.Type -> TypeEnv -> TypeConsM TypeEnv
@@ -173,9 +175,47 @@ multiBindConstraint (E.Bind bs) t tEnv = do
     -- add the tvars to the type map
     DF.foldlM (\tEnv (b, bT) -> return $ Map.insert b bT tEnv) tEnv (zip bs bTs)
 
+-- | Obtains the type of a modVar reference, either from a fucntor or imported module if not
+-- In the case of a functor, first it checks that the mod arg name is valid param,
+-- if so then check if the type is already created, if not create a newTypeVar that we can constrain later
+-- For in-module import, cheks the moduile has been imported, and then returns the fixed type of the reference
+-- TODO - tidy up
+getMVarType :: M.GlobalModEnv ->  M.ImportMap -> Maybe (M.FunArgs) -> ModTypeEnv -> E.VarId E.Id -> TypeConsM (E.Type, ModTypeEnv)
+getMVarType gModEnv importMap mFuncArgs mTEnv mv@(E.ModVar m v) =
+    case mFuncArgs of
+        Nothing         -> eImport -- is in-module import only
+        Just funcArgs   -> maybe eImport id (eFunctor funcArgs) -- check funcArgs first, failing that then in-module import
+      where
+        eImport :: TypeConsM (E.Type, ModTypeEnv)
+        eImport = case eImport' of
+            Left err    -> lift . lift $ throwError err
+            Right res   -> return res
 
-constrain :: M.GlobalModEnv ->  M.ImportMap -> Maybe (M.FunArgs) -> M.ExprMap Int -> ((TypeEnv, ModTypeEnv), TypeCons)
-constrain gModEnv importMap mFuncArgs exprMap = runState (evalSupplyT consM [1..]) (Set.empty)
+        eImport' :: MExcept (E.Type, ModTypeEnv)
+        eImport' = do
+            -- if in-module import, get modFullName from modlevel importMap
+            -- (look in fileModEnv too?)
+            modFullName <- maybeToExcept (Map.lookup m importMap) $ printf "Unknown reference to module %s (maybe missing an import/module argument)" (show m)
+            -- look in global modEnv
+            impMod <- M.getGlobalMod modFullName gModEnv
+            -- if not found, raise error, else copy type into mTEnv
+            eT <- M.getIdType impMod v
+            return $ (eT, Map.insert mv eT mTEnv)
+
+        -- tries to lookup the type in the functor args, if not
+        eFunctor :: M.FunArgs -> Maybe (TypeConsM (E.Type, ModTypeEnv))
+        eFunctor funcArgs = do
+            -- does the mod name exist in functor's arg list
+            case (OrdMap.lookup m funcArgs) of
+                Nothing -> Nothing
+                Just _ -> Just $ do
+                    -- if so, then if v already exists get the type, else create a newtvar and add to the mTEnv
+                    eT <- if (Map.member mv mTEnv) then return (mTEnv Map.! mv) else newTypevar
+                    return $ (eT, Map.insert mv eT mTEnv)
+
+
+constrain :: M.GlobalModEnv ->  M.ImportMap -> Maybe (M.FunArgs) -> M.ExprMap Int -> MExcept ((TypeEnv, ModTypeEnv), TypeCons)
+constrain gModEnv importMap mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]) (Set.empty)
   where
     consM :: TypeConsM (TypeEnv, ModTypeEnv)
     consM = DF.foldlM consTop (Map.empty, Map.empty) (OrdMap.elems exprMap)
@@ -203,41 +243,12 @@ constrain gModEnv importMap mFuncArgs exprMap = runState (evalSupplyT consM [1..
     consExpr :: TypeEnv -> ModTypeEnv -> E.Expr E.Id -> TypeConsM (E.Type, TypeEnv, ModTypeEnv)
     consExpr tEnv mTEnv (E.Var (E.LocalVar v)) = return $ (tEnv Map.! v, tEnv, mTEnv)
 
-    -- TODO - tidy up
-    -- need to look in a separate map here that adds the value on first lookup
+
+    -- need to obtain the type of the module ref, either from functor or imported mod, creting a newTVar if needed
     consExpr tEnv mTEnv (E.Var mv@(E.ModVar m v)) = do
-        (eT, mTEnv') <- case mFuncArgs of
-                            Nothing         -> eImport -- is in-module import only
-                            Just funcArgs   -> maybe eImport id (eFunctor funcArgs) -- check funcArgs first, failing that then in-module import
+        (eT, mTEnv') <- getMVarType gModEnv importMap mFuncArgs mTEnv mv
         -- general ret
         return $ (eT, tEnv, mTEnv')
-      where
-        eImport :: TypeConsM (E.Type, ModTypeEnv)
-        eImport = case eImport' of
-            Left err    -> errorDump [MkSB err] "Fix to Error Monad" undefined
-            Right res   -> return res
-
-        eImport' :: MExcept (E.Type, ModTypeEnv)
-        eImport' = do
-            -- if in-module import, get modFullName from modlevel importMap
-            -- (look in fileModEnv too?)
-            modFullName <- maybeToExcept (Map.lookup m importMap) $ printf "Unknown reference to module %s (maybe missing an import/module argument)" (show m)
-            -- look in global modEnv
-            impMod <- M.getGlobalMod modFullName gModEnv
-            -- if not found, raise error, else copy type into mTEnv
-            eT <- M.getIdType impMod v
-            return $ (eT, Map.insert mv eT mTEnv)
-
-        -- tries to lookup the type in the functor args, if not
-        eFunctor :: M.FunArgs -> Maybe (TypeConsM (E.Type, ModTypeEnv))
-        eFunctor funcArgs = do
-            -- does the mod name exist in functor's arg list
-            case (OrdMap.lookup m funcArgs) of
-                Nothing -> Nothing
-                Just _ -> Just $ do
-                    -- if so, then if v already exists get the type, else create a newtvar and add to the mTEnv
-                    eT <- if (Map.member mv mTEnv) then return (mTEnv Map.! mv) else newTypevar
-                    return $ (eT, Map.insert mv eT mTEnv)
 
     consExpr tEnv mTEnv (E.Lit l) = return $ (getLitType l, tEnv, mTEnv)
 
@@ -253,16 +264,14 @@ constrain gModEnv importMap mFuncArgs exprMap = runState (evalSupplyT consM [1..
 
     -- TODO - is this right?!
     consExpr tEnv mTEnv (E.App mv@(E.ModVar m v) e) = do
-        -- similar to var - check if the type is already created, if not create a newTypeVar that
-        -- we can constrain later
-        fT <- if (Map.member mv mTEnv) then return (mTEnv Map.! mv) else newTypevar
-        -- TODO - want to create and add in same step
-        let mTEnv' = Map.insert mv fT mTEnv
-
+        -- similar to Var
+        (fT, mTEnv') <- getMVarType gModEnv importMap mFuncArgs mTEnv mv
+        -- app type logic
         -- get the type of the expression
         (eT, tEnv', mTEnv'') <- consExpr tEnv mTEnv' e
         toT <- newTypevar
-        -- add constraint
+        -- add constraint -- we constrain fT as (fT1->fT2) to eT->newTypeVar,
+        -- rather than unpacking fT, constraining (fT1,eT) and returning fT2 - is simpler as newTypeVar will resolve to fT2 anyway
         addConstraint fT (E.TArr eT toT)
         return (toT, tEnv', mTEnv'')
 
