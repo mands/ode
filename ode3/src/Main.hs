@@ -38,7 +38,7 @@ main = do
     --updateGlobalLogger rootLoggerName (setHandlers [streamlogger, filelogger])
     updateGlobalLogger rootLoggerName (setHandlers [streamlogger])
 
-    -- some debug stuff
+    -- some debug stuffOd
     progName <- getProgName
     debugM "ode3.main" $ "Hello from " ++ progName ++ "!"
     curDir <- getCurrentDirectory

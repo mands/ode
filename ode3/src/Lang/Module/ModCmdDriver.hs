@@ -115,7 +115,7 @@ evalImport (st, importMap) importCmd@(ModImport modRoot _) = do
 addImportsToMap :: SysState -> ImportMap -> ModImport -> MExcept ImportMap
 addImportsToMap st importMap (ModImport modRoot mMods) = do
     -- get list of modules of imported file
-    importedModEnv <- fileModEnv <$> getFileData (stGlobalModEnv st) modRoot
+    importedModEnv <- fileModEnv <$> getFileData modRoot (stGlobalModEnv st)
     -- update the cur fd import map with those from the imported modules
     DF.foldlM (addImport importedModEnv) importMap (modList importedModEnv)
     -- return $ fd { fileImportMap = importMap }
@@ -136,7 +136,7 @@ loadImport st modRoot = do
     -- update parsed files cache
     let st' = st { stParsedFiles = Set.insert modRoot (stParsedFiles st) }
     -- create a new fileData to store the metadata
-    let fileData = mkFileData
+    let fileData = mkFileData modRoot
     -- process the file, having reset the local modEnv
     -- now we're ready to process the elems contained within the file, i.e imports, mod defs, etc. using the local env
     (st'', fileData') <- DF.foldlM evalTopElems (st', fileData) fileElems

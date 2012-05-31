@@ -18,7 +18,9 @@ module Lang.Module.AST (
 OdeTopElem(..), ModImport(..),
 ExprMap, ExprList, FunArgs,
 Module(..),
-GlobalModEnv, FileModEnv, FileData(..), mkFileData, getGlobalMod, getFileData, ImportMap, getIdType,
+GlobalModEnv, FileModEnv, LocalModEnv, FileData(..), mkFileData,
+getRealModuleMod, getModuleMod, getRealModuleFile, getModuleFile, getModuleGlobal,
+getFileData, ImportMap, getIdType,
 ModData(..), mkModData, SigMap, TypeMap, IdBimap, debugModuleExpr,
 ) where
 
@@ -32,6 +34,7 @@ import qualified Data.Set as Set
 import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Bimap as Bimap
+import Data.Maybe (fromJust)
 import Text.Printf (printf)
 
 
@@ -77,11 +80,11 @@ type FunArgs = OrdMap.OrdMap ModName SigMap
 
 -- | Metadata regarding a module
 data ModData = ModData  { modSig :: SigMap, modTMap :: TypeMap, modIdBimap :: IdBimap, modFreeId :: Maybe Id
-                        , modImportMap :: ImportMap, modImportCmds :: [ModImport]
-                        , modExprList :: ExprList
+                        , modImportMap :: ImportMap, modLocalModEnv :: LocalModEnv
+                        , modImportCmds :: [ModImport], modExprList :: ExprList
                         } deriving (Show, Eq, Ord)
 
-mkModData = ModData Map.empty Map.empty Bimap.empty Nothing Map.empty [] []
+mkModData = ModData Map.empty Map.empty Bimap.empty Nothing Map.empty Map.empty [] []
 
 -- | bidirectional map between internal ids and source ids for all visible/top-level defined vars
 type IdBimap = Bimap.Bimap SrcId Id
@@ -91,8 +94,8 @@ type SigMap = Map.Map SrcId E.Type
 type TypeMap = Map.Map Id E.Type -- maybe switch to IntMap?
 
 
-getIdType :: Module Id -> SrcId -> MExcept E.Type
-getIdType mod v = maybeToExcept (Map.lookup v sigMap) $ printf "Binding %s not found in module" (show v)
+getIdType :: SrcId -> Module Id -> MExcept E.Type
+getIdType v mod = maybeToExcept (Map.lookup v sigMap) $ printf "Binding %s not found in module" (show v)
   where
     sigMap = case mod of
         LitMod _ modData      -> modSig modData
@@ -107,20 +110,127 @@ getIdType mod v = maybeToExcept (Map.lookup v sigMap) $ printf "Binding %s not f
 type GlobalModEnv = Map.Map ModRoot FileData
 
 -- | File module env, used to hold modules currently avialable at the file level
-type FileModEnv = Map.Map ModName (Module Id)
+type LocalModEnv = Map.Map ModName (Module Id)
+type FileModEnv = LocalModEnv
 
 -- | Import map holds the modules imported by a file/module, and in scope
 type ImportMap = Map.Map ModName ModFullName
 
 -- | Metadata regarding a file (we treat the console/REPL env as a special in-memory file)
-data FileData = FileData { fileImportMap :: ImportMap, fileModEnv :: FileModEnv } deriving (Show, Eq)
+-- we store the fileRoot as well as is needed for modules to know their own location/path
+data FileData = FileData { fileImportMap :: ImportMap, fileModEnv :: FileModEnv, fileModRoot :: ModRoot } deriving (Show, Eq)
 
+-- | Makes an empty fileData object, requires a ModRoot
 mkFileData = FileData Map.empty Map.empty
+
+-- Module Lookups ------------------------------------------------------------------------------------------------------
+-- TODO - clean this whole section up!!
+
+-- keep following VarMods within modEnvs until we find a lit/func module
+getRealModuleMod :: ModName -> ModData -> GlobalModEnv ->  MExcept (Maybe ModFullName, Module Id)
+getRealModuleMod modName modData gModEnv = do
+    modRes <- getModuleMod modName modData gModEnv
+    getRealModule' modRes Nothing gModEnv
+
+--    case modRes of
+--        (Nothing, VarMod varModName) -> errorDump [MkSB varModName] "Found a varMod inside a internal mod env"
+--        (Just modFullName, VarMod varModName) -> mapFst <$> pure Just <*> processVarRef modFullName varModName
+--        otherwise -> return modRes
+--  where
+--    processVarRef origModFullName varModName = do
+--        -- use origModFullName to get the newly referenced fileData
+--        let (mModRoot, modName) = splitModFullName origModFullName
+--        case mModRoot of
+--            Nothing -> errorDump [MkSB modName, MkSB varModName] "Got a ref to a file-module from within a mod-module"
+--            Just modRoot -> getFileData modRoot gModEnv >>= (\fileData -> getRealModuleFile varModName fileData gModEnv)
+
+-- keep following VarMods within modEnvs until we find a lit/func module
+getRealModuleFile :: ModName -> FileData -> GlobalModEnv ->  MExcept (ModFullName, Module Id)
+getRealModuleFile modName fileData gModEnv = do
+    modRes@(modFullName, mod) <- getModuleFile modName fileData gModEnv
+    mapFst <$> pure fromJust <*> getRealModule' (Just modFullName, mod) (Just fileData) gModEnv
+
+--
+--    case mod of
+--        VarMod varModName -> processVarRef modFullName varModName
+--        otherwise -> return modRes
+--  where
+--    processVarRef origModFullName varModName = do
+--        -- use origModFullName to get the newly referenced fileData
+--        let (mModRoot, modName) = splitModFullName origModFullName
+--        case mModRoot of
+--            Nothing -> getRealModuleFile varModName fileData gModEnv -- ref is in the same file
+--            Just modRoot -> getFileData modRoot gModEnv >>= (\fileData -> getRealModuleFile varModName fileData gModEnv)
+
+-- | An internal wrapper around the getModule functions that follows VarRefs recursively until an actual Lit/Func module is found
+-- Can be used for File/Module envs
+getRealModule' ::  (Maybe ModFullName, Module Id) -> Maybe FileData -> GlobalModEnv ->  MExcept (Maybe ModFullName, Module Id)
+getRealModule' modRes@(mModFullName, mod) mFileData gModEnv =
+    case modRes of
+        (Nothing, VarMod varModName) -> errorDump [MkSB varModName] "Found a varMod without a corresponding modRoot - can't resolve"
+        (Just modFullName, VarMod varModName) -> mapFst <$> pure Just <*> processVarRef modFullName varModName
+        otherwise -> return modRes
+  where
+    processVarRef origModFullName varModName = do
+        -- use origModFullName to get the newly referenced fileData
+        let (mModRoot, modName) = splitModFullName origModFullName
+        case (mModRoot, mFileData) of
+            (Nothing, Nothing) -> errorDump [MkSB modName, MkSB varModName] "Got a ref to a file-module from within a mod-module"
+            (Nothing, Just fileData) -> getRealModuleFile varModName fileData gModEnv -- ref is in the same file
+            (Just modRoot, _) -> getFileData modRoot gModEnv >>= (\fileData -> getRealModuleFile varModName fileData gModEnv)
+
+
+-- | Top level function that resolves a module lookup at the module and global level,
+-- (NOTE - this does not look at the file-level, instead assume that all file-level refs,
+-- including within a file, can be resolved using full-name within global env)
+getModuleMod :: ModName -> ModData -> GlobalModEnv -> MExcept (Maybe ModFullName, Module Id)
+getModuleMod modName modData gModEnv = getModule' modName mModEnv Nothing mImportMap gModEnv
+--    case (Map.lookup modName mModEnv) of
+--        Just mod -> return (Nothing, mod)
+--        Nothing -> do
+--            modFullName <- eModFullName
+--            -- look in global modEnv
+--            mod <- getModuleGlobal modFullName gModEnv
+--            return (Just modFullName, mod)
+  where
+    mModEnv = modLocalModEnv modData
+    mImportMap = modImportMap modData
+--    eModFullName = maybeToExcept (Map.lookup modName mImportMap) $ printf "Unknown reference to module %s within module (maybe missing an import/module argument)" (show modName)
+
+-- | Top level function that resolves a module lookup at the file and global level,
+-- looks first in the local file env, the globalenv using importlist
+-- returns the full modname and the module itself, where the fullname may point to the same initial filedata
+getModuleFile :: ModName -> FileData -> GlobalModEnv -> MExcept (ModFullName, Module Id)
+getModuleFile modName fileData gModEnv = mapFst <$> pure fromJust <*> getModule' modName fModEnv mFModRoot fImportMap gModEnv
+--    case (Map.lookup modName fModEnv) of -- look locally within fModEnv first
+--        Just mod    -> return (mkModFullName (Just $ fileModRoot fileData) modName, mod)
+--        Nothing     -> do
+--            modFullName <- eModFullName
+--            mod <- getModuleGlobal modFullName gModEnv
+--            return (modFullName, mod) -- if not local, check imnports and gModEnv
+  where
+    fModEnv = fileModEnv fileData
+    fImportMap = fileImportMap fileData
+    mFModRoot = Just $ fileModRoot fileData
+--    eModFullName = maybeToExcept (Map.lookup modName fImportMap) $ printf "Unknown reference to module %s within file (maybe missing an import)" (show modName)
+
+-- | An internal function that takes a mod name, a local env and import map (both either mod/file level), and the global env and reolves the lookup
+-- returns both the module and, if available, the modules fully qualified name
+getModule' :: ModName -> LocalModEnv -> Maybe ModRoot -> ImportMap -> GlobalModEnv -> MExcept (Maybe ModFullName, Module Id)
+getModule' modName modEnv mModRoot importMap gModEnv =
+    case (Map.lookup modName modEnv) of -- look locally within fModEnv first
+        -- we only return a modfullname if it makes sense - i.e. is linked to a file root
+        Just mod    -> return $ maybe (Nothing, mod) (\modRoot -> (Just $ mkModFullName (Just modRoot) modName, mod)) mModRoot
+        Nothing     -> do
+            modFullName <- maybeToExcept (Map.lookup modName importMap) $ printf "Unknown reference to module %s within file (maybe missing an import)" (show modName)
+            mod <- getModuleGlobal modFullName gModEnv
+            return (Just modFullName, mod) -- if not local, check imnports and gModEnv
+
 
 -- | Retreive a module from the global modEnv
 -- ModEnv helper functions
-getGlobalMod :: ModFullName -> GlobalModEnv -> MExcept (Module Id)
-getGlobalMod modFullName gModEnv =
+getModuleGlobal :: ModFullName -> GlobalModEnv -> MExcept (Module Id)
+getModuleGlobal modFullName gModEnv =
     maybeToExcept mMod $ "Referenced module " ++ show modFullName ++ " not found or currently loaded in global envirnoment"
   where
     -- fullName = mkModFullName (Just modRoot) modName
@@ -131,12 +241,12 @@ getGlobalMod modFullName gModEnv =
         Map.lookup modName (fileModEnv fileData)
 
 -- | Returns the filedata for a particvular modroot
-getFileData :: GlobalModEnv -> ModRoot -> MExcept FileData
-getFileData modEnv modRoot = maybeToExcept (Map.lookup modRoot modEnv) $ "Module root " ++ show modRoot ++ " not found or currently loaded"
+getFileData :: ModRoot -> GlobalModEnv -> MExcept FileData
+getFileData modRoot modEnv = maybeToExcept (Map.lookup modRoot modEnv) $ "Module root " ++ show modRoot ++ " not found or currently loaded"
 
 -- | Returns the filedata for a particvular modroot, if it doesn't exist then one is created
-getCreateFileData :: GlobalModEnv -> ModRoot -> FileData
-getCreateFileData modEnv modRoot = Map.findWithDefault mkFileData modRoot modEnv
+getCreateFileData :: ModRoot -> GlobalModEnv -> FileData
+getCreateFileData modRoot modEnv = Map.findWithDefault (mkFileData $ mkModRoot ["<empty>"]) modRoot modEnv
 
 
 -- Misc Functions ------------------------------------------------------------------------------------------------------
@@ -165,9 +275,8 @@ instance (Show a) => PrettyPrint (Module a) where
 
 -- show the module signature
 instance PrettyPrint (ModData) where
-    prettyPrint (ModData sig _ _ _ _ _ _) = show sig
+    prettyPrint mod = show $ modSig mod
 
 instance PrettyPrint FunArgs where
     prettyPrint funArgs = List.intercalate "," $ List.map (\(m, sig) -> show m ++ " :: {" ++ show sig ++ "}") (OrdMap.toList funArgs)
-
 

@@ -20,7 +20,7 @@
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
 
 module Lang.Core.TypeChecker (
-typeCheck, typeCheckApp, TypeVarEnv, TypeCons, unify
+typeCheck -- , typeCheckApp, TypeVarEnv, TypeCons, unify
 ) where
 
 import qualified Data.Map as Map
@@ -62,7 +62,7 @@ type TypeConsM  = SupplyT Int (StateT TypeCons MExcept)
 
 typeCheck :: (M.GlobalModEnv, M.Module E.Id) -> MExcept (M.GlobalModEnv, M.Module E.Id)
 typeCheck (gModEnv, mod@(M.LitMod exprMap modData)) = do
-    ((tEnv, mTEnv), tCons) <- constrain gModEnv (M.modImportMap modData) Nothing exprMap
+    ((tEnv, mTEnv), tCons) <- constrain gModEnv modData Nothing exprMap
     -- unify the types and get the new typemap
     tVarMap <- unify tCons
     -- substitute to obtain the new type env
@@ -72,7 +72,7 @@ typeCheck (gModEnv, mod@(M.LitMod exprMap modData)) = do
     return $ (gModEnv, M.LitMod (trace ("(TC) " ++ show exprMap) exprMap) modData')
 
 typeCheck (gModEnv, mod@(M.FunctorMod args exprMap modData)) = do
-    ((tEnv, mTEnv), tCons) <- constrain gModEnv (M.modImportMap modData) (Just args) exprMap
+    ((tEnv, mTEnv), tCons) <- constrain gModEnv modData (Just args) exprMap
     -- unify the types and get the new typemap
     tVarMap <- unify tCons
     -- substitute to obtain the new type env
@@ -92,42 +92,44 @@ typeCheck (gModEnv, mod@(M.FunctorMod args exprMap modData)) = do
             updateModArgs modMap = Just (Map.insert v t modMap)
 
 -- takes the funcModule, an closed enviroment of the module args,
-typeCheckApp :: M.Module E.Id -> M.FileModEnv ->  MExcept (M.Module E.Id, M.FileModEnv)
-typeCheckApp fMod@(M.FunctorMod funArgs _ _) modEnv = do
-    -- get the complete typevar map for an application
-    tCons <- DF.foldlM constrainSigs Set.empty (OrdMap.toList funArgs)
-    tVarMap <- unify tCons
-    fMod' <- updateMod tVarMap fMod
-    modEnv' <- DT.mapM (updateMod tVarMap) modEnv
-    return (fMod', modEnv')
-  where
-    -- take a single mod arg for the functor, compare the sig with the one for the id within the modEnv,
-    -- add all sigs to the typeCons via a foldr
-    constrainSigs :: TypeCons -> (ModName, M.SigMap) -> MExcept TypeCons
-    constrainSigs typeCons (funcArgId, funcArgSig) = DF.foldrM compareTypes typeCons (Map.toList funcArgSig)
-      where
-        -- the module referenced by the arg
-        argMod@(M.LitMod _ argModData) = modEnv Map.! funcArgId
-        -- comparing the types for each binding by adding to the typeconstraint set
-        compareTypes (b,tFunc) typeCons = typeCons'
-          where
-            typeCons' = case (Map.lookup b (M.modSig argModData)) of
-                Just tArg -> Right $ Set.insert (tFunc, tArg) typeCons
-                Nothing -> throwError $ "(MO05) - Invalid functor signature, cannot find ref " ++ show b ++ " in module argument" ++ show funcArgId
-
-    -- update a module based on the new type information
-    updateMod :: TypeEnv -> M.Module E.Id -> MExcept (M.Module E.Id)
-    updateMod tVarMap (M.LitMod exprMap modData) = do
-        tEnv' <- subTVars (M.modTMap modData) tVarMap False
-        let modData' = updateModData modData tEnv'
-        return $ M.LitMod exprMap modData'
-
-    updateMod tVarMap (M.FunctorMod args exprMap modData) = do
-        tEnv' <- subTVars (M.modTMap modData) tVarMap False
-        let modData' = updateModData modData tEnv'
-        -- create the new funArgs based on the new tVarMap
-        args' <- DT.mapM (\idMap -> subTVars idMap tVarMap False) args
-        return $ M.FunctorMod args' exprMap modData'
+--typeCheckApp :: M.Module E.Id -> M.FileModEnv ->  MExcept (M.Module E.Id, M.FileModEnv)
+--typeCheckApp fMod@(M.FunctorMod funArgs _ _) modEnv = do
+--    -- get the complete typevar map for an application, create a new set of constraints based on the requried and given mod sigs
+--    tCons <- DF.foldlM constrainSigs Set.empty (OrdMap.toList funArgs)
+--    -- unify these constraints and create a new type sub map
+--    tVarMap <- unify tCons
+--    -- update the module with new type submap
+--    fMod' <- updateMod tVarMap fMod
+--    modEnv' <- DT.mapM (updateMod tVarMap) modEnv
+--    return (fMod', modEnv')
+--  where
+--    -- take a single mod arg for the functor, compare the expected sig with the actual one for the id within the modEnv,
+--    -- add all sigs to the typeCons via a foldr
+--    constrainSigs :: TypeCons -> (ModName, M.SigMap) -> MExcept TypeCons
+--    constrainSigs typeCons (funcArgId, funcArgSig) = DF.foldrM compareTypes typeCons (Map.toList funcArgSig)
+--      where
+--        -- the module referenced by the arg
+--        argMod@(M.LitMod _ argModData) = modEnv Map.! funcArgId
+--        -- comparing the types for each binding by adding to the typeconstraint set
+--        compareTypes (b,tFunc) typeCons = typeCons'
+--          where
+--            typeCons' = case (Map.lookup b (M.modSig argModData)) of
+--                Just tArg -> Right $ Set.insert (tFunc, tArg) typeCons
+--                Nothing -> throwError $ "(MO05) - Invalid functor signature, cannot find ref " ++ show b ++ " in module argument" ++ show funcArgId
+--
+--    -- update a module based on the new/more-complete type map - substitutiong tVars for concrete types
+--    updateMod :: TypeEnv -> M.Module E.Id -> MExcept (M.Module E.Id)
+--    updateMod tVarMap (M.LitMod exprMap modData) = do
+--        tEnv' <- subTVars (M.modTMap modData) tVarMap False
+--        let modData' = updateModData modData tEnv'
+--        return $ M.LitMod exprMap modData'
+--
+--    updateMod tVarMap (M.FunctorMod args exprMap modData) = do
+--        tEnv' <- subTVars (M.modTMap modData) tVarMap False
+--        let modData' = updateModData modData tEnv'
+--        -- create the new funArgs based on the new tVarMap
+--        args' <- DT.mapM (\idMap -> subTVars idMap tVarMap False) args
+--        return $ M.FunctorMod args' exprMap modData'
 
 
 -- | Update the module data with the public module signature and internal typemap
@@ -180,8 +182,8 @@ multiBindConstraint (E.Bind bs) t tEnv = do
 -- if so then check if the type is already created, if not create a newTypeVar that we can constrain later
 -- For in-module import, cheks the moduile has been imported, and then returns the fixed type of the reference
 -- TODO - tidy up
-getMVarType :: M.GlobalModEnv ->  M.ImportMap -> Maybe (M.FunArgs) -> ModTypeEnv -> E.VarId E.Id -> TypeConsM (E.Type, ModTypeEnv)
-getMVarType gModEnv importMap mFuncArgs mTEnv mv@(E.ModVar m v) =
+getMVarType :: M.GlobalModEnv ->  M.ModData -> Maybe (M.FunArgs) -> ModTypeEnv -> E.VarId E.Id -> TypeConsM (E.Type, ModTypeEnv)
+getMVarType gModEnv modData mFuncArgs mTEnv mv@(E.ModVar m v) =
     case mFuncArgs of
         Nothing         -> eImport -- is in-module import only
         Just funcArgs   -> maybe eImport id (eFunctor funcArgs) -- check funcArgs first, failing that then in-module import
@@ -193,13 +195,10 @@ getMVarType gModEnv importMap mFuncArgs mTEnv mv@(E.ModVar m v) =
 
         eImport' :: MExcept (E.Type, ModTypeEnv)
         eImport' = do
-            -- if in-module import, get modFullName from modlevel importMap
-            -- (look in fileModEnv too?)
-            modFullName <- maybeToExcept (Map.lookup m importMap) $ printf "Unknown reference to module %s (maybe missing an import/module argument)" (show m)
-            -- look in global modEnv
-            impMod <- M.getGlobalMod modFullName gModEnv
-            -- if not found, raise error, else copy type into mTEnv
-            eT <- M.getIdType impMod v
+            -- look in all module-level repos
+            (_, impMod) <- M.getRealModuleMod m modData gModEnv
+            -- if not found, raise error, el\se copy type into mTEnv
+            eT <- M.getIdType v impMod
             return $ (eT, Map.insert mv eT mTEnv)
 
         -- tries to lookup the type in the functor args, if not
@@ -214,8 +213,8 @@ getMVarType gModEnv importMap mFuncArgs mTEnv mv@(E.ModVar m v) =
                     return $ (eT, Map.insert mv eT mTEnv)
 
 
-constrain :: M.GlobalModEnv ->  M.ImportMap -> Maybe (M.FunArgs) -> M.ExprMap Int -> MExcept ((TypeEnv, ModTypeEnv), TypeCons)
-constrain gModEnv importMap mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]) (Set.empty)
+constrain :: M.GlobalModEnv ->  M.ModData -> Maybe (M.FunArgs) -> M.ExprMap Int -> MExcept ((TypeEnv, ModTypeEnv), TypeCons)
+constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]) (Set.empty)
   where
     consM :: TypeConsM (TypeEnv, ModTypeEnv)
     consM = DF.foldlM consTop (Map.empty, Map.empty) (OrdMap.elems exprMap)
@@ -246,7 +245,7 @@ constrain gModEnv importMap mFuncArgs exprMap = runStateT (evalSupplyT consM [1.
 
     -- need to obtain the type of the module ref, either from functor or imported mod, creting a newTVar if needed
     consExpr tEnv mTEnv (E.Var mv@(E.ModVar m v)) = do
-        (eT, mTEnv') <- getMVarType gModEnv importMap mFuncArgs mTEnv mv
+        (eT, mTEnv') <- getMVarType gModEnv modData mFuncArgs mTEnv mv
         -- general ret
         return $ (eT, tEnv, mTEnv')
 
@@ -265,7 +264,7 @@ constrain gModEnv importMap mFuncArgs exprMap = runStateT (evalSupplyT consM [1.
     -- TODO - is this right?!
     consExpr tEnv mTEnv (E.App mv@(E.ModVar m v) e) = do
         -- similar to Var
-        (fT, mTEnv') <- getMVarType gModEnv importMap mFuncArgs mTEnv mv
+        (fT, mTEnv') <- getMVarType gModEnv modData mFuncArgs mTEnv mv
         -- app type logic
         -- get the type of the expression
         (eT, tEnv', mTEnv'') <- consExpr tEnv mTEnv' e

@@ -46,7 +46,7 @@ import Lang.Core.AST
 --import Core.Reorderer (reorder)
 import Lang.Core.Renamer (rename)
 import Lang.Core.Validator (validate)
-import Lang.Core.TypeChecker
+import Lang.Core.TypeChecker (typeCheck)
 
 
 -- Evaluate Module Defintions ------------------------------------------------------------------------------------------
@@ -68,61 +68,97 @@ evalModDef gModEnv fileData mod@(FunctorMod _ _ _) = do
     return mod'
 
 -- simply looks up the id within both the file and then global env and return the module if found
-evalModDef gModEnv fileData mod@(VarMod modName) = do
-    case (Map.lookup modName fModEnv) of -- look locally within fModEnv first
-        Just mod    -> return mod
-        Nothing     -> eModFullName >>= (\modFullName -> getGlobalMod modFullName gModEnv) -- if not local, check imnports and gModEnv
-
-  where
-    fModEnv = fileModEnv fileData
-    fImportMap = fileImportMap fileData
-    eModFullName = maybeToExcept (Map.lookup modName fImportMap) $ printf "Module %s not imported within file" (show modName)
-
+evalModDef gModEnv fileData mod@(VarMod modName) = snd <$> getModuleFile modName fileData gModEnv
 
 -- TODO - need to update to not actually apply the functor, just link and update the module sigMap
-evalModDef gModEnv fileData mod@(AppMod fModId argMods) = do
+-- we use an App to convert a Functor Mod eith programmable imports into a Lit mod
+-- where VarMod args are converted to explicit imports, and in-line apps to an internal modEnv (as not used elsewhere)
+evalModDef gModEnv fileData mod@(AppMod fModId modArgs) = do
     -- need to check that the application is valid, if so then create a new module
     -- involves several steps with specialised pipeline operations
 
     -- reorder - place the expressions from args ahead of thos withing the func module
     -- renaming, use the free vars to deteermine a safe renaimg scheme
     -- typecheck, check the args are valid, then typecheck the signatures, using the same alogirthm as typechecking an app
-    --  within an expression, run the same cosntain algorithm, then matchup the sigs
+    -- within an expression, run the same constraint algorithm, then matchup the sigs
 
     -- order is, args/sig check, typecheck, rename, reorder
     -- should return a new closed module that can be reused later on
-    fMod <- eFMod
-    appModEnv <- (getAppModEnv fMod) =<< eArgMods
-    (fMod', appModEnv') <- typeCheckApp fMod appModEnv
+    fMod@(FunctorMod fArgs fExprMap fModData) <- eFMod
+    (importMap, modEnv) <- processFArgs fArgs
+
+    -- appModEnv <- (getAppModEnv fMod) =<< eModArgs
+    -- (fMod', appModEnv') <- typeCheckApp fMod appModEnv
     -- let mod' = applyFunctor fMod' appModEnv'
     -- return $ mod'
-    return fMod'
+
+    -- now 'eval' the fMod into an lMod using the new modData
+    let lMod = LitMod fExprMap (updateModData fModData importMap modEnv)
+    -- typcheck the application of args to the functor, get a new sigMap and typeMap
+    (gModEnv', lMod') <- typeCheck (gModEnv, lMod)
+    return lMod'
   where
-    modEnv = undefined -- TODO update
     -- lookup/evaluate the functor and params, dynamically type-check
     eFMod :: MExcept (Module Id)
-    eFMod = case (Map.lookup fModId modEnv) of
-        Just mod -> case mod of
+    eFMod = do
+        (_, mod) <- getModuleFile fModId fileData gModEnv -- may need getRealModule here?
+        case mod of
             (FunctorMod _ _ _) -> return mod
-            _ -> throwError ("(MD01) - Module " ++ show fModId ++ " is not a functor")
-        Nothing -> throwError ("(MD02) - Functor module " ++ show fModId ++ " not found")
+            _ -> throwError $ printf "(MD01) - Module %s is not a functor" (show fModId)
 
     -- interpret the args, either eval inline apps or lookup
     -- map and sequence thru interpretation of the args, using the same env
-    eArgMods :: MExcept [Module Id]
-    eArgMods = DT.mapM interpretArgs argMods
-      where
-        interpretArgs argMod = do
-            mod <- evalModDef gModEnv fileData argMod
-            case mod of
-                (LitMod _ _) -> return mod
-                _ -> throwError ("(MD03) - Module argument to functor " ++ show fModId ++ " is not a literal module")
 
-    -- rename the argMods according to pos/ create a new modenv to evalulate the applciation within
-    getAppModEnv :: Module Id -> [Module Id] -> MExcept FileModEnv
-    getAppModEnv (FunctorMod funArgs _ _) argMods = if (OrdMap.size funArgs == length argMods)
-        then return (Map.fromList $ zip (OrdMap.keys funArgs) argMods)
-        else throwError "(MD05) - Wrong number of arguments for functor application"
+--    eModArgs :: MExcept [Module Id]
+--    eModArgs = DT.mapM interpretArgs modArgs
+--      where
+--        interpretArgs argMod = do
+--            mod <- evalModDef gModEnv fileData argMod
+--            case mod of
+--                (LitMod _ _) -> return mod -- should always return a list of litmods
+--                _ -> throwError $ printf "(MD03) - Module argument to functor %s is not a literal module" (show fModId)
+--
+--    -- rename the argMods according to pos/create a new modenv to evalulate the applciation within
+--    getAppModEnv :: Module Id -> [Module Id] -> MExcept LocalModEnv
+--    getAppModEnv (FunctorMod funArgs _ _) argMods = if (OrdMap.size funArgs == length argMods)
+--        then return (Map.fromList $ zip (OrdMap.keys funArgs) argMods)
+--        else throwError "(MD05) - Wrong number of arguments for functor application"
+
+    -- create the new moddata for the module, i.e. convert the func args into explict imports/attached-modules
+    processFArgs :: FunArgs -> MExcept (ImportMap, LocalModEnv)
+    processFArgs funArgs = do
+        modArgs <- eModArgs
+        DF.foldlM interpretArgs (Map.empty, Map.empty) modArgs
+      where
+        -- need to convert the var mod into an importMap ref of the correct type
+        interpretArgs (importMap, modEnv) (argName, mod@(VarMod modName)) = do
+            -- need to look up within file
+            (modFullName, _) <- getRealModuleFile modName fileData gModEnv
+            -- now add modName->modFullName to importMap
+            return (Map.insert modName modFullName importMap, modEnv)
+          where
+            fModEnv = fileModEnv fileData
+            fImportMap = fileImportMap fileData
+
+        -- need eval the Argmod into a LitMod, then add directly into the localModEnv
+        interpretArgs (importMap, modEnv) (argName, mod@(AppMod modName modArgs)) = do
+            -- eval the Appmod
+            mod <- evalModDef gModEnv fileData mod
+            -- now insert the litmod into local modEnv using the arg name
+            return (importMap, Map.insert argName mod modEnv)
+
+        interpretArgs _ (name, mod) = errorDump [MkSB name, MkSB mod] "Incorrect mod type found as functor arg" -- bomb out, should never happen
+
+        -- an assocList of the (modName/argName, mod) for particular functor
+        eModArgs = if (OrdMap.size funArgs == length modArgs)
+            then return $ zip (OrdMap.keys funArgs) modArgs
+            else throwError $ printf "(MD05) - Wrong number of arguments for functor application, expected %d, got %d" (OrdMap.size funArgs) (length modArgs)
+
+    updateModData :: ModData -> ImportMap -> LocalModEnv -> ModData
+    updateModData fModData importMap modModEnv =
+        fModData    { modImportMap = Map.union importMap (modImportMap fModData) -- functor imports take precedence
+                    , modLocalModEnv = modModEnv
+                    }
 
 
 -- Functor Application Helper Funcs ------------------------------------------------------------------------------------

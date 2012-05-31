@@ -56,7 +56,7 @@ defSysState = SysState   { stDebug = False
                         , stRepos = OrdSet.empty           -- do we add the defaults here?
                         , stGlobalModEnv = Map.empty -- map of loaded modules
                         , stParsedFiles = Set.empty
-                        , stLocalFile = MA.mkFileData
+                        , stLocalFile = MA.mkFileData (mkModRoot ["<console>"])
                         }
 
 mkDefSysState :: IO SysState

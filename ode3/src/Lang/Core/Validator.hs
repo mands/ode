@@ -75,7 +75,6 @@ validExpr curBinds (E.Abs b e) = validExpr curBinds e
 validExpr curBinds (E.Let s (E.Bind bs) e1 e2) = do
     curBinds' <- DF.foldlM addBinding curBinds bs
     (validExpr Set.empty e1) *> (validExpr curBinds' e2)
-  where
 
 validExpr curBinds (E.Op op e) = validExpr curBinds e
 validExpr curBinds (E.If eB eT eF) = (validExpr curBinds eB) *> (validExpr curBinds eT) *> (validExpr curBinds eF)
