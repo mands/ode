@@ -15,8 +15,8 @@
 module Lang.Common.AST (
     NumTy, UntypedId, Id,
     SrcId, UnitT, DesId,
-    ModURIElems, ModRoot(..), ModName(..), ModFullName,
-    mkModRoot, mkModFullName,splitModFullName
+    ModURIElems, ModRoot, ModName(..), ModFullName(..),
+    mkModRoot, getModRootStr, mkModFullName,splitModFullName
 ) where
 
 import qualified Data.List as List
@@ -49,7 +49,12 @@ type ModURIElems = [String]
 -- ModRoot - a dot-notation root name
 newtype ModRoot = ModRoot String deriving (Show, Eq, Ord)
 newtype ModName = ModName String deriving (Show, Eq, Ord)
-newtype ModFullName = ModFullName String deriving (Show, Eq, Ord)
+-- newtype ModFullName = ModFullName String deriving (Show, Eq, Ord)
+
+-- implies a reolved module name that may either be fully-revoled, or a local ref to a file/mod env
+data ModFullName   = ModFullName ModRoot ModName
+                   | ModLocalName ModName
+                   deriving (Show, Eq, Ord)
 
 -- data ModImport = ModImport String (Maybe String) deriving (Show, Eq, Ord)
 
@@ -58,17 +63,24 @@ newtype ModFullName = ModFullName String deriving (Show, Eq, Ord)
 mkModRoot :: ModURIElems -> ModRoot
 mkModRoot = ModRoot . List.intercalate "."
 
--- | takes a list of URI elems and modulename into a dot-notation
-mkModFullName :: Maybe ModRoot -> ModName -> ModFullName
-mkModFullName (Just (ModRoot modURI)) (ModName shortName) = ModFullName $ modURI ++ "." ++ shortName
-mkModFullName Nothing (ModName shortName) = ModFullName $ shortName
+getModRootStr :: ModRoot -> String
+getModRootStr (ModRoot rootStr) = rootStr
 
-splitModFullName :: ModFullName -> (Maybe ModRoot, ModName)
-splitModFullName (ModFullName fullName) = if length elems == 1 then (Nothing, modName) else (Just modRoot, modName)
-  where
-    elems = ListSplit.splitOn "." fullName
-    modRoot = mkModRoot $ List.init elems
-    modName = ModName $ List.last elems
+-- | takes a list of URI elems and modulename into a dot-notation
+mkModFullName :: ModRoot -> ModName -> ModFullName
+mkModFullName = ModFullName
+--
+--mkModFullName (Just (ModRoot modURI)) (ModName shortName) = ModFullName $ modURI ++ "." ++ shortName
+--mkModFullName Nothing (ModName shortName) = ModFullName $ shortName
+
+splitModFullName :: ModFullName -> (ModRoot, ModName)
+splitModFullName (ModFullName root name) = (root, name)
+
+--splitModFullName (ModFullName fullName) = if length elems == 1 then (Nothing, modName) else (Just modRoot, modName)
+--  where
+--    elems = ListSplit.splitOn "." fullName
+--    modRoot = mkModRoot $ List.init elems
+--    modName = ModName $ List.last elems
 
 
 

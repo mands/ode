@@ -125,7 +125,7 @@ addImportsToMap st importMap (ModImport modRoot mMods) = do
     -- create an import ref for the given modName, with potential alias
     addImport importedModEnv impMap (modName, mAlias) =
         if Map.member modName importedModEnv
-            then return $ Map.insert (maybe modName id mAlias) (mkModFullName (Just modRoot) modName) impMap
+            then return $ Map.insert (maybe modName id mAlias) (ModFullName modRoot modName) impMap
             else throwError $ "Imported module " ++ show modName ++ " not found in " ++ show modRoot
 
 -- | High level fuction to load a module specified by ModRoot and process it according to the Glboal state
@@ -176,6 +176,6 @@ loadModFile st modRoot = do
 -- | Takes a string representing the module URI and returns the path and module name
 -- i.e. W.X.Y.Z -> (W/X/Y, Z)
 uriToFilePath :: ModRoot -> FilePath
-uriToFilePath (ModRoot modRoot) = (FP.makeValid . FP.normalise . FP.joinPath $ modElems) FP.<.> "od3"
+uriToFilePath modRoot = (FP.makeValid . FP.normalise . FP.joinPath $ modElems) FP.<.> "od3"
   where
-    modElems = ListSplit.splitOn "." modRoot
+    modElems = ListSplit.splitOn "." (getModRootStr modRoot)
