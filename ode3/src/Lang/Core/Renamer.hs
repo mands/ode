@@ -17,7 +17,7 @@
 -- * Referenced (local) binding does exist (within cur scope)
 -----------------------------------------------------------------------------
 
-{-# LANGUAGE GeneralizedNewtypeDeriving, TypeSynonymInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, TypeSynonymInstances, FlexibleInstances #-}
 
 module Lang.Core.Renamer (
 rename

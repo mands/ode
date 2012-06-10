@@ -84,9 +84,9 @@ evalTopElems (st, fd) topMod@(TopModDef modRoot modName mod) = do
         st' = st { stGlobalModEnv = Map.insert modRoot fd (stGlobalModEnv st) }
 
 -- top import, called from REPL or within a file
-evalTopElems (st, fd) (TopModImport importCmd@(ModImport modRoot mMods)) =
-    mapSnd <$> pure (\importMap -> fd {fileImportMap = importMap }) <*> evalImport (st, (fileImportMap fd)) importCmd
-
+evalTopElems (st, fd) (TopModImport importCmd@(ModImport modRoot mMods)) = do
+    (st', importMap) <- evalImport (st, (fileImportMap fd)) importCmd
+    return (st', fd {fileImportMap = importMap })
 
 -- Module Importing Evaluation -----------------------------------------------------------------------------------------
 

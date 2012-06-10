@@ -14,7 +14,7 @@
 -- however, due to bindings we need
 -----------------------------------------------------------------------------
 
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Lang.Ode.Desugarer (
 desugarMod

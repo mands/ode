@@ -32,7 +32,9 @@ import qualified System.Directory as Dir
 
 import System.Console.Shell
 import System.Console.Shell.ShellMonad
-import System.Console.Shell.Backend.Haskeline
+-- import System.Console.Shell.Backend.Haskeline
+-- import System.Console.Shell.Backend.Editline
+import System.Console.Shell.Backend.Readline
 import Utils.ShellHandleBackend
 import UI.SysState
 
@@ -53,7 +55,7 @@ shellEntry = do
     if argsLen == 0
       then do
         debugM "ode3.shell" "Using Featured Shell Backend"
-        st' <- runShell (initShellDesc) (haskelineBackend) initSysState
+        st' <- runShell (initShellDesc) (readlineBackend) initSysState
         putStrLn $ show st'
       else do
         debugM "ode3.shell" "Using Basic Handle Backend"
