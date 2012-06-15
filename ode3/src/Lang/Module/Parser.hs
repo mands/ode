@@ -31,6 +31,7 @@ import qualified Data.Bimap as Bimap
 import qualified Utils.OrdMap as OrdMap
 
 import Text.Parsec hiding (many, optional, (<|>))
+import Text.Printf (printf)
 
 import Utils.Utils
 import Lang.Common.Parser
@@ -39,15 +40,8 @@ import Lang.Common.AST
 import Lang.Module.AST
 import qualified Lang.Ode.AST as O
 import qualified Lang.Core.AST as E
-import Lang.Ode.Desugarer (desugarMod)
+import Lang.Ode.Desugarer
 
-
--- | lexeme parser for module identifier, return a list of module URI elements
-modIdentifier :: Parser ModURIElems
-modIdentifier = lexeme $ upperIdentifier `sepBy` (char '.')
-
-singModId :: Parser ModName
-singModId = ModName <$> lexeme upperIdentifier
 
 
 -- | consoleParse parses a string given on the console command line, restricuted to moduleCmds only
@@ -75,35 +69,6 @@ fileParse fileName fileData modRoot = case runParser parser () fileName fileData
 
 topModImport = TopModImport <$> importCmd
 
--- | commands to import modules into the system, either globally or within module
-importCmd :: Parser ModImport
-importCmd = try importAll
-            <|> importSing
-  where
-    -- need a monad, not applicative, to modify the state
-    importAll = do
-        modRoot <- mkModRoot <$> (reserved "import" *> modPathImportAll)
-        -- addImport modRoot
-        return $ ModImport modRoot Nothing
-
-    modPathImportAll :: Parser ModURIElems
-    modPathImportAll = lexeme $ upperIdentifier `sepEndBy` (char '.') <* (char '*')
-
-    importSing = do
-        modURI <- (reserved "import" *> modPathImport)
-        mAlias <- optionMaybe (reserved "as" *> singModId)
-        let modRoot = mkModRoot $ List.init modURI
-        -- addImport modRoot
-        return $ ModImport modRoot (Just [(ModName $ List.last modURI, mAlias)])
-
-    -- | lexeme parser for a module string in dot notation
-    modPathImport :: Parser ModURIElems
-    modPathImport = lexeme $ upperIdentifier `sepBy1` (char '.')
-
-    -- add modURI to set
-    -- addImport modURI = modifyState (\s -> s { stImports = Set.insert modURI (stImports s) } )
-
-
 -- | modules commands, used to import and setup alias - used from console and files, both at top-level and within module?
 moduleCmd :: Parser (OdeTopElem E.DesId)
 moduleCmd = modCmdParse
@@ -130,15 +95,18 @@ moduleDef modRoot = TopModDef <$> pure modRoot <*> (reserved "module" *> singMod
                 <|> LitMod <$> pure OrdMap.empty <*> modData
                 <?> "module definition"
 
-    modData = modBody >>= (\(importCmds, exprList) -> return $ mkModData { modImportCmds = importCmds, modExprList = exprList })
+    modData = do
+        DesugarModData exprList q u importCmds <- modBody
+        return $ mkModData { modImportCmds = importCmds, modExprList = exprList, modQuantities = q, modUnits = u }
 
     funcArgs args = OrdMap.fromList $ map (\arg -> (arg, Map.empty)) args
 
     -- | parses a Ode list of statements within module body, and automatically desugars into Core-lang
-    modBody :: Parser ([ModImport], ExprList)
+    modBody :: Parser DesugarModData
     modBody = do
         -- parse the module imports here
-        (imports, modElems) <- braces ((,) <$> many importCmd <*> many1 OP.odeStmt)
-        case desugarMod modElems of
-            Left err -> unexpected "Unexpected error desugaring Ode into Core"
-            Right exprList -> return (imports, exprList)
+        -- (imports, modElems) <- braces ((,) <$> many importCmd <*> )
+        odeStmts <- many1 OP.odeStmt
+        case desugarOde odeStmts of
+            Left err -> unexpected $ printf "Unexpected error whilst desugaring Ode into Core, \n%s" (show err)
+            Right desugarModData -> return desugarModData

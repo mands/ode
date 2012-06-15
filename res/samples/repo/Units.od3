@@ -1,0 +1,39 @@
+module A {
+  // basic quantity def in terms of a dimension
+  quantity speed = Dim LT-1
+  quantity length = Dim L
+  
+
+  // poss units
+  baseunit m {SI:True} :: Dim L
+  unit m {type: Base, SI:True} :: Dim L
+  unit m.s-1 {type: Derived } //infer the Dim, ( :: Dim L/T )
+
+
+  // base units
+  unit m :: Dim L
+  unit ft :: Dim L
+
+  // derived units
+  unit m.s-1 // auto infer :: Dim L/T
+
+  // base units w/ SI auto-creation
+  unit m {SI:True} :: Dim L
+  unit ft {SI:False} :: Dim L
+
+  // complex derived
+  unit s-1 // or 1/s
+  // unit 1 :: Dim Z
+
+}
+
+module B {
+  quantity length {dim : L}
+  
+  unit m {SI:True, dim : L}
+  unit ft {SI:False, dim : L}
+
+  unit m.s-1 {alias : mps, base : False}
+
+}
+

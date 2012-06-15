@@ -23,12 +23,14 @@ import qualified Text.Parsec.Token as T
 -- import Text.Parsec.String
 import qualified Data.Set as Set
 import qualified Data.Map as Map
+import qualified Data.List as List
 import qualified Lang.Module.AST as MA
 import Lang.Common.AST
 
 type Parser = Parsec String ()
 
--- Default Parser style
+-- Default Parser style ------------------------------------------------------------------------------------------------
+
 -- | hijack the javaStyle default definition, gives us a bunch of ready-made parsers/behaviours
 commonLangDef = javaStyle
     {
@@ -42,7 +44,9 @@ commonLangDef = javaStyle
                             "ode", "delta",
                             "rre", "reaction", "rate",
                             "default",
-                            "True", "False", "time"
+                            "True", "False", "time",
+                            -- units lang
+                            "quantity", "dim", "unit", "SI", "alias"
                             -- ion...implemented externally
                             ],
 
@@ -52,13 +56,16 @@ commonLangDef = javaStyle
         T.reservedOpNames = ["=", "=>", "()", "_",
                             "*", "/", "%", "+", "-",
                             "<", "<=", ">", ">=", "==", "!=",
-                            "&&", "||", "!", "and", "or", "not"
+                            "&&", "||", "!", "and", "or", "not",
+                            "::"
                             ],
         T.caseSensitive = True
     }
 
 lexer :: T.TokenParser ()
 lexer  = T.makeTokenParser commonLangDef
+
+-- Shared Lexical Combinators ------------------------------------------------------------------------------------------
 
 -- For efficiency, we will bind all the used lexical parsers at toplevel.
 whiteSpace  = T.whiteSpace lexer
@@ -81,26 +88,6 @@ braces      = T.braces lexer
 brackets    = T.brackets lexer
 dot         = T.dot lexer
 
--- |number parser, parses most formats
-number :: Parser Double
-number =    try float
-            <|> fromIntegral <$> integer
-            <?> "number"
-
--- | boolean parser, parses a case-sensitive, boolean literal
-boolean :: Parser Bool
-boolean =  reserved "True" *> pure True
-            <|> reserved "False"  *> pure False
-            <?> "boolean"
-
--- | time term, is a special identifier
-time :: Parser ()
-time = reserved "time" *> pure ()
-
--- | unit term, is a special identifier
-unit :: Parser ()
-unit = reservedOp "()" *> pure ()
-
 -- | parses a upper case identifier
 upperIdentifier :: Parser String
 upperIdentifier = (:) <$> upper <*> many alphaNum <?> "capitalised identifier"
@@ -108,18 +95,41 @@ upperIdentifier = (:) <$> upper <*> many alphaNum <?> "capitalised identifier"
 -- | comma sepated parameter list of any parser, e.g. (a,b,c)
 paramList = parens . commaSep1
 
--- | tuple, requires at least two values, comma separated
-tuple :: Parser a -> Parser [a]
-tuple p = parens $ (:) <$> (p <* comma) <*> commaSep1 p
 
--- | used to parse a single element by itself, a, or contained eithin a comma-sep list, (a,...)
-singOrList :: Parser a -> Parser [a]
-singOrList p = try ((\p -> p:[]) <$> (p))
-                <|> paramList p
-                <?> "single element or list"
+-- Shared Module Parsers -----------------------------------------------------------------------------------------------
 
--- |a parameterised single attribute parser for a given attribute identifier
--- TODO - fix the comma separated list of attribute, commaSep?
--- attrib :: String -> Parser String
-attrib res p = reserved res *> colon *> p <* optional comma
+-- | lexeme parser for module identifier, return a list of module URI elements
+modIdentifier :: Parser ModURIElems
+modIdentifier = lexeme $ upperIdentifier `sepBy` (char '.')
+
+singModId :: Parser ModName
+singModId = ModName <$> lexeme upperIdentifier
+
+-- | commands to import modules into the system, either globally or within module
+importCmd :: Parser ModImport
+importCmd = try importAll
+            <|> importSing
+  where
+    -- need a monad, not applicative, to modify the state
+    importAll = do
+        modRoot <- mkModRoot <$> (reserved "import" *> modPathImportAll)
+        -- addImport modRoot
+        return $ ModImport modRoot Nothing
+
+    modPathImportAll :: Parser ModURIElems
+    modPathImportAll = lexeme $ upperIdentifier `sepEndBy` (char '.') <* (char '*')
+
+    importSing = do
+        modURI <- (reserved "import" *> modPathImport)
+        mAlias <- optionMaybe (reserved "as" *> singModId)
+        let modRoot = mkModRoot $ List.init modURI
+        -- addImport modRoot
+        return $ ModImport modRoot (Just [(ModName $ List.last modURI, mAlias)])
+
+    -- | lexeme parser for a module string in dot notation
+    modPathImport :: Parser ModURIElems
+    modPathImport = lexeme $ upperIdentifier `sepBy1` (char '.')
+
+    -- add modURI to set
+    -- addImport modURI = modifyState (\s -> s { stImports = Set.insert modURI (stImports s) } )
 

@@ -15,7 +15,7 @@
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures, FlexibleInstances, TypeSynonymInstances #-}
 
 module Lang.Module.AST (
-OdeTopElem(..), ModImport(..),
+OdeTopElem(..),
 ExprMap, ExprList, FunArgs,
 Module(..),
 GlobalModEnv, FileModEnv, LocalModEnv, FileData(..), mkFileData,
@@ -52,10 +52,6 @@ data OdeTopElem a   = TopModDef ModRoot ModName (Module a)  -- top level module 
                     | TopModImport ModImport                -- top level import
                     deriving (Show, Eq, Ord)
 
--- | import cmds, has a module root/filename, and list of indiv modules and potential alias
-data ModImport = ModImport ModRoot (Maybe [(ModName, Maybe ModName)]) deriving (Show, Eq, Ord)
-
-
 -- Module Datatype -----------------------------------------------------------------------------------------------------
 
 -- | Main executable modules that can be combined at run-time, they represent a form of the simply-typed \-calc that is interpreted at runtime
@@ -82,9 +78,14 @@ type FunArgs = OrdMap.OrdMap ModName SigMap
 data ModData = ModData  { modSig :: SigMap, modTMap :: TypeMap, modIdBimap :: IdBimap, modFreeId :: Maybe Id
                         , modImportMap :: ImportMap, modLocalModEnv :: LocalModEnv
                         , modImportCmds :: [ModImport], modExprList :: ExprList
+                        , modQuantities :: Quantities, modUnits :: [Unit]
                         } deriving (Show, Eq, Ord)
 
-mkModData = ModData Map.empty Map.empty Bimap.empty Nothing Map.empty Map.empty [] []
+mkModData = ModData     { modSig = Map.empty, modTMap = Map.empty, modIdBimap = Bimap.empty, modFreeId = Nothing
+                        , modImportMap = Map.empty, modLocalModEnv = Map.empty
+                        , modImportCmds = [], modExprList = []
+                        , modQuantities = [], modUnits = []
+                        }
 
 -- | bidirectional map between internal ids and source ids for all visible/top-level defined vars
 type IdBimap = Bimap.Bimap SrcId Id

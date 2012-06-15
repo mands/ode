@@ -17,19 +17,21 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 module Lang.Ode.Desugarer (
-desugarMod
+desugarOde, DesugarModData(..)
 ) where
+
+import Control.Applicative
+import Control.Monad
+import Control.Monad.Error as E
+import Control.Monad.Trans
 
 import qualified Data.Map as Map
 import qualified Data.Bimap as Bimap
 import qualified Data.Traversable as DT
 import qualified Data.Foldable as DF
 import Data.List (nub)
-import Debug.Trace
-import Control.Applicative
-import Control.Monad
-import Control.Monad.Error as E
-import Control.Monad.Trans
+import Text.Printf(printf)
+
 import Utils.Utils
 import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap
@@ -53,9 +55,57 @@ instance Applicative TmpSupply where
     pure = return
     (<*>) = ap
 
+data DesugarModData = DesugarModData M.ExprList Quantities [Unit] [ModImport]
 
-desugarMod :: [O.Stmt] -> MExcept M.ExprList
-desugarMod elems = liftM reverse $ evalSupplyVars $ DF.foldlM desugarTopStmt [] elems
+desugarOde :: [O.OdeStmt] -> MExcept DesugarModData
+desugarOde elems = do
+    modData <- evalSupplyVars $ DF.foldlM desugarOde' (DesugarModData [] [] [] []) elems
+    return $ updateModData modData
+  where
+    updateModData (DesugarModData e q u i) = DesugarModData (reverse e) (reverse q) (reverse u) (reverse i)
+
+    -- wrapper around the fold, matches on the top-level stmt type
+    desugarOde' :: DesugarModData -> O.OdeStmt -> TmpSupply DesugarModData
+    desugarOde' (DesugarModData e q u i) stmt@(O.ExprStmt exprStmt) = desugarTopStmt e exprStmt >>= (\e'' -> return $ DesugarModData e'' q u i)
+
+    -- filter the imports into their own list
+    desugarOde' (DesugarModData e q u i) stmt@(O.ImportStmt imp) = return $ (DesugarModData e q u (imp:i))
+
+    -- add quantity into the quantities assoc-list
+    desugarOde'(DesugarModData e q u i) stmt@(O.QuantityStmt qName qDim) = return $ (DesugarModData e ((qName, qDim):q) u i)
+
+    -- create a list of Units, handle SI expansion here too
+    -- can throw an error - maybe move this check into parser
+    desugarOde' (DesugarModData e q u i) stmt@(O.UnitStmt [(baseName, 1)] (Just baseDimChar) mAlias isSI) = return $ (DesugarModData e q u' i)
+      where
+        u' = if isSI then siUnitDefs ++ BaseUnit baseDim baseName mAlias:u else BaseUnit baseDim baseName mAlias:u
+
+        baseDim = case baseDimChar of
+            'L' -> DimVec 1 0 0 0 0 0 0
+            'M' -> DimVec 0 1 0 0 0 0 0
+            'T' -> DimVec 0 0 1 0 0 0 0
+            'I' -> DimVec 0 0 0 1 0 0 0
+            'O' -> DimVec 0 0 0 0 1 0 0
+            'J' -> DimVec 0 0 0 0 0 1 0
+            'N' -> DimVec 0 0 0 0 0 0 1
+
+        -- TODO - ned to create conversion funcs too
+        siUnitDefs =    -- mults
+                        [ mkSIUnit "da", mkSIUnit "h", mkSIUnit "k", mkSIUnit "M", mkSIUnit "G"
+                        , mkSIUnit "T", mkSIUnit "P", mkSIUnit "E", mkSIUnit "Z", mkSIUnit "Y"
+                        -- fractions
+                        , mkSIUnit "d", mkSIUnit "c", mkSIUnit "m", mkSIUnit "u", mkSIUnit "n"
+                        , mkSIUnit "p", mkSIUnit "f", mkSIUnit "a", mkSIUnit "z", mkSIUnit "y"
+                        ]
+
+        mkSIUnit prefix = BaseUnit baseDim (prefix ++ baseName) (maybe Nothing (\alias -> Just $ prefix ++ alias) mAlias)
+
+    desugarOde' (DesugarModData e q u i) stmt@(O.UnitStmt baseUnits Nothing mAlias _) = return $ (DesugarModData e q u' i)
+      where
+        u' = DerivedUnit mkDimVec (Map.fromList baseUnits) mAlias:u
+
+    -- desugarOde' st stmt@(O.UnitStmt baseUnits _ _ _) = throw $ printf "Found an invalid unit def %s" (show baseUnits)
+
 
 -- | desugar a top-level value constant(s)
 -- throws an error if a top-level is already defined
@@ -104,7 +154,7 @@ desugarS' (s@(O.Component _ _ _ _):xs) outs = do
     C.Let False (C.Bind ids) expr <$> desugarS' xs outs
 
 
--- Main desugaring
+-- Main desugaring, called by top-level and nested level wrappers
 desugarStmt :: O.Stmt -> TmpSupply ([C.DesId], C.Expr C.DesId)
 desugarStmt (O.Value ids value body) = do
     v' <- desugarS' body value
@@ -143,6 +193,10 @@ desugarStmt (O.Component name ins outs body) = do
     desugarComp :: O.SrcId -> [C.DesId] -> TmpSupply (C.Expr C.DesId)
     desugarComp _ (singIn:[]) = desugarS' body outs
     desugarComp argName ins = C.Let False (C.Bind ins) (C.Var (C.LocalVar (argName, Nothing))) <$> desugarS' body outs
+
+
+desugarStmt stmt = throw $ printf "Found an unhandled stmt that is top-level only - not nested \n%s" (show stmt)
+
 
 --error (show s)
 

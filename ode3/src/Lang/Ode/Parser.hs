@@ -22,18 +22,111 @@ import Text.Parsec hiding (many, optional, (<|>))
 --import Text.Parsec.String
 import Text.Parsec.Expr
 import Text.Parsec.Perm
+import qualified Data.Map as Map
 
 import Lang.Common.Parser
+import Lang.Common.AST
 import Utils.Utils
 import qualified Lang.Ode.AST as O
 
-odeStmt :: Parser O.Stmt
-odeStmt =  compDef
-        <|> valueDef
-        <|> sValueDef
-        <|> odeDef
-        <|> rreDef
-        <?> "component, value or simulation defintion"
+
+-- Useful Lexical Combinators ------------------------------------------------------------------------------------------
+
+-- |parses a module element reference, e.g. A.x
+modElemIdentifier :: Parser O.ModLocalId
+modElemIdentifier  = lexeme (O.ModId <$> upperIdentifier <*> (char '.' *> identifier))
+
+-- |parse either a local or module id e.g. A.x or x
+modLocalIdentifier :: Parser O.ModLocalId
+modLocalIdentifier =    try modElemIdentifier
+                        <|> O.LocalId <$> identifier <?> "local or module identifier"
+
+-- | value identifier, allows use of don't care vals
+valIdentifier :: Parser O.ValId
+valIdentifier = reservedOp "_" *> pure O.DontCare
+                <|> O.ValId <$> identifier <*> optionMaybe (braces unitAttrib)
+                <?> "value identifier"
+  where
+    unitAttrib = attrib "unit" (many alphaNum)
+
+-- |a parameterised single attribute parser for a given attribute identifier
+-- TODO - fix the comma separated list of attribute, commaSep?
+-- attrib :: String -> Parser String
+attrib res p = reserved res *> colon *> p <* optional comma
+
+-- | tuple, requires at least two values, comma separated
+tuple :: Parser a -> Parser [a]
+tuple p = parens $ (:) <$> (p <* comma) <*> commaSep1 p
+
+-- | used to parse a single element by itself, a, or contained eithin a comma-sep list, (a,...)
+singOrList :: Parser a -> Parser [a]
+singOrList p = try ((\p -> p:[]) <$> (p))
+                <|> paramList p
+                <?> "single element or list"
+
+
+-- Main Ode Parser -----------------------------------------------------------------------------------------------------
+
+-- | main parser into the Ode lang, returns a list of ODE statments
+-- these can be, comp/value defs, or units/type defs
+odeStmt :: Parser O.OdeStmt
+odeStmt =   O.ImportStmt <$> importCmd
+            <|> O.ExprStmt <$> exprStmt -- main lang
+            <|> quantityDef     -- units support
+            <|> unitDef
+            <?> "import, expression, or unit defintion"
+
+-- | Parses a quantity "alias" for a given dimension
+quantityDef :: Parser O.OdeStmt
+quantityDef = O.QuantityStmt <$> (reserved "quantity" *> identifier) <*> (reservedOp "=" *> dimTerm)
+
+-- | Parse a DimVec term, like "Dim LT-2"
+dimTerm :: Parser DimVec
+dimTerm = reserved "dim" *> parseDims
+  where
+    parseDims :: Parser DimVec
+    parseDims = permute (DimVec <$?> (0, parseDim 'L')
+                                <|?> (0, parseDim 'M')
+                                <|?> (0, parseDim 'T')
+                                <|?> (0, parseDim 'I')
+                                <|?> (0, parseDim 'O')
+                                <|?> (0, parseDim 'J')
+                                <|?> (0, parseDim 'N')
+                        )
+    parseDim dim = char dim *> option 1 integer
+
+
+-- | Parses an avaiable unit definition for a given dimension, with optional alias
+unitDef :: Parser O.OdeStmt
+unitDef =   try baseDef
+            <|> derivedDef
+  where
+    baseDef = do
+        uName <- reserved "unit" *> identifier
+        unit <- braces singUnitAttrib
+        return $ unit { O.uName = [(uName,1)] }
+    derivedDef = do
+        uName <- reserved "unit" *> (sepBy parseSingUnit $ char '.')
+        mAlias <- option Nothing $ braces (attrib "alias" (Just <$> identifier))
+        return $ O.UnitStmt uName Nothing mAlias False
+
+    parseSingUnit = (,) <$> identifier <*> option 1 integer
+
+    singUnitAttrib = permute (O.UnitStmt [] <$$> attrib "dim" (Just <$> oneOf "LMTIOJN")
+                                            <|?> (Nothing, attrib "alias" (Just <$> identifier))
+                                            <||> attrib "SI" boolean) <?> "unit definition"
+
+-- Ode Expression ------------------------------------------------------------------------------------------------------
+
+-- | main parser into the Ode lang, returns a list of ODE statments
+-- these can be, comp/value defs, or units/type defs
+exprStmt :: Parser O.Stmt
+exprStmt    = compDef
+            <|> valueDef
+            <|> sValueDef
+            <|> odeDef
+            <|> rreDef
+            <?> "component, value or simulation defintion"
 
 -- |parse a value definition
 -- e.g., val x = expr
@@ -41,7 +134,7 @@ valueDef :: Parser O.Stmt
 valueDef = O.Value  <$> (reserved "val" *> commaSep1 valIdentifier) <*> (reservedOp "=" *> compExpr)
                     <*> option [] (reserved "where" *> valBody)
   where
-    valBody = braces $ many odeStmt
+    valBody = braces $ many exprStmt
 
 -- |parse a sval def
 sValueDef :: Parser O.Stmt
@@ -61,7 +154,7 @@ compDef = do
         <?> "component definition"
 
     -- | parser for the component body, a list of statements
-    compBody = braces $ many odeStmt
+    compBody = braces $ many exprStmt
 
 odeDef :: Parser O.Stmt
 odeDef = O.OdeDef <$> (reserved "ode" *> valIdentifier) <*> pure 0.0 <*> (reservedOp "=" *> compExpr)
@@ -71,6 +164,7 @@ rreDef = O.RreDef <$> (reserved "rre" *> braces rreAttribs) <*> (reservedOp "=" 
   where
     -- |parse a rre attribute definition
     rreAttribs = attrib "rate" number
+
 
 -- |parser for the statements allowed within a component body
 --compStmt :: Parser O.CompStmt
@@ -108,6 +202,29 @@ odeDef n = permute (n
 --            <||> (attrib "delta" compExpr)
 --            ) <?> "ode definition"
 
+
+-- Ode Terms -----------------------------------------------------------------------------------------------------------
+
+-- | time term, is a special identifier
+time :: Parser ()
+time = reserved "time" *> pure ()
+
+-- | unit term, is a special identifier
+unit :: Parser ()
+unit = reservedOp "()" *> pure ()
+
+-- | boolean parser, parses a case-sensitive, boolean literal
+boolean :: Parser Bool
+boolean =  reserved "True" *> pure True
+            <|> reserved "False"  *> pure False
+            <?> "boolean"
+
+
+-- |number parser, parses most formats
+number :: Parser Double
+number =    try float
+            <|> fromIntegral <$> integer
+            <?> "number"
 
 -- |parse a term - the value on either side of an operator
 -- should ODEs be here - as terms or statements?
@@ -155,35 +272,6 @@ exprOpTable =
   where
     binary name binop assoc = Infix (reservedOp name *> pure (\a b -> O.BinExpr binop a b) <?> "binary operator") assoc
     prefix name unop         = Prefix (reservedOp name *> pure (\a -> O.UnExpr unop a) <?> "unary operator")
-
--- |parses a module element reference, e.g. A.x
-modElemIdentifier :: Parser O.ModLocalId
-modElemIdentifier  = lexeme (O.ModId <$> upperIdentifier <*> (char '.' *> identifier))
-
--- |parse either a local or module id e.g. A.x or x
-modLocalIdentifier :: Parser O.ModLocalId
-modLocalIdentifier =    try modElemIdentifier
-                        <|> O.LocalId <$> identifier <?> "local or module identifier"
-
--- | value identifier, allows use of don't care vals
-valIdentifier :: Parser O.ValId
-valIdentifier = reservedOp "_" *> pure O.DontCare
-                <|> O.ValId <$> identifier <*> optionMaybe (braces unitAttrib)
-                <?> "value identifier"
-  where
-    unitAttrib = attrib "unit" (many alphaNum)
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

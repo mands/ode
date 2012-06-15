@@ -17,7 +17,7 @@
 -----------------------------------------------------------------------------
 
 {-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, FunctionalDependencies  #-}
-{-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
+{-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures, DataKinds #-}
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
 
 
@@ -57,12 +57,11 @@ data Dimensions = Dimensions
 
 -- | Bindings, may be a tuple unpacking
 -- could eventually optimise this and make more type-safe but this works for now
--- a unused GADT approach
-data TMultiBind
-data TSingBind
-data TBind :: * -> * -> * where
-    TBindM :: [b] -> TBind b TMultiBind
-    TBindS :: b -> TBind b TSingBind
+-- unused GADT/DataKinds approach
+data BindType = MultiBind | SingBind
+data TBind :: * -> BindType -> * where
+    TBindM :: [b] -> TBind b MultiBind
+    TBindS :: b -> TBind b SingBind
     --deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
 
 data Bind b = Bind [b]
@@ -111,6 +110,9 @@ data Expr b = Var (VarId b)             -- a reference to any let-defined expres
             | Ode (VarId b) (Expr b)   -- an Ode, uses a state variable defined in b, and runs the expression,
 
             | Rre (VarId b) (VarId b) Double -- an RRE, from var->var with given rate
+
+
+
 
             -- now add the simulation stuff!
             deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)

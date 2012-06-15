@@ -66,12 +66,14 @@ data SB :: * where
 instance Show SB where
     show (MkSB s) = show s
 
+-- | Wrapper around Debug.trace that outputs a msg and list of vars
 trace' :: [SB] -> String -> a -> a
 trace' vars msg res = trace outStr res
   where
     showVars = List.intercalate "\n" $ map show vars
     outStr = "TRACE - " ++ msg ++ "\n" ++ showVars
 
+-- | Terminates the program while printing the message and list of vars
 errorDump :: [SB] -> String -> a
 errorDump vars msg = trace' vars msg (error "ERROR DUMP")
 

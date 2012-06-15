@@ -15,7 +15,7 @@
 -----------------------------------------------------------------------------
 
 module Lang.Ode.AST (
-    ModLocalId(..), ValId(..), Stmt(..),
+    ModLocalId(..), ValId(..), OdeStmt(..), Stmt(..),
     Expr(..), BinOp(..), UnOp(..),
     SrcId, NumTy, UnitT
 ) where
@@ -29,6 +29,13 @@ data ModLocalId = LocalId SrcId | ModId SrcId SrcId
 
 -- | used for creating new bindings that may differntiatin between actual ids and _ vals
 data ValId = ValId SrcId (Maybe UnitT) | DontCare deriving (Show, Ord, Eq)
+
+data OdeStmt =  ExprStmt Stmt
+                | ImportStmt ModImport
+                -- a quantity defition, in terms of a dim vector
+                | QuantityStmt { qName :: SrcId, qDim :: DimVec }
+                -- a unit defntions, in terms of a unit sequence for a particular dimension
+                | UnitStmt { uName :: [(SrcId, Integer)], uDim :: Maybe Char, uAlias :: Maybe String, uSI :: Bool}
 
 -- | elements allowed within a module, basically components or top-level constant values
 data Stmt = -- each independent component, is basically function abstraction
@@ -46,6 +53,7 @@ data Stmt = -- each independent component, is basically function abstraction
             -- or they may be a reference to a component defined in a module param and re-exported here
             -- | ComponentRef SrcId ModLocalId
             deriving (Show, Eq, Ord)
+
 
 -- | statments allowed within a component, these include,
 -- constant value defintinos, intial value defintions, odes and rres
