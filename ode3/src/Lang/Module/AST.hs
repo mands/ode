@@ -78,13 +78,13 @@ type FunArgs = OrdMap.OrdMap ModName SigMap
 data ModData = ModData  { modSig :: SigMap, modTMap :: TypeMap, modIdBimap :: IdBimap, modFreeId :: Maybe Id
                         , modImportMap :: ImportMap, modLocalModEnv :: LocalModEnv
                         , modImportCmds :: [ModImport], modExprList :: ExprList
-                        , modQuantities :: Quantities, modUnits :: [Unit]
+                        , modQuantities :: Quantities, modUnits :: [UnitDef], modConvs :: [ConvDef]
                         } deriving (Show, Eq, Ord)
 
 mkModData = ModData     { modSig = Map.empty, modTMap = Map.empty, modIdBimap = Bimap.empty, modFreeId = Nothing
                         , modImportMap = Map.empty, modLocalModEnv = Map.empty
                         , modImportCmds = [], modExprList = []
-                        , modQuantities = [], modUnits = []
+                        , modQuantities = [], modUnits = [], modConvs = []
                         }
 
 -- | bidirectional map between internal ids and source ids for all visible/top-level defined vars

@@ -46,7 +46,8 @@ commonLangDef = javaStyle
                             "default",
                             "True", "False", "time",
                             -- units lang
-                            "quantity", "dim", "unit", "SI", "alias"
+                            "quantity", "dim", "unit", "SI", "alias",
+                            "conversion", "from", "to", "factor"
                             -- ion...implemented externally
                             ],
 

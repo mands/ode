@@ -13,8 +13,8 @@
 -----------------------------------------------------------------------------
 
 module Lang.Core.Units (
-
+notUsedUnits
 ) where
 
-
+notUsedUnits = 3
 

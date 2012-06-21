@@ -55,30 +55,31 @@ instance Applicative TmpSupply where
     pure = return
     (<*>) = ap
 
-data DesugarModData = DesugarModData M.ExprList Quantities [Unit] [ModImport]
+data DesugarModData = DesugarModData M.ExprList Quantities [UnitDef] [ModImport] [ConvDef]
 
 desugarOde :: [O.OdeStmt] -> MExcept DesugarModData
 desugarOde elems = do
-    modData <- evalSupplyVars $ DF.foldlM desugarOde' (DesugarModData [] [] [] []) elems
+    modData <- evalSupplyVars $ DF.foldlM desugarOde' (DesugarModData [] [] [] [] []) elems
     return $ updateModData modData
   where
-    updateModData (DesugarModData e q u i) = DesugarModData (reverse e) (reverse q) (reverse u) (reverse i)
+    updateModData (DesugarModData e q u i c) = DesugarModData (reverse e) (reverse q) (reverse u) (reverse i) (reverse c)
 
     -- wrapper around the fold, matches on the top-level stmt type
     desugarOde' :: DesugarModData -> O.OdeStmt -> TmpSupply DesugarModData
-    desugarOde' (DesugarModData e q u i) stmt@(O.ExprStmt exprStmt) = desugarTopStmt e exprStmt >>= (\e'' -> return $ DesugarModData e'' q u i)
+    desugarOde' (DesugarModData e q u i c) stmt@(O.ExprStmt exprStmt) = desugarTopStmt e exprStmt >>= (\e'' -> return $ DesugarModData e'' q u i c)
 
     -- filter the imports into their own list
-    desugarOde' (DesugarModData e q u i) stmt@(O.ImportStmt imp) = return $ (DesugarModData e q u (imp:i))
+    desugarOde' (DesugarModData e q u i c) stmt@(O.ImportStmt imp) = return $ (DesugarModData e q u (imp:i) c)
 
     -- add quantity into the quantities assoc-list
-    desugarOde'(DesugarModData e q u i) stmt@(O.QuantityStmt qName qDim) = return $ (DesugarModData e ((qName, qDim):q) u i)
+    desugarOde'(DesugarModData e q u i c) stmt@(O.QuantityStmt qName qDim) = return $ (DesugarModData e ((qName, qDim):q) u i c)
 
     -- create a list of Units, handle SI expansion here too
     -- can throw an error - maybe move this check into parser
-    desugarOde' (DesugarModData e q u i) stmt@(O.UnitStmt [(baseName, 1)] (Just baseDimChar) mAlias isSI) = return $ (DesugarModData e q u' i)
+    -- TODO -fix alias
+    desugarOde' (DesugarModData e q u i c) stmt@(O.UnitStmt baseUnit@[(baseName, 1)] (Just baseDimChar) mAlias isSI) = return $ (DesugarModData e q u' i c)
       where
-        u' = if isSI then siUnitDefs ++ BaseUnit baseDim baseName mAlias:u else BaseUnit baseDim baseName mAlias:u
+        u' = if isSI then siUnitDefs ++ BaseUnitDef (mkUnit baseUnit) baseDim:u else BaseUnitDef (mkUnit baseUnit) baseDim:u
 
         baseDim = case baseDimChar of
             'L' -> DimVec 1 0 0 0 0 0 0
@@ -98,11 +99,17 @@ desugarOde elems = do
                         , mkSIUnit "p", mkSIUnit "f", mkSIUnit "a", mkSIUnit "z", mkSIUnit "y"
                         ]
 
-        mkSIUnit prefix = BaseUnit baseDim (prefix ++ baseName) (maybe Nothing (\alias -> Just $ prefix ++ alias) mAlias)
+        -- mkSIUnit prefix = BaseUnitDef baseDim (prefix ++ baseName) (maybe Nothing (\alias -> Just $ prefix ++ alias))
+        mkSIUnit prefix = BaseUnitDef (mkUnit [(prefix ++ baseName, 1)]) baseDim
 
-    desugarOde' (DesugarModData e q u i) stmt@(O.UnitStmt baseUnits Nothing mAlias _) = return $ (DesugarModData e q u' i)
+    desugarOde' (DesugarModData e q u i c) stmt@(O.UnitStmt baseUnits Nothing mAlias _) = return $ (DesugarModData e q u' i c)
       where
-        u' = DerivedUnit mkDimVec (Map.fromList baseUnits) mAlias:u
+        u' = DerivedUnitDef (mkUnit baseUnits):u
+
+
+    desugarOde' (DesugarModData e q u i c) stmt@(O.ConvStmt fromUnit toUnit cExpr) = return $ (DesugarModData e q u i c')
+      where
+        c' = ConvDef (mkUnit fromUnit) (mkUnit toUnit) cExpr:c
 
     -- desugarOde' st stmt@(O.UnitStmt baseUnits _ _ _) = throw $ printf "Found an invalid unit def %s" (show baseUnits)
 

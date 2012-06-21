@@ -37,3 +37,8 @@ module B {
 
 }
 
+module C {
+  conversion { from : m, to : km, factor : x * 1000 }
+
+}
+

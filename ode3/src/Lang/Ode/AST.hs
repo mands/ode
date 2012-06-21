@@ -24,8 +24,8 @@ import qualified Data.Map as Map
 import Lang.Common.AST
 
 -- | SrcIdentifier that may be local to current block or refer to a module parameter
-data ModLocalId = LocalId SrcId | ModId SrcId SrcId
-                deriving (Show, Eq, Ord)
+data ModLocalId =   LocalId SrcId | ModId SrcId SrcId
+                    deriving (Show, Eq, Ord)
 
 -- | used for creating new bindings that may differntiatin between actual ids and _ vals
 data ValId = ValId SrcId (Maybe UnitT) | DontCare deriving (Show, Ord, Eq)
@@ -35,7 +35,9 @@ data OdeStmt =  ExprStmt Stmt
                 -- a quantity defition, in terms of a dim vector
                 | QuantityStmt { qName :: SrcId, qDim :: DimVec }
                 -- a unit defntions, in terms of a unit sequence for a particular dimension
-                | UnitStmt { uName :: [(SrcId, Integer)], uDim :: Maybe Char, uAlias :: Maybe String, uSI :: Bool}
+                | UnitStmt { uName :: SrcUnit, uDim :: Maybe Char, uAlias :: Maybe String, uSI :: Bool}
+                | ConvStmt { cFrom :: SrcUnit, cTo :: SrcUnit, cExpr :: CExpr }
+                deriving (Show, Eq, Ord)
 
 -- | elements allowed within a module, basically components or top-level constant values
 data Stmt = -- each independent component, is basically function abstraction
@@ -51,7 +53,7 @@ data Stmt = -- each independent component, is basically function abstraction
             -- RRE - takes two SValues and a rate parameter
             | RreDef { rreRate :: Double, rreSrc :: SrcId, rreDest :: SrcId }
             -- or they may be a reference to a component defined in a module param and re-exported here
-            -- | ComponentRef SrcId ModLocalId
+            -- ComponentRef SrcId ModLocalId
             deriving (Show, Eq, Ord)
 
 

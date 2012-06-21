@@ -25,7 +25,7 @@ import Text.Parsec.Perm
 import qualified Data.Map as Map
 
 import Lang.Common.Parser
-import Lang.Common.AST
+import qualified Lang.Common.AST as CA
 import Utils.Utils
 import qualified Lang.Ode.AST as O
 
@@ -74,6 +74,7 @@ odeStmt =   O.ImportStmt <$> importCmd
             <|> O.ExprStmt <$> exprStmt -- main lang
             <|> quantityDef     -- units support
             <|> unitDef
+            <|> convDef
             <?> "import, expression, or unit defintion"
 
 -- | Parses a quantity "alias" for a given dimension
@@ -81,11 +82,11 @@ quantityDef :: Parser O.OdeStmt
 quantityDef = O.QuantityStmt <$> (reserved "quantity" *> identifier) <*> (reservedOp "=" *> dimTerm)
 
 -- | Parse a DimVec term, like "Dim LT-2"
-dimTerm :: Parser DimVec
+dimTerm :: Parser CA.DimVec
 dimTerm = reserved "dim" *> parseDims
   where
-    parseDims :: Parser DimVec
-    parseDims = permute (DimVec <$?> (0, parseDim 'L')
+    parseDims :: Parser CA.DimVec
+    parseDims = permute (CA.DimVec <$?> (0, parseDim 'L')
                                 <|?> (0, parseDim 'M')
                                 <|?> (0, parseDim 'T')
                                 <|?> (0, parseDim 'I')
@@ -95,6 +96,10 @@ dimTerm = reserved "dim" *> parseDims
                         )
     parseDim dim = char dim *> option 1 integer
 
+unitIdentifier :: Parser CA.SrcUnit
+unitIdentifier = (sepBy parseSingUnit $ char '.')
+  where
+    parseSingUnit = (,) <$> identifier <*> option 1 integer
 
 -- | Parses an avaiable unit definition for a given dimension, with optional alias
 unitDef :: Parser O.OdeStmt
@@ -106,15 +111,39 @@ unitDef =   try baseDef
         unit <- braces singUnitAttrib
         return $ unit { O.uName = [(uName,1)] }
     derivedDef = do
-        uName <- reserved "unit" *> (sepBy parseSingUnit $ char '.')
+        uName <- reserved "unit" *> unitIdentifier
         mAlias <- option Nothing $ braces (attrib "alias" (Just <$> identifier))
         return $ O.UnitStmt uName Nothing mAlias False
-
-    parseSingUnit = (,) <$> identifier <*> option 1 integer
 
     singUnitAttrib = permute (O.UnitStmt [] <$$> attrib "dim" (Just <$> oneOf "LMTIOJN")
                                             <|?> (Nothing, attrib "alias" (Just <$> identifier))
                                             <||> attrib "SI" boolean) <?> "unit definition"
+
+
+-- | Parses a quantity "alias" for a given dimension
+convDef :: Parser O.OdeStmt
+convDef = reserved "conversion" *> permute (O.ConvStmt  <$$> attrib "from" unitIdentifier
+                                                        <||> attrib "to" unitIdentifier
+                                                        <||> attrib "factor" convExpr) <?> "conversion definition"
+
+-- | parse a term - the value on either side of an operator
+convTerm :: Parser CA.CExpr
+convTerm =  try (parens convExpr)
+            <|> CA.CNum <$> number
+            <|> symbol "x" *> pure CA.CFromId
+            <?> "conversion term"
+
+-- | restricted numeric expression for conversion factors only
+convExpr  :: Parser CA.CExpr
+convExpr  =  buildExpressionParser convExprOpTable convTerm <?> "conversion expression"
+
+convExprOpTable =
+    [
+    [binary "*" CA.CMul, binary "/" CA.CDiv]
+    ,[binary "+" CA.CAdd, binary "-" CA.CSub]
+    ]
+  where
+    binary name binop = Infix (reservedOp name *> pure (\a b -> CA.CExpr binop a b) <?> "binary operator") AssocLeft
 
 -- Ode Expression ------------------------------------------------------------------------------------------------------
 
