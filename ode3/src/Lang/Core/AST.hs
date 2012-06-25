@@ -38,6 +38,8 @@ import Data.Maybe (fromJust, isJust)
 import Utils.Utils
 import Lang.Common.AST
 
+import qualified Lang.Core.Units as U
+
 -- | DetailId - holds both a (parameterised) identifier and a string that represetns the (closest) original/source variable and line num
 --data DetailId a = DetailId a SrcId Int deriving (Show, Eq, Ord)
 
@@ -111,9 +113,6 @@ data Expr b = Var (VarId b)             -- a reference to any let-defined expres
 
             | Rre (VarId b) (VarId b) Double -- an RRE, from var->var with given rate
 
-
-
-
             -- now add the simulation stuff!
             deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
 
@@ -133,6 +132,23 @@ travTypesM :: (Monad m) => Type -> (Type -> m Type) -> m Type
 travTypesM (TArr fromT toT) f = liftM2 TArr (travTypesM fromT f) (travTypesM toT f)
 travTypesM (TTuple ts) f = liftM TTuple $ mapM f ts
 travTypesM t f = f t
+
+
+-- TODO - where does this func go - is run after unitconversion, during ANF conversion?
+-- this prob needs supply monad to create a tmp var
+-- converts an expression from the restrictred CExpr format into the general Core Expression for code-gen
+convertCoreExpr :: U.CExpr -> Expr Id
+convertCoreExpr (U.CExpr op e1 e2) = Op (convertCoreOp op) $ Tuple [convertCoreExpr e1, convertCoreExpr e2]
+  where
+    convertCoreOp U.CAdd = Add
+    convertCoreOp U.CSub = Sub
+    convertCoreOp U.CMul = Mul
+    convertCoreOp U.CDiv = Div
+
+convertCoreExpr (U.CNum n) = Lit $ Num n
+-- TODO - this is broken!
+convertCoreExpr U.CFromId = Var $ LocalVar 1
+
 
 -- |Standard functor defintion, could be derived automatically but still...
 -- only applicable for the binding parameter, so maybe useless

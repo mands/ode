@@ -40,6 +40,7 @@ import Text.Printf (printf)
 
 import Lang.Common.AST
 import qualified Lang.Core.AST as E
+import qualified Lang.Core.Units as U
 import qualified Utils.OrdMap as OrdMap
 import Utils.Utils
 import qualified System.FilePath as FP
@@ -78,7 +79,7 @@ type FunArgs = OrdMap.OrdMap ModName SigMap
 data ModData = ModData  { modSig :: SigMap, modTMap :: TypeMap, modIdBimap :: IdBimap, modFreeId :: Maybe Id
                         , modImportMap :: ImportMap, modLocalModEnv :: LocalModEnv
                         , modImportCmds :: [ModImport], modExprList :: ExprList
-                        , modQuantities :: Quantities, modUnits :: [UnitDef], modConvs :: [ConvDef]
+                        , modQuantities :: U.Quantities, modUnits :: [U.UnitDef], modConvs :: [U.ConvDef]
                         } deriving (Show, Eq, Ord)
 
 mkModData = ModData     { modSig = Map.empty, modTMap = Map.empty, modIdBimap = Bimap.empty, modFreeId = Nothing

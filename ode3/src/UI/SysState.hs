@@ -31,6 +31,7 @@ import Lang.Common.AST
 import qualified Lang.Module.AST as MA
 import qualified Utils.OrdSet as OrdSet
 
+-- TODO - create monad around state, use lenses
 
 -- | Main system state used by the shell
 data SysState = SysState    { stDebug :: Bool               -- do we enable debug mode

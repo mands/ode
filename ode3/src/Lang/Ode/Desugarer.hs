@@ -38,6 +38,7 @@ import qualified Utils.OrdMap as OrdMap
 import Lang.Common.AST
 import qualified Lang.Ode.AST as O
 import qualified Lang.Core.AST as C
+import qualified Lang.Core.Units as U
 import qualified Lang.Module.AST as M
 
 -- We need a supply of unique Ids
@@ -55,7 +56,7 @@ instance Applicative TmpSupply where
     pure = return
     (<*>) = ap
 
-data DesugarModData = DesugarModData M.ExprList Quantities [UnitDef] [ModImport] [ConvDef]
+data DesugarModData = DesugarModData M.ExprList U.Quantities [U.UnitDef] [ModImport] [U.ConvDef]
 
 desugarOde :: [O.OdeStmt] -> MExcept DesugarModData
 desugarOde elems = do
@@ -79,7 +80,7 @@ desugarOde elems = do
     -- TODO -fix alias
     desugarOde' (DesugarModData e q u i c) stmt@(O.UnitStmt baseUnit@[(baseName, 1)] (Just baseDimChar) mAlias isSI) = return $ (DesugarModData e q u' i c)
       where
-        u' = if isSI then siUnitDefs ++ BaseUnitDef (mkUnit baseUnit) baseDim:u else BaseUnitDef (mkUnit baseUnit) baseDim:u
+        u' = if isSI then siUnitDefs ++ U.BaseUnitDef (U.mkUnit baseUnit) baseDim:u else U.BaseUnitDef (U.mkUnit baseUnit) baseDim:u
 
         baseDim = case baseDimChar of
             'L' -> DimVec 1 0 0 0 0 0 0
@@ -100,16 +101,16 @@ desugarOde elems = do
                         ]
 
         -- mkSIUnit prefix = BaseUnitDef baseDim (prefix ++ baseName) (maybe Nothing (\alias -> Just $ prefix ++ alias))
-        mkSIUnit prefix = BaseUnitDef (mkUnit [(prefix ++ baseName, 1)]) baseDim
+        mkSIUnit prefix = U.BaseUnitDef (U.mkUnit [(prefix ++ baseName, 1)]) baseDim
 
     desugarOde' (DesugarModData e q u i c) stmt@(O.UnitStmt baseUnits Nothing mAlias _) = return $ (DesugarModData e q u' i c)
       where
-        u' = DerivedUnitDef (mkUnit baseUnits):u
+        u' = U.DerivedUnitDef (U.mkUnit baseUnits):u
 
-
+    -- add the conv statments to the module metadata
     desugarOde' (DesugarModData e q u i c) stmt@(O.ConvStmt fromUnit toUnit cExpr) = return $ (DesugarModData e q u i c')
       where
-        c' = ConvDef (mkUnit fromUnit) (mkUnit toUnit) cExpr:c
+        c' = U.ConvDef (U.mkUnit fromUnit) (U.mkUnit toUnit) cExpr:c
 
     -- desugarOde' st stmt@(O.UnitStmt baseUnits _ _ _) = throw $ printf "Found an invalid unit def %s" (show baseUnits)
 
