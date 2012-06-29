@@ -19,6 +19,7 @@ MExcept, MExceptIO, mkExceptIO, maybeToExcept, maybeToExceptIO,
 PrettyPrint(..), mapFst, mapSnd, pairM,
 SB(..), trace', errorDump,
 openPipe, closePipe, readLoop,
+mkLabelName
 ) where
 
 import Control.Monad
@@ -27,6 +28,7 @@ import qualified Data.List as List
 import Debug.Trace
 import qualified System.IO as SIO
 import Data.Bimap
+import Data.Char (toUpper)
 
 -- | my exception/error monad, could just import from Control.Monad.Error but anyway...
 type MExcept = Either String
@@ -117,5 +119,9 @@ splitList p xs = h : t'
     t' = case t of x:xs -> splitList p xs
                    [] -> []
 
-
+-- | fclabels fucntion to create labels of form lRecordName
+mkLabelName :: String -> String
+mkLabelName s = 'l' : toUpper (head n) : tail n
+  where
+    n = drop 1 s
 

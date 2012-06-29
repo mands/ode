@@ -30,6 +30,11 @@ import qualified Data.Set as Set
 import qualified System.FilePath as FP
 import qualified System.Directory as Dir
 
+-- fclabels stuff
+import Control.Category
+import Data.Label
+import Prelude hiding ((.), id)
+
 import System.Console.Shell
 import System.Console.Shell.ShellMonad
 -- import System.Console.Shell.Backend.Haskeline
@@ -101,24 +106,24 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
                 ]
   where
     -- debug toggle, need to update the logger too
-    debugCmd = toggle "debug" "Toggle Debug Mode" (\st -> stDebug st) (\b st -> st {stDebug = b} )
+    debugCmd = toggle "debug" "Toggle Debug Mode" (get lDebug) (set lDebug)
 
     -- basic cmds
     -- damn record update syntax!
     startTimeCmd = cmd "startTime" f "Initial simulation time"
       where
         f :: Float -> Sh SysState ()
-        f x = modifyShellSt (\st -> st {stSimStart = x})
+        f x = modifyShellSt $ set (lStartTime . lSimState) x
 
     stopTimeCmd = cmd "endTime" f "Final simulation time"
       where
         f :: Float -> Sh SysState ()
-        f x = modifyShellSt (\st -> st {stSimEnd = x})
+        f x = modifyShellSt $ set (lEndTime . lSimState) x
 
     simTimestepCmd = cmd "timestep" f "Timestep to use for simulation"
       where
         f :: Float -> Sh SysState ()
-        f x = modifyShellSt (\st -> st {stSimTimestep = x})
+        f x = modifyShellSt $ set (lTimestep . lSimState) x
 
     simStartCmd = cmd "start" f "Start a simulation"
       where
@@ -128,12 +133,12 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
     outPeriodCmd = cmd "period" f "Period iterations to save simulation state to disk"
       where
         f :: Integer -> Sh SysState ()
-        f x = modifyShellSt (\st -> st {stOutPeriod = x})
+        f x = modifyShellSt $ set (lOutputPeriod . lSimState) x
 
     outFilenameCmd = cmd "output" f "Filename to save simulation results"
       where
         f :: File -> Sh SysState ()
-        f (File x) = modifyShellSt (\st -> st {stOutFilename = x})
+        f (File x) = modifyShellSt $ set (lFilename . lSimState) x
 
     repoAddCmd = cmd "addRepo" f "Add a directory path to the module repository"
       where
@@ -143,8 +148,7 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
             dirEx <- liftIO $ Dir.doesDirectoryExist repoPath
             if dirEx
                 then do
-                    let repos' = OrdSet.insertF repoPath (stRepos st)
-                    _ <- modifyShellSt (\st -> st { stRepos = repos' })
+                    _ <- modifyShellSt $ modify vRepos (OrdSet.insertF repoPath)
                     shellPutInfoLn $ "Added " ++ repoPath ++ " to set of module repositories"
                 else shellPutInfoLn $ "Module repository dir " ++ repoPath ++ " not found"
 
@@ -152,16 +156,14 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
     repoDelCmd = cmd "delRepo" f "Delete a directory path from the module repository"
       where
         f :: File -> Sh SysState ()
-        f (File repoPath) = modifyShellSt (\st -> st {stRepos = OrdSet.delete repoPath (stRepos st)})
-
-
+        f (File repoPath) = modifyShellSt $ modify vRepos (OrdSet.delete repoPath)
     -- show takes second string parameter
     showCmd = cmd "show" f "Pass <all, repos, modules> to display current state"
       where
         f :: String -> Sh SysState ()
         f "all" = (show <$> getShellSt) >>= shellPutInfoLn
-        f "repos" = (show <$> stRepos <$> getShellSt) >>= shellPutInfoLn
-        f "modules" = (show <$> stLocalFile <$> getShellSt) >>= shellPutInfoLn
+        f "repos" = (show <$> get vRepos <$> getShellSt) >>= shellPutInfoLn
+        f "modules" = (show <$> get (lLocalFile . lModState) <$> getShellSt) >>= shellPutInfoLn
         f _ = shellPutInfoLn "Pass <all, repos, modules> to display current state"
 
     typeCmd = cmd "type" f "Display the type of the loaded module"
@@ -195,6 +197,6 @@ shEval str = do
         -- READ cmd, pass the string to our mod lang parser
         cmd <- MP.consoleParse str
         -- then EVAL, cmd sent to interpreter with state
-        (st', fd') <- MD.evalTopElems (st, (stLocalFile st)) cmd
+        (st', fd') <- MD.evalTopElems (st, get vLocalFile st) cmd
         -- return the modified state (with the newly updated local filedata)
-        return $ st' { stLocalFile = fd' }
+        return $ set vLocalFile fd' st'

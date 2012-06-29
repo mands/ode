@@ -28,6 +28,11 @@ import Control.Monad
 import Control.Monad.Error
 import qualified Control.Conditional as Cond
 
+-- fclabels stuff
+import Control.Category
+import Data.Label
+import Prelude hiding ((.), id)
+
 import qualified Data.Foldable as DF
 import qualified Data.Map as Map
 import qualified Utils.OrdSet as OrdSet
@@ -39,7 +44,7 @@ import qualified System.Directory as Dir
 import qualified System.FilePath as FP
 
 import Utils.Utils
-import UI.SysState
+import qualified UI.SysState as St
 
 import Lang.Module.Parser
 import Lang.Common.AST
@@ -52,11 +57,11 @@ import Lang.Module.ModDefDriver
 
 -- | Main console and file evaluater
 -- takes the current state and processes the given top command/def against it
-evalTopElems :: (SysState, FileData) -> OdeTopElem DesId -> MExceptIO (SysState, FileData)
+evalTopElems :: (St.SysState, FileData) -> OdeTopElem DesId -> MExceptIO (St.SysState, FileData)
 evalTopElems (st, fd) topMod@(TopModDef modRoot modName mod) = do
     checkName
     (st', mod') <- processModImports -- import any ref'd modules here first
-    mod'' <- mkExceptIO $ evalModDef (stGlobalModEnv st) fd mod' -- eval the actual mod def, need to pass global and file modEnvs
+    mod'' <- mkExceptIO $ evalModDef (get St.vModEnv st) fd mod' -- eval the actual mod def, need to pass global and file modEnvs
     return $ updateState st' fd mod'' -- insert the module into the file mod env
   where
     modEnv = fileModEnv fd -- we use the filemodEnv
@@ -65,23 +70,24 @@ evalTopElems (st, fd) topMod@(TopModDef modRoot modName mod) = do
 
     -- TODO - should this be here or in evalModDef?
     -- use importList to then process imports for the module and create an import map, can then validate/typecheck/etc. against it
-    processModImports :: MExceptIO (SysState, Module DesId)
+    processModImports :: MExceptIO (St.SysState, Module DesId)
     processModImports = case mod of
             LitMod exprMap modData -> mapSnd <$> pure (LitMod exprMap) <*> processModImports' modData
             FunctorMod args exprMap modData -> mapSnd <$> pure (FunctorMod args exprMap) <*> processModImports' modData
             otherwise -> return (st, mod)
       where
         -- evalImport wrapper for modData
-        processModImports' :: ModData -> MExceptIO (SysState, ModData)
+        processModImports' :: ModData -> MExceptIO (St.SysState, ModData)
         processModImports' modData =
             mapSnd <$> pure (\importMap -> modData { modImportMap = importMap, modImportCmds = [] }) <*> DF.foldlM evalImport (st, Map.empty) (modImportCmds modData)
 
     -- add to both fileData and globalmodenv, so subsequent modules within file can access this module
-    updateState :: SysState -> FileData -> Module Id -> (SysState, FileData)
+    updateState :: St.SysState -> FileData -> Module Id -> (St.SysState, FileData)
     updateState st fd mod = (st', fd')
       where
         fd' = fd { fileModEnv = Map.insert modName mod (fileModEnv fd) }
-        st' = st { stGlobalModEnv = Map.insert modRoot fd (stGlobalModEnv st) }
+        st' = modify St.vModEnv (\modEnv -> Map.insert modRoot fd modEnv) st
+        -- st st { stGlobalModEnv = Map.insert modRoot fd (stGlobalModEnv st) }
 
 -- top import, called from REPL or within a file
 evalTopElems (st, fd) (TopModImport importCmd@(ModImport modRoot mMods)) = do
@@ -91,10 +97,10 @@ evalTopElems (st, fd) (TopModImport importCmd@(ModImport modRoot mMods)) = do
 -- Module Importing Evaluation -----------------------------------------------------------------------------------------
 
 -- | Main function to eval an import command with respect to the system state
-evalImport :: (SysState, ImportMap) -> ModImport -> MExceptIO (SysState, ImportMap)
+evalImport :: (St.SysState, ImportMap) -> ModImport -> MExceptIO (St.SysState, ImportMap)
 evalImport (st, importMap) importCmd@(ModImport modRoot _) = do
     if Set.member modRoot parsedFiles -- if we've parsed this file already
-        then if Map.member modRoot (stGlobalModEnv st) -- then it should be in global cache
+        then if Map.member modRoot (get St.vModEnv st) -- then it should be in global cache
             then do -- so add the imports to the cur filedata
                 importMap' <- mkExceptIO $ addImportsToMap st importMap importCmd
                 return (st, importMap')
@@ -109,13 +115,13 @@ evalImport (st, importMap) importCmd@(ModImport modRoot _) = do
             return (st', importMap')
   where
     -- parsed Files
-    parsedFiles = stParsedFiles st
+    parsedFiles = get St.vParsedFiles st
 
 -- | Imports the modules cmds into the given importmap
-addImportsToMap :: SysState -> ImportMap -> ModImport -> MExcept ImportMap
+addImportsToMap :: St.SysState -> ImportMap -> ModImport -> MExcept ImportMap
 addImportsToMap st importMap (ModImport modRoot mMods) = do
     -- get list of modules of imported file
-    importedModEnv <- fileModEnv <$> getFileData modRoot (stGlobalModEnv st)
+    importedModEnv <- fileModEnv <$> getFileData modRoot (get St.vModEnv st)
     -- update the cur fd import map with those from the imported modules
     DF.foldlM (addImport importedModEnv) importMap (modList importedModEnv)
     -- return $ fd { fileImportMap = importMap }
@@ -129,12 +135,12 @@ addImportsToMap st importMap (ModImport modRoot mMods) = do
             else throwError $ "Imported module " ++ show modName ++ " not found in " ++ show modRoot
 
 -- | High level fuction to load a module specified by ModRoot and process it according to the Glboal state
-loadImport :: SysState -> ModRoot -> MExceptIO SysState
+loadImport :: St.SysState -> ModRoot -> MExceptIO St.SysState
 loadImport st modRoot = do
     -- load the file
     fileElems <- loadModFile st modRoot
     -- update parsed files cache
-    let st' = st { stParsedFiles = Set.insert modRoot (stParsedFiles st) }
+    let st' = modify St.vParsedFiles (\files -> Set.insert modRoot files) st
     -- create a new fileData to store the metadata
     let fileData = mkFileData modRoot
     -- process the file, having reset the local modEnv
@@ -142,11 +148,11 @@ loadImport st modRoot = do
     (st'', fileData') <- DF.foldlM evalTopElems (st', fileData) fileElems
     -- have finished the file, so update the global modenv using the modified fileData'
     liftIO $ debugM "ode3.modules" $ "Finished processing " ++ show modRoot
-    return $ st'' { stGlobalModEnv = Map.insert modRoot fileData' (stGlobalModEnv st'') }
+    return $ modify St.vModEnv (\modEnv -> Map.insert modRoot fileData' modEnv) st''
 
 
 -- Actually loads an individual file of modules from a module root
-loadModFile :: SysState -> ModRoot -> MExceptIO [OdeTopElem DesId]
+loadModFile :: St.SysState -> ModRoot -> MExceptIO [OdeTopElem DesId]
 loadModFile st modRoot = do
     mFileExist <- liftIO repoFileSearch
     case mFileExist of
@@ -163,7 +169,7 @@ loadModFile st modRoot = do
   where
     -- search for filePath exists roots
     repoFileSearch :: IO (Maybe FilePath)
-    repoFileSearch = liftM DF.msum $ mapM checkFile (OrdSet.toList $ stRepos st)
+    repoFileSearch = liftM DF.msum $ mapM checkFile (OrdSet.toList $ get St.vRepos st)
 
     checkFile :: FilePath -> IO (Maybe FilePath)
     checkFile repo = Cond.ifM (Dir.doesFileExist repoFilePath) (return $ Just repoFilePath) (return $ Nothing)

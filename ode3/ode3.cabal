@@ -19,14 +19,14 @@ data-dir: ""
  
 executable ode3
     build-depends: Shellac -any, Shellac-readline -any, base -any,
-                   bimap -any, cond -any, containers -any, directory -any, fgl -any,
-                   filepath -any, hslogger -any, mtl -any, parsec -any, split -any,
-                   unix -any
+                   bimap -any, cond -any, containers -any, directory -any,
+                   fclabels -any, fgl -any, filepath -any, hslogger -any, mtl -any,
+                   parsec -any, split -any, unix -any
     main-is: Main.hs
     buildable: True
     hs-source-dirs: src
-    other-modules: Utils.Graph Utils.Utils Utils.ShellHandleBackend
-                   Utils.OrdMap Utils.OrdSet Utils.MonadSupply UI.ShellUI UI.SysState
+    other-modules: Utils.Utils Utils.ShellHandleBackend Utils.OrdMap
+                   Utils.OrdSet Utils.MonadSupply Utils.Graph UI.ShellUI UI.SysState
                    Lang.Common.AST Lang.Common.Parser Lang.Core.TypeChecker
                    Lang.Core.AST Lang.Core.Units Lang.Core.Validator Lang.Core.Renamer
                    Lang.Module.ModDefDriver Lang.Module.ModCmdDriver Lang.Module.AST

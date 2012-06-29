@@ -16,8 +16,9 @@
 
 module Lang.Core.Units (
     Quantity, Quantities, QuantityBimap,
-    DimVec(..), UnitDef(..), addDim, subDim, mkDimVec, dimensionless, isZeroDim,
-    Unit, mkUnit, SrcUnit, CExpr(..), COp(..), ConvDef(..)
+    DimVec(..), addDim, subDim, mkDimVec, dimensionless, isZeroDim,
+    UnitDef(..), Unit, mkUnit, UnitDimEnv, SrcUnit,
+    CExpr(..), COp(..), ConvDef(..), ConvEnv
 ) where
 
 import Control.Applicative
