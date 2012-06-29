@@ -32,11 +32,11 @@ import qualified Lang.Ode.AST as O
 
 -- Useful Lexical Combinators ------------------------------------------------------------------------------------------
 
--- |parses a module element reference, e.g. A.x
+-- | parses a module element reference, e.g. A.x
 modElemIdentifier :: Parser O.ModLocalId
 modElemIdentifier  = lexeme (O.ModId <$> upperIdentifier <*> (char '.' *> identifier))
 
--- |parse either a local or module id e.g. A.x or x
+-- | parse either a local or module id e.g. A.x or x
 modLocalIdentifier :: Parser O.ModLocalId
 modLocalIdentifier =    try modElemIdentifier
                         <|> O.LocalId <$> identifier <?> "local or module identifier"
@@ -49,7 +49,10 @@ valIdentifier = reservedOp "_" *> pure O.DontCare
   where
     unitAttrib = attrib "unit" (many alphaNum)
 
--- |a parameterised single attribute parser for a given attribute identifier
+-- | Wrapper around our default attribute notation
+attribDef p = braces (permute p)
+
+-- | a parameterised single attribute parser for a given attribute identifier
 -- TODO - fix the comma separated list of attribute, commaSep?
 -- attrib :: String -> Parser String
 attrib res p = reserved res *> colon *> p <* optional comma
@@ -108,23 +111,22 @@ unitDef =   try baseDef
   where
     baseDef = do
         uName <- reserved "unit" *> identifier
-        unit <- braces singUnitAttrib
+        unit <- attribDef singUnitAttrib
         return $ unit { O.uName = [(uName,1)] }
     derivedDef = do
         uName <- reserved "unit" *> unitIdentifier
         mAlias <- option Nothing $ braces (attrib "alias" (Just <$> identifier))
         return $ O.UnitStmt uName Nothing mAlias False
 
-    singUnitAttrib = permute (O.UnitStmt [] <$$> attrib "dim" (Just <$> oneOf "LMTIOJN")
-                                            <|?> (Nothing, attrib "alias" (Just <$> identifier))
-                                            <||> attrib "SI" boolean) <?> "unit definition"
+    singUnitAttrib = O.UnitStmt [] <$$> attrib "dim" (Just <$> oneOf "LMTIOJN")
+                                   <|?> (Nothing, attrib "alias" (Just <$> identifier))
+                                   <||> attrib "SI" boolean -- <?> "unit definition"
 
-
--- | Parses a quantity "alias" for a given dimension
+-- | Parses a conversion defintion stmt for 2 units within a given dimension
 convDef :: Parser O.OdeStmt
-convDef = reserved "conversion" *> permute (O.ConvStmt  <$$> attrib "from" unitIdentifier
-                                                        <||> attrib "to" unitIdentifier
-                                                        <||> attrib "factor" convExpr) <?> "conversion definition"
+convDef = reserved "conversion" *> attribDef (O.ConvDefStmt <$$> attrib "from" unitIdentifier
+                                                            <||> attrib "to" unitIdentifier
+                                                            <||> attrib "factor" convExpr) <?> "conversion definition"
 
 -- | parse a term - the value on either side of an operator
 convTerm :: Parser CA.CExpr
@@ -157,7 +159,7 @@ exprStmt    = compDef
             <|> rreDef
             <?> "component, value or simulation defintion"
 
--- |parse a value definition
+-- | parse a value definition
 -- e.g., val x = expr
 valueDef :: Parser O.Stmt
 valueDef = O.Value  <$> (reserved "val" *> commaSep1 valIdentifier) <*> (reservedOp "=" *> compExpr)
@@ -170,7 +172,7 @@ sValueDef :: Parser O.Stmt
 sValueDef = O.SValue <$> (reserved "sval" *> commaSep1 valIdentifier) <*> (reservedOp "=" *> singOrList number)
 
 
--- |parser for defining a component, where either a defintion or module parameter component may follow
+-- | parser for defining a component, where either a defintion or module parameter component may follow
 compDef :: Parser O.Stmt
 compDef = do
     cName <- reserved "component" *> identifier
@@ -191,11 +193,11 @@ odeDef = O.OdeDef <$> (reserved "ode" *> valIdentifier) <*> pure 0.0 <*> (reserv
 rreDef :: Parser O.Stmt
 rreDef = O.RreDef <$> (reserved "rre" *> braces rreAttribs) <*> (reservedOp "=" *> identifier) <*> (reservedOp "->" *> identifier)
   where
-    -- |parse a rre attribute definition
+    -- | parse a rre attribute definition
     rreAttribs = attrib "rate" number
 
 
--- |parser for the statements allowed within a component body
+-- | parser for the statements allowed within a component body
 --compStmt :: Parser O.CompStmt
 --compStmt =  --O.CompCallDef <$> commaSep1 identifier <*> (reservedOp "=" *> identifier) <*> paramList compExpr
 --            O.CompComp <$> compDef
@@ -249,23 +251,35 @@ boolean =  reserved "True" *> pure True
             <?> "boolean"
 
 
--- |number parser, parses most formats
+-- | number parser, parses most formats
 number :: Parser Double
 number =    try float
             <|> fromIntegral <$> integer
             <?> "number"
 
--- |parse a term - the value on either side of an operator
+-- | updates the parser so any expression can have a unit attrib, combines both initial unit value defs and casts
+-- i.e. val x = 4 {unit : m} + x { unit : m }
+unitExpr :: Parser O.Expr
+unitExpr = O.ConvCast <$> compTerm <*> braces (attrib "unit" unitIdentifier)
+
+--convertCastStmt :: Parser O.Expr
+--convertCastStmt = reserved "convert" *> attribDef (O.ConvCast   <$$> attrib "unit" unitIdentifier
+--                                                                <||> attrib "val" compTerm)
+--                                                                <?> "conversion cast statement"
+
+-- | parse a term - the value on either side of an operator
 -- should ODEs be here - as terms or statements?
 compTerm :: Parser O.Expr
-compTerm =  try (parens compExpr)
+compTerm =  try unitExpr
+            <|> try (parens compExpr)
             <|> O.Number <$> number
             <|> try (O.Boolean <$> boolean)
             <|> try (time *> pure O.Time)
             <|> try (unit *> pure O.Unit)
-            <|> try (brackets numSeqTerm)
+            -- <|> try (brackets numSeqTerm)
             <|> try (braces piecewiseTerm)
             <|> try (O.Call <$> modLocalIdentifier <*> paramList compExpr)
+            -- <|> try convertCastStmt
             <|> O.ValueRef <$> modLocalIdentifier
             <|> O.Tuple <$> tuple compExpr
             <?> "valid term"
@@ -281,11 +295,11 @@ numSeqTerm = createSeq <$> number <*> (comma *> number) <*> (symbol ".." *> numb
   where
     createSeq a b c = O.NumSeq a b c
 
--- |a basic numeric expression, using parsec expression builder
+-- | a basic numeric expression, using parsec expression builder
 compExpr  :: Parser O.Expr
 compExpr  =  buildExpressionParser exprOpTable compTerm <?> "expression"
 
--- |Expression operator precedence table, based on C
+-- | Expression operator precedence table, based on C
 -- TODO - add parens and commas to the expressions?
 -- exprOpTable :: OperatorTable String () Identity O.Expr
 exprOpTable =

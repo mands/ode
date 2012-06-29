@@ -113,6 +113,8 @@ data Expr b = Var (VarId b)             -- a reference to any let-defined expres
 
             | Rre (VarId b) (VarId b) Double -- an RRE, from var->var with given rate
 
+            | ConvCast (Expr b) U.Unit -- a safe cast to the unit for the expr
+
             -- now add the simulation stuff!
             deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
 

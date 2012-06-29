@@ -47,7 +47,7 @@ commonLangDef = javaStyle
                             "True", "False", "time",
                             -- units lang
                             "quantity", "dim", "unit", "SI", "alias",
-                            "conversion", "from", "to", "factor"
+                            "conversion", "factor", "convert"
                             -- ion...implemented externally
                             ],
 
@@ -98,7 +98,6 @@ paramList = parens . commaSep1
 
 
 -- Shared Module Parsers -----------------------------------------------------------------------------------------------
-
 -- | lexeme parser for module identifier, return a list of module URI elements
 modIdentifier :: Parser ModURIElems
 modIdentifier = lexeme $ upperIdentifier `sepBy` (char '.')

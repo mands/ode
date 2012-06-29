@@ -108,7 +108,7 @@ desugarOde elems = do
         u' = U.DerivedUnitDef (U.mkUnit baseUnits):u
 
     -- add the conv statments to the module metadata
-    desugarOde' (DesugarModData e q u i c) stmt@(O.ConvStmt fromUnit toUnit cExpr) = return $ (DesugarModData e q u i c')
+    desugarOde' (DesugarModData e q u i c) stmt@(O.ConvDefStmt fromUnit toUnit cExpr) = return $ (DesugarModData e q u i c')
       where
         c' = U.ConvDef (U.mkUnit fromUnit) (U.mkUnit toUnit) cExpr:c
 
@@ -268,6 +268,7 @@ dsExpr (O.Unit) = return $ C.Lit (C.Unit)
 dsExpr (O.ValueRef (O.LocalId id)) = return $ C.Var (C.LocalVar (id, Nothing))
 dsExpr (O.ValueRef (O.ModId mId id)) = return $ C.Var (C.ModVar (ModName mId) id)
 dsExpr (O.Tuple exprs) = C.Tuple <$> DT.mapM dsExpr exprs
+dsExpr (O.ConvCast expr u) = C.ConvCast <$> dsExpr expr <*> pure (U.mkUnit u)
 
 -- create nested set of ifs for piecewise expression
 dsExpr (O.Piecewise cases e) = dsIf cases

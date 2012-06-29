@@ -36,7 +36,7 @@ data OdeStmt =  ExprStmt Stmt
                 | QuantityStmt { qName :: SrcId, qDim :: DimVec }
                 -- a unit defntions, in terms of a unit sequence for a particular dimension
                 | UnitStmt { uName :: SrcUnit, uDim :: Maybe Char, uAlias :: Maybe String, uSI :: Bool}
-                | ConvStmt { cFrom :: SrcUnit, cTo :: SrcUnit, cExpr :: CExpr }
+                | ConvDefStmt { cFrom :: SrcUnit, cTo :: SrcUnit, cExpr :: CExpr }
                 deriving (Show, Eq, Ord)
 
 -- | elements allowed within a module, basically components or top-level constant values
@@ -73,6 +73,7 @@ data Stmt = -- each independent component, is basically function abstraction
 -- expressions are may be multiple types, these are determined later on
 data Expr   = BinExpr BinOp Expr Expr | UnExpr UnOp Expr | Number Double | NumSeq Double Double Double | Boolean Bool
             | Time | Unit | Call ModLocalId [Expr] | ValueRef ModLocalId | Piecewise [(Expr, Expr)] Expr | Tuple [Expr]
+            | ConvCast Expr SrcUnit
             deriving (Show, Eq, Ord)
 
 -- | basic binary expression operators

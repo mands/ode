@@ -41,8 +41,14 @@ runGraph_ cg@(GraphMap nm g) m = snd $ runGraph cg m
 getEdgesFromPath :: (G.LPath a) -> [a]
 getEdgesFromPath (G.LP path) = map snd $ tail path
 
+-- TODO - this is not correct in case of previously deleted nodes
 -- wrapper around the mkNode to lookup a node, assumes node already exists
 -- getNode a :: NodeMap a -> a -> Int
 getNodeInt (GraphMap nm g) n = if G.gelem nodeInt g then Just nodeInt else Nothing
   where
     nodeInt = fst . NM.mkNode_ nm $ n
+
+
+
+
+

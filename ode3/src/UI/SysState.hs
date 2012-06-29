@@ -8,9 +8,11 @@
 -- Stability   :  alpha
 -- Portability :
 --
--- |
---
+-- | Main system state - inlcudes a nested set of records that hold all the compiler meta-data
+-- We use fclabels to allow easy record access
 -----------------------------------------------------------------------------
+
+{-# LANGUAGE TemplateHaskell, TypeOperators #-}
 
 module UI.SysState (
 SysState(..), mkDefSysState,
@@ -59,6 +61,10 @@ defSysState = SysState   { stDebug = False
                         , stParsedFiles = Set.empty
                         , stLocalFile = MA.mkFileData (mkModRoot ["<console>"])
                         }
+
+
+-- sim data, mod data, units data, other?
+
 
 mkDefSysState :: IO SysState
 mkDefSysState = do

@@ -183,9 +183,13 @@ addConvsToGraph convs cEnv unitEnv = DF.foldlM addConv cEnv convs
         _ <- NM.insMapNodeM toUnit
         NM.insMapEdgeM (fromUnit, toUnit, cExpr)
 
+
 -- | Calculate, if possible, the conversion expression to use between two units
 -- need to get the graph, calc the path between the nodes, then inline the expression
 calcConvExpr :: Unit -> Unit -> UnitDimEnv -> ConvEnv -> MExcept CExpr
+-- TODO -- need to handle case of un-dimenstioned values explitictly here
+calcConvExpr (UnitC []) toUnit uEnv cEnv = undefined
+
 calcConvExpr fromUnit toUnit uEnv cEnv = do
     -- get the graph
     dim <- getDimForUnits fromUnit toUnit uEnv
