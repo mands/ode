@@ -196,13 +196,9 @@ shEval str = do
     eval' :: SysExceptIO ()
     eval' = do
         -- READ cmd, pass the string to our mod lang parser
-        eCmd <- liftIO $ runErrorT (MP.consoleParse str)
-        cmd <- case eCmd of
-            Left err -> throwError err
-            Right res -> return res
+        let cmd = lift $ MP.consoleParse str
         -- then EVAL, cmd sent to interpreter with state
-        st <- S.get
-        fd' <- MD.evalTopElems (get vLocalFile st) cmd
+        fd' <- join $ MD.evalTopElems <$> sysStateGet vLocalFile <*> cmd
         -- return the modified state (with the newly updated local filedata)
-        S.modify (\st -> set vLocalFile fd' st)
+        sysStatePut vLocalFile fd'
 

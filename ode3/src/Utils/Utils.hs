@@ -12,7 +12,7 @@
 --
 -----------------------------------------------------------------------------
 
-{-#LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
+{-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures, FlexibleContexts #-}
 
 module Utils.Utils (
 MExcept, MExceptIO, mkExceptIO, maybeToExcept, maybeToExceptIO,
@@ -34,16 +34,20 @@ import Data.Char (toUpper)
 type MExcept = Either String
 type MExceptIO = ErrorT String IO
 
--- | lift a monad from MExcept to MExceptIO
+-- | (un-)lift a monad from MExcept to MExceptIO
 mkExceptIO :: MExcept a -> MExceptIO a
-mkExceptIO m = case m of
-    Left err -> throwError err
-    Right res -> return res
+mkExceptIO = ErrorT . return
 
 maybeToExcept :: Maybe a -> String -> MExcept a
 maybeToExcept m str = case m of
                         Nothing -> throwError str
                         Just x -> return x
+
+
+mExceptToError :: (MonadError String m) => MExcept a -> m a
+mExceptToError (Left err) = throwError err
+mExceptToError (Right res) = return res
+
 
 maybeToExceptIO m = mkExceptIO . maybeToExcept m
 

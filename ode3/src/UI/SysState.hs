@@ -32,7 +32,7 @@ import Control.Applicative
 import Control.Monad
 import Control.Monad.State as S
 import Control.Monad.Error
-import Control.Monad.Trans(liftIO)
+import Control.Monad.Trans
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -48,28 +48,27 @@ import qualified Utils.OrdSet as OrdSet
 import qualified Lang.Core.Units as U
 import Utils.Utils
 
-newtype SysExcept a = SysExceptC { runSysExceptC :: StateT SysState MExcept a }
-    deriving (Monad, MonadError String, MonadState SysState, Functor, Applicative)
+-- System State Monad --------------------------------------------------------------------------------------------------
 
--- extract and run the state
-runSysExcept :: SysExcept a -> SysState -> MExcept (a, SysState)
-runSysExcept m st = runStateT (runSysExceptC m) st
+--newtype SysExceptIO a = SysExceptIOC { runSysExceptIOC :: StateT SysState MExceptIO a }
+--    deriving (Monad, MonadError String, MonadState SysState, MonadIO, Functor, Applicative)
 
-newtype SysExceptIO a = SysExceptIOC { runSysExceptIOC :: StateT SysState MExceptIO a }
-    deriving (Monad, MonadError String, MonadState SysState, MonadIO, Functor, Applicative)
+type SysExceptIO = StateT SysState MExceptIO
+type SysExcept = StateT SysState MExcept
 
 -- extract and run the state
 runSysExceptIO :: SysExceptIO a -> SysState -> MExceptIO (a, SysState)
-runSysExceptIO m st = runStateT (runSysExceptIOC m) st
+runSysExceptIO m st = runStateT m st
 
-
--- convert from SysExcept -> SysExceptIO
 mkSysExceptIO :: SysExcept a  -> SysExceptIO a
 mkSysExceptIO m = do
     st <- S.get
-    case (runSysExcept m st) of
+    case (runStateT m st) of
         Left err -> throwError err
         Right (a, st') -> put st' >> return a
+
+liftExSys :: MExcept a -> SysExceptIO a
+liftExSys = lift . mkExceptIO
 
 data SysState = SysState
     { _debug :: Bool                -- do we enable debug mode
@@ -161,6 +160,10 @@ vUnitDimEnv = lUnitDimEnv . lUnitsState
 vConvEnv :: SysState :-> U.ConvEnv
 vConvEnv = lConvEnv . lUnitsState
 
+-- helper func to modify records directly within SysState monad
+sysStateGet l = Data.Label.get l <$> S.get
+sysStatePut l a = (set l a <$> S.get) >>= put
+sysStateMod l f = S.modify (\st -> Data.Label.modify l f st)
 
 -- need to take out of IOdef
 defRepos :: IO RepoSet

@@ -64,7 +64,6 @@ import Lang.Module.ModDefDriver
 -- this is either a module definition, or a file-based module import
 evalTopElems :: FileData -> OdeTopElem DesId -> St.SysExceptIO FileData
 evalTopElems fd topMod@(TopModDef modRoot modName mod) = do
-    st <- S.get
     checkName
     mod' <- evalModDef' fd mod -- eval the actual mod def, need to pass global state and file modEnvs
     updateState fd mod' -- insert the updated module into the file mod env
@@ -77,10 +76,8 @@ evalTopElems fd topMod@(TopModDef modRoot modName mod) = do
     updateState :: FileData -> Module Id -> St.SysExceptIO FileData
     updateState fd mod = do
         let fd' = fd { fileModEnv = Map.insert modName mod (fileModEnv fd) }
-        st' <- modify St.vModEnv (\modEnv -> Map.insert modRoot fd' modEnv) <$> S.get
-        S.put st'
+        St.sysStateMod St.vModEnv (\modEnv -> Map.insert modRoot fd' modEnv)
         return fd'
-
 
 -- top import, called from REPL or within a file
 evalTopElems fd (TopModImport importCmd@(ModImport modRoot mMods)) = do
@@ -95,10 +92,8 @@ evalImport importMap importCmd@(ModImport modRoot _) = do
     st <- S.get
     if Set.member modRoot (get St.vParsedFiles st) -- if we've parsed this file already
         then if Map.member modRoot (get St.vModEnv st) -- then it should be in global cache
-            then do -- so add the imports to the cur filedata
-                case addImportsToMap st importMap importCmd of
-                    Left err -> throwError err
-                    Right importMap -> return importMap
+            then -- so add the imports to the cur filedata
+                addImportsToMap importMap importCmd
             else -- ifnot, shit, error, we must be in the process of analysing the file already, is parsed but not global cache
                 throwError $ "Modules " ++ show modRoot ++ " have already been parsed, import cycle detected"
         else do -- module not parsed, this should can occur from within REPL, top file, or module
@@ -106,16 +101,15 @@ evalImport importMap importCmd@(ModImport modRoot _) = do
             -- need to load module
             loadImport modRoot
             -- now process the import cmd
-            st' <- S.get
-            case addImportsToMap st' importMap importCmd of
-                            Left err -> throwError err
-                            Right importMap -> return importMap
+            addImportsToMap importMap importCmd
 
 -- | Imports the modules cmds into the given importmap
-addImportsToMap :: St.SysState -> ImportMap -> ModImport -> MExcept ImportMap
-addImportsToMap st importMap (ModImport modRoot mMods) = do
+-- TODO - this doesn't need IO
+addImportsToMap :: ImportMap -> ModImport -> St.SysExceptIO ImportMap
+addImportsToMap importMap (ModImport modRoot mMods) = do
     -- get list of modules of imported file
-    importedModEnv <- fileModEnv <$> getFileData modRoot (get St.vModEnv st)
+    modEnv <- (St.sysStateGet St.vModEnv)
+    importedModEnv <- fileModEnv <$> (St.liftExSys $ getFileData modRoot modEnv)
     -- update the cur fd import map with those from the imported modules
     DF.foldlM (addImport importedModEnv) importMap (modList importedModEnv)
     -- return $ fd { fileImportMap = importMap }
@@ -131,11 +125,10 @@ addImportsToMap st importMap (ModImport modRoot mMods) = do
 -- | High level fuction to load a module specified by ModRoot and process it according to the Glboal state
 loadImport :: ModRoot -> St.SysExceptIO ()
 loadImport modRoot = do
-    st <- S.get
     -- load the file
     fileElems <- loadModFile modRoot
     -- update parsed files cache
-    let st' = modify St.vParsedFiles (\files -> Set.insert modRoot files) st
+    St.sysStateMod St.vParsedFiles (\files -> Set.insert modRoot files)
     -- create a new fileData to store the metadata
     let fileData = mkFileData modRoot
     -- process the file, having reset the local modEnv
@@ -143,15 +136,13 @@ loadImport modRoot = do
     fileData' <- DF.foldlM evalTopElems fileData fileElems
     -- have finished the file, so update the global modenv using the modified fileData'
     liftIO $ debugM "ode3.modules" $ "Finished processing " ++ show modRoot
-    S.put $ modify St.vModEnv (\modEnv -> Map.insert modRoot fileData' modEnv) st'
-
+    St.sysStateMod St.vModEnv (\modEnv -> Map.insert modRoot fileData' modEnv)
 
 -- Actually loads an individual file of modules from a module root, return a list of top elems defined in the file
 -- file has not been processed yet, simply parsed and desugared into Core AST
 loadModFile :: ModRoot -> St.SysExceptIO [OdeTopElem DesId]
 loadModFile modRoot = do
-    st <- S.get
-    mFileExist <- liftIO $ repoFileSearch st
+    mFileExist <- repoFileSearch
     case mFileExist of
         Nothing -> throwError $ "File " ++ show filePath ++ " not found in any module repositories"
                 --debugM "ode3.modules" $ "File " ++ show filePath ++ " not found in any module repositories"
@@ -163,13 +154,13 @@ loadModFile modRoot = do
             -- st' :: MExcept SysState
             -- have to explicty case from Error to ErrorT monad
             -- actually parse the file using the module parser - return a list of the top elems
-            case fileParse modFilePath modFileData modRoot of
-                Left err -> throwError err
-                Right elems -> return elems
+            St.liftExSys $ fileParse modFilePath modFileData modRoot
   where
     -- search for filePath exists roots
-    repoFileSearch :: St.SysState -> IO (Maybe FilePath)
-    repoFileSearch st = liftM DF.msum $ mapM checkFile (OrdSet.toList $ get St.vRepos st)
+    repoFileSearch :: St.SysExceptIO (Maybe FilePath)
+    repoFileSearch = do
+        repos <- St.sysStateGet St.vRepos
+        liftIO $ DF.msum <$> (mapM checkFile (OrdSet.toList repos))
 
     checkFile :: FilePath -> IO (Maybe FilePath)
     checkFile repo = Cond.ifM (Dir.doesFileExist repoFilePath) (return $ Just repoFilePath) (return $ Nothing)

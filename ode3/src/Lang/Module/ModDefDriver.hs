@@ -14,11 +14,11 @@
 -- requires calling reorderer, renamer, typechecker, converter/interpreter
 -----------------------------------------------------------------------------
 
+{-# LANGUAGE FlexibleContexts #-}
+
 module Lang.Module.ModDefDriver (
 evalModDef, evalModDef'
 ) where
-
-
 
 -- higher-level control
 import Control.Applicative
@@ -70,10 +70,8 @@ evalModDef' fd mod = do
     -- extract the units info
     processModUnits mod'
     -- eval the module
-    modEnv <- get St.vModEnv <$> S.get
-    case evalModDef modEnv fd mod' of
-        Left err -> throwError err
-        Right mod -> return mod
+    modEnv <- St.sysStateGet St.vModEnv
+    St.liftExSys $ evalModDef modEnv fd mod'
   where
     -- use [importCmds] to process imports for the module and create an import map, can then validate/typecheck/etc. against it
     processModImports :: Module DesId -> St.SysExceptIO (Module DesId)
@@ -84,10 +82,8 @@ evalModDef' fd mod = do
       where
         -- evalImport wrapper for modData
         processModImports' :: ModData -> St.SysExceptIO ModData
-        processModImports' modData = do
-            st <- S.get
-            importMap <- DF.foldlM evalImport Map.empty (modImportCmds modData)
-            return $ modData { modImportMap = importMap, modImportCmds = [] }
+        processModImports' modData = DF.foldlM evalImport Map.empty (modImportCmds modData) >>=
+            (\importMap -> return $ modData { modImportMap = importMap, modImportCmds = [] })
 
     -- all units lifting from module level to global state go here too
     processModUnits :: Module DesId -> St.SysExceptIO ()
