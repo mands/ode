@@ -15,15 +15,23 @@
 -----------------------------------------------------------------------------
 
 module Lang.Module.ModDefDriver (
-evalModDef
+evalModDef, evalModDef'
 ) where
 
-import System.Log.Logger
 
+
+-- higher-level control
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Error
+import qualified Control.Monad.State as S
 
+-- fclabels stuff
+import Control.Category
+import Data.Label
+import Prelude hiding ((.), id)
+
+-- containers
 import qualified Data.Traversable as DT
 import qualified Data.Foldable as DF
 import qualified Data.Map as Map
@@ -32,12 +40,16 @@ import qualified Data.List as List
 import qualified Data.List.Split as ListSplit
 import qualified Data.Bimap as Bimap
 import Data.Maybe (isJust, fromJust)
-import Text.Printf (printf)
 
+-- other
+import Text.Printf (printf)
+import System.Log.Logger
+
+-- Ode
+import Utils.Utils
 import qualified Utils.OrdMap as OrdMap
 import qualified Utils.OrdSet as OrdSet
-import Utils.Utils
-import UI.SysState
+import qualified UI.SysState as St
 
 import Lang.Common.AST
 import Lang.Module.AST
@@ -47,9 +59,40 @@ import Lang.Core.AST
 import Lang.Core.Renamer (rename)
 import Lang.Core.Validator (validate)
 import Lang.Core.TypeChecker (typeCheck)
-
+import {-# SOURCE #-} Lang.Module.ModCmdDriver (evalImport) -- special import to break import cycle
 
 -- Evaluate Module Defintions ------------------------------------------------------------------------------------------
+
+evalModDef' :: FileData -> Module DesId -> St.SysExceptIO (Module Id)
+evalModDef' fd mod = do
+    -- process the imports
+    mod' <- processModImports mod
+    -- extract the units info
+    processModUnits mod'
+    -- eval the module
+    modEnv <- get St.vModEnv <$> S.get
+    case evalModDef modEnv fd mod' of
+        Left err -> throwError err
+        Right mod -> return mod
+  where
+    -- use [importCmds] to process imports for the module and create an import map, can then validate/typecheck/etc. against it
+    processModImports :: Module DesId -> St.SysExceptIO (Module DesId)
+    processModImports mod = case mod of
+            LitMod exprMap modData -> LitMod exprMap <$> processModImports' modData
+            FunctorMod args exprMap modData -> FunctorMod args exprMap <$> processModImports' modData
+            otherwise -> return mod
+      where
+        -- evalImport wrapper for modData
+        processModImports' :: ModData -> St.SysExceptIO ModData
+        processModImports' modData = do
+            st <- S.get
+            importMap <- DF.foldlM evalImport Map.empty (modImportCmds modData)
+            return $ modData { modImportMap = importMap, modImportCmds = [] }
+
+    -- all units lifting from module level to global state go here too
+    processModUnits :: Module DesId -> St.SysExceptIO ()
+    processModUnits mod = undefined
+
 
 -- a basic interpreter over the set of module types, interpres the modules with regards to the moduleenv
 evalModDef :: GlobalModEnv -> FileData -> Module DesId -> MExcept (Module Id)

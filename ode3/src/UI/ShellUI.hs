@@ -19,6 +19,7 @@ shellEntry
 import Control.Monad
 import Control.Monad.Error
 import Control.Monad.Trans(liftIO)
+import qualified Control.Monad.State as S
 import Control.Applicative
 import System.Environment(getArgs)
 import System.Log.Logger
@@ -184,19 +185,24 @@ shEval :: String -> Sh SysState ()
 shEval str = do
     shellPutInfoLn str
     st <- getShellSt
-    eSt <- liftIO $ runErrorT (eval' st)
+    eSt <- liftIO $ runErrorT (runSysExceptIO eval' st)
     case eSt of
         Left err -> shellPutErrLn err
         -- update state and PRINT res
-        Right st' -> putShellSt st' >> shellPutInfoLn "Command complete"
+        Right (_, st') -> putShellSt st' >> shellPutInfoLn "Command complete"
     -- return, setting up new LOOP
     return ()
   where
-    eval' :: SysState -> MExceptIO SysState
-    eval' st = do
+    eval' :: SysExceptIO ()
+    eval' = do
         -- READ cmd, pass the string to our mod lang parser
-        cmd <- MP.consoleParse str
+        eCmd <- liftIO $ runErrorT (MP.consoleParse str)
+        cmd <- case eCmd of
+            Left err -> throwError err
+            Right res -> return res
         -- then EVAL, cmd sent to interpreter with state
-        (st', fd') <- MD.evalTopElems (st, get vLocalFile st) cmd
+        st <- S.get
+        fd' <- MD.evalTopElems (get vLocalFile st) cmd
         -- return the modified state (with the newly updated local filedata)
-        return $ set vLocalFile fd' st'
+        S.modify (\st -> set vLocalFile fd' st)
+

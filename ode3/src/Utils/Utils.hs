@@ -41,9 +41,9 @@ mkExceptIO m = case m of
     Right res -> return res
 
 maybeToExcept :: Maybe a -> String -> MExcept a
-maybeToExcept m str =   case m of
-                           Nothing -> throwError str
-                           Just x -> return x
+maybeToExcept m str = case m of
+                        Nothing -> throwError str
+                        Just x -> return x
 
 maybeToExceptIO m = mkExceptIO . maybeToExcept m
 

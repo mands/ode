@@ -12,7 +12,7 @@
 -- We use fclabels to allow easy nested record access
 -----------------------------------------------------------------------------
 
-{-# LANGUAGE TemplateHaskell, TypeOperators #-}
+{-# LANGUAGE TemplateHaskell, TypeOperators, GeneralizedNewtypeDeriving #-}
 
 module UI.SysState where
 --
@@ -30,6 +30,8 @@ import Prelude hiding ((.), id)
 
 import Control.Applicative
 import Control.Monad
+import Control.Monad.State as S
+import Control.Monad.Error
 import Control.Monad.Trans(liftIO)
 
 import qualified Data.Map as Map
@@ -45,13 +47,29 @@ import qualified Lang.Module.AST as MA
 import qualified Utils.OrdSet as OrdSet
 import qualified Lang.Core.Units as U
 import Utils.Utils
--- TODO - create monad around state?
+
+newtype SysExcept a = SysExceptC { runSysExceptC :: StateT SysState MExcept a }
+    deriving (Monad, MonadError String, MonadState SysState, Functor, Applicative)
+
+-- extract and run the state
+runSysExcept :: SysExcept a -> SysState -> MExcept (a, SysState)
+runSysExcept m st = runStateT (runSysExceptC m) st
+
+newtype SysExceptIO a = SysExceptIOC { runSysExceptIOC :: StateT SysState MExceptIO a }
+    deriving (Monad, MonadError String, MonadState SysState, MonadIO, Functor, Applicative)
+
+-- extract and run the state
+runSysExceptIO :: SysExceptIO a -> SysState -> MExceptIO (a, SysState)
+runSysExceptIO m st = runStateT (runSysExceptIOC m) st
 
 
--- | Holds the ordered set of enabled repositories
-type RepoSet = OrdSet.OrdSet FilePath
-
-
+-- convert from SysExcept -> SysExceptIO
+mkSysExceptIO :: SysExcept a  -> SysExceptIO a
+mkSysExceptIO m = do
+    st <- S.get
+    case (runSysExcept m st) of
+        Left err -> throwError err
+        Right (a, st') -> put st' >> return a
 
 data SysState = SysState
     { _debug :: Bool                -- do we enable debug mode
@@ -84,6 +102,9 @@ defSimState = SimState
     , _filename = "output.bin"  -- default output file
     }
 
+-- | Holds the ordered set of enabled repositories
+type RepoSet = OrdSet.OrdSet FilePath
+
 data ModState = ModState
     { _repos :: RepoSet                 -- list of enabled module repositories
     , _modEnv :: MA.GlobalModEnv        -- map of loaded modules
@@ -115,10 +136,8 @@ defUnitsState = UnitsState
 
 -- TH splice
 -- $(mkLabels [''SysState, ''SimState, ''ModState, ''UnitsState])
-
 $(mkLabelsWith mkLabelName [''SysState, ''SimState, ''ModState, ''UnitsState])
-
--- post TH
+-- post TH, all generated defs/labels are in scope
 
 -- a few useful views from top SysState into nested labels
 vModEnv :: SysState :-> MA.GlobalModEnv
@@ -132,6 +151,15 @@ vRepos = lRepos . lModState
 
 vLocalFile :: SysState :-> MA.FileData
 vLocalFile = lLocalFile . lModState
+
+vQuantities :: SysState :-> U.QuantityBimap
+vQuantities = lQuantities . lUnitsState
+
+vUnitDimEnv :: SysState :-> U.UnitDimEnv
+vUnitDimEnv = lUnitDimEnv . lUnitsState
+
+vConvEnv :: SysState :-> U.ConvEnv
+vConvEnv = lConvEnv . lUnitsState
 
 
 -- need to take out of IOdef

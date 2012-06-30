@@ -97,12 +97,14 @@ type TypeMap = Map.Map Id E.Type -- maybe switch to IntMap?
 
 
 getIdType :: SrcId -> Module Id -> MExcept E.Type
-getIdType v mod = maybeToExcept (Map.lookup v sigMap) $ printf "Binding %s not found in module" (show v)
+getIdType v mod = maybeToExcept (do
+    sigMap <- mSigMap
+    Map.lookup v sigMap) $ printf "Binding %s not found in module" (show v)
   where
-    sigMap = case mod of
-        LitMod _ modData      -> modSig modData
-        FunctorMod _ _ modData  -> modSig modData
-        otherwise             -> Map.empty -- seems a bit hacky?
+    mSigMap = case mod of
+        LitMod _ modData        -> Just $ modSig modData
+        FunctorMod _ _ modData  -> Just $ modSig modData
+        otherwise               -> Nothing
 
 
 -- Module Environments -------------------------------------------------------------------------------------------------
