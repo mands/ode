@@ -44,10 +44,8 @@ modLocalIdentifier =    try modElemIdentifier
 -- | value identifier, allows use of don't care vals
 valIdentifier :: Parser O.ValId
 valIdentifier = reservedOp "_" *> pure O.DontCare
-                <|> O.ValId <$> identifier <*> optionMaybe (braces unitAttrib)
+                <|> O.ValId <$> identifier
                 <?> "value identifier"
-  where
-    unitAttrib = attrib "unit" (many alphaNum)
 
 -- | Wrapper around our default attribute notation
 attribDef p = braces (permute p)

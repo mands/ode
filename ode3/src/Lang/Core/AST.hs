@@ -22,8 +22,9 @@
 
 
 module Lang.Core.AST (
-SrcId, Id, VarId(..), Bind(..), Type(..), travTypesM,
-TopLet(..), Expr(..), Op(..), Literal(..), UnitT, DesId,
+VarId(..), Bind(..), Type(..), travTypesM,
+TopLet(..), Expr(..), Op(..), Literal(..),
+SrcId, DesId, Id -- rexported from Common.AST
 ) where
 
 import Control.Monad

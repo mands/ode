@@ -85,7 +85,7 @@ validExpr curBinds (E.Tuple es) = DF.traverse_ (validExpr curBinds) es
 
 validExpr _ e = pure ()
 
-addBinding curBinds (b, _) = case Set.member b curBinds of
+addBinding curBinds b = case Set.member b curBinds of
     True -> throwError $ printf "(VL04) - Binding %s already exists at this scoping level" b
     False -> pure $ (Set.insert b curBinds)
 

@@ -336,8 +336,14 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
         addConstraint destT E.TFloat
         return (E.TUnit, tEnv, mTEnv)
 
+    consExpr tEnv mTEnv (E.ConvCast e _) = do
+        -- constrain e to be a float
+        (eT, tEnv', mTEnv') <- consExpr tEnv mTEnv e
+        addConstraint eT E.TFloat
+        return $ (E.TFloat, tEnv', mTEnv')
+
     -- other exprs - not needed as match all
-    -- consExpr tEnv mTEnv e = error ("(TC02) unknown expr - " ++ show e)
+    consExpr tEnv mTEnv e = error ("(TC02) unknown expr - " ++ show e)
 
 -- NOTE - should these two functions be moved into the AST?
 getLitType :: E.Literal -> E.Type

@@ -17,7 +17,7 @@
 module Lang.Ode.AST (
     ModLocalId(..), ValId(..), OdeStmt(..), Stmt(..),
     Expr(..), BinOp(..), UnOp(..),
-    SrcId, NumTy, UnitT
+    SrcId, NumTy -- rexported from Common.AST
 ) where
 
 import qualified Data.Map as Map
@@ -28,7 +28,7 @@ data ModLocalId =   LocalId SrcId | ModId SrcId SrcId
                     deriving (Show, Eq, Ord)
 
 -- | used for creating new bindings that may differntiatin between actual ids and _ vals
-data ValId = ValId SrcId (Maybe UnitT) | DontCare deriving (Show, Ord, Eq)
+data ValId = ValId SrcId | DontCare deriving (Show, Ord, Eq)
 
 data OdeStmt =  ExprStmt Stmt
                 | ImportStmt ModImport

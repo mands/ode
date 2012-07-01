@@ -55,12 +55,13 @@ import Lang.Common.AST
 import Lang.Module.AST
 import Lang.Core.AST
 import qualified Lang.Core.Units as U
+import {-# SOURCE #-} Lang.Module.ModCmdDriver (evalImport) -- special import to break import cycle
 
 --import Core.Reorderer (reorder)
 import Lang.Core.Renamer (rename)
 import Lang.Core.Validator (validate)
 import Lang.Core.TypeChecker (typeCheck)
-import {-# SOURCE #-} Lang.Module.ModCmdDriver (evalImport) -- special import to break import cycle
+import Lang.Core.UnitChecker (unitCheck)
 
 -- Evaluate Module Defintions ------------------------------------------------------------------------------------------
 
@@ -116,13 +117,13 @@ evalModDef gModEnv fileData mod@(LitMod _ _) = do
     -- mod' <- validate >=> reorder >=> rename >=> typeCheck $ mod
 
     -- TODO - these require gModEnv for in-module import lookups
-    (gModEnv', mod') <- validate >=> rename >=> typeCheck $ (gModEnv, mod)
+    (gModEnv', mod') <- validate >=> rename >=> typeCheck >=> unitCheck $ (gModEnv, mod)
     return mod'
 
 evalModDef gModEnv fileData mod@(FunctorMod _ _ _) = do
     -- reorder, rename and typecheck the expressinons within functor module, adding to the module metadata
     -- mod' <- validate >=> reorder >=> rename >=> typeCheck $ mod
-    (gModEnv', mod') <- validate >=> rename >=> typeCheck $ (gModEnv, mod)
+    (gModEnv', mod') <- validate >=> rename >=> typeCheck >=> unitCheck $ (gModEnv, mod)
     return mod'
 
 -- simply looks up the id within both the file and then global env and return the module if found

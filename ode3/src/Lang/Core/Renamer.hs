@@ -42,11 +42,11 @@ import qualified Utils.OrdMap as OrdMap
 
 -- main types
 type BindMap = Map.Map E.SrcId E.Id
-type UnitMap = Map.Map E.Id E.UnitT
+-- type UnitMap = Map.Map E.Id E.UnitT
 
 -- we need a supply of uniques, use monad supply again but with user-start param
-type IdSupply = SupplyT Int (State UnitMap)
--- type IdSupply = Supply E.Id
+-- type IdSupply = SupplyT Int (State UnitMap)
+type IdSupply = Supply E.Id
 
 -- TODO - may need this monad when unify AST in order to process errors
 --newtype IdSupply a = IdSupply { runIdSupply :: SupplyT Int (StateT ExprBinds (MExcept)) a }
@@ -81,9 +81,9 @@ updateModData modData bMap freeId = modData { M.modIdBimap = idBimap', M.modFree
 
 -- |Need to build a conversion map of the top values first
 renTop :: M.ExprMap E.DesId -> (M.ExprMap E.Id, BindMap, E.Id)
-renTop exprMap = trace' [MkSB uMap] "Final UnitMap" (exprMap', topBinds, head uniqs)
+renTop exprMap = (exprMap', topBinds, head uniqs)
   where
-    (((exprMap', topBinds), uniqs), uMap) = runState (runSupplyT exprMapM [0..]) (Map.empty)
+    ((exprMap', topBinds), uniqs) = runSupply exprMapM [0..]
     exprMapM = DF.foldlM convTopBind (OrdMap.empty, Map.empty) exprMap
 
     -- map over each expr, using the topmap, converting lets and building a new scopemap
@@ -105,25 +105,25 @@ convBind (E.Bind bs) map = liftM (mapFst (E.Bind . reverse)) $ DF.foldlM f ([], 
   where
     -- helper func to convert an indiv binding
     f :: ([E.Id], BindMap) -> E.DesId -> IdSupply ([E.Id], BindMap)
-    f (bs', map) (b, mUnit) = do
+    f (bs', map) b = do
         -- get a unique id
         b' <- supply
         -- store the mapping
         let map' = Map.insert b b' map
         -- add any unit data
-        _ <- case mUnit of
-            Just unit -> do
-                uMap <- lift get
-                let uMap' = Map.insert b' unit uMap
-                lift $ put uMap'
-            Nothing -> return ()
+--        _ <- case mUnit of
+--            Just unit -> do
+--                uMap <- lift get
+--                let uMap' = Map.insert b' unit uMap
+--                lift $ put uMap'
+--            Nothing -> return ()
         return (b':bs', map')
 
 
 -- | Monadic binding lookup,
 -- This should never throw an error (reorderer now catches all unknown variable references)
 bLookup :: E.DesId -> BindMap -> IdSupply E.Id
-bLookup (v, _) bMap = case (Map.lookup v bMap) of
+bLookup v bMap = case (Map.lookup v bMap) of
     (Just v') -> return v'
     Nothing -> errorDump [MkSB v, MkSB bMap] "(RN01) Variable not found in scope"
     -- maybe (renError ("Referenced variable " ++ v ++ " not found")) (\x -> return x) (Map.lookup v bMap)
@@ -148,7 +148,7 @@ renExpr (E.App (E.LocalVar b) expr) bMap = do
 
 renExpr (E.App (E.ModVar m v) expr) bMap = pairM (E.App <$> pure (E.ModVar m v) <*> apExpr expr bMap) (pure bMap)
 
-renExpr (E.Abs (b, _) expr) bMap = do
+renExpr (E.Abs b expr) bMap = do
     -- get the unique id for the arg and update the binding
     b' <- supply
     let bMap' = Map.insert b b' bMap

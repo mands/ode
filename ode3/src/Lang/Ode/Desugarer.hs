@@ -122,10 +122,10 @@ desugarTopStmt es stmt@(O.SValue _ _) = do
     (ids, expr) <- desugarStmt stmt
     return $ C.TopLet True (C.Bind ids) expr : es
 
-desugarTopStmt es stmt@(O.OdeDef (O.ValId name unit) init _) = do
+desugarTopStmt es stmt@(O.OdeDef (O.ValId name) init _) = do
     (odeVar, odeExpr) <- desugarStmt stmt
     let initExpr = C.Lit (C.Num init)
-    let es' = C.TopLet True (C.Bind [(name, unit)]) initExpr : es
+    let es' = C.TopLet True (C.Bind [name]) initExpr : es
     return $ C.TopLet False (C.Bind odeVar) odeExpr : es'
 
 desugarTopStmt es stmt@(O.RreDef _ _  _) = do
@@ -147,11 +147,11 @@ desugarS' (s@(O.SValue _ _):xs) outs = do
     (ids, expr) <- desugarStmt s
     C.Let True (C.Bind ids) expr <$> desugarS' xs outs
 
-desugarS' (s@(O.OdeDef (O.ValId name unit) init _):xs) outs = do
+desugarS' (s@(O.OdeDef (O.ValId name) init _):xs) outs = do
     (odeVar, odeExpr) <- desugarStmt s
     let subExpr' = C.Let False (C.Bind odeVar) odeExpr <$> desugarS' xs outs
     let initExpr = C.Lit (C.Num init)
-    C.Let True (C.Bind [(name, unit)]) <$> pure initExpr <*> subExpr'
+    C.Let True (C.Bind [name]) <$> pure initExpr <*> subExpr'
 
 desugarS' (s@(O.RreDef _ _ _):xs) outs = do
     (rreVar, rreExpr) <- desugarStmt s
@@ -178,29 +178,29 @@ desugarStmt (O.SValue ids values) = do
     return $ (ids', vs'')
 
 -- TODO - need to add the correct unit for the delta expr here
-desugarStmt (O.OdeDef (O.ValId name unit) init expr) = do
-    odeExpr <- C.Ode <$> pure (C.LocalVar (name, unit)) <*> dsExpr expr
+desugarStmt (O.OdeDef (O.ValId name) init expr) = do
+    odeExpr <- C.Ode <$> pure (C.LocalVar name) <*> dsExpr expr
     odeVar <- supply
-    return $ ([(odeVar, Nothing)], odeExpr)
+    return $ ([odeVar], odeExpr)
 
 desugarStmt (O.RreDef rate src dest) = do
     rreVar <- supply
-    rreExpr <- C.Rre <$> pure (C.LocalVar (src, Nothing)) <*> pure (C.LocalVar (dest, Nothing)) <*> pure rate
-    return $ ([(rreVar, Nothing)], rreExpr)
+    rreExpr <- C.Rre <$> pure (C.LocalVar src) <*> pure (C.LocalVar dest) <*> pure rate
+    return $ ([rreVar], rreExpr)
 
 -- | desugar a top level component
 desugarStmt (O.Component name ins outs body) = do
     -- sub the ins
     ins' <- DT.mapM subDontCares ins
     -- create a new tmpArg only if multiple elems
-    argName <- if (isSingleElem ins') then return (fst $ singleElem ins') else supply
+    argName <- if (isSingleElem ins') then return (singleElem ins') else supply
     v <- desugarComp argName ins'
-    return $ ([(name, Nothing)], (C.Abs (argName, Nothing) v))
+    return $ ([name], (C.Abs argName v))
   where
     -- | desugars and converts a component into a \c abstraction, not in tail-call form, could blow out the stack, but unlikely
     desugarComp :: O.SrcId -> [C.DesId] -> TmpSupply (C.Expr C.DesId)
     desugarComp _ (singIn:[]) = desugarS' body outs
-    desugarComp argName ins = C.Let False (C.Bind ins) (C.Var (C.LocalVar (argName, Nothing))) <$> desugarS' body outs
+    desugarComp argName ins = C.Let False (C.Bind ins) (C.Var (C.LocalVar argName)) <$> desugarS' body outs
 
 
 desugarStmt stmt = throw $ printf "Found an unhandled stmt that is top-level only - not nested \n%s" (show stmt)
@@ -265,7 +265,7 @@ dsExpr (O.NumSeq a b c) = return $ C.Lit (C.NumSeq $ enumFromThenTo a b c)
 dsExpr (O.Boolean b) = return $ C.Lit (C.Boolean b)
 dsExpr (O.Time) = return $ C.Lit (C.Time)
 dsExpr (O.Unit) = return $ C.Lit (C.Unit)
-dsExpr (O.ValueRef (O.LocalId id)) = return $ C.Var (C.LocalVar (id, Nothing))
+dsExpr (O.ValueRef (O.LocalId id)) = return $ C.Var (C.LocalVar id)
 dsExpr (O.ValueRef (O.ModId mId id)) = return $ C.Var (C.ModVar (ModName mId) id)
 dsExpr (O.Tuple exprs) = C.Tuple <$> DT.mapM dsExpr exprs
 dsExpr (O.ConvCast expr u) = C.ConvCast <$> dsExpr expr <*> pure (U.mkUnit u)
@@ -277,7 +277,7 @@ dsExpr (O.Piecewise cases e) = dsIf cases
     dsIf ((testExpr, runExpr):xs) = liftM3 C.If (dsExpr testExpr) (dsExpr runExpr) (dsIf xs)
 
 -- convert call to a app, need to convert ins/args into a tuple first
-dsExpr (O.Call (O.LocalId id) exprs) = liftM (C.App (C.LocalVar (id, Nothing))) $ packElems exprs
+dsExpr (O.Call (O.LocalId id) exprs) = liftM (C.App (C.LocalVar id)) $ packElems exprs
 dsExpr (O.Call (O.ModId mId id) exprs) = liftM (C.App (C.ModVar (ModName mId) id)) $ packElems exprs
 
 -- any unknown/unimplemented paths - not needed as match all
@@ -296,8 +296,8 @@ packElems es = if (isSingleElem es)
 
 -- | creates new unique variable identifiers for all don't care values
 subDontCares :: O.ValId -> TmpSupply C.DesId
-subDontCares O.DontCare = (,) <$> supply <*> pure Nothing
-subDontCares (O.ValId v u) = return (v, u)
+subDontCares O.DontCare = supply
+subDontCares (O.ValId v) = return v
 
 -- | simple patttern matching convertor, boring but gotta be done...
 binOps :: O.BinOp -> C.Op

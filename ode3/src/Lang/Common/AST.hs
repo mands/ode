@@ -15,9 +15,10 @@
 
 
 module Lang.Common.AST (
-    NumTy, UntypedId, Id,
-    SrcId, UnitT, DesId,
+    -- common id types
+    NumTy, SrcId, DesId, Id,
 
+    -- modules
     ModImport(..), ModURIElems, ModRoot, ModName(..), ModFullName(..),
     mkModRoot, getModRootStr, mkModFullName,splitModFullName,
 
@@ -35,14 +36,13 @@ import Utils.Utils
 -- | an individual number type, not sure if needed, used to convert from double to integer
 type NumTy = Double
 
-type UnitT = String
-
--- TODO - change to newtype?
+-- TODO - change to GADT/kind-level
 -- | Identifier - basicially RdrName - needs to become parameterised, hold the id and the optional unit annotation
 type SrcId = String
+-- type DesId = (SrcId, Maybe UnitT)
+type DesId = String
 type UntypedId = Int
-type Id = UntypedId
-type DesId = (SrcId, Maybe UnitT)
+type Id = Int
 
 -- Shared Module AST ---------------------------------------------------------------------------------------------------
 
