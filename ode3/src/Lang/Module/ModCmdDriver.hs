@@ -76,7 +76,7 @@ evalTopElems fd topMod@(TopModDef modRoot modName mod) = do
     updateState :: FileData -> Module Id -> St.SysExceptIO FileData
     updateState fd mod = do
         let fd' = fd { fileModEnv = Map.insert modName mod (fileModEnv fd) }
-        St.sysStateMod St.vModEnv (\modEnv -> Map.insert modRoot fd' modEnv)
+        St.modSysState St.vModEnv (\modEnv -> Map.insert modRoot fd' modEnv)
         return fd'
 
 -- top import, called from REPL or within a file
@@ -108,7 +108,7 @@ evalImport importMap importCmd@(ModImport modRoot _) = do
 addImportsToMap :: ImportMap -> ModImport -> St.SysExceptIO ImportMap
 addImportsToMap importMap (ModImport modRoot mMods) = do
     -- get list of modules of imported file
-    modEnv <- (St.sysStateGet St.vModEnv)
+    modEnv <- (St.getSysState St.vModEnv)
     importedModEnv <- fileModEnv <$> (St.liftExSys $ getFileData modRoot modEnv)
     -- update the cur fd import map with those from the imported modules
     DF.foldlM (addImport importedModEnv) importMap (modList importedModEnv)
@@ -128,7 +128,7 @@ loadImport modRoot = do
     -- load the file
     fileElems <- loadModFile modRoot
     -- update parsed files cache
-    St.sysStateMod St.vParsedFiles (\files -> Set.insert modRoot files)
+    St.modSysState St.vParsedFiles (\files -> Set.insert modRoot files)
     -- create a new fileData to store the metadata
     let fileData = mkFileData modRoot
     -- process the file, having reset the local modEnv
@@ -136,7 +136,7 @@ loadImport modRoot = do
     fileData' <- DF.foldlM evalTopElems fileData fileElems
     -- have finished the file, so update the global modenv using the modified fileData'
     liftIO $ debugM "ode3.modules" $ "Finished processing " ++ show modRoot
-    St.sysStateMod St.vModEnv (\modEnv -> Map.insert modRoot fileData' modEnv)
+    St.modSysState St.vModEnv (\modEnv -> Map.insert modRoot fileData' modEnv)
 
 -- Actually loads an individual file of modules from a module root, return a list of top elems defined in the file
 -- file has not been processed yet, simply parsed and desugared into Core AST
@@ -159,7 +159,7 @@ loadModFile modRoot = do
     -- search for filePath exists roots
     repoFileSearch :: St.SysExceptIO (Maybe FilePath)
     repoFileSearch = do
-        repos <- St.sysStateGet St.vRepos
+        repos <- St.getSysState St.vRepos
         liftIO $ DF.msum <$> (mapM checkFile (OrdSet.toList repos))
 
     checkFile :: FilePath -> IO (Maybe FilePath)

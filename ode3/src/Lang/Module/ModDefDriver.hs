@@ -54,6 +54,7 @@ import qualified UI.SysState as St
 import Lang.Common.AST
 import Lang.Module.AST
 import Lang.Core.AST
+import qualified Lang.Core.Units as U
 
 --import Core.Reorderer (reorder)
 import Lang.Core.Renamer (rename)
@@ -68,26 +69,44 @@ evalModDef' fd mod = do
     -- process the imports
     mod' <- processModImports mod
     -- extract the units info
-    processModUnits mod'
+    mod'' <- processModUnits mod'
     -- eval the module
-    modEnv <- St.sysStateGet St.vModEnv
-    St.liftExSys $ evalModDef modEnv fd mod'
+    modEnv <- St.getSysState St.vModEnv
+    St.liftExSys $ evalModDef modEnv fd mod''
   where
     -- use [importCmds] to process imports for the module and create an import map, can then validate/typecheck/etc. against it
     processModImports :: Module DesId -> St.SysExceptIO (Module DesId)
-    processModImports mod = case mod of
-            LitMod exprMap modData -> LitMod exprMap <$> processModImports' modData
-            FunctorMod args exprMap modData -> FunctorMod args exprMap <$> processModImports' modData
-            otherwise -> return mod
-      where
+    processModImports mod =
+        maybe (return mod) (\modData -> putModData mod <$> processModImports' modData) $ getModData mod
+     where
         -- evalImport wrapper for modData
         processModImports' :: ModData -> St.SysExceptIO ModData
-        processModImports' modData = DF.foldlM evalImport Map.empty (modImportCmds modData) >>=
-            (\importMap -> return $ modData { modImportMap = importMap, modImportCmds = [] })
+        processModImports' modData = do
+            -- calc new importMap
+            importMap <- DF.foldlM evalImport Map.empty (modImportCmds modData)
+            -- update modData
+            return $ modData { modImportMap = importMap, modImportCmds = [] }
 
     -- all units lifting from module level to global state go here too
-    processModUnits :: Module DesId -> St.SysExceptIO ()
-    processModUnits mod = undefined
+    -- TODO - this doesn't need IO
+    processModUnits :: Module DesId -> St.SysExceptIO (Module DesId)
+    processModUnits mod = do
+        case getModData mod of
+            Nothing -> return mod
+            Just modData -> do
+                -- add the data from modData
+                -- quantities
+                St.modSysState St.vQuantities (\qBimap -> U.addQuantitiesToBimap qBimap (modQuantities modData))
+                -- units
+                St.modSysStateM St.vUnitDimEnv (\unitDimEnv ->
+                    St.liftExSys $ U.addUnitsToEnv unitDimEnv (modUnits modData))
+                -- conv defs
+                unitDimEnv <- St.getSysState St.vUnitDimEnv
+                St.modSysStateM St.vConvEnv (\convEnv ->
+                    St.liftExSys $ U.addConvsToGraph convEnv (modConvs modData) unitDimEnv)
+                -- clear and return the modData
+                return $ putModData mod (modData { modQuantities = [], modUnits = [], modConvs = [] })
+
 
 
 -- a basic interpreter over the set of module types, interpres the modules with regards to the moduleenv

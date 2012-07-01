@@ -21,7 +21,8 @@ Module(..),
 GlobalModEnv, FileModEnv, LocalModEnv, FileData(..), mkFileData,
 getRealModuleMod, getModuleMod, getRealModuleFile, getModuleFile, getModuleGlobal,
 getFileData, ImportMap, getIdType,
-ModData(..), mkModData, SigMap, TypeMap, IdBimap, debugModuleExpr,
+ModData(..), mkModData, getModData, putModData, modifyModData,
+SigMap, TypeMap, IdBimap, debugModuleExpr,
 ) where
 
 import Control.Monad
@@ -87,6 +88,21 @@ mkModData = ModData     { modSig = Map.empty, modTMap = Map.empty, modIdBimap = 
                         , modImportCmds = [], modExprList = []
                         , modQuantities = [], modUnits = [], modConvs = []
                         }
+
+-- Module ModData accessors
+getModData :: Module a -> Maybe ModData
+getModData (LitMod _ modData) = Just modData
+getModData (FunctorMod _ _ modData) = Just modData
+getModData mod = Nothing
+
+putModData :: Module a -> ModData -> Module a
+putModData (LitMod exprMap _) modData' = LitMod exprMap modData'
+putModData (FunctorMod args exprMap _) modData' = FunctorMod args exprMap modData'
+putModData mod _ = mod
+
+modifyModData :: Module a -> (ModData -> ModData) -> Module a
+modifyModData m f = maybe m (\md -> putModData m (f md)) $ getModData m
+
 
 -- | bidirectional map between internal ids and source ids for all visible/top-level defined vars
 type IdBimap = Bimap.Bimap SrcId Id

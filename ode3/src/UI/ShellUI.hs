@@ -198,7 +198,6 @@ shEval str = do
         -- READ cmd, pass the string to our mod lang parser
         let cmd = lift $ MP.consoleParse str
         -- then EVAL, cmd sent to interpreter with state
-        fd' <- join $ MD.evalTopElems <$> sysStateGet vLocalFile <*> cmd
+        fd' <- join $ MD.evalTopElems <$> getSysState vLocalFile <*> cmd
         -- return the modified state (with the newly updated local filedata)
-        sysStatePut vLocalFile fd'
-
+        putSysState vLocalFile fd'

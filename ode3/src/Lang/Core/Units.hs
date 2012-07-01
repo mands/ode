@@ -18,7 +18,9 @@ module Lang.Core.Units (
     Quantity, Quantities, QuantityBimap,
     DimVec(..), addDim, subDim, mkDimVec, dimensionless, isZeroDim,
     UnitDef(..), Unit, mkUnit, UnitDimEnv, SrcUnit,
-    CExpr(..), COp(..), ConvDef(..), ConvEnv
+    CExpr(..), COp(..), ConvDef(..), ConvEnv,
+
+    addQuantitiesToBimap, addUnitsToEnv, addConvsToGraph
 ) where
 
 import Control.Applicative
@@ -125,8 +127,8 @@ calcUnitDim u@(UnitC units) unitEnv = mconcat <$> mapM getDim units
         Nothing -> throwError $ printf "Reference to unknown base unit %s found in %s" name (show u)
         Just dim -> return $ mulDim dim index
 
-addUnitsToEnv :: [UnitDef] -> UnitDimEnv -> MExcept UnitDimEnv
-addUnitsToEnv units unitEnv = DF.foldlM addUnit unitEnv units
+addUnitsToEnv :: UnitDimEnv -> [UnitDef] -> MExcept UnitDimEnv
+addUnitsToEnv unitEnv units = DF.foldlM addUnit unitEnv units
   where
     addUnit unitEnv (BaseUnitDef u d) = case Map.lookup u unitEnv of
         Nothing -> return $ Map.insert u d unitEnv
@@ -165,8 +167,8 @@ getConvGraphForUnits :: Unit -> Unit -> UnitDimEnv -> ConvEnv -> MExcept ConvGra
 getConvGraphForUnits u1 u2 uEnv cEnv = getConvGraph <$> (getDimForUnits u1 u2 uEnv) <*> pure cEnv
 
 --type ConversionFactor =
-addConvsToGraph :: [ConvDef] -> ConvEnv -> UnitDimEnv -> MExcept ConvEnv
-addConvsToGraph convs cEnv unitEnv = DF.foldlM addConv cEnv convs
+addConvsToGraph :: ConvEnv -> [ConvDef] -> UnitDimEnv -> MExcept ConvEnv
+addConvsToGraph cEnv convs unitEnv = DF.foldlM addConv cEnv convs
   where
     addConv :: ConvEnv -> ConvDef -> MExcept ConvEnv
     addConv cEnv convDef@(ConvDef fromUnit toUnit cExpr) = do

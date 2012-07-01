@@ -161,9 +161,15 @@ vConvEnv :: SysState :-> U.ConvEnv
 vConvEnv = lConvEnv . lUnitsState
 
 -- helper func to modify records directly within SysState monad
-sysStateGet l = Data.Label.get l <$> S.get
-sysStatePut l a = (set l a <$> S.get) >>= put
-sysStateMod l f = S.modify (\st -> Data.Label.modify l f st)
+getSysState l = Data.Label.get l <$> S.get
+putSysState l a = (set l a <$> S.get) >>= put
+modSysState l f = S.modify (\st -> Data.Label.modify l f st)
+
+modSysStateM l f = do
+    x <- getSysState l
+    x' <- f x
+    putSysState l x'
+
 
 -- need to take out of IOdef
 defRepos :: IO RepoSet
