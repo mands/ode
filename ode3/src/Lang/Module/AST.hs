@@ -17,7 +17,7 @@
 module Lang.Module.AST (
 OdeTopElem(..),
 ExprMap, ExprList, FunArgs,
-Module(..),
+Module(..), getModExprs, putModExprs, modifyModExprs,
 GlobalModEnv, FileModEnv, LocalModEnv, FileData(..), mkFileData,
 getRealModuleMod, getModuleMod, getRealModuleFile, getModuleFile, getModuleGlobal,
 getFileData, ImportMap, getIdType,
@@ -102,6 +102,20 @@ putModData mod _ = mod
 
 modifyModData :: Module a -> (ModData -> ModData) -> Module a
 modifyModData m f = maybe m (\md -> putModData m (f md)) $ getModData m
+
+
+getModExprs :: Module a -> Maybe (ExprMap a)
+getModExprs (LitMod exprMap _) = Just exprMap
+getModExprs (FunctorMod _ exprMap _) = Just exprMap
+getModExprs mod = Nothing
+
+putModExprs :: Module a -> ExprMap a -> Module a
+putModExprs (LitMod _ modData) exprMap' = LitMod exprMap' modData
+putModExprs (FunctorMod args _ modData) exprMap' = FunctorMod args exprMap' modData
+putModExprs mod _ = mod
+
+modifyModExprs :: Module a -> (ExprMap a -> ExprMap a) -> Module a
+modifyModExprs m f = maybe m (\md -> putModExprs m (f md)) $ getModExprs m
 
 
 -- | bidirectional map between internal ids and source ids for all visible/top-level defined vars

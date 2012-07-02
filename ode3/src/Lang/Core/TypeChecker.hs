@@ -64,8 +64,8 @@ uFloat = E.TFloat Nothing
 
 -- TODO - un-Do this!
 
-typeCheck :: (M.GlobalModEnv, M.Module E.Id) -> MExcept (M.GlobalModEnv, M.Module E.Id)
-typeCheck (gModEnv, mod@(M.LitMod exprMap modData)) = do
+typeCheck :: M.GlobalModEnv -> M.FileData -> M.Module E.Id -> MExcept (M.Module E.Id)
+typeCheck gModEnv fileData mod@(M.LitMod exprMap modData) = do
     ((tEnv, mTEnv), tCons) <- constrain gModEnv modData Nothing exprMap
     -- unify the types and get the new typemap
     tVarMap <- unify tCons
@@ -73,9 +73,10 @@ typeCheck (gModEnv, mod@(M.LitMod exprMap modData)) = do
     tEnv' <- subTVars tEnv tVarMap False
     let modData' = updateModData modData tEnv'
 
-    return $ (gModEnv, M.LitMod (trace ("(TC) " ++ show exprMap) exprMap) modData')
+    -- trace ("(TC) " ++ show exprMap) ()
+    return $ M.LitMod exprMap modData'
 
-typeCheck (gModEnv, mod@(M.FunctorMod args exprMap modData)) = do
+typeCheck gModEnv fileData mod@(M.FunctorMod args exprMap modData) = do
     ((tEnv, mTEnv), tCons) <- constrain gModEnv modData (Just args) exprMap
     -- unify the types and get the new typemap
     tVarMap <- unify tCons
@@ -84,7 +85,7 @@ typeCheck (gModEnv, mod@(M.FunctorMod args exprMap modData)) = do
     mTEnv' <- subTVars mTEnv tVarMap True
     let modData' = updateModData modData tEnv'
     let args' = createFunModArgs args mTEnv'
-    return $ (gModEnv, M.FunctorMod args' exprMap modData')
+    return $ M.FunctorMod args' exprMap modData'
   where
     -- create the public module signatures for Functors
     createFunModArgs :: M.FunArgs -> ModTypeEnv -> M.FunArgs

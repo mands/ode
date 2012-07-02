@@ -34,19 +34,19 @@ import qualified Utils.OrdMap as OrdMap
 import qualified Lang.Core.AST as E
 import qualified Lang.Module.AST as M
 
-validate :: (M.GlobalModEnv, M.Module E.DesId) -> MExcept (M.GlobalModEnv, M.Module E.DesId)
-validate (gModEnv, mod@(M.LitMod _ modData)) = (,) <$> pure gModEnv <*> (M.LitMod   <$> createTopExprs (M.modExprList modData)
-                                                                                    <*> pure (modData { M.modExprList = [] }))
+validate :: M.Module E.DesId -> MExcept (M.Module E.DesId)
+validate mod@(M.LitMod _ modData) = M.LitMod    <$> createTopExprs (M.modExprList modData)
+                                                <*> pure (modData { M.modExprList = [] })
 
-validate (gModEnv, mod@(M.FunctorMod funArgs _ modData)) = (,) <$> pure gModEnv <*> (M.FunctorMod   <$> funArgs'
-                                                                                                    <*> createTopExprs (M.modExprList modData)
-                                                                                                    <*> pure (modData { M.modExprList = [] }))
+validate mod@(M.FunctorMod funArgs _ modData) = M.FunctorMod    <$> funArgs'
+                                                                <*> createTopExprs (M.modExprList modData)
+                                                                <*> pure (modData { M.modExprList = [] })
   where
     funArgs' =  if (length funArgKeys == (length . nub) funArgKeys) then pure funArgs
                 else throwError ("(VL05) - Functor has arguments with the same name")
     funArgKeys = OrdMap.keys funArgs
 
-validate x = pure x
+validate mod = return mod
 
 -- create the expression map and check for duplicated top-level bindings
 createTopExprs :: M.ExprList -> MExcept (M.ExprMap E.DesId)

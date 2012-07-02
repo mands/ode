@@ -65,7 +65,7 @@ import Lang.Module.ModDefDriver
 evalTopElems :: FileData -> OdeTopElem DesId -> St.SysExceptIO FileData
 evalTopElems fd topMod@(TopModDef modRoot modName mod) = do
     checkName
-    mod' <- evalModDef' fd mod -- eval the actual mod def, need to pass global state and file modEnvs
+    mod' <- evalModDef fd mod -- eval the actual mod def, need to pass global state and file modEnvs
     updateState fd mod' -- insert the updated module into the file mod env
   where
     -- check if module already exists in fileModEnv

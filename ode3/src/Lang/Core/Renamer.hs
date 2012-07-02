@@ -57,18 +57,16 @@ instance Applicative IdSupply where
     (<*>) = ap
 
 -- | Main rename function, takes a model bound by Ids and returns a single-scoped model bound by unique ints
-rename :: (M.GlobalModEnv, M.Module E.DesId) -> MExcept (M.GlobalModEnv, M.Module E.Id)
-rename (gModEnv, mod@(M.LitMod exprMap modData)) = trace' [MkSB (show mod')] "Renamer" (return $ (gModEnv, mod'))
+rename :: M.Module E.DesId -> MExcept (M.Module E.Id)
+rename mod@(M.LitMod exprMap modData) = return $ M.LitMod exprMap' modData'
   where
     (exprMap', topBinds, freeId) = renTop exprMap
     modData' = updateModData modData topBinds freeId
-    mod' = (M.LitMod exprMap' modData')
 
-rename (gModEnv, mod@(M.FunctorMod args exprMap modData)) = trace' [MkSB (show mod')] "Renamer" (return $ (gModEnv, mod'))
+rename mod@(M.FunctorMod args exprMap modData) = return $ M.FunctorMod args exprMap' modData'
   where
     (exprMap', topBinds, freeId) = renTop exprMap
     modData' = updateModData modData topBinds freeId
-    mod' = (M.FunctorMod args exprMap' modData')
 
 -- | Update the module data with the idBimap and next free id
 updateModData :: M.ModData ->  BindMap -> E.Id -> M.ModData

@@ -17,7 +17,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module Lang.Module.ModDefDriver (
-evalModDef, evalModDef'
+evalModDef
 ) where
 
 -- higher-level control
@@ -65,15 +65,16 @@ import Lang.Core.UnitChecker (unitCheck)
 
 -- Evaluate Module Defintions ------------------------------------------------------------------------------------------
 
-evalModDef' :: FileData -> Module DesId -> St.SysExceptIO (Module Id)
-evalModDef' fd mod = do
-    -- process the imports
-    mod' <- processModImports mod
-    -- extract the units info
-    mod'' <- processModUnits mod'
-    -- eval the module
+-- | Frontend function that pre-processes common functionalty then evaluates the module definition
+evalModDef :: FileData -> Module DesId -> St.SysExceptIO (Module Id)
+evalModDef fd mod = do
+    -- process the imports and extract the units
+    mod' <- processModImports mod >>= processModUnits
+
+    -- actually eval the module
     modEnv <- St.getSysState St.vModEnv
-    St.liftExSys $ evalModDef modEnv fd mod''
+    unitsState <- St.getSysState St.lUnitsState
+    St.liftExSys $ evalModDef' modEnv fd unitsState mod'
   where
     -- use [importCmds] to process imports for the module and create an import map, can then validate/typecheck/etc. against it
     processModImports :: Module DesId -> St.SysExceptIO (Module DesId)
@@ -88,7 +89,7 @@ evalModDef' fd mod = do
             -- update modData
             return $ modData { modImportMap = importMap, modImportCmds = [] }
 
-    -- all units lifting from module level to global state go here too
+    -- extracts all unit data from module level to global state
     -- TODO - this doesn't need IO
     processModUnits :: Module DesId -> St.SysExceptIO (Module DesId)
     processModUnits mod = do
@@ -111,28 +112,15 @@ evalModDef' fd mod = do
 
 
 -- a basic interpreter over the set of module types, interpres the modules with regards to the moduleenv
-evalModDef :: GlobalModEnv -> FileData -> Module DesId -> MExcept (Module Id)
-evalModDef gModEnv fileData mod@(LitMod _ _) = do
-    -- reorder, rename and typecheck the expressinons within module, adding to the module metadata
-    -- mod' <- validate >=> reorder >=> rename >=> typeCheck $ mod
-
-    -- TODO - these require gModEnv for in-module import lookups
-    (gModEnv', mod') <- validate >=> rename >=> typeCheck >=> unitCheck $ (gModEnv, mod)
-    return mod'
-
-evalModDef gModEnv fileData mod@(FunctorMod _ _ _) = do
-    -- reorder, rename and typecheck the expressinons within functor module, adding to the module metadata
-    -- mod' <- validate >=> reorder >=> rename >=> typeCheck $ mod
-    (gModEnv', mod') <- validate >=> rename >=> typeCheck >=> unitCheck $ (gModEnv, mod)
-    return mod'
+evalModDef' :: GlobalModEnv -> FileData -> St.UnitsState -> Module DesId -> MExcept (Module Id)
 
 -- simply looks up the id within both the file and then global env and return the module if found
-evalModDef gModEnv fileData mod@(VarMod modName) = snd <$> getModuleFile modName fileData gModEnv
+evalModDef' gModEnv fileData _ mod@(VarMod modName) = snd <$> getModuleFile modName fileData gModEnv
 
 -- TODO - need to update to not actually apply the functor, just link and update the module sigMap
 -- we use an App to convert a Functor Mod eith programmable imports into a Lit mod
 -- where VarMod args are converted to explicit imports, and in-line apps to an internal modEnv (as not used elsewhere)
-evalModDef gModEnv fileData mod@(AppMod fModId modArgs) = do
+evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
     -- need to check that the application is valid, if so then create a new module
     -- involves several steps with specialised pipeline operations
 
@@ -154,8 +142,7 @@ evalModDef gModEnv fileData mod@(AppMod fModId modArgs) = do
     -- now 'eval' the fMod into an lMod using the new modData
     let lMod = LitMod fExprMap (updateModData fModData importMap modEnv)
     -- typcheck the application of args to the functor, get a new sigMap and typeMap
-    (gModEnv', lMod') <- typeCheck (gModEnv, lMod)
-    return lMod'
+    typeCheck gModEnv fileData lMod
   where
     -- lookup/evaluate the functor and params, dynamically type-check
     eFMod :: MExcept (Module Id)
@@ -202,7 +189,7 @@ evalModDef gModEnv fileData mod@(AppMod fModId modArgs) = do
         -- need eval the Argmod into a LitMod, then add directly into the localModEnv
         interpretArgs (importMap, modEnv) (argName, mod@(AppMod modName modArgs)) = do
             -- eval the Appmod
-            mod <- evalModDef gModEnv fileData mod
+            mod <- evalModDef' gModEnv fileData unitsState mod
             -- now insert the litmod into local modEnv using the arg name
             return (importMap, Map.insert argName mod modEnv)
 
@@ -218,6 +205,12 @@ evalModDef gModEnv fileData mod@(AppMod fModId modArgs) = do
         fModData    { modImportMap = Map.union importMap (modImportMap fModData) -- functor imports take precedence
                     , modLocalModEnv = modModEnv
                     }
+
+-- handle both litmods and functor mods
+evalModDef' gModEnv fileData unitsState mod = do
+    -- reorder, rename and typecheck the expressinons within module, adding to the module metadata
+    mod' <- validate mod >>= rename >>= typeCheck gModEnv fileData >>= unitCheck unitsState
+    return mod'
 
 
 -- Functor Application Helper Funcs ------------------------------------------------------------------------------------

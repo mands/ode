@@ -19,6 +19,7 @@ unitCheck
 
 import qualified Lang.Core.AST as E
 import qualified Lang.Module.AST as M
+import qualified UI.SysState as St
 
 import Lang.Core.Units
 import Utils.Utils
@@ -29,5 +30,18 @@ import Utils.Utils
 -- * unit conversion
 -- * module-level auto-conversion
 
-unitCheck :: (M.GlobalModEnv, M.Module E.Id) -> MExcept (M.GlobalModEnv, M.Module E.Id)
-unitCheck mod = undefined
+-- TODO - need global modenv?, filedata?
+unitCheck :: St.UnitsState -> M.Module E.Id -> MExcept (M.Module E.Id)
+
+unitCheck unitsState mod@(M.LitMod exprMap modData) = do
+    -- iterate over the expressions, and checking units along the way
+
+
+    return mod
+
+
+unitCheck unitsState mod@(M.FunctorMod args exprMap modData) = do
+    return mod
+
+
+unitCheck' (M.ExprMap E.Id)
