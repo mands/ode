@@ -42,6 +42,8 @@ import qualified Lang.Module.AST as M
 import Utils.Utils
 import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap
+import qualified Lang.Core.Units as U
+
 
 -- Types ---------------------------------------------------------------------------------------------------------------
 
@@ -55,6 +57,8 @@ type ModTypeEnv = Map.Map (E.VarId E.Id) E.Type
 
 type TypeCons   = Set.Set (E.Type, E.Type)
 type TypeConsM  = SupplyT Int (StateT TypeCons MExcept)
+
+uFloat = E.TFloat Nothing
 
 -- Main Interface ------------------------------------------------------------------------------------------------------
 
@@ -322,25 +326,25 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
     consExpr tEnv mTEnv (E.Ode (E.LocalVar v) eD) = do
         -- constrain the ode state val to be a float
         let vT = tEnv Map.! v
-        addConstraint vT E.TFloat
+        addConstraint vT uFloat
         -- add the deltaExpr type
         (eDT, tEnv', mTEnv') <- consExpr tEnv mTEnv eD
-        addConstraint eDT E.TFloat
+        addConstraint eDT uFloat
         return (E.TUnit, tEnv', mTEnv')
 
     consExpr tEnv mTEnv (E.Rre (E.LocalVar src) (E.LocalVar dest) _) = do
         -- constrain both state vals to be floats
         let srcT = tEnv Map.! src
-        addConstraint srcT E.TFloat
+        addConstraint srcT uFloat
         let destT = tEnv Map.! dest
-        addConstraint destT E.TFloat
+        addConstraint destT uFloat
         return (E.TUnit, tEnv, mTEnv)
 
     consExpr tEnv mTEnv (E.ConvCast e _) = do
         -- constrain e to be a float
         (eT, tEnv', mTEnv') <- consExpr tEnv mTEnv e
-        addConstraint eT E.TFloat
-        return $ (E.TFloat, tEnv', mTEnv')
+        addConstraint eT uFloat
+        return $ (uFloat, tEnv', mTEnv')
 
     -- other exprs - not needed as match all
     consExpr tEnv mTEnv e = error ("(TC02) unknown expr - " ++ show e)
@@ -349,9 +353,9 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
 getLitType :: E.Literal -> E.Type
 getLitType l = case l of
     E.Boolean _ -> E.TBool
-    E.Num _ -> E.TFloat
-    E.NumSeq _ -> E.TFloat
-    E.Time -> E.TFloat
+    E.Num _ -> uFloat
+    E.NumSeq _ -> uFloat
+    E.Time -> E.TFloat (Just $ U.uSeconds) -- should this be uFloat ??
     E.Unit -> E.TUnit
 
 -- | Takes an operator and returns the static type of the function
@@ -372,8 +376,8 @@ getOpType op = case op of
     E.Or -> binLog
     E.Not -> E.TArr E.TBool E.TBool
   where
-    binNum = E.TArr (E.TTuple [E.TFloat, E.TFloat]) E.TFloat
-    binRel = E.TArr (E.TTuple [E.TFloat, E.TFloat]) E.TBool
+    binNum = E.TArr (E.TTuple [uFloat, uFloat]) uFloat
+    binRel = E.TArr (E.TTuple [uFloat, uFloat]) E.TBool
     binLog = E.TArr (E.TTuple [E.TBool, E.TBool]) E.TBool
 
 

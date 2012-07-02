@@ -81,7 +81,7 @@ trace' vars msg res = trace outStr res
 
 -- | Terminates the program while printing the message and list of vars
 errorDump :: [SB] -> String -> a
-errorDump vars msg = trace' vars msg (error "ERROR DUMP")
+errorDump vars msg = trace' vars msg (error "Internal Compiler Error")
 
 
 -- Bimap Ord Instance

@@ -38,25 +38,20 @@ import Data.Functor
 import Data.Maybe (fromJust, isJust)
 import Utils.Utils
 import Lang.Common.AST
-
 import qualified Lang.Core.Units as U
 
--- | DetailId - holds both a (parameterised) identifier and a string that represetns the (closest) original/source variable and line num
+-- | DetailId - holds both a (parameterised) identifier and a string that represetns the (closest) original/source file, variable and line num
 --data DetailId a = DetailId a SrcId Int deriving (Show, Eq, Ord)
 
 -- | Types
 data Type :: * where
     TVar :: Int -> Type
     TBool :: Type
-    TFloat :: Type
+    TFloat :: (Maybe U.Unit) -> Type
     TUnit :: Type
     TArr :: Type -> Type -> Type
     TTuple :: [Type] -> Type -- don't want to allow tuples of tuples
     deriving (Show, Eq, Ord)
-
--- TODO
--- | Unit Dimensions
-data Dimensions = Dimensions
 
 -- | Bindings, may be a tuple unpacking
 -- could eventually optimise this and make more type-safe but this works for now

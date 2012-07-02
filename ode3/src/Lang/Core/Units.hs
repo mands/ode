@@ -15,12 +15,20 @@
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures, DataKinds, DeriveFunctor #-}
 
 module Lang.Core.Units (
+    -- datatypes
     Quantity, Quantities, QuantityBimap,
     DimVec(..), addDim, subDim, mkDimVec, dimensionless, isZeroDim,
     UnitDef(..), Unit, mkUnit, UnitDimEnv, SrcUnit,
     CExpr(..), COp(..), ConvDef(..), ConvEnv,
 
-    addQuantitiesToBimap, addUnitsToEnv, addConvsToGraph
+    -- high-level accessor funcs
+    addQuantitiesToBimap, addUnitsToEnv, addConvsToGraph,
+    getBaseDim, createSIs,
+
+    -- builtins
+    uSeconds, uMinutes, uHours,
+    builtinUnits, builtinConvs,
+
 ) where
 
 import Control.Applicative
@@ -218,4 +226,67 @@ inlineCExpr :: CExpr -> CExpr -> CExpr
 inlineCExpr srcExpr CFromId = srcExpr
 inlineCExpr srcExpr (CExpr op e1 e2) = CExpr op (inlineCExpr srcExpr e1) (inlineCExpr srcExpr e2)
 inlineCExpr _ destExpr = destExpr
+
+-- Builtins and helper conversions -------------------------------------------------------------------------------------
+-- A collection of built-in units, in most cases we have a units module that defines most units and conversion,
+-- however some are built into the language so we can ensure their presence
+
+getBaseDim :: Char -> DimVec
+getBaseDim 'L' = DimVec 1 0 0 0 0 0 0
+getBaseDim 'M' = DimVec 0 1 0 0 0 0 0
+getBaseDim 'T' = DimVec 0 0 1 0 0 0 0
+getBaseDim 'I' = DimVec 0 0 0 1 0 0 0
+getBaseDim 'O' = DimVec 0 0 0 0 1 0 0
+getBaseDim 'J' = DimVec 0 0 0 0 0 1 0
+getBaseDim 'N' = DimVec 0 0 0 0 0 0 1
+getBaseDim c = errorDump [MkSB c] "Parsed an invalid dimension"
+
+createSIs :: UnitDef -> ([UnitDef], [ConvDef])
+createSIs (BaseUnitDef baseUnit@(UnitC [(baseName, 1)]) baseDim) = mapSnd concat . unzip $ siUnitDef
+  where
+    siUnitDef :: [(UnitDef, [ConvDef])]
+    siUnitDef = [
+                -- mults
+                  mkSIUnit "k" 1e3, mkSIUnit "G" 1e6, mkSIUnit "T" 1e9
+                -- fracts
+                , mkSIUnit "m" 1e-3, mkSIUnit "u" 1e-6, mkSIUnit "n" 1e-9
+                ]
+
+--               -- mults
+--                [ mkSIUnit "da", mkSIUnit "h", mkSIUnit "k", mkSIUnit "M", mkSIUnit "G"
+--                , mkSIUnit "T", mkSIUnit "P", mkSIUnit "E", mkSIUnit "Z", mkSIUnit "Y"
+--                -- fractions
+--                , mkSIUnit "d", mkSIUnit "c", mkSIUnit "m", mkSIUnit "u", mkSIUnit "n"
+--                , mkSIUnit "p", mkSIUnit "f", mkSIUnit "a", mkSIUnit "z", mkSIUnit "y"
+--                ]
+
+
+    -- mkSIUnit prefix = BaseUnitDef baseDim (prefix ++ baseName) (maybe Nothing (\alias -> Just $ prefix ++ alias))
+    mkSIUnit prefix cf = (unitDef, [convF, convR])
+      where
+        siUnit = (mkUnit [(prefix ++ baseName, 1)])
+        unitDef = BaseUnitDef siUnit baseDim
+        convF = ConvDef baseUnit siUnit (CExpr CDiv CFromId (CNum cf))
+        convR = ConvDef siUnit baseUnit (CExpr CMul CFromId (CNum cf))
+
+-- default units
+uSeconds = mkUnit [("s", 1)]
+uMinutes = mkUnit [("min", 1)]
+uHours = mkUnit [("hr", 1)]
+
+
+-- unit defs
+builtinUnits :: [UnitDef]
+builtinUnits =  [ BaseUnitDef uSeconds (getBaseDim 'T')
+                , BaseUnitDef uMinutes (getBaseDim 'T')
+                , BaseUnitDef uHours (getBaseDim 'T')
+                ]
+
+-- unit conversions
+builtinConvs :: [ConvDef]
+builtinConvs =  [ ConvDef uSeconds uMinutes (CExpr CDiv CFromId (CNum 60)) -- s -> min = s / 60
+                , ConvDef uMinutes uSeconds (CExpr CMul CFromId (CNum 60)) -- inverse
+                , ConvDef uMinutes uHours (CExpr CDiv CFromId (CNum 60)) -- min -> hr = min / 60
+                , ConvDef uHours uMinutes (CExpr CMul CFromId (CNum 60)) -- inverse
+                ]
 

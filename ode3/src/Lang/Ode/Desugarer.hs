@@ -80,28 +80,10 @@ desugarOde elems = do
     -- TODO -fix alias
     desugarOde' (DesugarModData e q u i c) stmt@(O.UnitStmt baseUnit@[(baseName, 1)] (Just baseDimChar) mAlias isSI) = return $ (DesugarModData e q u' i c)
       where
-        u' = if isSI then siUnitDefs ++ U.BaseUnitDef (U.mkUnit baseUnit) baseDim:u else U.BaseUnitDef (U.mkUnit baseUnit) baseDim:u
-
-        baseDim = case baseDimChar of
-            'L' -> DimVec 1 0 0 0 0 0 0
-            'M' -> DimVec 0 1 0 0 0 0 0
-            'T' -> DimVec 0 0 1 0 0 0 0
-            'I' -> DimVec 0 0 0 1 0 0 0
-            'O' -> DimVec 0 0 0 0 1 0 0
-            'J' -> DimVec 0 0 0 0 0 1 0
-            'N' -> DimVec 0 0 0 0 0 0 1
-
-        -- TODO - ned to create conversion funcs too
-        siUnitDefs =    -- mults
-                        [ mkSIUnit "da", mkSIUnit "h", mkSIUnit "k", mkSIUnit "M", mkSIUnit "G"
-                        , mkSIUnit "T", mkSIUnit "P", mkSIUnit "E", mkSIUnit "Z", mkSIUnit "Y"
-                        -- fractions
-                        , mkSIUnit "d", mkSIUnit "c", mkSIUnit "m", mkSIUnit "u", mkSIUnit "n"
-                        , mkSIUnit "p", mkSIUnit "f", mkSIUnit "a", mkSIUnit "z", mkSIUnit "y"
-                        ]
-
-        -- mkSIUnit prefix = BaseUnitDef baseDim (prefix ++ baseName) (maybe Nothing (\alias -> Just $ prefix ++ alias))
-        mkSIUnit prefix = U.BaseUnitDef (U.mkUnit [(prefix ++ baseName, 1)]) baseDim
+        u' = if isSI then siUnitDefs ++ unitDef:u else unitDef:u
+        unitDef = U.BaseUnitDef (U.mkUnit baseUnit) baseDim
+        baseDim = U.getBaseDim baseDimChar
+        (siUnitDefs, siConvDefs) = U.createSIs unitDef
 
     desugarOde' (DesugarModData e q u i c) stmt@(O.UnitStmt baseUnits Nothing mAlias _) = return $ (DesugarModData e q u' i c)
       where
