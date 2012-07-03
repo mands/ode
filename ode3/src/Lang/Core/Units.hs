@@ -27,6 +27,8 @@ module Lang.Core.Units (
     -- high-level accessor funcs
     addQuantitiesToBimap, addUnitsToEnv, addConvsToGraph,
     getBaseDim, createSIs,
+    calcUnitDim, getDimForUnits, calcConvExpr,
+
 
     -- builtins
     uSeconds, uMinutes, uHours,

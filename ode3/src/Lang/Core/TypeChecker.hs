@@ -241,7 +241,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
             -- basic handling, is common case that subsumes special cases above, basically treat both sides as tuples
             -- (with tvars), create contstrains and let unificiation solve it instead
             t | (length bs > 1) -> (multiBindConstraint (E.Bind bs) t tEnv') >>= (\tEnv -> return (tEnv, mTEnv'))
-            _ -> errorDump [MkSB bs, MkSB eT, MkSB tEnv'] "(TYPECHECKER) - toplet shit\n"
+            _ -> errorDump [MkSB bs, MkSB eT, MkSB tEnv'] "(TC) - toplet shit\n"
 
 --    consTop (tEnv, mTEnv) (E.TopLet (E.SingBind b) e) = do
 --        (eT, tEnv', mTEnv') <- consExpr tEnv mTEnv e
@@ -306,7 +306,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
             -- basic handling, is common case that subsumes special cases above, basically treat both sides as tuples
             -- (with tvars), create contstrains and let unificiation solve it instead
             t | (length bs > 1) -> multiBindConstraint (E.Bind bs) t tEnv'
-            _ -> errorDump [MkSB bs, MkSB e1T, MkSB tEnv'] "(TYPECHECKER) - let shit\n"
+            _ -> errorDump [MkSB bs, MkSB e1T, MkSB tEnv'] "(TC) - let shit\n"
         consExpr tEnv'' mTEnv' e2
 
 
