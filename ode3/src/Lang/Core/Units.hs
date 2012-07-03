@@ -12,14 +12,17 @@
 --
 -----------------------------------------------------------------------------
 
-{-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures, DataKinds, DeriveFunctor #-}
+{-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures, DeriveFunctor #-}
 
 module Lang.Core.Units (
     -- datatypes
-    Quantity, Quantities, QuantityBimap,
+    Quantity, Quantities,
     DimVec(..), addDim, subDim, mkDimVec, dimensionless, isZeroDim,
-    UnitDef(..), Unit, mkUnit, UnitDimEnv, SrcUnit,
-    CExpr(..), COp(..), ConvDef(..), ConvEnv,
+    SrcUnit, UnitDef(..), Unit, mkUnit, addUnit, subUnit, uUnknown,
+    CExpr(..), COp(..), ConvDef(..),
+
+    -- data structures
+    QuantityBimap, UnitDimEnv, ConvEnv,
 
     -- high-level accessor funcs
     addQuantitiesToBimap, addUnitsToEnv, addConvsToGraph,
@@ -111,6 +114,19 @@ isBaseUnit (UnitC [(baseName, 1)]) = True
 isBaseUnit _ = False
 
 type SrcUnit = [(String, Integer)]
+
+uUnknown = mkUnit []
+
+-- do we need any unitsstate for this, i.e. unitdimenv, do we need the dimensions?
+addUnit :: Unit -> Unit -> Unit
+addUnit (UnitC u1) (UnitC u2) = mkUnit $ u1 ++ u2
+
+-- just negate the second unit
+subUnit :: Unit -> Unit -> Unit
+subUnit u1 (UnitC u2) = addUnit u1 u2'
+  where
+    u2' = UnitC $ map (mapSnd negate) u2
+
 
 -- hold this temp structure in indiv module, and promote to global state (UnitDimEnv) when imported & processed
 data UnitDef :: * where

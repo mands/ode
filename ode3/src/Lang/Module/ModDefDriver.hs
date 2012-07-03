@@ -117,6 +117,7 @@ evalModDef' :: GlobalModEnv -> FileData -> St.UnitsState -> Module DesId -> MExc
 -- simply looks up the id within both the file and then global env and return the module if found
 evalModDef' gModEnv fileData _ mod@(VarMod modName) = snd <$> getModuleFile modName fileData gModEnv
 
+-- TODO - how do we merge expect and actual module interfaces??
 -- TODO - need to update to not actually apply the functor, just link and update the module sigMap
 -- we use an App to convert a Functor Mod eith programmable imports into a Lit mod
 -- where VarMod args are converted to explicit imports, and in-line apps to an internal modEnv (as not used elsewhere)

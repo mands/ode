@@ -58,15 +58,15 @@ type ModTypeEnv = Map.Map (E.VarId E.Id) E.Type
 type TypeCons   = Set.Set (E.Type, E.Type)
 type TypeConsM  = SupplyT Int (StateT TypeCons MExcept)
 
-uFloat = E.TFloat Nothing
-
 -- Main Interface ------------------------------------------------------------------------------------------------------
 
 -- TODO - un-Do this!
 
 typeCheck :: M.GlobalModEnv -> M.FileData -> M.Module E.Id -> MExcept (M.Module E.Id)
 typeCheck gModEnv fileData mod@(M.LitMod exprMap modData) = do
+    -- get the contraints
     ((tEnv, mTEnv), tCons) <- constrain gModEnv modData Nothing exprMap
+
     -- unify the types and get the new typemap
     tVarMap <- unify tCons
     -- substitute to obtain the new type env
@@ -77,14 +77,19 @@ typeCheck gModEnv fileData mod@(M.LitMod exprMap modData) = do
     return $ M.LitMod exprMap modData'
 
 typeCheck gModEnv fileData mod@(M.FunctorMod args exprMap modData) = do
+    -- get the contraints
     ((tEnv, mTEnv), tCons) <- constrain gModEnv modData (Just args) exprMap
+
     -- unify the types and get the new typemap
     tVarMap <- unify tCons
     -- substitute to obtain the new type env
     tEnv' <- subTVars tEnv tVarMap True
-    mTEnv' <- subTVars mTEnv tVarMap True
     let modData' = updateModData modData tEnv'
+
+    -- functor specific type-checking
+    mTEnv' <- subTVars mTEnv tVarMap True
     let args' = createFunModArgs args mTEnv'
+
     return $ M.FunctorMod args' exprMap modData'
   where
     -- create the public module signatures for Functors
@@ -95,6 +100,7 @@ typeCheck gModEnv fileData mod@(M.FunctorMod args exprMap modData) = do
         addArg (E.ModVar m v) t args = OrdMap.update updateModArgs m args
           where
             updateModArgs modMap = Just (Map.insert v t modMap)
+
 
 -- takes the funcModule, an closed enviroment of the module args,
 --typeCheckApp :: M.Module E.Id -> M.FileModEnv ->  MExcept (M.Module E.Id, M.FileModEnv)
@@ -254,7 +260,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
         -- general ret
         return $ (eT, tEnv, mTEnv')
 
-    consExpr tEnv mTEnv (E.Lit l) = return $ (getLitType l, tEnv, mTEnv)
+    consExpr tEnv mTEnv (E.Lit l) = return $ (E.getLitType l, tEnv, mTEnv)
 
     consExpr tEnv mTEnv (E.App (E.LocalVar f) e) = do
         -- as HOFs not allowed
@@ -305,7 +311,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
 
 
     consExpr tEnv mTEnv (E.Op op e) = do
-        let (E.TArr fromT toT) = getOpType op
+        let (E.TArr fromT toT) = E.getOpType op
         (eT, tEnv', mTEnv') <- consExpr tEnv mTEnv e
         -- NOTE - we don't need to gen a new tvar here as the totype is always fixed so the toT will always unify to it
         addConstraint fromT eT
@@ -327,59 +333,28 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
     consExpr tEnv mTEnv (E.Ode (E.LocalVar v) eD) = do
         -- constrain the ode state val to be a float
         let vT = tEnv Map.! v
-        addConstraint vT uFloat
+        addConstraint vT E.uFloat
         -- add the deltaExpr type
         (eDT, tEnv', mTEnv') <- consExpr tEnv mTEnv eD
-        addConstraint eDT uFloat
+        addConstraint eDT E.uFloat
         return (E.TUnit, tEnv', mTEnv')
 
     consExpr tEnv mTEnv (E.Rre (E.LocalVar src) (E.LocalVar dest) _) = do
         -- constrain both state vals to be floats
         let srcT = tEnv Map.! src
-        addConstraint srcT uFloat
+        addConstraint srcT E.uFloat
         let destT = tEnv Map.! dest
-        addConstraint destT uFloat
+        addConstraint destT E.uFloat
         return (E.TUnit, tEnv, mTEnv)
 
     consExpr tEnv mTEnv (E.ConvCast e _) = do
         -- constrain e to be a float
         (eT, tEnv', mTEnv') <- consExpr tEnv mTEnv e
-        addConstraint eT uFloat
-        return $ (uFloat, tEnv', mTEnv')
+        addConstraint eT E.uFloat
+        return $ (E.uFloat, tEnv', mTEnv')
 
     -- other exprs - not needed as match all
-    consExpr tEnv mTEnv e = error ("(TC02) unknown expr - " ++ show e)
-
--- NOTE - should these two functions be moved into the AST?
-getLitType :: E.Literal -> E.Type
-getLitType l = case l of
-    E.Boolean _ -> E.TBool
-    E.Num _ -> uFloat
-    E.NumSeq _ -> uFloat
-    E.Time -> E.TFloat (Just $ U.uSeconds) -- should this be uFloat ??
-    E.Unit -> E.TUnit
-
--- | Takes an operator and returns the static type of the function
-getOpType :: E.Op -> E.Type
-getOpType op = case op of
-    E.Add -> binNum
-    E.Sub -> binNum
-    E.Mul -> binNum
-    E.Div -> binNum
-    E.Mod -> binNum
-    E.LT -> binRel
-    E.LE -> binRel
-    E.GT -> binRel
-    E.GE -> binRel
-    E.EQ -> binRel
-    E.NEQ -> binRel
-    E.And -> binLog
-    E.Or -> binLog
-    E.Not -> E.TArr E.TBool E.TBool
-  where
-    binNum = E.TArr (E.TTuple [uFloat, uFloat]) uFloat
-    binRel = E.TArr (E.TTuple [uFloat, uFloat]) E.TBool
-    binLog = E.TArr (E.TTuple [E.TBool, E.TBool]) E.TBool
+    consExpr tEnv mTEnv e = errorDump [MkSB e] "(TC02) Unknown expr"
 
 
 -- Constraint Unification ----------------------------------------------------------------------------------------------

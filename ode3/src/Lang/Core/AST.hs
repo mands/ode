@@ -24,18 +24,22 @@
 module Lang.Core.AST (
 VarId(..), Bind(..), Type(..), travTypesM,
 TopLet(..), Expr(..), Op(..), Literal(..),
-SrcId, DesId, Id -- rexported from Common.AST
+SrcId, DesId, Id, -- rexported from Common.AST
+getLitType, getOpType, uFloat
 ) where
 
+import Prelude hiding (LT, GT, EQ)
 import Control.Monad
+
 import qualified Data.Map as Map
 import qualified Data.IntMap as IntMap
 import qualified Data.Sequence as Seq
 import qualified Data.List as List
+import Data.Maybe (fromJust, isJust)
 import qualified Data.Foldable as DF
 import qualified Data.Traversable as DT
 import Data.Functor
-import Data.Maybe (fromJust, isJust)
+
 import Utils.Utils
 import Lang.Common.AST
 import qualified Lang.Core.Units as U
@@ -52,6 +56,9 @@ data Type :: * where
     TArr :: Type -> Type -> Type
     TTuple :: [Type] -> Type -- don't want to allow tuples of tuples
     deriving (Show, Eq, Ord)
+
+uFloat = TFloat Nothing
+
 
 -- | Bindings, may be a tuple unpacking
 -- could eventually optimise this and make more type-safe but this works for now
@@ -118,11 +125,45 @@ data Expr b = Var (VarId b)             -- a reference to any let-defined expres
 data Literal =  Num Double | NumSeq [Double] | Boolean Bool | Time | Unit
                 deriving (Show, Eq, Ord)
 
+
+-- | Mapping from literal -> type
+getLitType :: Literal -> Type
+getLitType l = case l of
+    Boolean _ -> TBool
+    Num _ -> uFloat
+    NumSeq _ -> uFloat
+    Time -> TFloat (Just $ U.uSeconds) -- should this be uFloat ??
+    Unit -> TUnit
+
 -- | built-in operators - basically any operators that may be expressed directly as hardware instructions or sys/built-ins
 data Op = Add | Sub | Mul | Div | Mod
         | LT | LE | GT | GE | EQ | NEQ
         | And | Or | Not
         deriving (Show, Eq, Ord)
+
+-- | Takes an operator and returns the static type of the function
+getOpType :: Op -> Type
+getOpType op = case op of
+    Add -> binNum
+    Sub -> binNum
+    Mul -> binNum
+    Div -> binNum
+    Mod -> binNum
+    LT -> binRel
+    LE -> binRel
+    GT -> binRel
+    GE -> binRel
+    EQ -> binRel
+    NEQ -> binRel
+    And -> binLog
+    Or -> binLog
+    Not -> TArr TBool TBool
+  where
+    binNum = TArr (TTuple [uFloat, uFloat]) uFloat
+    binRel = TArr (TTuple [uFloat, uFloat]) TBool
+    binLog = TArr (TTuple [TBool, TBool]) TBool
+
+
 
 -- Helper functions
 -- is this some type of type-class? Functor?
