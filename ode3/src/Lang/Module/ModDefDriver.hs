@@ -142,8 +142,10 @@ evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
 
     -- now 'eval' the fMod into an lMod using the new modData
     let lMod = LitMod fExprMap (updateModData fModData importMap modEnv)
-    -- typcheck the application of args to the functor, get a new sigMap and typeMap
-    typeCheck gModEnv fileData lMod
+
+    -- now process the newly created litmod created from the application of args to the functor
+    -- i.e. type and unit check
+    typeCheck gModEnv fileData unitsState lMod >>= unitCheck unitsState
   where
     -- lookup/evaluate the functor and params, dynamically type-check
     eFMod :: MExcept (Module Id)
@@ -210,7 +212,7 @@ evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
 -- handle both litmods and functor mods
 evalModDef' gModEnv fileData unitsState mod = do
     -- reorder, rename and typecheck the expressinons within module, adding to the module metadata
-    mod' <- validate mod >>= rename >>= typeCheck gModEnv fileData >>= unitCheck unitsState
+    mod' <- validate mod >>= rename >>= typeCheck gModEnv fileData unitsState >>= unitCheck unitsState
     return mod'
 
 

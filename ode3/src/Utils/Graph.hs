@@ -12,11 +12,11 @@
 --
 -----------------------------------------------------------------------------
 
+{-# LANGUAGE NoMonomorphismRestriction, DatatypeContexts #-}
+
 module Utils.Graph (
 GraphMap(..), mkGraphMap, runGraph, runGraph_, getEdgesFromPath, getNodeInt
 ) where
-
-{-# LANGUAGE NoMonomorphismRestriction #-}
 
 import Control.Monad.State
 import qualified Data.Graph.Inductive as G

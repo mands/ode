@@ -18,7 +18,7 @@ module Lang.Core.Units (
     -- datatypes
     Quantity, Quantities,
     DimVec(..), addDim, subDim, mkDimVec, dimensionless, isZeroDim,
-    SrcUnit, UnitDef(..), Unit, mkUnit, addUnit, subUnit, uUnknown,
+    SrcUnit, UnitDef(..), Unit(..), mkUnit, addUnit, subUnit,
     CExpr(..), COp(..), ConvDef(..),
 
     -- data structures
@@ -95,12 +95,28 @@ addQuantitiesToBimap :: QuantityBimap -> Quantities -> QuantityBimap
 addQuantitiesToBimap = foldl (\qBimap (quantity, dimVec) -> Bimap.insert quantity dimVec qBimap)
 
 -- Units ---------------------------------------------------------------------------------------------------------------
-newtype Unit = UnitC [(String, Integer)] deriving (Eq, Ord)
+-- newtype Unit = UnitC [(String, Integer)] deriving (Eq, Ord)
+
+--instance Show Unit where
+--    show (UnitC units) = List.intercalate "." (map showUnit units)
+--      where
+--        showUnit (baseName, index) = baseName ++ show index
+
+data Unit  = UnitC [(String, Integer)] -- an actual unit with a known dimensionless
+           | NoUnit                         -- no unit data infered, just a raw number (is this not same as ActualUnit []/dmless ?)
+           | UnknownUnit                    -- We don't know the unit type yet - used with TC
+           | UnitVar Integer                -- A unit variable, used for unit & dimension polymorphism
+                                            -- we can't do much with such types, can operate on the number but always retains it's unit type
+            deriving (Eq, Ord)
 
 instance Show Unit where
     show (UnitC units) = List.intercalate "." (map showUnit units)
       where
         showUnit (baseName, index) = baseName ++ show index
+    show NoUnit = "NoUnit"
+    show UnknownUnit = "UnknownUnit"
+    show (UnitVar i) = "UnitVar " ++ (show i)
+
 
 -- Unit helper funcs
 
@@ -116,8 +132,6 @@ isBaseUnit (UnitC [(baseName, 1)]) = True
 isBaseUnit _ = False
 
 type SrcUnit = [(String, Integer)]
-
-uUnknown = mkUnit []
 
 -- do we need any unitsstate for this, i.e. unitdimenv, do we need the dimensions?
 addUnit :: Unit -> Unit -> Unit
@@ -287,7 +301,7 @@ createSIs (BaseUnitDef baseUnit@(UnitC [(baseName, 1)]) baseDim) = mapSnd concat
         convF = ConvDef baseUnit siUnit (CExpr CDiv CFromId (CNum cf))
         convR = ConvDef siUnit baseUnit (CExpr CMul CFromId (CNum cf))
 
--- default units
+-- default units :: Unit
 uSeconds = mkUnit [("s", 1)]
 uMinutes = mkUnit [("min", 1)]
 uHours = mkUnit [("hr", 1)]
