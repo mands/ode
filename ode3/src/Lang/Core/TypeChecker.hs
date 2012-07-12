@@ -61,14 +61,15 @@ type ModTypeEnv = Map.Map (E.VarId E.Id) E.Type
 
 -- set of contraints for the module - include both the types and a set of rules that determine the
 -- unit level contraints
-data UnitsConRule   = NoUnit    -- type?/float does not have unit information
+data UnitsConRule   = --NoUnit    -- type?/float does not have unit information
 --                    | SameUnit  -- floats must be contrained to same unit
-                      | Equal     -- Types must be fully equal, regardless if they have units
+                      Equal     -- Types must be fully equal, regardless if they have units
 --                    | SameDim   -- floats must be contrained to same dimenstion, effectively restricted unit-polymorpihism
 --                                -- we could add full unit-polymorphism by creating unit-vars for a particular dimenstions and constraining (again) later
                     deriving (Show, Eq, Ord)
 
 type TypeCons   = Set.Set (E.Type, E.Type, UnitsConRule)
+-- constraint monad, generates type/unit vars within the constraint set
 type TypeConsM  = SupplyT Int (StateT TypeCons MExcept)
 
 -- Main Interface ------------------------------------------------------------------------------------------------------
@@ -146,14 +147,10 @@ subTVars tEnv tVarMap allowPoly = DT.mapM (\t -> E.travTypesM t updateType) tEnv
 
 
 addConstraint :: E.Type -> E.Type -> UnitsConRule -> TypeConsM ()
-addConstraint t1 t2 uRule = do
-    tS <- lift $ get
-    let tS' = Set.insert (t1, t2, uRule) tS
-    lift $ put tS'
+addConstraint t1 t2 uRule = lift $ modify (\tS -> Set.insert (t1, t2, uRule) tS)
 
 newTypevar :: TypeConsM E.Type
 newTypevar = E.TVar <$> supply
-
 
 -- | Adds a set of constraints for linking a multibind to a TVar
 multiBindConstraint :: E.Bind Int -> E.Type -> TypeEnv -> TypeConsM TypeEnv
@@ -209,7 +206,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
     consM = DF.foldlM consTop (Map.empty, Map.empty) (OrdMap.elems exprMap)
 
     consTop (tEnv, mTEnv) (E.TopLet s (E.Bind bs) e) = do
-        (eT, tEnv', mTEnv') <- consExpr tEnv mTEnv e
+        (tEnv', mTEnv', eT) <- consExpr tEnv mTEnv e
         -- extend and return tEnv
         case eT of
             -- true if tuple on both side of same size, if so unplack and treat as indivudual elems
@@ -228,38 +225,25 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
 
     -- TODO - do we need to uniquely refer to each expression within AST?, or just bindings?
     -- | map over the expression elements, creating constraints as needed,
-    consExpr :: TypeEnv -> ModTypeEnv -> E.Expr E.Id -> TypeConsM (E.Type, TypeEnv, ModTypeEnv)
-    consExpr tEnv mTEnv (E.Var (E.LocalVar v)) = return $ (tEnv Map.! v, tEnv, mTEnv)
+    consExpr :: TypeEnv -> ModTypeEnv -> E.Expr E.Id -> TypeConsM (TypeEnv, ModTypeEnv, E.Type)
+    consExpr tEnv mTEnv (E.Var (E.LocalVar v)) = return $ (tEnv, mTEnv, tEnv Map.! v)
 
 
     -- need to obtain the type of the module ref, either from functor or imported mod, creting a newTVar if needed
     consExpr tEnv mTEnv (E.Var mv@(E.ModVar m v)) = do
         (eT, mTEnv') <- getMVarType gModEnv modData mFuncArgs mTEnv mv
         -- general ret
-        return $ (eT, tEnv, mTEnv')
-
-    consExpr tEnv mTEnv (E.Lit l) = return $ (getLitType l, tEnv, mTEnv)
-      where
-        -- | Mapping from literal -> type
-        getLitType :: E.Literal -> E.Type
-        getLitType l = case l of
-            E.Boolean _ -> E.TBool
-            E.Num _ -> E.uFloat
-            E.NumSeq _ -> E.uFloat
-            E.Time -> E.TFloat U.uSeconds -- should this be uFloat ??
-            E.Unit -> E.TUnit
-
+        return $ (tEnv, mTEnv', eT)
 
     consExpr tEnv mTEnv (E.App (E.LocalVar f) e) = do
         -- as HOFs not allowed
         -- fT =  consExpr tEnv f
         let fT = tEnv Map.! f
-        (eT, tEnv', mTEnv') <- consExpr tEnv mTEnv e
+        (tEnv', mTEnv', eT) <- consExpr tEnv mTEnv e
         toT <- newTypevar
         -- add constraint
-        -- TODO - unpack the constraints
         addConstraint fT (E.TArr eT toT) Equal
-        return (toT, tEnv', mTEnv')
+        return (tEnv', mTEnv', toT)
 
     -- TODO - is this right?!
     consExpr tEnv mTEnv (E.App mv@(E.ModVar m v) e) = do
@@ -267,26 +251,25 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
         (fT, mTEnv') <- getMVarType gModEnv modData mFuncArgs mTEnv mv
         -- app type logic
         -- get the type of the expression
-        (eT, tEnv', mTEnv'') <- consExpr tEnv mTEnv' e
+        (tEnv', mTEnv'', eT) <- consExpr tEnv mTEnv' e
         toT <- newTypevar
         -- add constraint -- we constrain fT as (fT1->fT2) to eT->newTypeVar,
         -- rather than unpacking fT, constraining (fT1,eT) and returning fT2 - is simpler as newTypeVar will resolve to fT2 anyway
-        -- TODO - unpack the constraints
         addConstraint fT (E.TArr eT toT) Equal
-        return (toT, tEnv', mTEnv'')
+        return (tEnv', mTEnv'', toT)
 
     consExpr tEnv mTEnv (E.Abs arg e) = do
         fromT <- newTypevar
         -- extend the tEnv
         let tEnv' = Map.insert arg fromT tEnv
-        (toT, tEnv'', mTEnv') <- consExpr tEnv' mTEnv e
+        (tEnv'', mTEnv', toT) <- consExpr tEnv' mTEnv e
         -- add a constraint?
-        return $ (E.TArr fromT toT, tEnv'', mTEnv')
+        return $ (tEnv'', mTEnv', E.TArr fromT toT)
 
 
     -- NOTE - do we need to return the new tEnv here?
     consExpr tEnv mTEnv (E.Let s (E.Bind bs) e1 e2) = do
-        (e1T, tEnv', mTEnv') <- consExpr tEnv mTEnv e1
+        (tEnv', mTEnv', e1T) <- consExpr tEnv mTEnv e1
         -- extend tEnv with new env
         tEnv'' <- case e1T of
             -- true if tuple on both side of same size, if so unplack and treat as indivudual elems
@@ -299,60 +282,39 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
             _ -> errorDump [MkSB bs, MkSB e1T, MkSB tEnv'] "(TC) - let shit\n"
         consExpr tEnv'' mTEnv' e2
 
-
+    consExpr tEnv mTEnv (E.Lit l) = return $ (tEnv, mTEnv, E.getLitType l)
 
     consExpr tEnv mTEnv (E.Op op e) = do
-        let (E.TArr fromT toT) = getOpType op
-        (eT, tEnv', mTEnv') <- consExpr tEnv mTEnv e
+        let (E.TArr fromT toT) = E.getOpType op
+        (tEnv', mTEnv', eT) <- consExpr tEnv mTEnv e
         -- NOTE - we don't need to gen a new tvar here as the totype is always fixed so the toT will always unify to it
         addConstraint fromT eT Equal -- TODO - change to SameDim
-        return (toT, tEnv', mTEnv')
+        return (tEnv', mTEnv', toT)
       where
-        -- | Takes an operator and returns the static type of the function
-        getOpType :: E.Op -> E.Type
-        getOpType op = case op of
-            E.Add -> binNum
-            E.Sub -> binNum
-            E.Mul -> binNum
-            E.Div -> binNum
-            E.Mod -> binNum
-            E.LT -> binRel
-            E.LE -> binRel
-            E.GT -> binRel
-            E.GE -> binRel
-            E.EQ -> binRel
-            E.NEQ -> binRel
-            E.And -> binLog
-            E.Or -> binLog
-            E.Not -> E.TArr E.TBool E.TBool
-          where
-            binNum = E.TArr (E.TTuple [E.uFloat, E.uFloat]) E.uFloat
-            binRel = E.TArr (E.TTuple [E.uFloat, E.uFloat]) E.TBool
-            binLog = E.TArr (E.TTuple [E.TBool, E.TBool]) E.TBool
 
 
     consExpr tEnv mTEnv (E.If eB eT eF) = do
-        (eBT, tEnv', mTEnv') <- consExpr tEnv mTEnv eB
+        (tEnv', mTEnv', eBT) <- consExpr tEnv mTEnv eB
         addConstraint eBT E.TBool Equal
-        (eTT, tEnv'', mTEnv'') <- consExpr tEnv' mTEnv' eT
-        (eFT, tEnv''', mTEnv''') <- consExpr tEnv'' mTEnv'' eF
+        (tEnv'', mTEnv'', eTT) <- consExpr tEnv' mTEnv' eT
+        (tEnv''', mTEnv''', eFT) <- consExpr tEnv'' mTEnv'' eF
 
         addConstraint eTT eFT Equal
-        return (eFT, tEnv''', mTEnv''')
+        return (tEnv''', mTEnv''', eFT)
 
-    consExpr tEnv mTEnv (E.Tuple es) = liftM consTuple (DF.foldlM consElem ([], tEnv, mTEnv) es)
+    consExpr tEnv mTEnv (E.Tuple es) = liftM consTuple (DF.foldlM consElem (tEnv, mTEnv, []) es)
       where
-        consElem (eTs, tEnv, mTEnv) e = consExpr tEnv mTEnv e >>= (\(eT, tEnv', mTEnv') -> return (eT:eTs, tEnv', mTEnv'))
-        consTuple (eTs, tEnv, mTEnv) = (E.TTuple (reverse eTs), tEnv, mTEnv)
+        consElem (tEnv, mTEnv, eTs) e = consExpr tEnv mTEnv e >>= (\(tEnv', mTEnv', eT) -> return (tEnv', mTEnv', eT:eTs))
+        consTuple (tEnv, mTEnv, eTs) = (tEnv, mTEnv, E.TTuple (reverse eTs))
 
     consExpr tEnv mTEnv (E.Ode (E.LocalVar v) eD) = do
         -- constrain the ode state val to be a float
         let vT = tEnv Map.! v
         addConstraint vT E.uFloat Equal
         -- add the deltaExpr type
-        (eDT, tEnv', mTEnv') <- consExpr tEnv mTEnv eD
+        (tEnv', mTEnv', eDT) <- consExpr tEnv mTEnv eD
         addConstraint eDT E.uFloat Equal
-        return (E.TUnit, tEnv', mTEnv')
+        return (tEnv', mTEnv', E.TUnit)
 
     consExpr tEnv mTEnv (E.Rre (E.LocalVar src) (E.LocalVar dest) _) = do
         -- constrain both state vals to be floats
@@ -360,13 +322,13 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
         addConstraint srcT E.uFloat Equal
         let destT = tEnv Map.! dest
         addConstraint destT E.uFloat Equal
-        return (E.TUnit, tEnv, mTEnv)
+        return (tEnv, mTEnv, E.TUnit)
 
     consExpr tEnv mTEnv (E.ConvCast e _) = do
         -- constrain e to be a float
-        (eT, tEnv', mTEnv') <- consExpr tEnv mTEnv e
+        (tEnv', mTEnv', eT) <- consExpr tEnv mTEnv e
         addConstraint eT E.uFloat Equal
-        return $ (E.uFloat, tEnv', mTEnv')
+        return (tEnv', mTEnv', E.uFloat)
 
     -- other exprs - not needed as match all
     consExpr tEnv mTEnv e = errorDump [MkSB e] "(TC02) Unknown expr"

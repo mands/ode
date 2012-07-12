@@ -17,10 +17,11 @@ unitCheck
 
 ) where
 
--- higher-level control
+-- higher-level control, Monads, etc.
 import Control.Applicative
 import Control.Monad.Trans
 import Control.Monad
+import qualified Control.Monad.State as S
 import Control.Monad.Error
 import qualified Control.Conditional as Cond
 
@@ -32,6 +33,7 @@ import Prelude hiding ((.), id)
 -- containers
 import qualified Data.Foldable as DF
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 
 -- other
 import Text.Printf (printf)
@@ -42,6 +44,7 @@ import Data.Maybe (fromJust)
 
 -- Ode
 import Utils.Utils
+import Utils.MonadSupply
 import Lang.Core.Units
 import qualified Utils.OrdMap as OrdMap
 import qualified UI.SysState as St
@@ -55,6 +58,18 @@ import qualified UI.SysState as St
 type TypeEnv = M.TypeMap
 type ModTypeEnv = Map.Map (E.VarId E.Id) E.Type
 
+
+type UnitCons = Set.Set (Unit, Unit)
+-- constraint monad, generates type/unit vars within the constraint set
+type UnitConsM = SupplyT Integer (S.StateT UnitCons MExcept)
+
+-- our datatype for units during the constraint gen
+data UC = UC Unit -- an actual unit
+        | UCArr UC UC -- Unitn fuunctino
+        | UCTuple [UC] -- tuple
+        | UCVar Integer -- var
+
+
 -- Main Interface ------------------------------------------------------------------------------------------------------
 
 -- functions
@@ -66,19 +81,33 @@ type ModTypeEnv = Map.Map (E.VarId E.Id) E.Type
 
 unitCheck :: St.UnitsState -> M.Module E.Id -> MExcept (M.Module E.Id)
 
-unitCheck unitsState mod@(M.LitMod exprMap modData) = do
+unitCheck uState mod@(M.LitMod exprMap modData) = do
     -- iterate over the expressions, and checking units along the way
+    -- get the constraints
+    (tEnv', uCons) <- constrain uState modData exprMap
+
+    -- unify the units
+    -- uVarMap <- unify uCons
+    -- substitute to obtain the new type env
+
+    -- update the modData
+
+    -- return the new mod
     return mod
 
-unitCheck unitsState mod@(M.FunctorMod args exprMap modData) = do
+unitCheck uState mod@(M.FunctorMod args exprMap modData) = do
+    -- todo
     return mod
 
 
 -- Helper Funcs --------------------------------------------------------------------------------------------------------
 
--- atm, 2 types of units
--- Just (UnitC []) - a value that may have units but is presently unoccupied, i.e. 3, dimless
--- Just (UnitC U) - a value with an actual unit, i.e. 3m
+-- several types of units
+-- * (UnitC U) - a value with an actual unit, i.e. 3m
+-- * NoUnit - a value that may have units but is presently unoccupied, i.e. 3, dimless
+-- * UnknownUnit - all floats start out like this (is this the same as NoUnit?)
+-- * UnitVar - a unit variable/polymorphic
+
 
 getUnitfromTMap :: TypeEnv -> E.Id -> Maybe Unit
 getUnitfromTMap tEnv v = Map.lookup v tEnv >>= getUnitForType
@@ -89,25 +118,34 @@ getUnitForType (E.TFloat u) = Just u
 getUnitForType _ = Nothing
 
 -- we explicitly consider a failed lookup here to be a compiler error, they should have all been found during renaming/type-checking
-getType :: TypeEnv -> E.Id -> MExcept E.Type
+getType :: TypeEnv -> E.Id -> UnitConsM E.Type
 getType tEnv v = case Map.lookup v tEnv of
                     Just t -> return t
                     Nothing -> errorDump [MkSB v] $ printf "(UC01) Unknown var reference %s at UnitChecking stage" $ show v
 
 
-throwUnitsError :: (Show a) => String -> a -> a -> MExcept b
+throwUnitsError :: (Show a) => String -> a -> a -> UnitConsM b
 throwUnitsError loc u1 u2 =
-    throwError $ printf "Units mismatch in %s, expected unit %s, actual unit %s" (show loc) (show u1) (show u2)
+    lift . throwError $ printf "Units mismatch in %s, expected unit %s, actual unit %s" (show loc) (show u1) (show u2)
 
 
 -- Unit Constraint Generation -------------------------------------------------------------------------------------------
 
-constrain :: St.UnitsState -> M.ModData -> (M.ExprMap E.Id) -> MExcept (TypeEnv)
-constrain uState modData exprMap =
-    -- fold over exprs, using the existing type-map as a our reference
-    DF.foldlM consTop (M.modTMap modData) (OrdMap.elems exprMap)
+addUnitConstraint :: E.Type -> E.Type -> UnitConsM ()
+addUnitConstraint (E.TFloat u1) (E.TFloat u2) = lift $  S.modify (\uS -> Set.insert (u1, u2) uS)
+addUnitConstraint t1 t2 = return ()
+
+newUnitVar :: UnitConsM Unit
+newUnitVar = UnitVar <$> supply
+
+
+constrain :: St.UnitsState -> M.ModData -> (M.ExprMap E.Id) -> MExcept (TypeEnv, UnitCons)
+constrain uState modData exprMap = S.runStateT (evalSupplyT consM [1..]) Set.empty
 
   where
+    -- fold over exprs, using the existing type-map as a our reference
+    consM = DF.foldlM consTop (M.modTMap modData) (OrdMap.elems exprMap)
+
 
     -- | Main entry point over checking a top-level
     consTop tEnv (E.TopLet s (E.Bind bs) e) = do
@@ -121,35 +159,42 @@ constrain uState modData exprMap =
             t | length bs == 1 -> return $ Map.insert (head bs) eT tEnv'
             _ -> errorDump [MkSB bs, MkSB eT, MkSB tEnv'] "(UC) - toplet shit\n"
 
-    -- | A recusive pass over the expression AST - simply no fancy inference required, simply use the existing and
-    -- explicit unit information against the set unit rules
-    consExpr :: TypeEnv -> (E.Expr E.Id) -> MExcept (TypeEnv, E.Type)
-    consExpr tEnv (E.Var (E.LocalVar v)) = do
-        -- lookup within tmap
-        t <- getType tEnv v
-        return (tEnv, t)
+    -- | A recusive pass over the expression AST -
+    -- as the AST has already been type-checked this should be straightforward, only need new rules for units
+    -- we operate on types rather than units as the type ADT handles tuples/funcs/etc directly, can just ignore other, non-float, types
+    consExpr :: TypeEnv -> (E.Expr E.Id) -> UnitConsM (TypeEnv, E.Type)
+
+    -- lookup within tmap, cannot fail
+    consExpr tEnv (E.Var (E.LocalVar v)) = return (tEnv, tEnv Map.! v)
 
     consExpr tEnv (E.Var (E.ModVar m v)) = return undefined
         -- we may need up update the mTMap here??
 
-    -- simple static lookup for literals
-    -- consExpr tEnv (E.Lit l) = return $ (tEnv, E.getLitType l)
-
     consExpr tEnv (E.App (E.LocalVar f) e) = do
-        -- need to lookup fT, get unit for e, make sure units match up
-        -- we could actually convert here if we wanted to
+        -- as TC'd, we know that f must be a TArr
         (E.TArr fromT toT) <- getType tEnv f
+        -- get type of input/args expression
         (tEnv', eT) <- consExpr tEnv e
-        if fromT == eT
-            then return (tEnv', toT)
-            else throwUnitsError "Calling component" fromT eT
-
+        -- now check they are floats with units, if so then unpack and constrain the units
+        addUnitConstraint fromT eT
+        -- TODO - do we add a constraint for the to typ? check TC Op and App rules
+        -- toU' <- newUnitVar
+        -- addUnitConstraint toT (E.TFloat toU')
+        return (tEnv', toT)
 
     consExpr tEnv (E.App mv@(E.ModVar m v) e) = undefined
-        -- we may need up update the mTMap here??
+    -- we may need up update the mTMap here??
 
     -- simply check the e
-    consExpr tEnv (E.Abs arg e) = consExpr tEnv e
+    consExpr tEnv (E.Abs arg e) = do
+        fromU <- newUnitVar
+        -- this isn't right! what about mult args
+        let fromT = E.TFloat fromU
+        -- extend the tEnv
+        let tEnv' = Map.insert arg fromT tEnv
+
+        (tEnv'', toT) <- consExpr tEnv' e
+        return (tEnv'', E.TArr fromT toT)
 
 
     consExpr tEnv (E.Let s (E.Bind bs) e1 e2) = do
@@ -163,6 +208,8 @@ constrain uState modData exprMap =
             _ -> errorDump [MkSB bs, MkSB e1T, MkSB tEnv'] "(UC) - let shit\n"
         consExpr tEnv'' e2
 
+    -- simple static lookup for literals
+    consExpr tEnv (E.Lit l) = return $ (tEnv, E.getLitType l)
 
     -- most unit updating logic is in here, using the built-in rules
     consExpr tEnv (E.Op op e) = do
@@ -234,11 +281,23 @@ constrain uState modData exprMap =
         -- type-checker ensures this will be a float, won't fail
         let eU = fromJust $ getUnitForType eT
         -- make sure is within same dim as u, and a convert exists
-        _ <- calcConvExpr eU toU (get St.lUnitDimEnv uState) (get St.lConvEnv uState)
+        _ <- lift . lift $ calcConvExpr eU toU (get St.lUnitDimEnv uState) (get St.lConvEnv uState)
         -- return the new casted unit
         return (tEnv', E.TFloat toU)
 
     consExpr tEnv e = errorDump [MkSB e] "(UC02) Unknown expr"
+
+-- | takes two units and comopares them using our own eaulity tests
+compareUnits :: E.Type -> E.Type -> UnitConsM Bool
+compareUnits (E.TFloat u1) (E.TFloat u2) = case (u1, u2) of
+     -- we need to check the graph here to see if we can convert between them if needed
+    (UnitC u1', UnitC u2') -> return False
+
+
+
+-- TODO
+-- composite units
+compareUnits t1 t2 = return False
 
 
 -- Unit Conversion -----------------------------------------------------------------------------------------------------
