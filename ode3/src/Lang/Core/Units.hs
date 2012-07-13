@@ -105,9 +105,13 @@ addQuantitiesToBimap = foldl (\qBimap (quantity, dimVec) -> Bimap.insert quantit
 data Unit  = UnitC [(String, Integer)] -- an actual unit with a known dimensionless
            | NoUnit                         -- no unit data infered, just a raw number (is this not same as ActualUnit []/dmless ?)
            | UnknownUnit                    -- We don't know the unit type yet - used with TC
-           | UnitVar Integer                -- A unit variable, used for unit & dimension polymorphism
+           | UnitVar Int                -- A unit variable, used for unit & dimension polymorphism
                                             -- we can't do much with such types, can operate on the number but always retains it's unit type
             deriving (Eq, Ord)
+
+
+
+
 
 instance Show Unit where
     show (UnitC units) = List.intercalate "." (map showUnit units)

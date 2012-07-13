@@ -135,9 +135,8 @@ addUnitConstraint :: E.Type -> E.Type -> UnitConsM ()
 addUnitConstraint (E.TFloat u1) (E.TFloat u2) = lift $  S.modify (\uS -> Set.insert (u1, u2) uS)
 addUnitConstraint t1 t2 = return ()
 
-newUnitVar :: UnitConsM Unit
-newUnitVar = UnitVar <$> supply
-
+newUnitVar = undefined
+getLitType = undefined
 
 constrain :: St.UnitsState -> M.ModData -> (M.ExprMap E.Id) -> MExcept (TypeEnv, UnitCons)
 constrain uState modData exprMap = S.runStateT (evalSupplyT consM [1..]) Set.empty
@@ -209,7 +208,7 @@ constrain uState modData exprMap = S.runStateT (evalSupplyT consM [1..]) Set.emp
         consExpr tEnv'' e2
 
     -- simple static lookup for literals
-    consExpr tEnv (E.Lit l) = return $ (tEnv, E.getLitType l)
+    consExpr tEnv (E.Lit l) = return $ (tEnv, getLitType l)
 
     -- most unit updating logic is in here, using the built-in rules
     consExpr tEnv (E.Op op e) = do
