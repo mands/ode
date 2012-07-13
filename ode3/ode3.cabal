@@ -25,11 +25,11 @@ executable ode3
     main-is: Main.hs
     buildable: True
     hs-source-dirs: src
-    other-modules: Lang.Core.UnitChecker Utils.Utils
-                   Utils.ShellHandleBackend Utils.OrdMap Utils.OrdSet
-                   Utils.MonadSupply Utils.Graph UI.ShellUI UI.SysState
-                   Lang.Common.AST Lang.Common.Parser Lang.Core.TypeChecker
-                   Lang.Core.AST Lang.Core.Units Lang.Core.Validator Lang.Core.Renamer
-                   Lang.Module.ModDefDriver Lang.Module.ModCmdDriver Lang.Module.AST
-                   Lang.Module.Parser Lang.Ode.Desugarer Lang.Ode.AST Lang.Ode.Parser
+    other-modules: UI.SysState UI.ShellUI Utils.OrdSet
+                   Utils.MonadSupply Utils.Utils Utils.ShellHandleBackend Utils.OrdMap
+                   Utils.Graph Lang.Ode.Parser Lang.Ode.AST Lang.Ode.Desugarer
+                   Lang.Core.TypeChecker Lang.Core.Renamer Lang.Core.Validator
+                   Lang.Core.Units Lang.Core.AST Lang.Module.ModDefDriver
+                   Lang.Module.ModCmdDriver Lang.Module.Parser Lang.Module.AST
+                   Lang.Common.Parser Lang.Common.AST
  
