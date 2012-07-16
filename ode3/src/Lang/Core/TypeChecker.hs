@@ -23,16 +23,18 @@ module Lang.Core.TypeChecker (
 typeCheck -- , typeCheckApp, TypeVarEnv, TypeCons, unify
 ) where
 
+import Control.Applicative
+import Control.Monad
+import Control.Monad.State
+import Control.Monad.Error
+
 import qualified Data.Map as Map
 import qualified Data.Bimap as Bimap
 import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import qualified Data.Foldable as DF
 import qualified Data.Traversable as DT
-import Control.Applicative
-import Control.Monad
-import Control.Monad.State
-import Control.Monad.Error
+
 import Data.Maybe (fromJust)
 import Debug.Trace (trace)
 import Text.Printf (printf)
@@ -134,30 +136,52 @@ subTVars tEnv tVarMap allowPoly = DT.mapM (\t -> E.travTypesM t updateType) tEnv
 
 -- set of contraints for the module - include both the types and a set of rules that determine the
 -- unit level contraints
-data UnitsConRule   = --NoUnit    -- type?/float does not have unit information
---                    | SameUnit  -- floats must be contrained to same unit
-                      Equal     -- Types must be fully equal, regardless if they have units
---                    | SameDim   -- floats must be contrained to same dimenstion, effectively restricted unit-polymorpihism
---                                -- we could add full unit-polymorphism by creating unit-vars for a particular dimenstions and constraining (again) later
-                    deriving (Show, Eq, Ord)
+--data UnitsConRule   = --NoUnit    -- type?/float does not have unit information
+----                    | SameUnit  -- floats must be contrained to same unit
+--                      Equal     -- Types must be fully equal, regardless if they have units
+----                    | SameDim   -- floats must be contrained to same dimenstion, effectively restricted unit-polymorpihism
+----                                -- we could add full unit-polymorphism by creating unit-vars for a particular dimenstions and constraining (again) later
+--                    deriving (Show, Eq, Ord)
 
-data ConsRule   = ConsEqual E.Type E.Type       -- true for both types and units ?
-                | ConsSameDim E.Type E.Type     -- should this be Unit, not type??
-                -- ConsMul E.Type E.Type E.Type  -- contrain the results from a multiplcation
-                -- ConsDiv E.Type E.Type E.Type  -- contrain the results from a div
-                -- TODO - can we unify Mul&Div into ConsSum (a,b) c
-                | ConsSum (E.Type, E.Type) E.Type
-                -- unit stuff -- can we do at the float level?
-                -- ConsSameUnit Unit Unit     -- is needed?
-                deriving (Show, Eq, Ord)
+-- true for both types and units ?
+data ConsEqual = ConsEqual E.Type E.Type deriving (Show, Eq, Ord)
+-- should this be Unit, not type??
+data ConsSameDim = ConsSameDim E.Type E.Type deriving (Show, Eq, Ord)
+-- can unify Mul&Div into ConsSum (a,b) = c
+data ConsSum = ConsSum (E.Type, E.Type) E.Type deriving (Show, Eq, Ord)
 
-type TypeCons   = Set.Set ConsRule
+data TypeCons = TypeCons    { consEquals :: Set.Set ConsEqual
+                            , consSums :: Set.Set ConsSum
+                            , consSameDims :: Set.Set ConsSameDim
+                            } deriving (Show, Eq, Ord)
+
+mkTypeCons = TypeCons Set.empty Set.empty Set.empty
+
+--data ConsRule   = ConsEqual E.Type E.Type       -- true for both types and units ?
+--                | ConsSameDim E.Type E.Type     -- should this be Unit, not type??
+--                -- ConsMul E.Type E.Type E.Type  -- contrain the results from a multiplcation
+--                -- ConsDiv E.Type E.Type E.Type  -- contrain the results from a div
+--                -- can unify Mul&Div into ConsSum (a,b) = c
+--                | ConsSum (E.Type, E.Type) E.Type
+--                -- unit stuff -- can we do at the float level?
+--                -- ConsSameUnit Unit Unit     -- is needed?
+--                deriving (Show, Eq, Ord)
+
+-- type TypeCons   = Set.Set ConsRule
 -- constraint monad, generates type/unit vars within the constraint set
 type TypeConsM  = SupplyT Int (StateT TypeCons MExcept)
 
 
-addConstraint :: ConsRule -> TypeConsM ()
-addConstraint cRule = lift $ modify (\tS -> Set.insert (cRule) tS)
+addConsEqual :: ConsEqual -> TypeConsM ()
+addConsEqual cons = lift $ modify (\tCons -> tCons { consEquals = Set.insert cons (consEquals tCons) })
+
+addConsSameDim :: ConsSameDim -> TypeConsM ()
+addConsSameDim cons = lift $ modify (\tCons -> tCons { consSameDims = Set.insert cons (consSameDims tCons) })
+
+addConsSum :: ConsSum -> TypeConsM ()
+addConsSum cons = lift $ modify (\tCons -> tCons { consSums = Set.insert cons (consSums tCons) })
+
+
 
 newTypevar :: TypeConsM E.Type
 newTypevar = E.TVar <$> supply
@@ -187,7 +211,7 @@ multiBindConstraint (E.Bind bs) t tEnv = do
     -- create the new tvars for each binding
     bTs <- mapM (\_ -> newTypevar) bs
     -- add the constaint
-    addConstraint $ ConsEqual (E.TTuple bTs) t
+    addConsEqual $ ConsEqual (E.TTuple bTs) t
     -- add the tvars to the type map
     DF.foldlM (\tEnv (b, bT) -> return $ Map.insert b bT tEnv) tEnv (zip bs bTs)
 
@@ -228,7 +252,7 @@ getMVarType gModEnv modData mFuncArgs mTEnv mv@(E.ModVar m v) =
 
 
 constrain :: M.GlobalModEnv ->  M.ModData -> Maybe (M.FunArgs) -> M.ExprMap Int -> MExcept ((TypeEnv, ModTypeEnv), TypeCons)
-constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]) (Set.empty)
+constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]) mkTypeCons
   where
     consM :: TypeConsM (TypeEnv, ModTypeEnv)
     consM = DF.foldlM consTop (Map.empty, Map.empty) (OrdMap.elems exprMap)
@@ -274,7 +298,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
         (tEnv', mTEnv', eT) <- consExpr tEnv mTEnv e
         toT <- newTypevar
         -- add constraint
-        addConstraint $ ConsEqual fT (E.TArr eT toT)
+        addConsEqual $ ConsEqual fT (E.TArr eT toT)
         return (tEnv', mTEnv', toT)
 
     -- TODO - is this right?!
@@ -288,7 +312,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
         toT <- newTypevar
         -- add constraint -- we constrain fT as (fT1->fT2) to eT->newTypeVar,
         -- rather than unpacking fT, constraining (fT1,eT) and returning fT2 - is simpler as newTypeVar will resolve to fT2 anyway
-        addConstraint $ ConsEqual fT (E.TArr eT toT)
+        addConsEqual $ ConsEqual fT (E.TArr eT toT)
         return (tEnv', mTEnv'', toT)
 
     consExpr tEnv mTEnv (E.Abs arg e) = do
@@ -333,7 +357,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
         -- get the arg type
         (tEnv', mTEnv', eT) <- consExpr tEnv mTEnv e
         -- add callee/caller constraints
-        addConstraint $ ConsEqual fromT eT
+        addConsEqual $ ConsEqual fromT eT
         -- addUnitCons fromU eU  -- how do we get eU ??
         -- plus can't as Units aren't composite, same prob as UC, need a parallel, redudant ADT
         -- altohugh we now toT is a float, we don't know the unit, so gen a UnitCons
@@ -386,17 +410,17 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
                 case op of
                     --E.Mul -> addConstraint $ ConsMul fTIn1 fTIn2 fTRet
                     --E.Div -> addConstraint $ ConsDiv fTIn1 fTIn2 fTRet
-                    E.Mul -> addConstraint $ ConsSum (fTIn1, fTIn2) fTRet
-                    E.Div -> addConstraint $ ConsSum (fTIn2, fTRet) fTIn1 -- a - b = c => a = b + c
+                    E.Mul -> addConsSum $ ConsSum (fTIn1, fTIn2) fTRet
+                    E.Div -> addConsSum $ ConsSum (fTIn2, fTRet) fTIn1 -- a - b = c => a = b + c
                 return $ E.TArr (E.TTuple [fTIn1, fTIn2]) fTRet
 
     consExpr tEnv mTEnv (E.If eB eT eF) = do
         (tEnv', mTEnv', eBT) <- consExpr tEnv mTEnv eB
-        addConstraint $ ConsEqual eBT E.TBool
+        addConsSameDim $ ConsSameDim eBT E.TBool
         (tEnv'', mTEnv'', eTT) <- consExpr tEnv' mTEnv' eT
         (tEnv''', mTEnv''', eFT) <- consExpr tEnv'' mTEnv'' eF
 
-        addConstraint $ ConsEqual eTT eFT
+        addConsEqual $ ConsEqual eTT eFT
         return (tEnv''', mTEnv''', eFT)
 
     consExpr tEnv mTEnv (E.Tuple es) = liftM consTuple (DF.foldlM consElem (tEnv, mTEnv, []) es)
@@ -407,20 +431,20 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
     consExpr tEnv mTEnv (E.Ode (E.LocalVar v) eD) = do
         -- constrain the ode state val to be a float
         let vT = tEnv Map.! v
-        addConstraint =<< ConsEqual vT <$> uFloat
+        addConsEqual =<< ConsEqual vT <$> uFloat
         -- add the deltaExpr type - must be Unit /s
         (tEnv', mTEnv', eDT) <- consExpr tEnv mTEnv eD
-        addConstraint =<< ConsEqual eDT <$> uFloat
+        addConsEqual =<< ConsEqual eDT <$> uFloat
         -- TODO - contrain both types wrt Time -- is this right?
-        addConstraint $ ConsSum (eDT, E.TFloat U.uSeconds) vT
+        addConsSum $ ConsSum (eDT, E.TFloat U.uSeconds) vT
         return (tEnv', mTEnv', E.TUnit)
 
     consExpr tEnv mTEnv (E.Rre (E.LocalVar src) (E.LocalVar dest) _) = do
         -- constrain both state vals to be floats
         let srcT = tEnv Map.! src
-        addConstraint =<< ConsEqual srcT <$> uFloat
+        addConsEqual =<< ConsEqual srcT <$> uFloat
         let destT = tEnv Map.! dest
-        addConstraint =<< ConsEqual destT <$> uFloat
+        addConsEqual =<< ConsEqual destT <$> uFloat
         return (tEnv, mTEnv, E.TUnit)
 
     consExpr tEnv mTEnv (E.ConvCast e u) = do
@@ -429,7 +453,8 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
         -- create ret type
         let toT = E.TFloat u
         -- constrain them to both be of the same dimension
-        addConstraint $ ConsSameDim eT toT
+        addConsSameDim $ ConsSameDim eT toT
+        -- return the new "casted" type
         return (tEnv', mTEnv', toT)
 
     -- other exprs - not needed as match all
@@ -438,80 +463,103 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
 
 -- Constraint Unification ----------------------------------------------------------------------------------------------
 
+type UnifyM = StateT TypeVarEnv MExcept
+
 -- | unify takes a set of type contraints and attempts to unify all types, inc TVars
 -- based on HM - standard constraint unification algorithm
 unify :: TypeCons -> MExcept TypeVarEnv
-unify tCons = --trace' [MkSB tCons] "Initial Unify tCons" $
-    liftM snd $ unify' (tCons, Map.empty)
+unify tCons = snd <$> runStateT unifyM Map.empty
   where
-    unify' :: (TypeCons, TypeVarEnv) ->  MExcept (TypeCons, TypeVarEnv)
-    unify' (tCons, tEnv) = --trace' [MkSB tCons, MkSB tEnv] "Unify iteration" $ case (Set.minView tCons) of
-                        case (Set.minView tCons) of -- get a constraint from the set
-                            Just (constraint, tCons') -> (uCon constraint (tCons', tEnv)) >>= unify'
-                            Nothing -> return (tCons, tEnv)
+    --trace' [MkSB tCons] "Initial Unify tCons" $
+    unifyM = unifyEquals tCons >>= unifySum >>= unifySameDim
 
-    uCon :: ConsRule -> (TypeCons, TypeVarEnv) -> MExcept (TypeCons, TypeVarEnv)
+
+    -- loop to unify equality
+unifyEquals :: TypeCons ->  UnifyM TypeCons
+unifyEquals tCons = --trace' [MkSB tCons, MkSB tEnv] "Unify iteration" $ case (Set.minView tCons) of
+                case Set.minView $ consEquals tCons of -- get a constraint from the set
+                    Just (cons, consEquals') -> unifyEquals' cons (tCons { consEquals = consEquals'}) >>= unifyEquals
+                    -- we're done, no constraints left in the set
+                    Nothing -> return tCons
+  where
+    -- | Fully Unification (and Checking) for Equal rule
+    unifyEquals' :: ConsEqual -> TypeCons -> UnifyM TypeCons
     -- two equal ids - remove from set and ignore
-    uCon (ConsEqual (E.TVar xId) (E.TVar yId)) st
-       | (xId == yId) = return st
+    unifyEquals' (ConsEqual (E.TVar xId) (E.TVar yId)) tCons
+       | (xId == yId) = return tCons
 
     -- replace all x with y
-    uCon (ConsEqual x@(E.TVar xId) y) (tCons, tEnv)
-        | not (occursCheck x y) = case Map.lookup xId tEnv of
-                                    Just xT -> return (Set.insert (ConsEqual xT y) tCons, tEnv) -- the tvar has already been updated, use this and recheck
-                                    --Just xT -> uCon (xT, y) (tCons, tEnv) -- can also, but neater to reinsert into the tCons
-                                    Nothing -> return (subStack x y tCons, subAddMap x y tEnv) -- tvar doesn't exist, add and sub
+    unifyEquals' (ConsEqual x@(E.TVar xId) y) tCons
+        | not (occursCheck x y) = do
+            tEnv <- get
+            case Map.lookup xId tEnv of
+                 -- the tvar has already been updated, use this and recheck, reinsert a new equality constraint
+                Just xT -> return $ tCons { consEquals = Set.insert (ConsEqual xT y) (consEquals tCons)}
+                --Just xT -> uCon (xT, y) (tCons, tEnv) -- can also, but neater to reinsert into the tCons
+                Nothing -> do
+                    _ <- modify (\tEnv -> subAddMap x y tEnv)
+                    return $ subStack x y tCons -- tvar doesn't exist, add and sub
 
     -- replace all y with x
-    uCon (ConsEqual x y@(E.TVar _)) st = uCon (ConsEqual y x) st
---        | not (occursCheck y x) = return (subStack y x tCons, subMap y x tEnv)
+    unifyEquals' (ConsEqual x y@(E.TVar _)) st = unifyEquals' (ConsEqual y x) st
+    --        | not (occursCheck y x) = return (subStack y x tCons, subMap y x tEnv)
 
     -- composite types -- do we allow these any more as need to apply Units rules at a base unit??
     -- level, thus composites do not allow thiw compatible
-    uCon (ConsEqual (E.TArr x1 x2) (E.TArr y1 y2)) st = do
-        st' <- uCon (ConsEqual x1 y1) st
-        uCon (ConsEqual x2 y2) st'
+    unifyEquals' (ConsEqual (E.TArr x1 x2) (E.TArr y1 y2)) st = do
+        st' <- unifyEquals' (ConsEqual x1 y1) st
+        unifyEquals' (ConsEqual x2 y2) st'
 
-    uCon (ConsEqual (E.TTuple xs) (E.TTuple ys)) st | (length xs == length ys) =
-        DF.foldlM (\st (x, y) -> uCon (ConsEqual x y) st) st (zip xs ys)
+    unifyEquals' (ConsEqual (E.TTuple xs) (E.TTuple ys)) st | (length xs == length ys) =
+        DF.foldlM (\st (x, y) -> unifyEquals' (ConsEqual x y) st) st (zip xs ys)
 
     -- base unit, we do the main checking here for uRules
-    uCon (ConsEqual x y) st | (x == y) = return st
+    unifyEquals' (ConsEqual x y) st | (x == y) = return st
     -- uCon (x, y, uRule) st = undefined -- are these needed?
 
     -- can't unify types
-    uCon (ConsEqual x y) st = trace' [MkSB x, MkSB y, MkSB st] "Type Error" $ throwError (printf "(TC01) - cannot unify %s and %s" (show x) (show y))
-
-    -- TODO - other rules here
-    -- uCon ConsSameDim -- check UC convCast rule
-    -- uCon ConsSum -- check UC op rules
+    unifyEquals' (ConsEqual x y) st = trace' [MkSB x, MkSB y, MkSB st] "Type Error" $ throwError (printf "(TC01) - cannot unify %s and %s" (show x) (show y))
 
 
-    -- replaces all occurances of tVar x with y in tCons
-    subStack x y tCons = Set.map subTCon tCons
-      where
-        subTCon (ConsEqual a b) = (ConsEqual (subTTerm x y a) (subTTerm x y b))
-        -- TODO - other sub rules here
 
-    -- replaces all occurances of (tVar x) with y in tEnv, then add [x->y] to the tEnv
-    subAddMap x@(E.TVar xId) y tEnv = Map.insert xId y tEnv'
-      where
-        tEnv' = Map.map (subTTerm x y) tEnv
+-- TODO - other rules here
+-- uCon ConsSameDim -- check UC convCast rule
+-- uCon ConsSum -- check UC op rules
 
-    -- checks that tVar x does not exist in tTerm t, stop recursive substitions
-    occursCheck x t@(E.TTuple ts)
-        | t == x = True
-        | otherwise = any (occursCheck x) ts
-    occursCheck x t@(E.TArr fromT toT)
-        | t == x = True
-        | otherwise = (occursCheck x fromT) || (occursCheck x toT)
-    occursCheck x t = if t == x then True else False
+-- | (Some Unification) and Checking for Sum rule
+unifySum = undefined
 
-    -- replaces all occurances of x with y in the tTerm t
-    subTTerm x y t@(E.TTuple ts)
-        | t == x = y
-        | otherwise = E.TTuple $ map (subTTerm x y) ts
-    subTTerm x y t@(E.TArr fromT toT)
-        | t == x = y
-        | otherwise = E.TArr (subTTerm x y fromT) (subTTerm x y toT)
-    subTTerm x y t = if t == x then y else t
+-- | (Not really unification) and Checking for SameDim rule
+unifySameDim = undefined
+
+
+-- | replaces all occurances of tVar x with y in tCons
+subStack :: E.Type -> E.Type -> TypeCons -> TypeCons
+subStack x y tCons = tCons { consEquals = consEquals', consSums = consSums', consSameDims = consSameDims' }
+  where
+    consEquals' = Set.map (\(ConsEqual a b) -> (ConsEqual (subTTerm x y a) (subTTerm x y b))) (consEquals tCons)
+    consSums' = Set.map (\(ConsSum (a,b) c) -> (ConsSum ((subTTerm x y a), (subTTerm x y b)) (subTTerm x y c))) (consSums tCons)
+    consSameDims' = Set.map (\(ConsSameDim a b) -> (ConsSameDim (subTTerm x y a) (subTTerm x y b))) (consSameDims tCons)
+
+-- | replaces all occurances of (tVar x) with y in tEnv, then add [x->y] to the tEnv
+subAddMap x@(E.TVar xId) y tEnv = Map.insert xId y tEnv'
+  where
+    tEnv' = Map.map (subTTerm x y) tEnv
+
+-- | checks that tVar x does not exist in tTerm t, stop recursive substitions
+occursCheck x t@(E.TTuple ts)
+    | t == x = True
+    | otherwise = any (occursCheck x) ts
+occursCheck x t@(E.TArr fromT toT)
+    | t == x = True
+    | otherwise = (occursCheck x fromT) || (occursCheck x toT)
+occursCheck x t = if t == x then True else False
+
+-- | replaces all occurances of x with y in the tTerm t
+subTTerm x y t@(E.TTuple ts)
+    | t == x = y
+    | otherwise = E.TTuple $ map (subTTerm x y) ts
+subTTerm x y t@(E.TArr fromT toT)
+    | t == x = y
+    | otherwise = E.TArr (subTTerm x y fromT) (subTTerm x y toT)
+subTTerm x y t = if t == x then y else t

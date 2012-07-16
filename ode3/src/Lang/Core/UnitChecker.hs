@@ -117,7 +117,7 @@ getUnitForType :: E.Type -> Maybe Unit
 getUnitForType (E.TFloat u) = Just u
 getUnitForType _ = Nothing
 
--- we explicitly consider a failed lookup here to be a compiler error, they should have all been found during renaming/type-checking
+-- we explicitly consider a failed lookup here to be a compiler error, they should have all b`een found during renaming/type-checking
 getType :: TypeEnv -> E.Id -> UnitConsM E.Type
 getType tEnv v = case Map.lookup v tEnv of
                     Just t -> return t
