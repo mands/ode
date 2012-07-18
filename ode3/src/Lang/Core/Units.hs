@@ -110,9 +110,6 @@ data Unit  = UnitC [(String, Integer)] -- an actual unit with a known dimensionl
             deriving (Eq, Ord)
 
 
-
-
-
 instance Show Unit where
     show (UnitC units) = List.intercalate "." (map showUnit units)
       where
