@@ -75,12 +75,12 @@ subStack tCons = do
         conSameDimS' = Set.map (\(ConSameDim a b) -> (ConSameDim (updateUnits  a) (updateUnits b))) $ conSameDimS tCons
 
         updateTypes = E.mapType (\t -> case t of
-            t1@(E.TVar tV) -> Map.findWithDefault t1 tV tVEnv
-            t1@(E.TFloat (U.UnitVar uV)) -> maybe t1 (E.TFloat) $ Map.lookup uV uVEnv
-            t1 -> t1)
+            t'@(E.TVar tV) -> Map.findWithDefault t' tV tVEnv
+            t'@(E.TFloat (U.UnitVar uV)) -> maybe t' (E.TFloat) $ Map.lookup uV uVEnv
+            _ -> t)
 
-        updateUnits u1@(U.UnitVar uV) = Map.findWithDefault u1 uV uVEnv
-        updateUnits u1 = u1
+        updateUnits u@(U.UnitVar uV) = Map.findWithDefault u uV uVEnv
+        updateUnits u = u
 
 -- | replace all occurances of t1->t2 in the set of constraints
 subEqualS :: E.Type -> E.Type -> ConEqualS -> ConEqualS
@@ -103,24 +103,24 @@ subAddType t1 t2 tEnv = case t1 of
   where
     tEnv' = Map.map (subTTerm t1 t2) tEnv
 
--- | replaces all occurances of x with y in the tTerm t
-subTTerm x y t@(E.TTuple ts)
-    | t == x = y
-    | otherwise = E.TTuple $ map (subTTerm x y) ts
-subTTerm x y t@(E.TArr fromT toT)
-    | t == x = y
-    | otherwise = E.TArr (subTTerm x y fromT) (subTTerm x y toT)
-subTTerm x y t = if t == x then y else t
+-- | replaces all occurances of t1 with t2 in the tTerm t
+subTTerm t1 t2 t@(E.TTuple ts)
+    | t == t1 = t2
+    | otherwise = E.TTuple $ map (subTTerm t1 t2) ts
+subTTerm t1 t2 t@(E.TArr fromT toT)
+    | t == t1 = t2
+    | otherwise = E.TArr (subTTerm t1 t2 fromT) (subTTerm t1 t2 toT)
+subTTerm t1 t2 t = if t == t1 then t2 else t
 
 -- | checks that tVar x does not exist in tTerm t, stop recursive substitions
 occursCheck :: E.Type -> E.Type -> Bool
-occursCheck x t@(E.TTuple ts)
-    | t == x = True
-    | otherwise = any (occursCheck x) ts
-occursCheck x t@(E.TArr fromT toT)
-    | t == x = True
-    | otherwise = (occursCheck x fromT) || (occursCheck x toT)
-occursCheck x t = if t == x then True else False
+occursCheck t1 t@(E.TTuple ts)
+    | t == t1 = True
+    | otherwise = any (occursCheck t1) ts
+occursCheck t1 t@(E.TArr fromT toT)
+    | t == t1 = True
+    | otherwise = (occursCheck t1 fromT) || (occursCheck t1 toT)
+occursCheck t1 t = if t == t1 then True else False
 
 -- TODO - inline these trivial functions ?
 -- | only need to test equality on the top-level of the unit, as composite units are not allowed
@@ -133,11 +133,14 @@ subAddUnit u1 u2 uEnv =
 
 -- | replaces all occurances of u1 with u2 in the unit u3
 subUTerm :: U.Unit -> U.Unit -> U.Unit -> U.Unit
-subUTerm u1 u2 u3 = if u1 == u3 then u2 else u3
+subUTerm u1 u2 u = if u1 == u then u2 else u
 
 unitOccursCheck :: U.Unit -> U.Unit -> Bool
 unitOccursCheck = (==)
 
+isUnitVar :: U.Unit -> Bool
+isUnitVar (U.UnitVar _) = True
+isUnitVar _ = False
 
 -- Main functions ------------------------------------------------------------------------------------------------------
 
@@ -169,123 +172,129 @@ unify uState tCons = snd <$> S.runStateT unifyM (Map.empty, Map.empty)
 
 -- | Unification (Full) and Checking (Some) for Equal rule
 unifyEquals :: ConEqualS ->  UnifyM ConEqualS
-unifyEquals conEqualS = --trace' [MkSB tCons, MkSB tEnv] "Unify iteration" $ case (Set.minView tCons) of
-                case Set.minView conEqualS of -- get a constraint from the set
-                    Just (cons, conEqualS') -> processEqual cons conEqualS' >>= unifyEquals
-                    -- we're done, no constraints left in the set
-                    Nothing -> return conEqualS
+unifyEquals conEqualS = unifyEqualsLoop conEqualS
   where
+
+    unifyEqualsLoop curS = case Set.minView curS of
+        Just (con, curS') -> processEqual con curS' >>= unifyEqualsLoop    -- get a constraint from the set if poss
+        Nothing -> return curS                                           -- we're done, no constraints left in the set
 
     processEqual :: ConEqual -> ConEqualS -> UnifyM ConEqualS
     -- two equal types - can by typevars, base units, unitVars, composites, anything that is fully equal
-    -- unifyEquals' (ConEqual x y) st | (x == y) = return st
+    processEqual (ConEqual t1 t2) curS | (t1 == t2) = return curS
 
-    -- two equal ids - remove from set and ignore
-    processEqual (ConEqual (E.TVar xId) (E.TVar yId)) st
-       | (xId == yId) = return st
+--    -- two equal ids - remove from set and ignore
+--    processEqual (ConEqual (E.TVar xId) (E.TVar yId)) curS
+--        | (xId == yId) = return curS
 
-    -- replace all x with y
-    processEqual (ConEqual x@(E.TVar xId) y) st
-        | not (occursCheck x y) = do
-            (tEnv, _) <- S.get
-            -- We have to check the TypeEnv here to see if the TypeVar has already been subsituted, this is because,
-            -- even though we run the subAddMap/subStack functions that will update the map and set, we may still have
-            -- multiple substitutions for a tVar due to case-analysis on the current rule that may be a composite case
-            -- i.e. TTArr or TTuple, hence the Equality rules within them would not have been updated
-            case Map.lookup xId tEnv of
-                 -- the tvar has already been updated at some point within this
-                 -- ConEqual rule, use this and recheck, reinsert a new equality constraint
-                Just xT -> return $ Set.insert (ConEqual xT y) st
-                --Just xT -> uCon (xT, y) (tCons, tEnv) -- can also, but neater to reinsert into the tCons
-                -- tvar doesn't exist, add and sub
-                Nothing -> do
-                    _ <- S.modify (\(tEnv, uEnv) -> (subAddType x y tEnv, uEnv))
-                    return $ subEqualS x y st
+    -- TypeVars
+    -- tV = t, replace all x with y
+    processEqual (ConEqual t1@(E.TVar tV1) t2) curS | not (occursCheck t1 t2) = do
+        (tVEnv, _) <- S.get
+        -- We have to check the TypeEnv here to see if the TypeVar has already been subsituted, this is because,
+        -- even though we run the subAddMap/subStack functions that will update the map and set, we may still have
+        -- multiple substitutions for a tVar due to case-analysis on the current rule that may be a composite case
+        -- i.e. TTArr or TTuple, hence the Equality rules within them would not have been updated
+        case Map.lookup tV1 tVEnv of
+             -- the tvar has already been updated at some point within this
+             -- ConEqual rule, use this and recheck, reinsert a new equality constraint
+            Just t1' -> return $ Set.insert (ConEqual t1' t2) curS
+            --Just t1' -> processEqual (t1', t2) (tCons, tEnv) -- can also call direct, but neater to reinsert into the tCons
+            -- tvar doesn't exist, add to tVEnv and sub the type
+            Nothing -> S.modify (\(tVEnv, uVEnv) -> (subAddType t1 t2 tVEnv, uVEnv)) >> (return $ subEqualS t1 t2 curS)
 
-    -- replace all y with x
-    processEqual (ConEqual x y@(E.TVar _)) st = processEqual (ConEqual y x) st
-    --        | not (occursCheck y x) = return (subStack y x tCons, subMap y x tEnv)
+    -- t = tV, replace all y with x
+    processEqual (ConEqual t1 t2@(E.TVar _)) curS = processEqual (ConEqual t2 t1) curS
 
-    processEqual (ConEqual (E.TArr x1 x2) (E.TArr y1 y2)) st = do
-        st' <- processEqual (ConEqual x1 y1) st
-        processEqual (ConEqual x2 y2) st'
+    -- Composite, Functions
+    processEqual (ConEqual (E.TArr t1From t1To) (E.TArr t2From t2To)) curS =
+        processEqual (ConEqual t1From t2From) curS >>= processEqual (ConEqual t1To t2To)
 
-    processEqual (ConEqual (E.TTuple xs) (E.TTuple ys)) st | (length xs == length ys) =
-        DF.foldlM (\st (x, y) -> processEqual (ConEqual x y) st) st (zip xs ys)
+    -- Composite, Tuples
+    processEqual (ConEqual (E.TTuple t1s) (E.TTuple t2s)) curS | (length t1s == length t2s) =
+        DF.foldlM (\curS (t1, t2) -> processEqual (ConEqual t1 t2) curS) curS (zip t1s t2s)
 
-
-    -- Explicit UnitVar equality handling
-    -- uV = uV
-    processEqual (ConEqual (E.TFloat (U.UnitVar uV1)) (E.TFloat u2@(U.UnitVar uV2))) st | (uV1 == uV2) = return st
+    -- UnitVars equality handling
+--    -- uV = uV
+--    processEqual (ConEqual (E.TFloat (U.UnitVar uV1)) (E.TFloat u2@(U.UnitVar uV2))) st | (uV1 == uV2) = return st
     -- uV = u
-    processEqual (ConEqual t1@(E.TFloat (U.UnitVar uV1)) t2@(E.TFloat u2@(U.UnitC _))) st = do
+    processEqual (ConEqual t1@(E.TFloat u1@(U.UnitVar uV1)) t2@(E.TFloat u2)) curS = do
         -- no occursCheck needed, no composite types
         -- simply add to tEnv and replace in tCons
-        (tEnv, _) <- S.get
-        case Map.lookup uV1 tEnv of
-            -- the tvar has already been updated at some point within this
+        (_, uVEnv) <- S.get
+        case Map.lookup uV1 uVEnv of
+            -- the uVar has already been updated at some point within this
             -- ConEqual rule, use this and recheck, reinsert a new equality constraint
-            Just t1' -> return $ Set.insert (ConEqual t1' t2) st
-            --Just xT -> uCon (xT, y) (tCons, tEnv) -- can also, but neater to reinsert into the tCons
-            -- tvar doesn't exist, add and sub
-            Nothing -> S.modify (\(tEnv, uEnv) -> (subAddType t1 t2 tEnv, uEnv)) >> return (subEqualS t1 t2 st)
+            Just u1' -> return $ Set.insert (ConEqual (E.TFloat u1') t2) curS
+            -- uVar doesn't exist, add to both maps, and sub
+            Nothing -> S.modify (\(tVEnv, uVEnv) -> (subAddType t1 t2 tVEnv, subAddUnit u1 u2 uVEnv)) >> return (subEqualS t1 t2 curS)
+
     -- u = uV
-    processEqual (ConEqual t1@(E.TFloat u2@(U.UnitC _)) t2@(E.TFloat (U.UnitVar uV1))) st = processEqual (ConEqual t2 t1) st
+    processEqual (ConEqual t1@(E.TFloat _) t2@(E.TFloat (U.UnitVar _))) curS = processEqual (ConEqual t2 t1) curS
 
     -- two equal types - can by typevars, base units, unitVars, composites, anything that is fully equal
     -- TODO - enable at top of cases
-    processEqual (ConEqual x y) st | (x == y) = return st
-    -- uCon (x, y, uRule) st = undefined -- are these needed?
+    -- processEqual (ConEqual t1 t2) curS | (t1 == t2) = return curS
 
     -- can't unify types
-    processEqual (ConEqual x y) st = trace' [MkSB x, MkSB y, MkSB st] "Type Error" $ throwError (printf "(TC01) - cannot unify %s and %s" (show x) (show y))
+    processEqual (ConEqual t1 t2) curS = trace' [MkSB t1, MkSB t2, MkSB curS] "Type Error" $ throwError (printf "(TC01) - cannot unify %s and %s" (show t1) (show t2))
 
 -- | Unification (Some) and Checking (Full) for Sum rule
 unifySum :: ConSumS ->  UnifyM ConSumS
 unifySum conSumS = unifySumLoop conSumS
   where
-
     unifySumLoop :: ConSumS -> UnifyM ConSumS
-    unifySumLoop startConSumS = unifySumLoop' startConSumS Set.empty
+    unifySumLoop startS = unifySumLoop' (startS, Set.empty)
       where
         -- need to keep looping until no-more changes occur
-        unifySumLoop' :: ConSumS -> ConSumS -> UnifyM ConSumS
-        unifySumLoop' curSumS newSumS = case Set.minView curSumS of
-            Just (con, curSumS') -> processSum con curSumS' newSumS >>= uncurry unifySumLoop' -- continue loop
+        unifySumLoop' :: (ConSumS, ConSumS) -> UnifyM ConSumS
+        unifySumLoop' (curS, newS) = case Set.minView curS of
+            Just (con, curS') -> processSum con (curS', newS) >>= unifySumLoop' -- continue loop
             -- set empty, check new set if something more to iterate on, else quit
             -- TODO - check we are comparing the right sets here
-            Nothing | (newSumS /= startConSumS) -> unifySumLoop newSumS -- somthing changed, restart loop again from top
-            Nothing | otherwise -> return newSumS -- no change, have infered all we could, return the remaining
+            Nothing | (newS /= startS) -> unifySumLoop newS -- somthing changed, restart loop again from top
+            Nothing | otherwise -> return newS -- no change, have infered all we could, return the remaining
 
     -- actually process the sum rule
-    -- will always be a FLoat val
-    processSum :: ConSum -> ConSumS -> ConSumS -> UnifyM (ConSumS, ConSumS)
-
+    -- We ignore several cases, mnainly when two uV are equal (uV1 == uv2), in which case we can infer slightly more,
+    -- however we assume that such uV will eventually be infered, and thus the other rules will then come into play
+    -- need to test if true. Hoever we do add some NoUnit rules
+    processSum :: ConSum -> (ConSumS, ConSumS) -> UnifyM (ConSumS, ConSumS)
     -- 3 uVars - can do fuck all, copy to newSums
-    processSum con@(ConSum (U.UnitVar _) (U.UnitVar _) (U.UnitVar _)) curS newS = return (curS, Set.insert con newS)
+    processSum con@(ConSum (U.UnitVar _) (U.UnitVar _) (U.UnitVar _)) (curS, newS) = return (curS, Set.insert con newS)
 
-    -- 2 unit vars - can only do something if have a NoUnit, otherwise fuck all
-    -- uV uV NU
-    processSum (ConSum u1@(U.UnitVar _) u2@(U.UnitVar _) U.NoUnit) curS newS = replaceUnit u1 u2 curS newS
-    -- uV NU uV
-    processSum (ConSum u1@(U.UnitVar _) U.NoUnit u2@(U.UnitVar _)) curS newS = replaceUnit u1 u2 curS newS
-    -- NU uV uV
-    processSum (ConSum U.NoUnit u1@(U.UnitVar _) u2@(U.UnitVar _)) curS newS = replaceUnit u1 u2 curS newS
+    -- 2 uVars - can only do something if have a NoUnit, otherwise fuck all
+    -- uV uV NU - uV1 and uV2 must be NoUnits too
+    processSum (ConSum u1@(U.UnitVar _) u2@(U.UnitVar _) U.NoUnit) st =
+        replaceUnit u1 U.NoUnit st >>= replaceUnit u2 U.NoUnit
+    -- uV NU uV - both uVs must be equal
+    processSum (ConSum u1@(U.UnitVar _) U.NoUnit u3@(U.UnitVar _)) st = replaceUnit u1 u3 st
+    -- NU uV uV - both uVs must be equal
+    processSum (ConSum U.NoUnit u2@(U.UnitVar _) u3@(U.UnitVar _)) st = replaceUnit u2 u3 st
 
-    -- 1 unit var -- can infer and replace the correct unit
-    -- u u uV
-    processSum (ConSum u1@(U.UnitC _) u2@(U.UnitC _) uV3@(U.UnitVar _)) curS newS = replaceUnit uV3 (U.addUnit u1 u2) curS newS
-    -- u uV u
-    processSum (ConSum u1@(U.UnitC _) uV2@(U.UnitVar _) u3@(U.UnitC _)) curS newS = replaceUnit uV2 (U.subUnit u3 u1) curS newS
-    -- uV u u
-    processSum (ConSum uV1@(U.UnitVar _) u2@(U.UnitC _) u3@(U.UnitC _)) curS newS = replaceUnit uV1 (U.subUnit u3 u2) curS newS
+    -- 1 uVar -- can infer and replace the correct unit
+    -- u/NU u/NU uV
+    processSum (ConSum u1 u2 u3@(U.UnitVar _)) st | not (isUnitVar u1) && not (isUnitVar u2) = replaceUnit u3 (U.addUnit u1 u2) st
+    -- u/NU uV u/NU
+    processSum (ConSum u1 u2@(U.UnitVar _) u3) st | not (isUnitVar u1) && not (isUnitVar u3) = replaceUnit u2 (U.subUnit u3 u1) st
+    -- uV u/NU u/NU
+    processSum (ConSum u1@(U.UnitVar _) u2 u3) st | not (isUnitVar u2) && not (isUnitVar u3) = replaceUnit u1 (U.subUnit u3 u2) st
 
-    processSum con curS newS = errorDump [MkSB con, MkSB curS, MkSB newS] "Found an invalid ConSum"
+    -- 0 uVars - simply check the sums are correct
+    -- u/NU u/NU u/NU
+    processSum (ConSum u1 u2 u3) st | not (isUnitVar u1) && not (isUnitVar u2) && not (isUnitVar u3) =
+        if U.addUnit u1 u2 == u3 then return st
+                                else throwError $ printf "Invalid unit calculation - %s + %s does not equal %s" (show u1) (show u2) (show u3)
+
+    -- any other combination - pass into newS and solve again later
+    processSum con (curS, newS) = return (curS, Set.insert con newS)
+        -- errorDump [MkSB con, MkSB curS, MkSB newS] "Found an invalid ConSum state"
+
 
     -- update all units x->y
     -- where x = Float (UnitVar uID), y = Float Unit
-    replaceUnit :: U.Unit -> U.Unit -> ConSumS -> ConSumS -> UnifyM (ConSumS, ConSumS)
-    replaceUnit u1 u2 curS newS
+    replaceUnit :: U.Unit -> U.Unit -> (ConSumS, ConSumS) -> UnifyM (ConSumS, ConSumS)
+    replaceUnit u1 u2 (curS, newS)
         | not (unitOccursCheck u1 u2) = do
                 -- unlike the unifyEqual rule, we do not need to check the TypeMap to see if uVar already exists, as we
                 -- already substitute the map/tCons and there are not compositite cases where this subsitituion would not be sufficcent
@@ -304,50 +313,57 @@ unifySameDim uState conSameDimS = unifySameDimLoop conSameDimS
   where
 
     unifySameDimLoop :: ConSameDimS -> UnifyM ConSameDimS
-    unifySameDimLoop startS = unifySameDimLoop' startS Set.empty
+    unifySameDimLoop startS = unifySameDimLoop' (startS, Set.empty)
       where
         -- need to keep looping until no-more changes occur
-        unifySameDimLoop' :: ConSameDimS -> ConSameDimS -> UnifyM ConSameDimS
-        unifySameDimLoop' curS newS = case Set.minView curS of
-            Just (con, curS') -> processSameDim con curS' newS >>= uncurry unifySameDimLoop' -- continue loop
+        unifySameDimLoop' :: (ConSameDimS, ConSameDimS) -> UnifyM ConSameDimS
+        unifySameDimLoop' (curS, newS) = case Set.minView curS of
+            Just (con, curS') -> processSameDim con (curS', newS) >>= unifySameDimLoop' -- continue loop
             -- set empty, check new set if something more to iterate on, else quit
             -- TODO - check we are comparing the right sets here
             Nothing | (newS /= startS) -> unifySameDimLoop newS -- somthing changed, restart loop again from top
             Nothing | otherwise -> return newS -- no change, have infered all we could, return the remaining
 
-    processSameDim :: ConSameDim -> ConSameDimS -> ConSameDimS -> UnifyM (ConSameDimS, ConSameDimS)
+    processSameDim :: ConSameDim -> (ConSameDimS, ConSameDimS) -> UnifyM (ConSameDimS, ConSameDimS)
+
+    -- completely equal - hence must be same dimension
+    processSameDim (ConSameDim u1 u2) st | u1 == u2 = return st
 
     -- both same uVar - ignore
-    processSameDim (ConSameDim u1@(U.UnitVar uV1) u2@(U.UnitVar uV2)) curS newS | uV1 == uV2 = return (curS, newS)
+    -- processSameDim (ConSameDim u1@(U.UnitVar uV1) u2@(U.UnitVar uV2)) st | uV1 == uV2 = return st
 
     -- 2 uVars - do fuck all
-    processSameDim (ConSameDim u1@(U.UnitVar _) u2@(U.UnitVar _)) curS newS = return (curS, newS)
+    processSameDim (ConSameDim u1@(U.UnitVar _) u2@(U.UnitVar _)) st = return st
 
-    -- 1 uVar - can only do something if have a NoUnit, have to sub in
+    -- 1 uVar - can infer in case of NoUnit, then uV must also be NoUnit
     -- TODO - check, does this ever occur?
-    processSameDim (ConSameDim u1@(U.UnitVar _) U.NoUnit) curS newS = replaceUnit u1 U.NoUnit curS newS
-    processSameDim (ConSameDim U.NoUnit u2@(U.UnitVar _)) curS newS = replaceUnit u2 U.NoUnit curS newS
+    -- Uv NU
+    processSameDim (ConSameDim u1@(U.UnitVar _) U.NoUnit) st = replaceUnit u1 U.NoUnit st
+    processSameDim (ConSameDim U.NoUnit u2@(U.UnitVar _)) st = replaceUnit u2 U.NoUnit st
 
     -- 1 uVar - other is a unit, fuck all
-    processSameDim (ConSameDim u1@(U.UnitVar _) u2@(U.UnitC _)) curS newS = return (curS, newS)
-    processSameDim (ConSameDim u1@(U.UnitC _) u2@(U.UnitVar _)) curS newS = return (curS, newS)
+    -- Uv u
+--    processSameDim (ConSameDim u1@(U.UnitVar _) u2@(U.UnitC _)) st = return st
+--    processSameDim (ConSameDim u1@(U.UnitC _) u2@(U.UnitVar _)) st = return st
 
     -- both units or nounits - check they are equal dimension
-    processSameDim (ConSameDim U.NoUnit U.NoUnit) curS newS = return (curS, newS)
-
-    processSameDim (ConSameDim u1@(U.UnitC _) u2@(U.UnitC _)) curS newS = do
+    processSameDim (ConSameDim u1 u2) st | not (isUnitVar u1) && not (isUnitVar u2) = do
         -- make sure is within same dim as u, and a conversion path exists
         lift $ U.calcConvExpr u1 u2 (L.get SysS.lUnitDimEnv uState) (L.get SysS.lConvEnv uState)
-        return (curS, newS)
+        return st
+
+    -- anything else - pass on to the newS for next iteration
+    processSameDim con (curS, newS) = return (curS, Set.insert con newS)
+        -- errorDump [MkSB con, MkSB curS, MkSB newS] "Found an invalid ConSameDim state"
 
     -- update all units x->y
     -- where x = Float (UnitVar uID), y = Float Unit
-    replaceUnit u1 u2 curS newS
+    replaceUnit u1 u2 (curS, newS)
         | not (unitOccursCheck u1 u2) = do
                 -- unlike the unifyEqual rule, we do not need to check the TypeMap to see if uVar already exists, as we
                 -- already substitute the map/tCons and there are not compositite cases where this subsitituion would not be sufficcent
                 -- just add and sub
-                S.modify (\(tEnv, uEnv) -> (tEnv, subAddUnit u1 u2 uEnv))
+                S.modify (\(tVEnv, uVEnv) -> (tVEnv, subAddUnit u1 u2 uVEnv))
                 let curS' = subSameDimS u1 u2 curS
                 let newS' = subSameDimS u1 u2 newS
                 return (curS', newS')

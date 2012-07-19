@@ -135,13 +135,17 @@ type SrcUnit = [(String, Integer)]
 
 -- do we need any unitsstate for this, i.e. unitdimenv, do we need the dimensions?
 addUnit :: Unit -> Unit -> Unit
-addUnit (UnitC u1) (UnitC u2) = mkUnit $ u1 ++ u2
+addUnit (UnitC u1') (UnitC u2') = mkUnit $ u1' ++ u2'
+addUnit NoUnit u2 = u2
+addUnit u1 NoUnit = u1
 
 -- just negate the second unit
 subUnit :: Unit -> Unit -> Unit
-subUnit u1 (UnitC u2) = addUnit u1 u2'
-  where
-    u2' = UnitC $ map (mapSnd negate) u2
+subUnit u1 u2 = addUnit u1 $ negUnit u2
+
+negUnit :: Unit -> Unit
+negUnit (UnitC u') = UnitC $ map (mapSnd negate) u'
+negUnit NoUnit = NoUnit
 
 
 -- hold this temp structure in indiv module, and promote to global state (UnitDimEnv) when imported & processed
@@ -231,9 +235,12 @@ addConvsToGraph cEnv convs unitEnv = DF.foldlM addConv cEnv convs
 -- need to get the graph, calc the path between the nodes, then inline the expression
 calcConvExpr :: Unit -> Unit -> UnitDimEnv -> ConvEnv -> MExcept CExpr
 -- TODO -- need to handle case of un-dimenstioned values explitictly here
-calcConvExpr (UnitC []) toUnit uEnv cEnv = undefined
+-- we simply return the identty of the source variable in the case of NoUnits
+calcConvExpr NoUnit NoUnit uEnv cEnv = return $ CFromId
+calcConvExpr NoUnit toUnit uEnv cEnv = throwError $ printf "Cannot convert between units %s and %s" (show NoUnit) (show toUnit)
+calcConvExpr fromUnit NoUnit uEnv cEnv = throwError $ printf "Cannot convert between units %s and %s" (show fromUnit) (show NoUnit)
 
-calcConvExpr fromUnit toUnit uEnv cEnv = do
+calcConvExpr fromUnit@(UnitC _) toUnit@(UnitC _) uEnv cEnv = do
     -- get the graph
     dim <- getDimForUnits fromUnit toUnit uEnv
     let convGraph = getConvGraph dim cEnv
