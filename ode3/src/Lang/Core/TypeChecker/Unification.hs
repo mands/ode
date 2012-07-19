@@ -332,8 +332,8 @@ unifySameDim uState conSameDimS = unifySameDimLoop conSameDimS
     -- both same uVar - ignore
     -- processSameDim (ConSameDim u1@(U.UnitVar uV1) u2@(U.UnitVar uV2)) st | uV1 == uV2 = return st
 
-    -- 2 uVars - do fuck all
-    processSameDim (ConSameDim u1@(U.UnitVar _) u2@(U.UnitVar _)) st = return st
+    -- 2 uVars - can do fuck all yet so keep it, in contraqst to unifyEquals where we substitute, here need to keep the original uVs
+    processSameDim con@(ConSameDim u1@(U.UnitVar _) u2@(U.UnitVar _)) (curS, newS) = return (curS, Set.insert con newS)
 
     -- 1 uVar - can infer in case of NoUnit, then uV must also be NoUnit
     -- TODO - check, does this ever occur?
