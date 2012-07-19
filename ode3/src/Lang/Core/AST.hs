@@ -22,7 +22,7 @@
 
 
 module Lang.Core.AST (
-VarId(..), Bind(..), Type(..), travTypesM,
+VarId(..), Bind(..), Type(..), mapTypeM, mapType,
 TopLet(..), Expr(..), Op(..), Literal(..),
 SrcId, DesId, Id, -- rexported from Common.AST
 ) where
@@ -129,11 +129,17 @@ data Op = Add | Sub | Mul | Div | Mod
         deriving (Show, Eq, Ord)
 
 -- Helper functions
--- is this some type of type-class? Functor?
-travTypesM :: (Monad m) => Type -> (Type -> m Type) -> m Type
-travTypesM (TArr fromT toT) f = liftM2 TArr (travTypesM fromT f) (travTypesM toT f)
-travTypesM (TTuple ts) f = liftM TTuple $ mapM f ts
-travTypesM t f = f t
+-- is this some type of type-class? Functor? but it's non-parametric, makes it a problem, must do manually
+mapTypeM :: (Monad m) => (Type -> m Type) -> Type -> m Type
+mapTypeM f (TArr fromT toT) = liftM2 TArr (mapTypeM f fromT) (mapTypeM f toT)
+mapTypeM f (TTuple ts) = liftM TTuple $ mapM (mapTypeM f) ts
+mapTypeM f t = f t
+
+mapType :: (Type -> Type) -> Type -> Type
+mapType f (TArr t1 t2) = TArr (mapType f t1) (mapType f t2)
+mapType f (TTuple ts) = TTuple $ map (mapType f) ts
+mapType f t = f t
+
 
 
 -- TODO - where does this func go - is run after unitconversion, during ANF conversion?

@@ -49,14 +49,14 @@ import Lang.Core.TypeChecker.Common
 -- constraint monad, generates type/unit vars within the constraint set
 type TypeConsM  = SupplyT Int (StateT TypeCons MExcept)
 
-addConsEqual :: ConsEqual -> TypeConsM ()
-addConsEqual cons = lift $ modify (\tCons -> tCons { consEquals = Set.insert cons (consEquals tCons) })
+addConsEqual :: ConEqual -> TypeConsM ()
+addConsEqual con = lift $ modify (\tCons -> tCons { conEqualS = Set.insert con (conEqualS tCons) })
 
-addConsSameDim :: ConsSameDim -> TypeConsM ()
-addConsSameDim cons = lift $ modify (\tCons -> tCons { consSameDims = Set.insert cons (consSameDims tCons) })
+addConsSameDim :: ConSameDim -> TypeConsM ()
+addConsSameDim con = lift $ modify (\tCons -> tCons { conSameDimS = Set.insert con (conSameDimS tCons) })
 
-addConsSum :: ConsSum -> TypeConsM ()
-addConsSum cons = lift $ modify (\tCons -> tCons { consSums = Set.insert cons (consSums tCons) })
+addConsSum :: ConSum -> TypeConsM ()
+addConsSum con = lift $ modify (\tCons -> tCons { conSumS = Set.insert con (conSumS tCons) })
 
 newTypevar :: TypeConsM E.Type
 newTypevar = E.TVar <$> supply
@@ -66,11 +66,11 @@ newUnitVar :: TypeConsM U.Unit
 newUnitVar = U.UnitVar <$> supply
 
 -- returns a new unitvar encapsulated within a Float type
-newUnitVarFloat :: TypeConsM E.Type
-newUnitVarFloat = E.TFloat <$> newUnitVar
+--newUnitVarFloat :: TypeConsM E.Type
+--newUnitVarFloat = E.TFloat <$> newUnitVar
 
 -- A new, float type wqith an "unknown" unit, should this be a UVar or UnknownUnit ?
-uFloat = newUnitVarFloat
+uFloat = E.TFloat <$> newUnitVar
 
 getUnitForId :: TypeEnv -> E.Id -> Maybe U.Unit
 getUnitForId tEnv v = Map.lookup v tEnv >>= getUnitForType
@@ -86,7 +86,7 @@ multiBindConstraint (E.Bind bs) t tEnv = do
     -- create the new tvars for each binding
     bTs <- mapM (\_ -> newTypevar) bs
     -- add the constaint
-    addConsEqual $ ConsEqual (E.TTuple bTs) t
+    addConsEqual $ ConEqual (E.TTuple bTs) t
     -- add the tvars to the type map
     DF.foldlM (\tEnv (b, bT) -> return $ Map.insert b bT tEnv) tEnv (zip bs bTs)
 
@@ -173,7 +173,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
         (tEnv', mTEnv', eT) <- consExpr tEnv mTEnv e
         toT <- newTypevar
         -- add constraint
-        addConsEqual $ ConsEqual fT (E.TArr eT toT)
+        addConsEqual $ ConEqual fT (E.TArr eT toT)
         return (tEnv', mTEnv', toT)
 
     -- TODO - is this right?!
@@ -187,7 +187,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
         toT <- newTypevar
         -- add constraint -- we constrain fT as (fT1->fT2) to eT->newTypeVar,
         -- rather than unpacking fT, constraining (fT1,eT) and returning fT2 - is simpler as newTypeVar will resolve to fT2 anyway
-        addConsEqual $ ConsEqual fT (E.TArr eT toT)
+        addConsEqual $ ConEqual fT (E.TArr eT toT)
         return (tEnv', mTEnv'', toT)
 
     consExpr tEnv mTEnv (E.Abs arg e) = do
@@ -232,7 +232,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
         -- get the arg type
         (tEnv', mTEnv', eT) <- consExpr tEnv mTEnv e
         -- add callee/caller constraints
-        addConsEqual $ ConsEqual fromT eT
+        addConsEqual $ ConEqual fromT eT
         -- addUnitCons fromU eU  -- how do we get eU ??
         -- plus can't as Units aren't composite, same prob as UC, need a parallel, redudant ADT
         -- altohugh we now toT is a float, we don't know the unit, so gen a UnitCons
@@ -263,7 +263,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
             binAddSub = do
                 -- we could even create a new typevar here rather than unitVar, but then how to contrain to Floats?
                 -- could do tVar<->Float UnknownUnit ? and then use speical rule in contrain-gen to replace all UnknownUnits
-                floatT <- newUnitVarFloat
+                floatT <- E.TFloat <$> newUnitVar
                 -- use the same floatT for all them as they must all be the same type
                 return $ E.TArr (E.TTuple [floatT , floatT]) floatT
 
@@ -272,30 +272,29 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
 
             -- binary, (F,F) -> B, all equal type
             binRel = do
-                floatT <- newUnitVarFloat
+                floatT <- E.TFloat <$> newUnitVar
                 return $ E.TArr (E.TTuple [floatT , floatT]) E.TBool
 
             -- binary, (F,F) -> F, any units, mul/div semantics/constraint
             binMulDiv = do
                 -- need create 3 unique uVars
-                fTIn1 <- newUnitVarFloat
-                fTIn2 <- newUnitVarFloat
-                fTRet <- newUnitVarFloat
+                uV1 <- newUnitVar
+                uV2 <- newUnitVar
+                uV3 <- newUnitVar
                 -- the inputs are indepedent, output depdendent on inputs - thus need special constraint rule, ConsMul
                 case op of
                     --E.Mul -> addConstraint $ ConsMul fTIn1 fTIn2 fTRet
                     --E.Div -> addConstraint $ ConsDiv fTIn1 fTIn2 fTRet
-                    E.Mul -> addConsSum $ ConsSum fTIn1 fTIn2 fTRet
-                    E.Div -> addConsSum $ ConsSum fTIn2 fTRet fTIn1 -- a - b = c => a = b + c
-                return $ E.TArr (E.TTuple [fTIn1, fTIn2]) fTRet
+                    E.Mul -> addConsSum $ ConSum uV1 uV2 uV3
+                    E.Div -> addConsSum $ ConSum uV3 uV2 uV1 -- a - b = c => a = b + c
+                return $ E.TArr (E.TTuple [E.TFloat uV1, E.TFloat uV2]) (E.TFloat uV3)
 
     consExpr tEnv mTEnv (E.If eB eT eF) = do
         (tEnv', mTEnv', eBT) <- consExpr tEnv mTEnv eB
-        addConsSameDim $ ConsSameDim eBT E.TBool
+        addConsEqual $ ConEqual eBT E.TBool
         (tEnv'', mTEnv'', eTT) <- consExpr tEnv' mTEnv' eT
         (tEnv''', mTEnv''', eFT) <- consExpr tEnv'' mTEnv'' eF
-
-        addConsEqual $ ConsEqual eTT eFT
+        addConsEqual $ ConEqual eTT eFT
         return (tEnv''', mTEnv''', eFT)
 
     consExpr tEnv mTEnv (E.Tuple es) = liftM consTuple (DF.foldlM consElem (tEnv, mTEnv, []) es)
@@ -306,33 +305,36 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT consM [1..]
     consExpr tEnv mTEnv (E.Ode (E.LocalVar v) eD) = do
         -- constrain the ode state val to be a float
         let vT = tEnv Map.! v
-        addConsEqual =<< ConsEqual vT <$> uFloat
+        uV1 <- newUnitVar
+        addConsEqual $ ConEqual vT (E.TFloat uV1)
+
         -- add the deltaExpr type - must be Unit /s
         (tEnv', mTEnv', eDT) <- consExpr tEnv mTEnv eD
-        addConsEqual =<< ConsEqual eDT <$> uFloat
+        uV2 <- newUnitVar
+        addConsEqual $ ConEqual eDT (E.TFloat uV2)
+
         -- TODO - contrain both types wrt Time -- is this right?
-        addConsSum $ ConsSum eDT (E.TFloat U.uSeconds) vT
+        addConsSum $ ConSum uV2 U.uSeconds uV1
         return (tEnv', mTEnv', E.TUnit)
 
     consExpr tEnv mTEnv (E.Rre (E.LocalVar src) (E.LocalVar dest) _) = do
         -- constrain both state vals to be floats
         let srcT = tEnv Map.! src
-        addConsEqual =<< ConsEqual srcT <$> uFloat
+        addConsEqual =<< ConEqual srcT <$> uFloat
         let destT = tEnv Map.! dest
-        addConsEqual =<< ConsEqual destT <$> uFloat
+        addConsEqual =<< ConEqual destT <$> uFloat
         return (tEnv, mTEnv, E.TUnit)
 
     consExpr tEnv mTEnv (E.ConvCast e u) = do
         -- get type of e
         (tEnv', mTEnv', eT) <- consExpr tEnv mTEnv e
-        -- create ret type
-        let toT = E.TFloat u
-        -- constrain them to both be of the same dimension
-        addConsSameDim $ ConsSameDim eT toT
+        -- create unit for e
+        uV1 <- newUnitVar
+        addConsEqual $ ConEqual eT (E.TFloat uV1)
+        -- constrain them both to be of the same dimension
+        addConsSameDim $ ConSameDim uV1 u
         -- return the new "casted" type
-        return (tEnv', mTEnv', toT)
+        return (tEnv', mTEnv', (E.TFloat u))
 
     -- other exprs - not needed as match all
     consExpr tEnv mTEnv e = errorDump [MkSB e] "(TC02) Unknown expr"
-
-

@@ -45,15 +45,19 @@ type ModTypeEnv = Map.Map (E.VarId E.Id) E.Type
 --                    deriving (Show, Eq, Ord)
 
 -- true for both types and units ?
-data ConsEqual = ConsEqual E.Type E.Type deriving (Show, Eq, Ord)
--- should this be Unit, not type??
-data ConsSameDim = ConsSameDim E.Type E.Type deriving (Show, Eq, Ord)
+data ConEqual = ConEqual E.Type E.Type deriving (Show, Eq, Ord)
 -- can unify Mul&Div into ConsSum (a,b) = c
-data ConsSum = ConsSum E.Type E.Type E.Type deriving (Show, Eq, Ord)
+data ConSum = ConSum U.Unit U.Unit U.Unit deriving (Show, Eq, Ord)
+-- should this be Unit, not type??
+data ConSameDim = ConSameDim U.Unit U.Unit deriving (Show, Eq, Ord)
 
-data TypeCons = TypeCons    { consEquals :: Set.Set ConsEqual
-                            , consSums :: Set.Set ConsSum
-                            , consSameDims :: Set.Set ConsSameDim
+type ConEqualS = Set.Set ConEqual
+type ConSumS = Set.Set ConSum
+type ConSameDimS = Set.Set ConSameDim
+
+data TypeCons = TypeCons    { conEqualS :: ConEqualS
+                            , conSumS :: ConSumS
+                            , conSameDimS :: ConSameDimS
                             } deriving (Show, Eq, Ord)
 
 mkTypeCons = TypeCons Set.empty Set.empty Set.empty

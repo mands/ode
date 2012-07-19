@@ -62,7 +62,7 @@ typeCheck gModEnv fileData uState mod@(M.LitMod exprMap modData) = do
     ((tEnv, mTEnv), tCons) <- constrain gModEnv modData Nothing exprMap
 
     -- unify the types and get the new typemap
-    tVarMap <- unify tCons
+    (tVarMap, uVarMap) <- unify uState tCons
     -- substitute to obtain the new type env
     tEnv' <- subTVars tEnv tVarMap False
     let modData' = updateModData modData tEnv'
@@ -75,7 +75,7 @@ typeCheck gModEnv fileData uState mod@(M.FunctorMod args exprMap modData) = do
     ((tEnv, mTEnv), tCons) <- constrain gModEnv modData (Just args) exprMap
 
     -- unify the types and get the new typemap`
-    tVarMap <- unify tCons
+    (tVarMap, uVarMap) <- unify uState tCons
     -- substitute to obtain the new type env
     tEnv' <- subTVars tEnv tVarMap True
     let modData' = updateModData modData tEnv'
@@ -112,7 +112,7 @@ updateModData modData tEnv = modData { M.modTMap = tEnv, M.modSig = modSig }
 -- | use the TVar map to undate a type enviroment and substitute all TVars
 -- Bool argument determinst wheter the checking should allow polymophism and not fully-unify
 subTVars :: Show b => Map.Map b E.Type -> TypeVarEnv -> Bool -> MExcept (Map.Map b E.Type)
-subTVars tEnv tVarMap allowPoly = DT.mapM (\t -> E.travTypesM t updateType) tEnv
+subTVars tEnv tVarMap allowPoly = DT.mapM (E.mapTypeM updateType) tEnv
   where
     -- try to substitute a tvar if it exists - this will behave differently depending on closed/open modules
     updateType :: E.Type -> MExcept E.Type
