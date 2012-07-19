@@ -62,9 +62,9 @@ typeCheck gModEnv fileData uState mod@(M.LitMod exprMap modData) = do
     ((tEnv, mTEnv), tCons) <- constrain gModEnv modData Nothing exprMap
 
     -- unify the types and get the new typemap
-    (tVarMap, uVarMap) <- unify uState tCons
+    (tVEnv, uVEnv) <- unify uState tCons
     -- substitute to obtain the new type env
-    tEnv' <- subTVars tEnv tVarMap False
+    tEnv' <- subTVars tEnv tVEnv uVEnv False
     let modData' = updateModData modData tEnv'
 
     -- trace ("(TC) " ++ show exprMap) ()
@@ -75,13 +75,13 @@ typeCheck gModEnv fileData uState mod@(M.FunctorMod args exprMap modData) = do
     ((tEnv, mTEnv), tCons) <- constrain gModEnv modData (Just args) exprMap
 
     -- unify the types and get the new typemap`
-    (tVarMap, uVarMap) <- unify uState tCons
+    (tVEnv, uVEnv) <- unify uState tCons
     -- substitute to obtain the new type env
-    tEnv' <- subTVars tEnv tVarMap True
+    tEnv' <- subTVars tEnv tVEnv uVEnv True
     let modData' = updateModData modData tEnv'
 
     -- functor specific type-checking
-    mTEnv' <- subTVars mTEnv tVarMap True
+    mTEnv' <- subTVars mTEnv tVEnv uVEnv True
     let args' = createFunModArgs args mTEnv'
 
     return $ M.FunctorMod args' exprMap modData'
@@ -111,15 +111,18 @@ updateModData modData tEnv = modData { M.modTMap = tEnv, M.modSig = modSig }
 
 -- | use the TVar map to undate a type enviroment and substitute all TVars
 -- Bool argument determinst wheter the checking should allow polymophism and not fully-unify
-subTVars :: Show b => Map.Map b E.Type -> TypeVarEnv -> Bool -> MExcept (Map.Map b E.Type)
-subTVars tEnv tVarMap allowPoly = DT.mapM (E.mapTypeM updateType) tEnv
+subTVars :: Show b => Map.Map b E.Type -> TypeVarEnv -> UnitVarEnv -> Bool -> MExcept (Map.Map b E.Type)
+subTVars tEnv tVEnv uVEnv allowPoly = DT.mapM (E.mapTypeM updateType) tEnv
   where
     -- try to substitute a tvar if it exists - this will behave differently depending on closed/open modules
     updateType :: E.Type -> MExcept E.Type
-    updateType t@(E.TVar i) = case (Map.lookup i tVarMap) of
-                                Just t' -> return t'
-                                Nothing -> if allowPoly then return t else
-                                            trace' [MkSB tEnv, MkSB tVarMap] "Poly error" $ throwError "(TC03) - Type-variable found in non-polymorphic closed module"
+    updateType t@(E.TVar i) = processType t $ Map.lookup i tVEnv
+    updateType t@(E.TFloat (U.UnitVar uV)) = processType t $ E.TFloat <$> Map.lookup uV uVEnv
     updateType t = return t
 
+    processType :: E.Type -> Maybe E.Type -> MExcept E.Type
+    processType t (Just t')   = return t'
+    processType t Nothing     = if allowPoly    then return t
+                                                else trace' [MkSB tEnv, MkSB tVEnv, MkSB uVEnv] "Poly error" $
+                                                        throwError "(TC03) - Type/Unit-variable found in non-polymorphic closed module"
 
