@@ -36,6 +36,11 @@ import Control.Category
 import Data.Label
 import Prelude hiding ((.), id)
 
+
+-- Shell backend - bit tricky
+-- haskeline broken atm within latests HP - uses old mtl & transformers libs
+-- editline doesn't build/interpret as missing symbol `el_reset`
+-- readline works when compiled, but crashes in ghci, need to use basicBackend in that case
 import System.Console.Shell
 import System.Console.Shell.ShellMonad
 -- import System.Console.Shell.Backend.Haskeline

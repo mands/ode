@@ -60,42 +60,31 @@ addConsSameDim con = lift . lift $ modify (\tCons -> tCons { conSameDimS = Set.i
 addConsSum :: ConSum -> TypeConsM ()
 addConsSum con = lift . lift $ modify (\tCons -> tCons { conSumS = Set.insert con (conSumS tCons) })
 
+-- we handle both unitvars and typevars within the same supply monad, they only need to be unique, not sequential
 newTypevar :: TypeConsM E.Type
 newTypevar = E.TVar <$> lift (supply)
 
--- we handle both unitvars and typevars within the same supply monad, they only need to be unique, not sequential
 newUnitVar :: TypeConsM U.Unit
 newUnitVar = U.UnitVar <$> lift (supply)
 
 -- A new, float type wqith an "unknown" unit, should this be a UVar or UnknownUnit ?
 uFloat = E.TFloat <$> newUnitVar
 
-getUnitForId :: TypeEnv -> E.Id -> Maybe U.Unit
-getUnitForId tEnv v = Map.lookup v tEnv >>= getUnitForType
-
 -- simple wrapper to extract the unit from a type, if possible
-getUnitForType :: E.Type -> Maybe U.Unit
-getUnitForType (E.TFloat u) = Just u
-getUnitForType _ = Nothing
+getUnit :: E.Type -> Maybe U.Unit
+getUnit (E.TFloat u) = Just u
+getUnit _ = Nothing
+
+-- TypeEnv Functions ------------------------------------------------------------------------------
+
+getUnitFromEnv :: E.Id -> TypeEnv -> Maybe U.Unit
+getUnitFromEnv v tEnv = Map.lookup v tEnv >>= getUnit
 
 -- have to use lifts as MonadSupply is only instance of MonadTrans, not MonadError
-lookupType :: E.Id -> TypeConsM E.Type
-lookupType v = do
+getType :: E.Id -> TypeConsM E.Type
+getType v = do
     (tEnv, _) <- get
-    lift . lift . lift $ maybeToExcept (Map.lookup v tEnv) $ printf "Id %s not found in typeEnv" (show v)
-
-
--- Binding Helper Functions --------------------------------------------------------------------------------------------
-
--- | Adds a set of constraints for linking a multibind to a TVar
-multiBindConstraint :: E.Bind Int -> E.Type -> TypeEnv -> TypeConsM TypeEnv
-multiBindConstraint (E.Bind bs) t tEnv = do
-    -- create the new tvars for each binding
-    bTs <- mapM (\_ -> newTypevar) bs
-    -- add the constaint
-    addConsEqual $ ConEqual (E.TTuple bTs) t
-    -- add the tvars to the type map
-    DF.foldlM (\tEnv (b, bT) -> return $ Map.insert b bT tEnv) tEnv (zip bs bTs)
+    liftMExcept $ maybeToExcept (Map.lookup v tEnv) $ printf "Id %s not found in typeEnv" (show v)
 
 -- | Obtains the type of a modVar reference, either from a fucntor or imported module if not
 -- In the case of a functor, first it checks that the mod arg name is valid param,
@@ -129,6 +118,20 @@ getMVarType mv@(E.ModVar m v) gModEnv modData mFuncArgs =
                     eT <- if (Map.member mv mTEnv) then return (mTEnv Map.! mv) else newTypevar
                     put (tEnv, Map.insert mv eT mTEnv)
                     return eT
+
+
+-- Binding Helper Functions --------------------------------------------------------------------------------------------
+
+-- | Adds a set of constraints for linking a multibind to a TVar
+multiBindConstraint :: E.Bind Int -> E.Type -> TypeEnv -> TypeConsM TypeEnv
+multiBindConstraint (E.Bind bs) t tEnv = do
+    -- create the new tvars for each binding
+    bTs <- mapM (\_ -> newTypevar) bs
+    -- add the constaint
+    addConsEqual $ ConEqual (E.TTuple bTs) t
+    -- add the tvars to the type map
+    DF.foldlM (\tEnv (b, bT) -> return $ Map.insert b bT tEnv) tEnv (zip bs bTs)
+
 
 -- Constraint Generation -----------------------------------------------------------------------------------------------
 
@@ -164,7 +167,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
     consExpr :: E.Expr E.Id -> TypeConsM E.Type
 
     -- TODO - can auto-unit-convert at the var access here - but don't
-    consExpr (E.Var (E.LocalVar v)) = lookupType v
+    consExpr (E.Var (E.LocalVar v)) = getType v
 
     -- need to obtain the type of the module ref, either from functor or imported mod, creting a newTVar if needed
     -- TODO - can auto-unit-convert at the module boundary here
@@ -174,7 +177,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
     consExpr (E.App (E.LocalVar f) e) = do
         -- as HOFs not allowed
         -- fT =  consExpr tEnv f
-        fT <- lookupType f
+        fT <- getType f
         eT <- consExpr e
         toT <- newTypevar
         -- add constraint
@@ -306,7 +309,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
 
     consExpr (E.Ode (E.LocalVar v) eD) = do
         -- constrain the ode state val to be a float
-        vT <- lookupType v
+        vT <- getType v
         uV1 <- newUnitVar
         addConsEqual $ ConEqual vT (E.TFloat uV1)
 
@@ -321,9 +324,9 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
 
     consExpr (E.Rre (E.LocalVar src) (E.LocalVar dest) _) = do
         -- constrain both state vals to be floats
-        srcT <- lookupType src
+        srcT <- getType src
         addConsEqual =<< ConEqual srcT <$> uFloat
-        destT <- lookupType dest
+        destT <- getType dest
         addConsEqual =<< ConEqual destT <$> uFloat
         return E.TUnit
 
