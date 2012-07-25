@@ -27,6 +27,7 @@ module Utils.MonadSupply
 import Control.Monad
 import Control.Monad.State
 import Control.Monad.Identity
+import Control.Monad.Error
 
 newtype SupplyT s m a = SupplyT (StateT [s] m a)
     deriving (Functor, Monad, MonadTrans, MonadIO)
