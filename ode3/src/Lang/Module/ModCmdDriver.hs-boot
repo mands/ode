@@ -6,7 +6,7 @@ evalImport
 ) where
 
 import Utils.Utils
-import qualified UI.SysState as St
+import qualified SysState as St
 import Lang.Common.AST
 import Lang.Module.AST
 

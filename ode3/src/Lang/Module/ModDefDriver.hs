@@ -49,7 +49,7 @@ import System.Log.Logger
 import Utils.Utils
 import qualified Utils.OrdMap as OrdMap
 import qualified Utils.OrdSet as OrdSet
-import qualified UI.SysState as St
+import qualified SysState as St
 
 import Lang.Common.AST
 import Lang.Module.AST

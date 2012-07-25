@@ -44,7 +44,7 @@ import Utils.Utils
 import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap
 
-import qualified UI.SysState as SysS
+import qualified SysState as SysS
 import Lang.Common.AST
 import qualified Lang.Core.AST as E
 import qualified Lang.Module.AST as M

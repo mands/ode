@@ -24,7 +24,7 @@ import System.Log.Handler.Simple
 
 import Utils.Utils
 import Utils.OrdMap
-import UI.ShellUI
+import ShellUI
 
 -- | main entry funtion
 main :: IO ()

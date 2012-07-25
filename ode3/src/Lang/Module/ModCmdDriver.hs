@@ -49,7 +49,7 @@ import qualified System.FilePath as FP
 
 -- Ode
 import Utils.Utils
-import qualified UI.SysState as St
+import qualified SysState as St
 
 import Lang.Module.Parser
 import Lang.Common.AST

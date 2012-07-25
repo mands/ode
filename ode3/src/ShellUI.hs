@@ -12,7 +12,7 @@
 --
 -----------------------------------------------------------------------------
 
-module UI.ShellUI (
+module ShellUI (
 shellEntry
 ) where
 
@@ -47,7 +47,7 @@ import System.Console.Shell.ShellMonad
 -- import System.Console.Shell.Backend.Editline
 import System.Console.Shell.Backend.Readline
 import Utils.ShellHandleBackend
-import UI.SysState
+import SysState
 
 import Utils.Utils
 import qualified Utils.OrdSet as OrdSet

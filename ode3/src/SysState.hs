@@ -14,7 +14,7 @@
 
 {-# LANGUAGE TemplateHaskell, TypeOperators, GeneralizedNewtypeDeriving #-}
 
-module UI.SysState where
+module SysState where
 --
 --(
 --SysState(..), mkDefSysState, SimState(..), ModState(..), UnitsState(..),

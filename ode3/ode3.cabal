@@ -25,7 +25,7 @@ executable ode3
     main-is: Main.hs
     buildable: True
     hs-source-dirs: src
-    other-modules: UI.ShellUI UI.SysState Lang.Module.ModDefDriver
+    other-modules: ShellUI SysState Lang.Module.ModDefDriver
                    Lang.Module.AST Lang.Module.Parser Lang.Module.ModCmdDriver
                    Lang.Common.AST Lang.Common.Parser Lang.Core.Units
                    Lang.Core.Renamer Lang.Core.Validator Lang.Core.AST
