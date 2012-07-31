@@ -4,16 +4,17 @@
 
 /*
 module A {
-  //val x = 2
-  val x = 2 - -3.0
+  val x = 2
+  val y = x - -3.0
 }
 */
 
 // a basic Unit expression
-
+/*
 module B {
   val x = 2 {unit : m}
 }
+*/
 
 
 /*
@@ -37,8 +38,8 @@ module E {
 }
 */
 
-/*
 
+/*
 // an invalid Unit op, correct dim, incorrect unit
 module F {
   val x = 2 { unit : m } + 3 { unit : km }

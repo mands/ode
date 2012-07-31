@@ -1,0 +1,8 @@
+Bind [0],TopLet False (Bind [0]) (ConvCast (Lit (Num 2.0)) m1)
+
+let b0 = ConvCast (Lit (Num 2.0)) m1
+
+-- Lit (Num 2.0) :: TFloat (UVar 1)
+
+Lit (Num 2.0) :: TFloat NoUnit
+

@@ -153,14 +153,14 @@ unify uState tCons = snd <$> S.runStateT unifyM (Map.empty, Map.empty)
     --trace' [MkSB tCons] "Initial Unify tCons" $
     unifyM = do
         -- return set should be empty
-        conEqualS' <- unifyEquals (conEqualS tCons)
+        conEqualS' <- trace' [MkSB tCons] "Start unify" $ unifyEquals (conEqualS tCons)
         tCons' <- subStack (tCons { conEqualS = conEqualS' })
         unitLoop tCons'
 
     -- need to repeat unifyUnits until we can infer no more from tCons
     unitLoop tCons = do
-        tCons' <- unifyUnits tCons
-        if (tCons /= tCons') then unitLoop tCons' else return tCons'
+        tCons' <- trace' [MkSB tCons] "Start unify loop" $ unifyUnits tCons
+        if (tCons /= tCons') then unitLoop tCons' else trace' [MkSB tCons] "Finish unify loop" $ return tCons'
 
     unifyUnits tCons = do
         conSumS' <- unifySum (conSumS tCons)
