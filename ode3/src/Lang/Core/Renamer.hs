@@ -45,8 +45,8 @@ type BindMap = Map.Map E.SrcId E.Id
 -- type UnitMap = Map.Map E.Id E.UnitT
 
 -- we need a supply of uniques, use monad supply again but with user-start param
--- type IdSupply = SupplyT Int (State UnitMap)
-type IdSupply = Supply E.Id
+ type IdSupply = SupplyT Int (State BindMap)
+-- type IdSupply = Supply E.Id
 
 -- TODO - may need this monad when unify AST in order to process errors
 --newtype IdSupply a = IdSupply { runIdSupply :: SupplyT Int (StateT ExprBinds (MExcept)) a }
@@ -185,3 +185,11 @@ renExpr (E.Rre (E.LocalVar src) (E.LocalVar dest) rate) bMap = do
     src' <- E.LocalVar <$> bLookup src bMap
     dest' <- E.LocalVar <$> bLookup dest bMap
     return $ (E.Rre src' dest' rate, bMap)
+
+renExpr (E.ConvCast e u) bMap = do
+    (e', bMap') <- renExpr e bMap
+    return $ (E.ConvCast e' u, bMap')
+
+
+-- any unknown/unimplemented paths - not needed as match all
+renExpr a bMap = errorDump [MkSB a, MkSB bMap] "(RN) Unknown Core expression"
