@@ -227,7 +227,9 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
     -- Mapping from literal -> type
     consExpr (E.Lit l) = case l of
         E.Boolean _ -> return E.TBool
-        E.Num _ -> uFloat
+        -- should this be of unit NoUnit or UnitVar ??
+        -- E.Num _ -> uFloat
+        E.Num _ -> return $ E.TFloat U.NoUnit
         E.NumSeq _ -> uFloat
         E.Time -> return $ E.TFloat U.uSeconds -- should this be uFloat ??
         E.Unit -> return E.TUnit

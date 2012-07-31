@@ -18,6 +18,8 @@ odeStmt
 ) where
 
 import Control.Applicative
+import Control.Monad.Identity
+
 import Text.Parsec hiding (many, optional, (<|>))
 --import Text.Parsec.String
 import Text.Parsec.Expr
@@ -257,8 +259,15 @@ number =    try float
 
 -- | updates the parser so any expression can have a unit attrib, combines both initial unit value defs and casts
 -- i.e. val x = 4 {unit : m} + x { unit : m }
-unitExpr :: Parser O.Expr
-unitExpr = O.ConvCast <$> compTerm <*> braces (attrib "unit" unitIdentifier)
+compTerm :: Parser O.Expr
+compTerm = try paramFix  -- unit
+           -- try (O.Expr <$> (parens compExpr) <*> optionMaybe (braces (attrib "unit" unitIdentifier)))
+           <|> O.Expr <$> compTerm' <*> optionMaybe (braces (attrib "unit" unitIdentifier))
+  where
+    -- hack to unpack the expr, due to exprOpTable types
+    paramFix = do
+        O.Expr t _ <- parens compExpr
+        O.Expr t <$> optionMaybe (braces (attrib "unit" unitIdentifier))
 
 --convertCastStmt :: Parser O.Expr
 --convertCastStmt = reserved "convert" *> attribDef (O.ConvCast   <$$> attrib "unit" unitIdentifier
@@ -267,28 +276,34 @@ unitExpr = O.ConvCast <$> compTerm <*> braces (attrib "unit" unitIdentifier)
 
 -- | parse a term - the value on either side of an operator
 -- should ODEs be here - as terms or statements?
-compTerm :: Parser O.Expr
-compTerm =  try unitExpr
-            <|> try (parens compExpr)
-            <|> O.Number <$> number
+compTerm' :: Parser O.IExpr
+compTerm' = -- try unitExpr
+            unitT (O.Number <$> number)  -- unit
             <|> try (O.Boolean <$> boolean)
-            <|> try (time *> pure O.Time)
+            <|> try (time *> pure O.Time)  -- unit
             <|> try (unit *> pure O.Unit)
             -- <|> try (brackets numSeqTerm)
-            <|> try (braces piecewiseTerm)
-            <|> try (O.Call <$> modLocalIdentifier <*> paramList compExpr)
+            <|> try (braces piecewiseTerm)  -- unit
+            <|> try (O.Call <$> modLocalIdentifier <*> paramList compExpr) -- unit
             -- <|> try convertCastStmt
-            <|> O.ValueRef <$> modLocalIdentifier
+            <|> O.ValueRef <$> modLocalIdentifier -- unit
             <|> O.Tuple <$> tuple compExpr
             <?> "valid term"
 
-piecewiseTerm :: Parser O.Expr
+
+unitT :: Parser O.IExpr -> Parser O.IExpr
+unitT p = do
+    e1 <- p
+    option e1 (O.ConvCast <$> pure e1 <*> braces (attrib "unit" unitIdentifier))
+
+
+piecewiseTerm :: Parser O.IExpr
 piecewiseTerm = O.Piecewise <$> (endBy1 ((,) <$> compExpr <*> (colon *> compExpr)) comma)
                             <*> (reserved "default" *> colon *> compExpr)
 
 -- | parser for a numerical sequence, e.g. [a, b .. c]
 -- where a is the start, b is the next element, and c is the stop
-numSeqTerm :: Parser O.Expr
+numSeqTerm :: Parser O.IExpr
 numSeqTerm = createSeq <$> number <*> (comma *> number) <*> (symbol ".." *> number) <?> "numerical sequence"
   where
     createSeq a b c = O.NumSeq a b c
@@ -299,7 +314,7 @@ compExpr  =  buildExpressionParser exprOpTable compTerm <?> "expression"
 
 -- | Expression operator precedence table, based on C
 -- TODO - add parens and commas to the expressions?
--- exprOpTable :: OperatorTable String () Identity O.Expr
+exprOpTable :: OperatorTable String () Identity O.Expr
 exprOpTable =
     [
     [prefix "-" O.Neg, prefix "!" O.Not, prefix "not" O.Not]
@@ -311,8 +326,9 @@ exprOpTable =
     ,[binary "||" O.Or AssocLeft, binary "or" O.Or AssocLeft]
     ]
   where
-    binary name binop assoc = Infix (reservedOp name *> pure (\a b -> O.BinExpr binop a b) <?> "binary operator") assoc
-    prefix name unop         = Prefix (reservedOp name *> pure (\a -> O.UnExpr unop a) <?> "unary operator")
+    binary name binop assoc = Infix (reservedOp name *> pure (\a b -> O.Expr (O.BinExpr binop a b) Nothing) <?> "binary operator") assoc
+    prefix name unop         = Prefix (reservedOp name *> pure (\a -> O.Expr (O.UnExpr unop a) Nothing) <?> "unary operator")
+
 
 
 

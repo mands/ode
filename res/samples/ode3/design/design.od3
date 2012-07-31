@@ -192,24 +192,25 @@ component env () => () where {
   a1, _, c1 = t1
 
   // new unpack rule, access directly
-  a1 = t1.1
+  a1 = t1#elem1
 
   // NB - can never update/mutate, only create/assign new values
-  t1.1 = 2 // error
-  t2 = (2, t1.2, t1.3) // OK
+  t1#1 = 2 // error
+  t2 = (2, t1#2, t1#3) // OK
   t4 = t1 ( 1 : 2 )
 
   // record syntax - exactly the same but uses known identifiers rather than index to access
-  r1 = { x : 1, y : 2 }
-  a2, b2 = r1
-  a2 = r1.x
+  r1 = { x = 1, y = 2 } // haskell
+
+  a2, b2 = r1 // direct unpack - similar to tuple, must be correct size
+  a2 = r1#x // direct access
   
   // again can't update
-  r1.x = 2 // error
-  r2 = { x : 2, y : r1.y } // OK
+  r1#x = 2 // error
+  r2 = { x = 2, y = r1#y } // OK
 
   // need update syntatic sugar
-  r3 = r1 { x : 2 }
+  r3 = r1 { x = 2 } // todo
 }
 
 // new num seq syntax
@@ -219,7 +220,20 @@ component env () => () where {
 // do we need them - contrains the strucutral coerciosns and enables some form of type-safety
 // adds documentatoins and removes burden from users to creator of strucuture/module
 
+component env () => () where {
+  // typedefs
+  type Dollar
+  type Pound
+  
+  // constructor
+  val x = Dollar 4
+  val y = Pound 2  
+  val x = wrap { type : Dollar, val : 4 }
 
+  // deconstructor
+  val (Dollar a) = x
+  val a = unwrap { type : Dollar, val : x }
+}
 
 
 // new sval syntax

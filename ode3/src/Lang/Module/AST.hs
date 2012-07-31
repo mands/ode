@@ -76,6 +76,7 @@ type ExprMap a = OrdMap.OrdMap (E.Bind a) (E.TopLet a)
 -- is initially populated with just the modname/args by the parser, then filled with sigMaps during type-checking
 type FunArgs = OrdMap.OrdMap ModName SigMap
 
+-- TODO - add explicity export lists
 -- | Metadata regarding a module
 data ModData = ModData  { modSig :: SigMap, modTMap :: TypeMap, modIdBimap :: IdBimap, modFreeId :: Maybe Id
                         , modImportMap :: ImportMap, modLocalModEnv :: LocalModEnv

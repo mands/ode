@@ -1,5 +1,5 @@
 name: ode3
-version: 0.0.1
+version: 0.0.3
 cabal-version: >=1.2
 build-type: Simple
 license: GPL-3
@@ -25,13 +25,13 @@ executable ode3
     main-is: Main.hs
     buildable: True
     hs-source-dirs: src
-    other-modules: ShellUI SysState Lang.Module.ModDefDriver
-                   Lang.Module.AST Lang.Module.Parser Lang.Module.ModCmdDriver
-                   Lang.Common.AST Lang.Common.Parser Lang.Core.Units
-                   Lang.Core.Renamer Lang.Core.Validator Lang.Core.AST
-                   Lang.Core.TypeChecker Lang.Core.TypeChecker.Common
+    other-modules: ShellUI SysState Utils.Utils
+                   Utils.ShellHandleBackend Utils.OrdMap Utils.OrdSet
+                   Utils.MonadSupply Utils.Graph Lang.Common.AST Lang.Common.Parser
+                   Lang.Core.TypeChecker Lang.Core.AST Lang.Core.Units
+                   Lang.Core.Validator Lang.Core.Renamer
                    Lang.Core.TypeChecker.Unification
-                   Lang.Core.TypeChecker.ConstraintGen Lang.Ode.Desugarer Lang.Ode.AST
-                   Lang.Ode.Parser Utils.OrdSet Utils.Graph Utils.MonadSupply
-                   Utils.Utils Utils.ShellHandleBackend Utils.OrdMap
+                   Lang.Core.TypeChecker.ConstraintGen Lang.Core.TypeChecker.Common
+                   Lang.Module.ModDefDriver Lang.Module.ModCmdDriver Lang.Module.AST
+                   Lang.Module.Parser Lang.Ode.Desugarer Lang.Ode.AST Lang.Ode.Parser
  

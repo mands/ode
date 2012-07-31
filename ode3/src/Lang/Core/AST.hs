@@ -46,6 +46,7 @@ import qualified Lang.Core.Units as U
 -- | DetailId - holds both a (parameterised) identifier and a string that represetns the (closest) original/source file, variable and line num
 --data DetailId a = DetailId a SrcId Int deriving (Show, Eq, Ord)
 
+-- TODO - add newtypes, records
 -- | Types
 data Type :: * where
     TVar :: Int -> Type

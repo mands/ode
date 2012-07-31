@@ -121,6 +121,7 @@ desugarTopStmt es stmt = do
 -- desugar a nested let binding
 desugarS' :: [O.Stmt] -> O.Expr  -> TmpSupply (C.Expr C.DesId)
 desugarS' [] outs = dsExpr outs
+
 desugarS' (s@(O.Value _ _ _):xs) outs = do
     (ids, expr) <- desugarStmt s
     C.Let False (C.Bind ids) expr <$> desugarS' xs outs
@@ -170,7 +171,7 @@ desugarStmt (O.RreDef rate src dest) = do
     rreExpr <- C.Rre <$> pure (C.LocalVar src) <*> pure (C.LocalVar dest) <*> pure rate
     return $ ([rreVar], rreExpr)
 
--- | desugar a top level component
+-- desugar a top level component
 desugarStmt (O.Component name ins outs body) = do
     -- sub the ins
     ins' <- DT.mapM subDontCares ins
@@ -183,7 +184,6 @@ desugarStmt (O.Component name ins outs body) = do
     desugarComp :: O.SrcId -> [C.DesId] -> TmpSupply (C.Expr C.DesId)
     desugarComp _ (singIn:[]) = desugarS' body outs
     desugarComp argName ins = C.Let False (C.Bind ins) (C.Var (C.LocalVar argName)) <$> desugarS' body outs
-
 
 desugarStmt stmt = throw $ printf "Found an unhandled stmt that is top-level only - not nested \n%s" (show stmt)
 
@@ -226,41 +226,49 @@ desugarStmt stmt = throw $ printf "Found an unhandled stmt that is top-level onl
 --desugarCompStmts ((O.OdeDef id init e):xs) _ = error "(DS) got ODE"
 --desugarCompStmts ((O.RreDef id (from, to) e):xs) _ = error "(DS) got RRE"
 
+
+-- | Top Expression desugarer, if a unit conversion exists then conver into a ConvCast, else desugar and promote the IExpr
+dsExpr :: O.Expr -> TmpSupply (C.Expr C.DesId)
+dsExpr (O.Expr expr mU) = case mU of
+    Just u ->  C.ConvCast <$> dsIExpr expr <*> pure (U.mkUnit u)
+    Nothing -> dsIExpr expr
+
 -- | Expression desugarer - basically a big pattern amtch on all possible types
 -- should prob enable warnings to pick up all unmatched patterns
-dsExpr :: O.Expr -> TmpSupply (C.Expr C.DesId)
-dsExpr (O.UnExpr O.Not e) = (C.Op C.Not) <$> (dsExpr e)
+dsIExpr :: O.IExpr -> TmpSupply (C.Expr C.DesId)
+dsIExpr (O.UnExpr O.Not e) = (C.Op C.Not) <$> (dsExpr e)
 
--- convert unary negation into (* -1)
-dsExpr (O.UnExpr O.Neg e) = do
+-- convert unary negation into (* -1), with direct negate of nums
+dsIExpr (O.UnExpr O.Neg (O.Expr (O.Number n) mU)) = dsExpr $ O.Expr (O.Number (negate n)) mU
+
+dsIExpr (O.UnExpr O.Neg e) = do
     e' <- dsExpr e
     return $ C.Op C.Mul (C.Tuple [C.Lit (C.Num (-1)), e'])
 
 -- use do-notation as more verbose/complex to sequence the tuple and lift
-dsExpr (O.BinExpr op a b) = do
+dsIExpr (O.BinExpr op a b) = do
     a' <- dsExpr a
     b' <- dsExpr b
     return $ C.Op (binOps op) (C.Tuple [a', b'])
 
-dsExpr (O.Number n) = return $ C.Lit (C.Num n)
-dsExpr (O.NumSeq a b c) = return $ C.Lit (C.NumSeq $ enumFromThenTo a b c)
-dsExpr (O.Boolean b) = return $ C.Lit (C.Boolean b)
-dsExpr (O.Time) = return $ C.Lit (C.Time)
-dsExpr (O.Unit) = return $ C.Lit (C.Unit)
-dsExpr (O.ValueRef (O.LocalId id)) = return $ C.Var (C.LocalVar id)
-dsExpr (O.ValueRef (O.ModId mId id)) = return $ C.Var (C.ModVar (ModName mId) id)
-dsExpr (O.Tuple exprs) = C.Tuple <$> DT.mapM dsExpr exprs
-dsExpr (O.ConvCast expr u) = C.ConvCast <$> dsExpr expr <*> pure (U.mkUnit u)
+dsIExpr (O.Number n) = return $ C.Lit (C.Num n)
+dsIExpr (O.NumSeq a b c) = return $ C.Lit (C.NumSeq $ enumFromThenTo a b c)
+dsIExpr (O.Boolean b) = return $ C.Lit (C.Boolean b)
+dsIExpr (O.Time) = return $ C.Lit (C.Time)
+dsIExpr (O.Unit) = return $ C.Lit (C.Unit)
+dsIExpr (O.ValueRef (O.LocalId id)) = return $ C.Var (C.LocalVar id)
+dsIExpr (O.ValueRef (O.ModId mId id)) = return $ C.Var (C.ModVar (ModName mId) id)
+dsIExpr (O.Tuple exprs) = C.Tuple <$> DT.mapM dsExpr exprs
 
 -- create nested set of ifs for piecewise expression
-dsExpr (O.Piecewise cases e) = dsIf cases
+dsIExpr (O.Piecewise cases e) = dsIf cases
   where
     dsIf [] = dsExpr e
     dsIf ((testExpr, runExpr):xs) = liftM3 C.If (dsExpr testExpr) (dsExpr runExpr) (dsIf xs)
 
 -- convert call to a app, need to convert ins/args into a tuple first
-dsExpr (O.Call (O.LocalId id) exprs) = liftM (C.App (C.LocalVar id)) $ packElems exprs
-dsExpr (O.Call (O.ModId mId id) exprs) = liftM (C.App (C.ModVar (ModName mId) id)) $ packElems exprs
+dsIExpr (O.Call (O.LocalId id) exprs) = liftM (C.App (C.LocalVar id)) $ packElems exprs
+dsIExpr (O.Call (O.ModId mId id) exprs) = liftM (C.App (C.ModVar (ModName mId) id)) $ packElems exprs
 
 -- any unknown/unimplemented paths - not needed as match all
 -- dsExpr a = trace (show a) (error "(DS) Unknown ODE3 expression")

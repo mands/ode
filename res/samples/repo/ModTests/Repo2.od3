@@ -1,4 +1,4 @@
-import RepoTest.*
+import ModTests.Repo1.*
 // import RepoTest.A
 
 module A {

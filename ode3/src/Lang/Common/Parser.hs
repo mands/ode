@@ -18,7 +18,7 @@ where
 
 import Control.Applicative
 import Text.Parsec hiding (many, optional, (<|>))
-import Text.Parsec.Language( javaStyle )
+import Text.Parsec.Language
 import qualified Text.Parsec.Token as T
 -- import Text.Parsec.String
 import qualified Data.Set as Set
@@ -65,6 +65,7 @@ commonLangDef = javaStyle
 
 lexer :: T.TokenParser ()
 lexer  = T.makeTokenParser commonLangDef
+-- lexer  = T.makeTokenParser emptyDef
 
 -- Shared Lexical Combinators ------------------------------------------------------------------------------------------
 
@@ -76,6 +77,7 @@ stringLiteral = T.stringLiteral lexer
 natural     = T.natural lexer
 integer     = T.integer lexer
 float       = T.float lexer
+natFloat    = T.naturalOrFloat lexer
 parens      = T.parens lexer
 semi        = T.semi lexer
 colon       = T.colon lexer
@@ -95,6 +97,27 @@ upperIdentifier = (:) <$> upper <*> many alphaNum <?> "capitalised identifier"
 
 -- | comma sepated parameter list of any parser, e.g. (a,b,c)
 paramList = parens . commaSep1
+
+--
+---- | Code to properly handle +/- signed numbers, both interger and floating
+--data Sign = Positive | Negative
+--
+--applySign :: Num a => Sign -> a -> a
+--applySign Positive = id
+--applySign Negative = negate
+--
+--sign :: Parser Sign
+--sign =  (char '-' >> return Negative)
+--        <|> (char '+' >> return Positive)
+--        <|> return Positive
+--
+--number' :: Parser Double
+--number' =  do
+--    s   <- sign
+--    num <- natFloat
+--    return $ case num of
+--        Left  x -> fromInteger $ applySign s x
+--        Right x -> applySign s x
 
 
 -- Shared Module Parsers -----------------------------------------------------------------------------------------------
