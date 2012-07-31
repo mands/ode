@@ -16,7 +16,7 @@
 
 module Lang.Ode.AST (
     ModLocalId(..), ValId(..), OdeStmt(..), Stmt(..),
-    Expr(..), IExpr(..), BinOp(..), UnOp(..),
+    Expr(..), BinOp(..), UnOp(..),
     SrcId, NumTy -- rexported from Common.AST
 ) where
 
@@ -71,11 +71,9 @@ data Stmt = -- each independent component, is basically function abstraction
 -- calls to local/module components and run-time functions
 -- refernces to existing values, piecewise terms
 -- expressions are may be multiple types, these are determined later on
-data Expr = Expr IExpr (Maybe SrcUnit) deriving (Show, Eq, Ord)
-
-data IExpr   = BinExpr BinOp Expr Expr | UnExpr UnOp Expr | Number Double | NumSeq Double Double Double | Boolean Bool
+data Expr   = BinExpr BinOp Expr Expr | UnExpr UnOp Expr | Number Double | NumSeq Double Double Double | Boolean Bool
                     | Time | Unit | Call ModLocalId [Expr] | ValueRef ModLocalId | Piecewise [(Expr, Expr)] Expr | Tuple [Expr]
-                    | ConvCast IExpr SrcUnit
+                    | ConvCast Expr SrcUnit
                     deriving (Show, Eq, Ord)
 
 -- | basic binary expression operators

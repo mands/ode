@@ -1,16 +1,20 @@
 // file-level imports
 
 // a basic NoUnit expression
+
 /*
 module A {
-  val x = 2
+  //val x = 2
+  val x = 2 - -3.0
 }
 */
 
 // a basic Unit expression
+
 module B {
-  val x = 2 - -3.0 // {unit : m}
+  val x = 2 {unit : m}
 }
+
 
 /*
 // a basic Unit op, correct dim, correct unit
