@@ -122,6 +122,7 @@ unitDef =   try baseDef
                                    <|?> (Nothing, attrib "alias" (Just <$> identifier))
                                    <||> attrib "SI" boolean -- <?> "unit definition"
 
+
 -- | Parses a conversion defintion stmt for 2 units within a given dimension
 convDef :: Parser O.OdeStmt
 convDef = reserved "conversion" *> attribDef (O.ConvDefStmt <$$> attrib "from" unitIdentifier
@@ -261,24 +262,27 @@ number =    try float
 -- should ODEs be here - as terms or statements?
 compTerm :: Parser O.Expr
 compTerm = -- try unitExpr
-            unitT (try (parens compExpr))
-            <|> unitT (try (O.Number <$> number))
+            unitCast (try (parens compExpr))
+            <|> unitCast (try (O.Number <$> number <*> optionMaybe unitAttrib))
             <|> try (O.Boolean <$> boolean)
-            <|> unitT (try (time *> pure O.Time))
+            <|> unitCast (try (time *> pure O.Time))
             <|> try (unit *> pure O.Unit)
             -- <|> try (brackets numSeqTerm)
-            <|> unitT (try (braces piecewiseTerm))
-            <|> unitT (try (O.Call <$> modLocalIdentifier <*> paramList compExpr))
+            <|> unitCast (try (braces piecewiseTerm))
+            <|> unitCast (try (O.Call <$> modLocalIdentifier <*> paramList compExpr))
             -- <|> try convertCastStmt
-            <|> unitT (O.ValueRef <$> modLocalIdentifier)
+            <|> unitCast (O.ValueRef <$> modLocalIdentifier)
             <|> O.Tuple <$> tuple compExpr
             <?> "valid term"
 
 -- | parse a term then check for an, optional, trailing unit cast
-unitT :: Parser O.Expr -> Parser O.Expr
-unitT p = do
+unitCast :: Parser O.Expr -> Parser O.Expr
+unitCast p = do
     e1 <- p
-    option e1 $ O.ConvCast <$> pure e1 <*> braces (attrib "unit" unitIdentifier)
+    option e1 $ O.ConvCast <$> pure e1 <*> unitAttrib
+
+unitAttrib :: Parser CA.SrcUnit
+unitAttrib = braces (attrib "unit" unitIdentifier)
 
 
 piecewiseTerm :: Parser O.Expr

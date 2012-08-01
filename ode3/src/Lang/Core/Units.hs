@@ -122,6 +122,7 @@ instance Show Unit where
 
 -- need to filter dups, process indices, and define ordering
 mkUnit :: SrcUnit -> Unit
+mkUnit [] = NoUnit
 mkUnit base@[(baseName, 1) ]= UnitC base
 mkUnit units = UnitC . Map.toList . foldl mkUnit' Map.empty $ units
   where

@@ -120,7 +120,7 @@ data Expr b = Var (VarId b)             -- a reference to any let-defined expres
             deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
 
 -- | Atomic, core values, will eventually become atomic args during ANF conversion
-data Literal =  Num Double | NumSeq [Double] | Boolean Bool | Time | Unit
+data Literal =  Num Double U.Unit | NumSeq [Double] U.Unit | Boolean Bool | Time | Unit
                 deriving (Show, Eq, Ord)
 
 -- | built-in operators - basically any operators that may be expressed directly as hardware instructions or sys/built-ins
@@ -154,7 +154,7 @@ convertCoreExpr (U.CExpr op e1 e2) = Op (convertCoreOp op) $ Tuple [convertCoreE
     convertCoreOp U.CMul = Mul
     convertCoreOp U.CDiv = Div
 
-convertCoreExpr (U.CNum n) = Lit $ Num n
+convertCoreExpr (U.CNum n) = Lit $ Num n U.NoUnit
 -- TODO - this is broken!
 convertCoreExpr U.CFromId = Var $ LocalVar 1
 

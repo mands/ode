@@ -229,8 +229,8 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         E.Boolean _ -> return E.TBool
         -- should this be of unit NoUnit or UnitVar ??
         -- E.Num _ -> uFloat
-        E.Num _ -> return $ E.TFloat U.NoUnit
-        E.NumSeq _ -> return $ E.TFloat U.NoUnit
+        E.Num _ u -> return $ E.TFloat u
+        E.NumSeq _ u -> return $ E.TFloat  u
         E.Time -> return $ E.TFloat U.uSeconds -- should this be uFloat ??
         E.Unit -> return E.TUnit
 
@@ -333,9 +333,9 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         return E.TUnit
 
     -- explicit cast->number here -- to handle case that convcast and inital unit creation are overloaded
-    consExpr (E.ConvCast (E.Lit (E.Num n)) u) = do
-        -- no contraints needed, direct cast
-        return $ E.TFloat u
+--    consExpr (E.ConvCast (E.Lit (E.Num n u1)) u2) = do
+--        -- no contraints needed, direct cast
+--        return $ E.TFloat u
 
     consExpr (E.ConvCast e u) = do
         -- get type of e

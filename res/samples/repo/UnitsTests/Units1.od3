@@ -17,19 +17,22 @@ module B {
 */
 
 
-/*
+
 // a basic Unit op, correct dim, correct unit
+/*
 module C {
   val x = 2 { unit : m } + 3 { unit : m }
 }
 */
 
-/*
+
 // an invalid Unit op, incorrect dim
+/*
 module D {
   val x = 2 { unit : m } + 3
 }
 */
+
 
 /*
 // an invalid Unit op, incorrect dim

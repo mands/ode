@@ -12,6 +12,9 @@
 -- Can issue errors due to user defined model, however it shouldn't, desugaring should be
 -- deterministic, always convertiable to Core, and errors are checked there
 -- however, due to bindings we need
+
+-- TODO
+-- * Fix all hard-coded NoUnits here, mainly SVals, Odes, & NumSeqs
 -----------------------------------------------------------------------------
 
 {-# LANGUAGE FlexibleInstances #-}
@@ -106,7 +109,7 @@ desugarTopStmt es stmt@(O.SValue _ _) = do
 
 desugarTopStmt es stmt@(O.OdeDef (O.ValId name) init _) = do
     (odeVar, odeExpr) <- desugarStmt stmt
-    let initExpr = C.Lit (C.Num init)
+    let initExpr = C.Lit (C.Num init U.NoUnit) -- TODO - fix units
     let es' = C.TopLet True (C.Bind [name]) initExpr : es
     return $ C.TopLet False (C.Bind odeVar) odeExpr : es'
 
@@ -133,7 +136,7 @@ desugarS' (s@(O.SValue _ _):xs) outs = do
 desugarS' (s@(O.OdeDef (O.ValId name) init _):xs) outs = do
     (odeVar, odeExpr) <- desugarStmt s
     let subExpr' = C.Let False (C.Bind odeVar) odeExpr <$> desugarS' xs outs
-    let initExpr = C.Lit (C.Num init)
+    let initExpr = C.Lit (C.Num init U.NoUnit) -- TODO - fix units
     C.Let True (C.Bind [name]) <$> pure initExpr <*> subExpr'
 
 desugarS' (s@(O.RreDef _ _ _):xs) outs = do
@@ -153,7 +156,7 @@ desugarStmt (O.Value ids value body) = do
     return $ (ids', v')
 
 desugarStmt (O.SValue ids values) = do
-    let vs' = map (C.Lit . C.Num) values
+    let vs' = map (\v -> C.Lit $ C.Num v U.NoUnit) values
     let vs'' = case vs' of
                     v:[] -> v
                     _ -> C.Tuple vs'
@@ -233,11 +236,11 @@ dsExpr :: O.Expr -> TmpSupply (C.Expr C.DesId)
 dsExpr (O.UnExpr O.Not e) = (C.Op C.Not) <$> (dsExpr e)
 
 -- convert unary negation into (* -1), with direct negate of nums
-dsExpr (O.UnExpr O.Neg (O.Number n)) = dsExpr $ O.Number (negate n)
+dsExpr (O.UnExpr O.Neg (O.Number n u)) = dsExpr $ O.Number (negate n) u
 
 dsExpr (O.UnExpr O.Neg e) = do
     e' <- dsExpr e
-    return $ C.Op C.Mul (C.Tuple [C.Lit (C.Num (-1)), e'])
+    return $ C.Op C.Mul (C.Tuple [C.Lit (C.Num (-1) U.NoUnit), e'])
 
 -- use do-notation as more verbose/complex to sequence the tuple and lift
 dsExpr (O.BinExpr op a b) = do
@@ -245,8 +248,11 @@ dsExpr (O.BinExpr op a b) = do
     b' <- dsExpr b
     return $ C.Op (binOps op) (C.Tuple [a', b'])
 
-dsExpr (O.Number n) = return $ C.Lit (C.Num n)
-dsExpr (O.NumSeq a b c) = return $ C.Lit (C.NumSeq $ enumFromThenTo a b c)
+dsExpr (O.Number n Nothing) = return $ C.Lit (C.Num n U.NoUnit)
+dsExpr (O.Number n (Just u)) = return $ C.Lit (C.Num n (U.mkUnit u))
+
+dsExpr (O.NumSeq a b c) = return $ C.Lit (C.NumSeq (enumFromThenTo a b c) U.NoUnit)
+
 dsExpr (O.Boolean b) = return $ C.Lit (C.Boolean b)
 dsExpr (O.Time) = return $ C.Lit (C.Time)
 dsExpr (O.Unit) = return $ C.Lit (C.Unit)
