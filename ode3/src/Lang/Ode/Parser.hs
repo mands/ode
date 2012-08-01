@@ -102,7 +102,7 @@ dimTerm = reserved "dim" *> parseDims
 unitIdentifier :: Parser CA.SrcUnit
 unitIdentifier = (sepBy parseSingUnit $ char '.')
   where
-    parseSingUnit = (,) <$> identifier <*> option 1 integer
+    parseSingUnit = (,) <$> identifier <*> option 1 (reservedOp "^" *> integer)
 
 -- | Parses an avaiable unit definition for a given dimension, with optional alias
 unitDef :: Parser O.OdeStmt

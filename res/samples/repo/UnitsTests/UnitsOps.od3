@@ -1,0 +1,136 @@
+/******************************************************************************
+** Addition & Subtraction
+******************************************************************************/
+
+// a basic NoUnit expression
+module Add1 {
+  val x = 2
+  val y = x - -3.0
+}
+
+/*
+// a basic Unit expression
+module Add2 {
+  val x = 2 {unit : m}
+}
+
+// a basic Unit op, correct dim, correct unit
+module Add3 {
+  val x = 2 { unit : m } + 3 { unit : m }
+}
+
+// an invalid Unit op, incorrect dim
+module Add4 {
+  val x = 2 { unit : m } + 3
+}
+
+// an invalid Unit op, incorrect dim
+module Add5 {
+  val x = 2 { unit : m } + 3 { unit : s }
+}
+
+// an invalid Unit op, correct dim, incorrect unit
+module Add6 {
+  val x = 2 { unit : m } - 3 { unit : km }
+}
+*/
+
+// Tests for multiplication and division
+
+/******************************************************************************
+** Multplication
+******************************************************************************/
+
+// basic mult - no units
+/*
+module Mul1 {
+  val x = 2 * 3
+}
+*/
+
+/*
+// basic mult - single unit
+module Mul2 {
+  val x = 2 { unit : m } * 3
+}
+*/
+
+/*
+// mult, diff units
+module Mul3 {
+  val x = 2 { unit : m } * 3 { unit : s }
+}
+*/
+
+/*
+// mult, same units
+module Mul4 {
+  val x = 2 { unit : m } * 3 { unit : m }
+}
+*/
+
+/******************************************************************************
+** Division
+******************************************************************************/
+
+// basic div - no units
+/*
+module Div1 {
+  val x = 2 / 3
+}
+*/
+
+/*
+// basic div - single unit
+module Div2 {
+  val x = 2 { unit : m } / 3
+}
+*/
+
+/*
+// div, inverse unit
+module Div3 {
+  val x = 2  / 3 { unit : m }
+}
+*/
+
+/*
+// div, diff units
+module Div4 {
+  val x = 2 { unit : m } / 3 { unit : s }
+}
+*/
+
+/*
+// div, same units
+module Div5 {
+  val x = 2 { unit : m^2 } / 3 { unit : m }
+}
+*/
+
+/*
+// div, same units, to dmless
+// TODO - becomes m0 - is this correct, or is NoUnit better?
+module Div6 {
+  val x = 2 { unit : m } / 3 { unit : m }
+}
+*/
+
+
+/******************************************************************************
+** Complex Ops
+******************************************************************************/
+
+/*
+// mult and div
+module Com1 {
+  val x = 2 { unit : m } * 3 * 1 { unit: km } / 3 { unit : s } * 2 { unit : s } * 1
+}
+*/ 
+
+/*
+// mult, div, add, sub
+module Com2 {
+  val x = 2 { unit : m } * 3 * 1 { unit: km } + 4 { unit : m.km } / 3 { unit : s } * 2 { unit : s } * 1 - 4 { unit : s^2 }
+}
+*/

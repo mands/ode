@@ -58,7 +58,7 @@ commonLangDef = javaStyle
                             "*", "/", "%", "+", "-",
                             "<", "<=", ">", ">=", "==", "!=",
                             "&&", "||", "!", "and", "or", "not",
-                            "::"
+                            "::", "^"
                             ],
         T.caseSensitive = True
     }

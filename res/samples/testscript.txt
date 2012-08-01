@@ -1,4 +1,4 @@
 :addRepo ../res/samples/repo
-import UnitsTests.Units1.*
+import UnitsTests.UnitsTest.*
 :quit
 

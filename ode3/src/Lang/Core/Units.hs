@@ -112,10 +112,10 @@ data Unit  = UnitC [(String, Integer)] -- an actual unit with a known dimensionl
 instance Show Unit where
     show (UnitC units) = List.intercalate "." (map showUnit units)
       where
-        showUnit (baseName, index) = baseName ++ show index
+        showUnit (baseName, index) = baseName ++ "^" ++ show index
     show NoUnit = "NoUnit"
     show UnknownUnit = "UnknownUnit"
-    show (UnitVar i) = "UnitVar " ++ (show i)
+    show (UnitVar i) = "UnitVar:" ++ (show i)
 
 
 -- Unit helper funcs

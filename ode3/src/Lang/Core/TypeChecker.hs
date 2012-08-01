@@ -68,6 +68,8 @@ typeCheck gModEnv fileData uState mod@(M.LitMod exprMap modData) = do
     let modData' = updateModData modData tEnv'
 
     -- trace ("(TC) " ++ show exprMap) ()
+    _ <- trace' [MkSB tEnv'] "Final TypeEnv" $ Right ()
+
     return $ M.LitMod exprMap modData'
 
 typeCheck gModEnv fileData uState mod@(M.FunctorMod args exprMap modData) = do
