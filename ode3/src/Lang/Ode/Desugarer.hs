@@ -14,7 +14,7 @@
 -- however, due to bindings we need
 
 -- TODO
--- * Fix all hard-coded NoUnits here, mainly SVals, Odes, & NumSeqs
+-- Fix all hard-coded NoUnits here, mainly SVals, Odes, & NumSeqs
 -----------------------------------------------------------------------------
 
 {-# LANGUAGE FlexibleInstances #-}
@@ -81,6 +81,7 @@ desugarOde elems = do
     -- create a list of Units, handle SI expansion here too
     -- can throw an error - maybe move this check into parser
     -- TODO -fix alias
+    -- Base Unit Def
     desugarOde' (DesugarModData e q u i c) stmt@(O.UnitStmt baseUnit@[(baseName, 1)] (Just baseDimChar) mAlias isSI) = return $ (DesugarModData e q u' i c)
       where
         u' = if isSI then siUnitDefs ++ unitDef:u else unitDef:u
@@ -88,6 +89,7 @@ desugarOde elems = do
         baseDim = U.getBaseDim baseDimChar
         (siUnitDefs, siConvDefs) = U.createSIs unitDef
 
+    -- Derived Unit Def
     desugarOde' (DesugarModData e q u i c) stmt@(O.UnitStmt baseUnits Nothing mAlias _) = return $ (DesugarModData e q u' i c)
       where
         u' = U.DerivedUnitDef (U.mkUnit baseUnits):u

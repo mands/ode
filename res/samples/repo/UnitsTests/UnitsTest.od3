@@ -1,4 +1,0 @@
-module Com2 {
-  val x = (2 { unit : m } * 3 * 1 { unit: km } + 4 { unit : km.m }) / (3 { unit : s } * 2 { unit : s } * 1 - 4 { unit : s^2 })
-}
-

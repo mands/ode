@@ -9,6 +9,9 @@ import Control.Monad
 :set +t
 -- :set +m
 
+-- source cmd
+:def source readFile
+
 -- load ode
 -- :l src/Main
 

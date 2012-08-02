@@ -1,0 +1,80 @@
+/******************************************************************************
+** Dimension Creation
+** NOTE
+** - Unit Aliases not implemented
+******************************************************************************/
+
+// create some quantities in terms of a dimension
+module Dim1 {
+    quantity mass = dim M^1
+    quantity speed = dim L^1.T^-1
+
+}
+
+// create some unit in terms of a dimension
+module Dim2 {
+    // base unit
+    unit m { dim : L, SI : False }
+
+    // derived units - area and volume
+    unit m^2
+    unit m^3
+
+    // operations on our units, consider a rectangular cube
+    val vol = 1 { unit : m^3 }
+    val area = 1 { unit : m^2 }
+    val height = vol / area
+}
+
+
+// mult base units per dimenstion with conversion func
+module Dim3 {
+    quantity length = dim L^1
+
+    // base unit - by default are non-SI
+    unit m { dim : L, SI : False }
+    unit mm { dim : L, SI : False }
+
+    // conversion func
+    conversion { from : m, to : mm, factor : x * 1000 }
+    conversion { from : mm, to : m, factor : x / 1000 }
+
+    // cast
+    val x = 1 { unit : m }
+    val y = x { unit : mm }
+
+    // check nested conv
+    val z = (1 { unit : mm }) { unit : m }
+
+    // self-cast
+    val w = x { unit : m }
+}
+
+
+// conversion to incorrect dimensions
+module Dim4 {
+    // base unit - by default are non-SI
+    unit m { dim : L, SI : False }
+    unit mg { dim : M, SI : False }
+
+    // invalid conversion func
+    // conversion { from : m, to : mg, factor : x * 1000 }
+
+    // invalid cast
+    val x = 1 { unit : m }
+    val y = x { unit : mg }
+}
+
+
+// test auto-SI creation
+module Dim3 {
+    // base unit
+    unit m { dim : L, SI : True }
+
+    // derived units - area and volume
+    unit km^2
+    unit km^3
+
+    // need test conversion funcs here too
+}
+

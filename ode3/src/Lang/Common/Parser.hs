@@ -31,36 +31,46 @@ type Parser = Parsec String ()
 
 -- Default Parser style ------------------------------------------------------------------------------------------------
 
--- | hijack the javaStyle default definition, gives us a bunch of ready-made parsers/behaviours
-commonLangDef = javaStyle
-    {
-        -- add more later
-        T.reservedNames =   [
-                            -- module lang
-                            "module", "import", "as", "let",
-                            -- main ode lang
-                            "component", "where",
-                            "val", "init", "sval",
-                            "ode", "delta",
-                            "rre", "reaction", "rate",
-                            "default",
-                            "True", "False", "time",
-                            -- units lang
-                            "quantity", "dim", "unit", "SI", "alias",
-                            "conversion", "factor", "convert"
-                            -- ion...implemented externally
-                            ],
+commonLangDef = emptyDef
+    { T.commentStart    = "/*"
+    , T.commentEnd      = "*/"
+    , T.commentLine     = "//"
 
-        -- unary ops and relational ops?
-        -- do formatting operators count? e.g. :, {, }, ,, ..,  etc.
-        -- NO - they are symbols to aid parsiing and have no meaning in the language itself...
-        T.reservedOpNames = ["=", "=>", "()", "_",
-                            "*", "/", "%", "+", "-",
-                            "<", "<=", ">", ">=", "==", "!=",
-                            "&&", "||", "!", "and", "or", "not",
-                            "::", "^"
-                            ],
-        T.caseSensitive = True
+    -- same identifier parsers
+    -- , T.identStart     = letter <|> char '_'
+    -- , T.identLetter    = alphaNum <|> oneOf "_'"
+
+    -- no user-defined operators
+    , T.opStart = oneOf ""
+    , T.opLetter = oneOf ""
+
+    -- add more later
+    , T.reservedNames = [
+                        -- module lang
+                          "module", "import", "as", "let"
+                        -- main ode lang
+                        , "component", "where"
+                        , "val", "init", "sval"
+                        , "ode", "delta"
+                        , "rre", "reaction", "rate"
+                        , "default"
+                        , "True", "False", "time"
+                        -- units lang
+                        , "quantity", "dim", "unit", "SI", "alias"
+                        , "conversion", "factor", "convert"
+                        -- ion...implemented externally
+                        ]
+    -- unary ops and relational ops?
+    -- do formatting operators count? e.g. :, {, }, ,, ..,  etc.
+    -- NO - they are symbols to aid parsiing and have no meaning in the language itself...
+    , T.reservedOpNames =   [ "=", "=>", "()", "_"
+                            , "*", "/", "%", "+", "-"
+                            , "<", "<=", ">", ">=", "==", "!="
+                            , "&&", "||", "!", "and", "or", "not"
+                            , "::", "^"
+                            ]
+    -- need case-sens for type and unit declarations
+    , T.caseSensitive = True
     }
 
 lexer :: T.TokenParser ()
@@ -94,6 +104,10 @@ dot         = T.dot lexer
 -- | parses a upper case identifier
 upperIdentifier :: Parser String
 upperIdentifier = (:) <$> upper <*> many alphaNum <?> "capitalised identifier"
+
+-- | parses a case-insensitive, alpha-only identifier
+alphaIdentifier :: Parser String
+alphaIdentifier = lexeme $ many1 letter
 
 -- | comma sepated parameter list of any parser, e.g. (a,b,c)
 paramList = parens . commaSep1

@@ -86,7 +86,7 @@ quantityDef = O.QuantityStmt <$> (reserved "quantity" *> identifier) <*> (reserv
 
 -- | Parse a DimVec term, like "Dim LT-2"
 dimTerm :: Parser CA.DimVec
-dimTerm = reserved "dim" *> parseDims
+dimTerm = reserved "dim" *> lexeme parseDims
   where
     parseDims :: Parser CA.DimVec
     parseDims = permute (CA.DimVec <$?> (0, parseDim 'L')
@@ -97,12 +97,18 @@ dimTerm = reserved "dim" *> parseDims
                                 <|?> (0, parseDim 'J')
                                 <|?> (0, parseDim 'N')
                         )
-    parseDim dim = char dim *> option 1 integer
+    -- parseDim dim = char dim *> option 1 (reservedOp "^" *> integer <* char '.')
+    parseDim dim = char dim *> option 1 (reservedOp "^" *> integer) <* optional (char '.')
 
+-- TODO - should this be a lexeme ??
 unitIdentifier :: Parser CA.SrcUnit
 unitIdentifier = (sepBy parseSingUnit $ char '.')
   where
-    parseSingUnit = (,) <$> identifier <*> option 1 (reservedOp "^" *> integer)
+    parseSingUnit = (,) <$> alphaIdentifier <*> option 1 (reservedOp "^" *> integer)
+
+-- Parser for base units only
+baseUnitIdentifier :: Parser CA.SrcUnit
+baseUnitIdentifier = alphaIdentifier >>= (\i -> return [(i, 1)])
 
 -- | Parses an avaiable unit definition for a given dimension, with optional alias
 unitDef :: Parser O.OdeStmt
@@ -110,9 +116,9 @@ unitDef =   try baseDef
             <|> derivedDef
   where
     baseDef = do
-        uName <- reserved "unit" *> identifier
+        uName <- reserved "unit" *> baseUnitIdentifier
         unit <- attribDef singUnitAttrib
-        return $ unit { O.uName = [(uName,1)] }
+        return $ unit { O.uName = uName }
     derivedDef = do
         uName <- reserved "unit" *> unitIdentifier
         mAlias <- option Nothing $ braces (attrib "alias" (Just <$> identifier))
@@ -125,9 +131,10 @@ unitDef =   try baseDef
 
 -- | Parses a conversion defintion stmt for 2 units within a given dimension
 convDef :: Parser O.OdeStmt
-convDef = reserved "conversion" *> attribDef (O.ConvDefStmt <$$> attrib "from" unitIdentifier
-                                                            <||> attrib "to" unitIdentifier
+convDef = reserved "conversion" *> attribDef (O.ConvDefStmt <$$> attrib "from" baseUnitIdentifier
+                                                            <||> attrib "to" baseUnitIdentifier
                                                             <||> attrib "factor" convExpr) <?> "conversion definition"
+
 
 -- | parse a term - the value on either side of an operator
 convTerm :: Parser CA.CExpr

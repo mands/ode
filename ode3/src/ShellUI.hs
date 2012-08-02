@@ -67,24 +67,23 @@ shellEntry = do
       then do
         debugM "ode3.shell" "Using Featured Shell Backend"
         st' <- runShell (initShellDesc) (readlineBackend) initSysState
-        putStrLn $ show st'
+        -- putStrLn $ show st'
+        return ()
       else do
         debugM "ode3.shell" "Using Basic Handle Backend"
         inName <- liftM head getArgs
         inHnd <- openPipe inName
 
         st' <- runShell (initShellDesc) (basicBackend inHnd) initSysState
-        putStrLn $ show st'
+        -- putStrLn $ show st'
         closePipe inHnd
 
     putStrLn "Bye!"
-
 
 -- make shell monad instnace of applicative
 instance Applicative (Sh st) where
     pure = return
     (<*>) = ap
-
 
 initShellDesc :: ShellDescription SysState
 initShellDesc = desc'
@@ -158,11 +157,11 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
                     shellPutInfoLn $ "Added " ++ repoPath ++ " to set of module repositories"
                 else shellPutInfoLn $ "Module repository dir " ++ repoPath ++ " not found"
 
-
     repoDelCmd = cmd "delRepo" f "Delete a directory path from the module repository"
       where
         f :: File -> Sh SysState ()
         f (File repoPath) = modifyShellSt $ modify vRepos (OrdSet.delete repoPath)
+
     -- show takes second string parameter
     showCmd = cmd "show" f "Pass <all, repos, modules> to display current state"
       where
@@ -170,7 +169,8 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
         f "all" = (show <$> getShellSt) >>= shellPutInfoLn
         f "repos" = (show <$> get vRepos <$> getShellSt) >>= shellPutInfoLn
         f "modules" = (show <$> get (lLocalFile . lModState) <$> getShellSt) >>= shellPutInfoLn
-        f _ = shellPutInfoLn "Pass <all, repos, modules> to display current state"
+        f "units" = (show <$> get lUnitsState <$> getShellSt) >>= shellPutInfoLn
+        f _ = shellPutInfoLn "Pass <all, repos, modules, units> to display current state"
 
     typeCmd = cmd "type" f "Display the type of the loaded module"
       where

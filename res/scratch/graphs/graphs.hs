@@ -40,6 +40,20 @@ g2 = snd . NM.run G.empty $ do
 
 (nm2, graph2) = g2
 
+g3a :: Graph
+g3a = NM.run_ G.empty $ do
+    _ <- NM.insMapNodeM 'a'
+    _ <- NM.insMapNodeM 'b'
+    
+    return ()
+
+g3b :: Graph
+g3b = NM.run_ g3a $ do    
+    -- note, the nodes must already exist
+    _ <- NM.insMapEdgeM ('a', 'b', "Edge_A")
+    _ <- NM.insMapEdgeM ('b', 'a', "Edge_B")
+    return ()
+
 
 -- path
 path1 = B.lesp (getNodeInt graph1 nm1 'a') (getNodeInt graph1 nm1 'c') graph1

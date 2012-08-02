@@ -127,10 +127,10 @@ data UnitsState = UnitsState
     } deriving Show
 
 defUnitsState = UnitsState
-    { _quantities = Bimap.empty
+    { _quantities = U.defQuantities
 --    , _unitAliases = Bimap.empty
-    , _unitDimEnv = Map.empty
-    , _convEnv = Map.empty
+    , _unitDimEnv = U.defUnits
+    , _convEnv = U.defConvs
     }
 
 -- TH splice
