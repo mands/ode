@@ -275,7 +275,7 @@ dsExpr (O.Call (O.ModId mId id) exprs) = liftM (C.App (C.ModVar (ModName mId) id
 dsExpr (O.ConvCast e u) = C.ConvCast <$> (dsExpr e) <*> pure (U.mkUnit u)
 
 -- any unknown/unimplemented paths - not needed as match all
-dsExpr a = errorDump [MkSB a] "(DS) Unknown ODE3 expression"
+-- dsExpr a = errorDump [MkSB a] "(DS) Unknown ODE3 expression"
 
 -- | Simple test to see if an expression contains only a single element or is a packed tuple
 isSingleElem es = length es == 1

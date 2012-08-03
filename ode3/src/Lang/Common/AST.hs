@@ -8,11 +8,9 @@
 -- Stability   :  alpha
 -- Portability :
 --
--- | common AST Types, ADTs, etc.
+-- | common AST Types, ADTs, etc. across Ode, Core, and CoreANF
 --
 -----------------------------------------------------------------------------
-
-
 
 module Lang.Common.AST (
     -- common id types
@@ -27,7 +25,6 @@ module Lang.Common.AST (
 ) where
 
 import qualified Data.List as List
-
 import qualified Lang.Core.Units as U
 import Utils.Utils
 
