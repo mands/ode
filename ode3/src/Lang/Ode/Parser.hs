@@ -106,33 +106,22 @@ unitIdentifier = (sepBy parseSingUnit $ char '.')
   where
     parseSingUnit = (,) <$> alphaIdentifier <*> option 1 (reservedOp "^" *> integer)
 
--- Parser for base units only
-baseUnitIdentifier :: Parser CA.SrcUnit
-baseUnitIdentifier = alphaIdentifier >>= (\i -> return [(i, 1)])
-
 -- | Parses an avaiable unit definition for a given dimension, with optional alias
 unitDef :: Parser O.OdeStmt
-unitDef =   try baseDef
-            <|> derivedDef
+unitDef = do
+    uName <- reserved "unit" *> alphaIdentifier
+    unit <- attribDef singUnitAttrib
+    return $ unit { O.uName = uName }
   where
-    baseDef = do
-        uName <- reserved "unit" *> baseUnitIdentifier
-        unit <- attribDef singUnitAttrib
-        return $ unit { O.uName = uName }
-    derivedDef = do
-        uName <- reserved "unit" *> unitIdentifier
-        mAlias <- option Nothing $ braces (attrib "alias" (Just <$> identifier))
-        return $ O.UnitStmt uName Nothing mAlias False
-
-    singUnitAttrib = O.UnitStmt [] <$$> attrib "dim" (Just <$> oneOf "LMTIOJN")
+    singUnitAttrib = O.UnitStmt "" <$$> attrib "dim" (Just <$> oneOf "LMTIOJN")
                                    <|?> (Nothing, attrib "alias" (Just <$> identifier))
                                    <||> attrib "SI" boolean -- <?> "unit definition"
 
 
 -- | Parses a conversion defintion stmt for 2 units within a given dimension
 convDef :: Parser O.OdeStmt
-convDef = reserved "conversion" *> attribDef (O.ConvDefStmt <$$> attrib "from" baseUnitIdentifier
-                                                            <||> attrib "to" baseUnitIdentifier
+convDef = reserved "conversion" *> attribDef (O.ConvDefStmt <$$> attrib "from" alphaIdentifier
+                                                            <||> attrib "to" alphaIdentifier
                                                             <||> attrib "factor" convExpr) <?> "conversion definition"
 
 

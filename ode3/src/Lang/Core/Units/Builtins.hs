@@ -29,7 +29,7 @@ import Lang.Core.Units.Conversion
 import Utils.Utils
 
 createSIs :: UnitDef -> ([UnitDef], [ConvDef])
-createSIs (BaseUnitDef baseUnit@(UnitC [(baseName, 1)]) baseDim) = mapSnd concat . unzip $ siUnitDef
+createSIs (UnitDef baseUnit baseDim) = mapSnd concat . unzip $ siUnitDef
   where
     siUnitDef :: [(UnitDef, [ConvDef])]
     siUnitDef = [
@@ -51,10 +51,12 @@ createSIs (BaseUnitDef baseUnit@(UnitC [(baseName, 1)]) baseDim) = mapSnd concat
     -- mkSIUnit prefix = BaseUnitDef baseDim (prefix ++ baseName) (maybe Nothing (\alias -> Just $ prefix ++ alias))
     mkSIUnit prefix cf = (unitDef, [convF, convR])
       where
-        siUnit = (mkUnit [(prefix ++ baseName, 1)])
-        unitDef = BaseUnitDef siUnit baseDim
-        convF = ConvDef baseUnit siUnit (CExpr CDiv CFromId (CNum cf))
-        convR = ConvDef siUnit baseUnit (CExpr CMul CFromId (CNum cf))
+        baseUnit' = prefix ++ baseUnit
+        -- unit' = mkUnit [(baseUnit', 1)]
+        unitDef = UnitDef baseUnit' baseDim
+
+        convF = ConvDef baseUnit baseUnit' (CExpr CDiv CFromId (CNum cf))
+        convR = ConvDef baseUnit' baseUnit (CExpr CMul CFromId (CNum cf))
 
 -- initial units state
 -- default quantities
@@ -64,26 +66,30 @@ defQuantities = addQuantitiesToBimap Bimap.empty builtinQuantities
     builtinQuantities = [("time", getBaseDim 'T')]
 
 -- base unit defs
--- default units :: Unit
-uSeconds = mkUnit [("s", 1)]
-uMinutes = mkUnit [("min", 1)]
-uHours = mkUnit [("hr", 1)]
+-- default units :: BaseUnit
+baseSeconds = "s"
+baseMinutes = "min"
+baseHours = "hr"
+
+uSeconds = mkUnit [(baseSeconds, 1)]
+uMinutes = mkUnit [(baseMinutes, 1)]
+uHours = mkUnit [(baseHours, 1)]
 
 -- default unit env
 (Right defUnits) = addUnitsToEnv Map.empty builtinUnits
   where
     builtinUnits :: [UnitDef]
-    builtinUnits =  [ BaseUnitDef uSeconds (getBaseDim 'T')
-                    , BaseUnitDef uMinutes (getBaseDim 'T')
-                    , BaseUnitDef uHours (getBaseDim 'T')
+    builtinUnits =  [ UnitDef baseSeconds (getBaseDim 'T')
+                    , UnitDef baseMinutes (getBaseDim 'T')
+                    , UnitDef baseHours (getBaseDim 'T')
                     ]
 
 -- builtin unit conversions
 (Right defConvs) = addConvsToGraph Map.empty builtinConvs defUnits
   where
     builtinConvs :: [ConvDef]
-    builtinConvs =  [ ConvDef uSeconds uMinutes (CExpr CDiv CFromId (CNum 60)) -- s -> min = s / 60
-                    , ConvDef uMinutes uSeconds (CExpr CMul CFromId (CNum 60)) -- inverse
-                    , ConvDef uMinutes uHours (CExpr CDiv CFromId (CNum 60)) -- min -> hr = min / 60
-                    , ConvDef uHours uMinutes (CExpr CMul CFromId (CNum 60)) -- inverse
+    builtinConvs =  [ ConvDef baseSeconds baseMinutes (CExpr CDiv CFromId (CNum 60)) -- s -> min = s / 60
+                    , ConvDef baseMinutes baseSeconds (CExpr CMul CFromId (CNum 60)) -- inverse
+                    , ConvDef baseMinutes baseHours (CExpr CDiv CFromId (CNum 60)) -- min -> hr = min / 60
+                    , ConvDef baseHours baseMinutes (CExpr CMul CFromId (CNum 60)) -- inverse
                     ]

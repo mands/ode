@@ -82,22 +82,16 @@ desugarOde elems = do
     -- can throw an error - maybe move this check into parser
     -- TODO -fix alias
     -- Base Unit Def
-    desugarOde' (DesugarModData e q u i c) stmt@(O.UnitStmt baseUnit@[(baseName, 1)] (Just baseDimChar) mAlias isSI) = return $ (DesugarModData e q u' i c)
+    desugarOde' (DesugarModData e q u i c) stmt@(O.UnitStmt baseUnit (Just baseDimChar) mAlias isSI) = return $ (DesugarModData e q u' i c')
       where
-        u' = if isSI then siUnitDefs ++ unitDef:u else unitDef:u
-        unitDef = U.BaseUnitDef (U.mkUnit baseUnit) baseDim
-        baseDim = U.getBaseDim baseDimChar
+        unitDef = U.UnitDef baseUnit $ U.getBaseDim baseDimChar
+        (u', c') = if isSI then (siUnitDefs ++ unitDef:u, siConvDefs ++ c) else (unitDef:u, c)
         (siUnitDefs, siConvDefs) = U.createSIs unitDef
-
-    -- Derived Unit Def
-    desugarOde' (DesugarModData e q u i c) stmt@(O.UnitStmt baseUnits Nothing mAlias _) = return $ (DesugarModData e q u' i c)
-      where
-        u' = U.DerivedUnitDef (U.mkUnit baseUnits):u
 
     -- add the conv statments to the module metadata
     desugarOde' (DesugarModData e q u i c) stmt@(O.ConvDefStmt fromUnit toUnit cExpr) = return $ (DesugarModData e q u i c')
       where
-        c' = U.ConvDef (U.mkUnit fromUnit) (U.mkUnit toUnit) cExpr:c
+        c' = U.ConvDef fromUnit toUnit cExpr:c
 
     -- desugarOde' st stmt@(O.UnitStmt baseUnits _ _ _) = throw $ printf "Found an invalid unit def %s" (show baseUnits)
 

@@ -35,8 +35,8 @@ data OdeStmt =  ExprStmt Stmt
                 -- a quantity defition, in terms of a dim vector
                 | QuantityStmt { qName :: SrcId, qDim :: DimVec }
                 -- a unit defntions, in terms of a unit sequence for a particular dimension
-                | UnitStmt { uName :: SrcUnit, uDim :: Maybe Char, uAlias :: Maybe String, uSI :: Bool}
-                | ConvDefStmt { cFrom :: SrcUnit, cTo :: SrcUnit, cExpr :: CExpr }
+                | UnitStmt { uName :: BaseUnit, uDim :: Maybe Char, uAlias :: Maybe String, uSI :: Bool}
+                | ConvDefStmt { cFrom :: BaseUnit, cTo :: BaseUnit, cExpr :: CExpr }
                 deriving (Show, Eq, Ord)
 
 -- | elements allowed within a module, basically components or top-level constant values
