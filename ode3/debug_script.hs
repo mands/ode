@@ -1,18 +1,16 @@
 :m +*Lang.Core.Units
 
-import qualified Data.Map as Map
-import qualified Utils.Graph as UG
+-- splitUnit [("m", 1), ("mm", -1), ("m", 2), ("mm", 3)]
 
-let fromRight (Right r) = r
+-- sample units
+simplifyUnits [("m", 2)] [("ft", 2)]
+simplifyUnits [("m", 1), ("mm", 1)] [("ft", 1), ("km", 1)]
 
-{- 
-let units = builtinUnits
+simplifyUnits [("m", 3), ("mm", -2)] [("m", 1)]
+simplifyUnits [("m", 3), ("mm", -2)] [("m", 1), ("m", -2)]
+simplifyUnits [("m", 3), ("mm", -2)] [("m", 1), ("m", -2)]
 
-let uEnv = fromRight $ addUnitsToEnv Map.empty units
-
-let cEnv = fromRight $ addConvsToGraph Map.empty builtinConvs uEnv
--}
-
-let gm = UG.mkGraphMap
-
+simplifyUnits [("m", 2), ("mm", -1)] [("m", 1)]
+simplifyUnits [("ft", 1), ("mm", 1)] [("m", 2)]
+simplifyUnits [("mm", 1)] [("m", 2), ("ft", -1)]
 

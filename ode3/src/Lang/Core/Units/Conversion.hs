@@ -18,15 +18,19 @@ ConvDef(..), ConvGraph(..), ConvEnv(..), CExpr(..), COp(..),
 
 -- main functions
 addConvsToGraph, calcConvExpr,
+
+splitUnit, simplifyUnits
 ) where
 
 import Control.Monad.State (runState)
 
 import qualified Data.Map as Map
-import qualified Data.Foldable as DF
+import qualified Data.Set as Set
 import qualified Data.Graph.Inductive as G
 import qualified Data.Graph.Inductive.NodeMap as NM
 import qualified Data.Graph.Inductive.Query.BFS as BFS
+
+import qualified Data.Foldable as DF
 
 import Utils.CommonImports
 
@@ -115,19 +119,41 @@ inlineCExpr _ destExpr = destExpr
 
 -- New Simplification and Conversion -----------------------------------------------------------------------------------
 
+-- pos/neg split units map for each dimension
+type SUMap = (Map.Map String Integer, Map.Map String Integer)
 
---data
+data SplitUnits = SplitUnits    { unitsDimL :: SUMap, unitsDimM :: SUMap, unitsDimT :: SUMap, unitsDimI :: SUMap
+                                , unitsDimO :: SUMap, unitsDimJ :: SUMap, unitsDimN :: SUMap
+                                } deriving (Show)
+
+mkSplitUnits =  SplitUnits (Map.empty, Map.empty) (Map.empty, Map.empty) (Map.empty, Map.empty) (Map.empty, Map.empty)
+                (Map.empty, Map.empty) (Map.empty, Map.empty) (Map.empty, Map.empty)
+
+-- | Function to take a unit, and return both the pos and neg base units that make up the unit
+splitUnit :: Unit -> UnitEnv -> SplitUnits
+splitUnit us uEnv = DF.foldlM splitUnit' mkSplitUnits us
+  where
+    splitUnit' sUnits (u, idx) = do
+        -- get dim for unit
+        -- update correct SUMap for dim
+        updateSUMap ... u idx
 
 
+updateSUMap (posUMap, negUMap) u idx = if idx >= 0
+    then (insertUnit u idx posUMap, negUMap)
+    else (posUMap, insertUnit u (negate idx) negUMap)
+  where
+    insertUnit = Map.insertWith (+)
 
+-- need check units are correct dims
+-- this is acutally as cast operation too
+simplifyUnits fromUnit toUnit = (fromMap, toMap)
+  where
+    (fromPos, fromNeg) = splitUnit fromUnit
+    (toPos, toNeg) = splitUnit toUnit
 
-
-
-
-
-
-
-
+    fromMap = Map.unionWith (+) fromPos toNeg
+    toMap = Map.unionWith (+) toPos fromNeg
 
 
 

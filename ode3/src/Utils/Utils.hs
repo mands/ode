@@ -17,6 +17,7 @@
 module Utils.Utils (
 MExcept, MExceptIO, mkExceptIO, maybeToExcept, maybeToExceptIO,
 PrettyPrint(..), mapFst, mapSnd, pairM,
+(|>),
 SB(..), trace', errorDump,
 openPipe, closePipe, readLoop,
 mkLabelName
@@ -63,6 +64,10 @@ pairM a b = liftM2 (,) a b
 -- | pretty-printing class for viewing, not machine-readable like Show
 class PrettyPrint a where
     prettyPrint :: a -> String
+
+(|>) :: a -> (a->b) -> b
+(|>) x f = f x
+infixl 0 |>
 
 -- existential wrapper, pass the type and the functions/interface that operates on the type,
 -- therefore unify/collect set of types  into a group

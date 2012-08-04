@@ -99,7 +99,9 @@ addQuantitiesToBimap = foldl (\qBimap (quantity, dimVec) -> Bimap.insert quantit
 --      where
 --        showUnit (baseName, index) = baseName ++ show index
 
-data Unit  = UnitC [(String, Integer)] -- an actual unit with a known dimensionless
+type BaseUnit = String
+
+data Unit  = UnitC [(BaseUnit, Integer)] -- an actual unit with a known dimensionless
            | NoUnit                         -- no unit data infered, just a raw number (is this not same as ActualUnit []/dmless ?)
            -- | UnknownUnit                    -- We don't know the unit type yet - used with TC
            | UnitVar Int                -- A unit variable, used for unit & dimension polymorphism
@@ -109,7 +111,7 @@ data Unit  = UnitC [(String, Integer)] -- an actual unit with a known dimensionl
 instance Show Unit where
     show (UnitC units) = List.intercalate "." (map showUnit units)
       where
-        showUnit (baseName, index) = baseName ++ "^" ++ show index
+        showUnit (baseUnit, index) = baseUnit ++ "^" ++ show index
     show NoUnit = "NoUnit"
     -- show UnknownUnit = "UnknownUnit"
     show (UnitVar i) = "UnitVar:" ++ (show i)
@@ -129,7 +131,7 @@ data UnitDef :: * where
 
 -- TODO - can these structures be simplified/unified
 -- mapping from (base?) units to dimensions
-type UnitDimEnv = Map.Map Unit DimVec
+type UnitDimEnv = Map.Map BaseUnit DimVec
 
 
 -- Unit helper funcs
@@ -165,10 +167,14 @@ negUnit NoUnit = NoUnit
 calcUnitDim :: Unit -> UnitDimEnv -> MExcept DimVec
 calcUnitDim u@(UnitC units) unitEnv = mconcat <$> mapM getDim units
   where
-    getDim (name, index) = case Map.lookup (mkUnit [(name,1)]) unitEnv of
-        Nothing -> throwError $ printf "Reference to unknown base unit %s found in %s" name (show u)
+    getDim (baseUnit, index) = case Map.lookup baseUnit unitEnv of
+        Nothing -> throwError $ printf "Reference to unknown base unit %s found in %s" baseUnit (show u)
         Just dim -> return $ mulDim dim index
 
+
+-- Add a list of units to the UnitEnv
+-- if a baseUnit, add it directly with the associated dimension
+-- if a dervied unit, ignore
 addUnitsToEnv :: UnitDimEnv -> [UnitDef] -> MExcept UnitDimEnv
 addUnitsToEnv unitEnv units = DF.foldlM addUnit unitEnv units
   where
