@@ -25,7 +25,7 @@ module Lang.Core.Units.UnitsDims (
 
     -- high-level accessor funcs
     addQuantitiesToBimap, addUnitsToEnv, getBaseDim,
-    calcUnitDim, getDimForUnits, getDimForBaseUnits
+    calcUnitDim, getDimForUnits, getDimForBaseUnits, lookupBUnitDim
 ) where
 
 import Control.Applicative
@@ -53,6 +53,14 @@ data DimVec = DimVec    { dimL :: Integer, dimM :: Integer, dimT :: Integer, dim
 
 mkDimVec = DimVec 0 0 0 0 0 0 0
 dimensionless = DimVec 0 0 0 0 0 0 0
+
+baseDimL = DimVec 1 0 0 0 0 0 0
+baseDimM = DimVec 0 1 0 0 0 0 0
+baseDimT = DimVec 0 0 1 0 0 0 0
+baseDimI = DimVec 0 0 0 1 0 0 0
+baseDimO = DimVec 0 0 0 0 1 0 0
+baseDimJ = DimVec 0 0 0 0 0 1 0
+baseDimN = DimVec 0 0 0 0 0 0 1
 
 getBaseDim :: Char -> DimVec
 getBaseDim 'L' = DimVec 1 0 0 0 0 0 0
@@ -170,7 +178,7 @@ calcUnitDim u@(UnitC units) uEnv = mconcat <$> mapM getDim units
 
 lookupBUnitDim :: BaseUnit -> UnitDimEnv -> MExcept DimVec
 lookupBUnitDim u uEnv =
-    maybeToExcept (Map.lookup u uEnv) $ printf "Reference to unknown base unit %s found" u (show u)
+    maybeToExcept (Map.lookup u uEnv) $ printf "Reference to unknown base unit \'%s\' found" u
 
 -- Add a list of units to the UnitEnv
 -- if a baseUnit, add it directly with the associated dimension-- if a dervied unit, ignore
@@ -179,7 +187,7 @@ addUnitsToEnv unitEnv units = DF.foldlM addUnit unitEnv units
   where
     addUnit unitEnv (UnitDef u d) = case Map.lookup u unitEnv of
         Nothing -> return $ Map.insert u d unitEnv
-        Just _ -> throwError $ printf "Base unit %s already defined" (show u)
+        Just _ -> throwError $ printf "Base unit \'%s\' already defined" (show u)
 
 -- do the units exist, and are they the same dimensions
 getDimForUnits :: Unit -> Unit -> UnitDimEnv -> MExcept DimVec

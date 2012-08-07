@@ -78,9 +78,10 @@ addConvsToGraph cEnv convs unitEnv = DF.foldlM addConv cEnv convs
 -- | Calculate, if possible, the conversion expression to use between two units
 -- need to get the graph, calc the path between the nodes, then inline the expression
 calcConvExpr :: Unit -> Unit -> UnitDimEnv -> ConvEnv -> MExcept CExpr
+-- simply return "indentity function" in the case of equal units
+calcConvExpr fromUnit toUnit uEnv cEnv | fromUnit == toUnit = return $ CFromId
+
 -- TODO -- need to handle case of un-dimenstioned values explitictly here
--- we simply return the identty of the source variable in the case of NoUnits
-calcConvExpr NoUnit NoUnit uEnv cEnv = return $ CFromId
 calcConvExpr NoUnit toUnit uEnv cEnv = throwError $ printf "Cannot convert between units %s and %s" (show NoUnit) (show toUnit)
 calcConvExpr fromUnit NoUnit uEnv cEnv = throwError $ printf "Cannot convert between units %s and %s" (show fromUnit) (show NoUnit)
 
@@ -125,19 +126,29 @@ data SplitUnits = SplitUnits    { unitsDimL :: SUMap, unitsDimM :: SUMap, unitsD
 
 mkSplitUnits =  SplitUnits (Map.empty, Map.empty) (Map.empty, Map.empty) (Map.empty, Map.empty) (Map.empty, Map.empty)
                 (Map.empty, Map.empty) (Map.empty, Map.empty) (Map.empty, Map.empty)
---
----- | Function to take a unit, and return both the pos and neg base units that make up the unit
---splitUnit :: Unit -> UnitEnv -> SplitUnits
---splitUnit us uEnv = DF.foldlM splitUnit' mkSplitUnits us
---  where
---    splitUnit' sUnits (u, idx) = do
---        -- get dim for unit
---        dim <- calcUnit
---
---        -- update correct SUMap for dim
---        updateSUMap ... u idx
+
+-- | Function to take a unit, and return both the pos and neg base units that make up the unit
+splitUnit :: SrcUnit -> UnitDimEnv -> MExcept SplitUnits
+splitUnit us uEnv = DF.foldlM splitUnit' mkSplitUnits us
+  where
+    splitUnit' sUnits (u, idx) = do
+        -- get dim for unit
+        dim <- lookupBUnitDim u uEnv
+        -- update correct SUMap for dim
+        sUnits' <- case dim of
+            (DimVec 1 0 0 0 0 0 0) -> return $ sUnits { unitsDimL = updateSUMap (unitsDimL sUnits) u idx }
+            (DimVec 0 1 0 0 0 0 0) -> return $ sUnits { unitsDimM = updateSUMap (unitsDimM sUnits) u idx }
+            (DimVec 0 0 1 0 0 0 0) -> return $ sUnits { unitsDimT = updateSUMap (unitsDimT sUnits) u idx }
+            (DimVec 0 0 0 1 0 0 0) -> return $ sUnits { unitsDimI = updateSUMap (unitsDimI sUnits) u idx }
+            (DimVec 0 0 0 0 1 0 0) -> return $ sUnits { unitsDimO = updateSUMap (unitsDimO sUnits) u idx }
+            (DimVec 0 0 0 0 0 1 0) -> return $ sUnits { unitsDimJ = updateSUMap (unitsDimJ sUnits) u idx }
+            (DimVec 0 0 0 0 0 0 1) -> return $ sUnits { unitsDimN = updateSUMap (unitsDimN sUnits) u idx }
+            _ -> throwError $ printf "Unexpected dimension %s found in base unit dimension map" (show dim)
+
+        return sUnits'
 
 
+-- | Takes an SUMap and a given base unit with index and returns the updated SUMap
 updateSUMap (posUMap, negUMap) u idx = if idx >= 0
     then (insertUnit u idx posUMap, negUMap)
     else (posUMap, insertUnit u (negate idx) negUMap)
@@ -146,25 +157,24 @@ updateSUMap (posUMap, negUMap) u idx = if idx >= 0
 
 -- need check units are correct dims
 -- this is acutally as cast operation too
---simplifyUnits fromUnit toUnit = (fromMap, toMap)
---  where
---    (fromPos, fromNeg) = splitUnit fromUnit
---    (toPos, toNeg) = splitUnit toUnit
---
---    fromMap = Map.unionWith (+) fromPos toNeg
---    toMap = Map.unionWith (+) toPos fromNeg
+simplifyUnits fromUnit toUnit uEnv = do
+    fromSplit <- splitUnit fromUnit uEnv
+    toSplit <- splitUnit toUnit uEnv
+    return $ unifySplits fromSplit toSplit
+  where
 
+    -- holds SplitData, sorted by dim, for both sides of equations, with pos idx only on both sides
+    unifySplits fromSplit toSplit = SplitUnits  { unitsDimL = sortUnits (unitsDimL fromSplit) (unitsDimL toSplit)
+                                                , unitsDimM = sortUnits (unitsDimM fromSplit) (unitsDimM toSplit)
+                                                , unitsDimT = sortUnits (unitsDimT fromSplit) (unitsDimT toSplit)
+                                                , unitsDimI = sortUnits (unitsDimI fromSplit) (unitsDimI toSplit)
+                                                , unitsDimO = sortUnits (unitsDimO fromSplit) (unitsDimO toSplit)
+                                                , unitsDimJ = sortUnits (unitsDimJ fromSplit) (unitsDimJ toSplit)
+                                                , unitsDimN = sortUnits (unitsDimN fromSplit) (unitsDimN toSplit)
+                                                }
 
-
-
-
-
-
-
-
-
-
-
+    -- rearraange the equation so only pos on both sides
+    sortUnits (fromPos, fromNeg) (toPos, toNeg) = (Map.unionWith (+) fromPos toNeg, Map.unionWith (+) toPos fromNeg)
 
 
 

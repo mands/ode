@@ -7,12 +7,12 @@ module Dim2 {
     unit mm { dim : L, SI : False }
 
     // conversion func
-    conversion { from : m^2, to : mm, factor : x * 1000 }
+    conversion { from : m, to : mm, factor : x * 1000 }
     conversion { from : mm, to : m, factor : x / 1000 }
 
     // derived units - area
-    unit m^2
-    unit mm^2
+    // unit m^2
+    // unit mm^2
 
     // convert an area from mm2 to m2
     // val area = (1e6 { unit : mm^2 }) {unit : m^2}
