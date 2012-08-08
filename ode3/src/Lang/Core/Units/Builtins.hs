@@ -63,7 +63,7 @@ createSIs (UnitDef baseUnit baseDim) = mapSnd concat . unzip $ siUnitDef
 defQuantities = addQuantitiesToBimap Bimap.empty builtinQuantities
   where
     builtinQuantities :: Quantities
-    builtinQuantities = [("time", getBaseDim 'T')]
+    builtinQuantities = [("time", dimToDimVec DimT)]
 
 -- base unit defs
 -- default units :: BaseUnit
@@ -79,9 +79,9 @@ uHours = mkUnit [(baseHours, 1)]
 (Right defUnits) = addUnitsToEnv Map.empty builtinUnits
   where
     builtinUnits :: [UnitDef]
-    builtinUnits =  [ UnitDef baseSeconds (getBaseDim 'T')
-                    , UnitDef baseMinutes (getBaseDim 'T')
-                    , UnitDef baseHours (getBaseDim 'T')
+    builtinUnits =  [ UnitDef baseSeconds DimT
+                    , UnitDef baseMinutes DimT
+                    , UnitDef baseHours DimT
                     ]
 
 -- builtin unit conversions

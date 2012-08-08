@@ -43,16 +43,16 @@ data ConvDef = ConvDef BaseUnit BaseUnit CExpr deriving (Show, Eq, Ord)
 -- main graph type, nodes :: Units, edges :: CExprs
 type ConvGraph = UG.GraphMap BaseUnit CExpr
 
-type ConvEnv = Map.Map DimVec ConvGraph
+type ConvEnv = Map.Map BaseDim ConvGraph
 
 -- create a new conversion graph for the dim if doesn't exist
-getConvGraph :: DimVec -> ConvEnv -> ConvGraph
+getConvGraph :: BaseDim -> ConvEnv -> ConvGraph
 getConvGraph dim cEnv = case (Map.lookup dim cEnv) of
                             Nothing -> UG.mkGraphMap
                             Just x -> x
 
-getConvGraphForUnits :: Unit -> Unit -> UnitDimEnv -> ConvEnv -> MExcept ConvGraph
-getConvGraphForUnits u1 u2 uEnv cEnv = getConvGraph <$> (getDimForUnits u1 u2 uEnv) <*> pure cEnv
+getConvGraphForUnits :: BaseUnit -> BaseUnit -> UnitDimEnv -> ConvEnv -> MExcept ConvGraph
+getConvGraphForUnits u1 u2 uEnv cEnv = getConvGraph <$> (getBDimForBUnits u1 u2 uEnv) <*> pure cEnv
 
 --type ConversionFactor =
 addConvsToGraph :: ConvEnv -> [ConvDef] -> UnitDimEnv -> MExcept ConvEnv
@@ -61,7 +61,7 @@ addConvsToGraph cEnv convs unitEnv = DF.foldlM addConv cEnv convs
     addConv :: ConvEnv -> ConvDef -> MExcept ConvEnv
     addConv cEnv convDef@(ConvDef fromUnit toUnit cExpr) = do
         -- get convData for the units
-        dim <- getDimForBaseUnits fromUnit toUnit unitEnv
+        dim <- getBDimForBUnits fromUnit toUnit unitEnv
         -- insert edge and nodes into graph
         let convData' = updateGraph (getConvGraph dim cEnv) convDef
         -- update the convEnv
@@ -88,7 +88,7 @@ calcConvExpr fromUnit NoUnit uEnv cEnv = throwError $ printf "Cannot convert bet
 calcConvExpr fromUnit@(UnitC _) toUnit@(UnitC _) uEnv cEnv = do
     -- check dimensions are valid
     dim <- getDimForUnits fromUnit toUnit uEnv
-    let convGraph = getConvGraph dim cEnv
+    -- let convGraph = getConvGraph dim cEnv
     undefined
 --    -- get the path
 --    n1 <- maybeToExcept (UG.getNodeInt convGraph fromUnit) $ printf "Unit %s not found in graph" (show fromUnit)
@@ -118,8 +118,8 @@ inlineCExpr _ destExpr = destExpr
 -- New Simplification and Conversion -----------------------------------------------------------------------------------
 
 -- pos/neg split units map for each dimension
-type SUMap = (Map.Map String Integer, Map.Map String Integer)
-
+type BUMap = Map.Map BaseUnit Integer
+type SUMap = (BUMap, BUMap)
 data SplitUnits = SplitUnits    { unitsDimL :: SUMap, unitsDimM :: SUMap, unitsDimT :: SUMap, unitsDimI :: SUMap
                                 , unitsDimO :: SUMap, unitsDimJ :: SUMap, unitsDimN :: SUMap
                                 } deriving (Show)
@@ -136,15 +136,13 @@ splitUnit us uEnv = DF.foldlM splitUnit' mkSplitUnits us
         dim <- lookupBUnitDim u uEnv
         -- update correct SUMap for dim
         sUnits' <- case dim of
-            (DimVec 1 0 0 0 0 0 0) -> return $ sUnits { unitsDimL = updateSUMap (unitsDimL sUnits) u idx }
-            (DimVec 0 1 0 0 0 0 0) -> return $ sUnits { unitsDimM = updateSUMap (unitsDimM sUnits) u idx }
-            (DimVec 0 0 1 0 0 0 0) -> return $ sUnits { unitsDimT = updateSUMap (unitsDimT sUnits) u idx }
-            (DimVec 0 0 0 1 0 0 0) -> return $ sUnits { unitsDimI = updateSUMap (unitsDimI sUnits) u idx }
-            (DimVec 0 0 0 0 1 0 0) -> return $ sUnits { unitsDimO = updateSUMap (unitsDimO sUnits) u idx }
-            (DimVec 0 0 0 0 0 1 0) -> return $ sUnits { unitsDimJ = updateSUMap (unitsDimJ sUnits) u idx }
-            (DimVec 0 0 0 0 0 0 1) -> return $ sUnits { unitsDimN = updateSUMap (unitsDimN sUnits) u idx }
-            _ -> throwError $ printf "Unexpected dimension %s found in base unit dimension map" (show dim)
-
+            DimL -> return $ sUnits { unitsDimL = updateSUMap (unitsDimL sUnits) u idx }
+            DimM -> return $ sUnits { unitsDimM = updateSUMap (unitsDimM sUnits) u idx }
+            DimT -> return $ sUnits { unitsDimT = updateSUMap (unitsDimT sUnits) u idx }
+            DimI -> return $ sUnits { unitsDimI = updateSUMap (unitsDimI sUnits) u idx }
+            DimO -> return $ sUnits { unitsDimO = updateSUMap (unitsDimO sUnits) u idx }
+            DimJ -> return $ sUnits { unitsDimJ = updateSUMap (unitsDimJ sUnits) u idx }
+            DimN -> return $ sUnits { unitsDimN = updateSUMap (unitsDimN sUnits) u idx }
         return sUnits'
 
 
@@ -157,27 +155,93 @@ updateSUMap (posUMap, negUMap) u idx = if idx >= 0
 
 -- need check units are correct dims
 -- this is acutally as cast operation too
-simplifyUnits fromUnit toUnit uEnv = do
-    fromSplit <- splitUnit fromUnit uEnv
-    toSplit <- splitUnit toUnit uEnv
-    return $ unifySplits fromSplit toSplit
+
+simplifyUnits :: Unit -> Unit -> UnitDimEnv -> ConvEnv -> MExcept CExpr
+simplifyUnits fromUnitC@(UnitC fromUnit) toUnitC@(UnitC toUnit) uEnv cEnv = do
+    -- check dimensions are valid
+    _ <- getDimForUnits fromUnitC toUnitC uEnv
+    -- let convGraph = getConvGraph dim cEnv
+
+    -- get the unified split
+    uSplit <- unifySplits <$> (splitUnit fromUnit uEnv) <*> (splitUnit toUnit uEnv)
+    _ <- trace' [MkSB uSplit] "rearranged split units" (return ())
+    -- now for each dim, calculate the conv expr, and inline them all
+    cExpr <-    calcConvExpr' (unitsDimL uSplit) (getConvGraph DimL cEnv) CFromId
+                >>= calcConvExpr' (unitsDimM uSplit) (getConvGraph DimM cEnv)
+                >>= calcConvExpr' (unitsDimT uSplit) (getConvGraph DimT cEnv)
+                >>= calcConvExpr' (unitsDimI uSplit) (getConvGraph DimI cEnv)
+                >>= calcConvExpr' (unitsDimO uSplit) (getConvGraph DimO cEnv)
+                >>= calcConvExpr' (unitsDimJ uSplit) (getConvGraph DimJ cEnv)
+                >>= calcConvExpr' (unitsDimN uSplit) (getConvGraph DimN cEnv)
+
+    return cExpr
   where
 
     -- holds SplitData, sorted by dim, for both sides of equations, with pos idx only on both sides
-    unifySplits fromSplit toSplit = SplitUnits  { unitsDimL = sortUnits (unitsDimL fromSplit) (unitsDimL toSplit)
-                                                , unitsDimM = sortUnits (unitsDimM fromSplit) (unitsDimM toSplit)
-                                                , unitsDimT = sortUnits (unitsDimT fromSplit) (unitsDimT toSplit)
-                                                , unitsDimI = sortUnits (unitsDimI fromSplit) (unitsDimI toSplit)
-                                                , unitsDimO = sortUnits (unitsDimO fromSplit) (unitsDimO toSplit)
-                                                , unitsDimJ = sortUnits (unitsDimJ fromSplit) (unitsDimJ toSplit)
-                                                , unitsDimN = sortUnits (unitsDimN fromSplit) (unitsDimN toSplit)
+    unifySplits fromSplit toSplit = SplitUnits  { unitsDimL = rearrangeUnits (unitsDimL fromSplit) (unitsDimL toSplit)
+                                                , unitsDimM = rearrangeUnits (unitsDimM fromSplit) (unitsDimM toSplit)
+                                                , unitsDimT = rearrangeUnits (unitsDimT fromSplit) (unitsDimT toSplit)
+                                                , unitsDimI = rearrangeUnits (unitsDimI fromSplit) (unitsDimI toSplit)
+                                                , unitsDimO = rearrangeUnits (unitsDimO fromSplit) (unitsDimO toSplit)
+                                                , unitsDimJ = rearrangeUnits (unitsDimJ fromSplit) (unitsDimJ toSplit)
+                                                , unitsDimN = rearrangeUnits (unitsDimN fromSplit) (unitsDimN toSplit)
                                                 }
 
     -- rearraange the equation so only pos on both sides
-    sortUnits (fromPos, fromNeg) (toPos, toNeg) = (Map.unionWith (+) fromPos toNeg, Map.unionWith (+) toPos fromNeg)
+    rearrangeUnits (fromPos, fromNeg) (toPos, toNeg) = (Map.unionWith (+) fromPos toNeg, Map.unionWith (+) toPos fromNeg)
 
+    -- main conveersion expression
+    -- simple impleemtatino for now - other implementations are possible
+    -- for each posU, if same dim exists on other side, try cancel, else pick a negU at random and try convert
+    calcConvExpr' :: SUMap -> ConvGraph -> CExpr -> MExcept CExpr
+    calcConvExpr' (lhsUs, rhsUs) convGraph cExpr = do
 
+        -- first cancel
+        let commonUnits = Map.intersectionWith min lhsUs rhsUs
+        let lhsUs' = Map.differenceWith (\a b -> let diff = a - b in if (diff == 0) then Nothing else Just diff) lhsUs commonUnits
+        let rhsUs' = Map.differenceWith (\a b -> let diff = a - b in if (diff == 0) then Nothing else Just diff) rhsUs commonUnits
 
+        _ <- trace' [MkSB commonUnits, MkSB lhsUs', MkSB rhsUs'] "after cancelling units" (return ())
+
+        -- now convert remaining
+        (rhsUs'', cExpr') <- DF.foldlM convU (rhsUs', cExpr) $ Map.toAscList lhsUs'
+        -- check we converted all vals
+        _ <- if (Map.null rhsUs'') then return () else errorDump [MkSB lhsUs, MkSB rhsUs, MkSB rhsUs''] "(UC) Final rhs map not empty after sucessful conversion"
+
+        return cExpr'
+      where
+        convU :: (BUMap, CExpr) -> (BaseUnit, Integer) -> MExcept (BUMap, CExpr)
+        convU s@(rhsUs, cExpr) (lhsUnit, lIdx) =
+            trace' [MkSB lhsUnit, MkSB lIdx, MkSB rhsUs] "convU loop" $ if lIdx > 0
+                then convU' >>= (\s -> convU s (lhsUnit, lIdx - 1)) -- execute the conversion monad and call again
+                else return s
+          where
+            convU' = do
+                -- get a base unit from rhs
+                let ((rhsUnit, rIdx), rhsUs') = case Map.minViewWithKey rhsUs of
+                                                    Just x  -> trace' [MkSB x] "rhs selected unit" $ x
+                                                    Nothing -> errorDump [MkSB rhsUs] "(UC) Cannot find anymore rhs units"
+
+                cExpr' <- convertUnits lhsUnit rhsUnit
+                _ <- trace' [MkSB lhsUnit, MkSB rhsUnit, MkSB cExpr'] "dervied conversion expr" $ return ()
+                -- return the updated rhs map minus an index, and the inlined conversion expr
+                let rhsUs'' = if (rIdx == 1) then rhsUs' else Map.insert rhsUnit (rIdx-1) rhsUs'
+                return (rhsUs'', inlineCExpr cExpr cExpr')
+
+        convertUnits :: BaseUnit -> BaseUnit -> MExcept CExpr
+        convertUnits u1 u2 = do
+            -- find the conversion path within the graph
+            n1 <- maybeToExcept (UG.getNodeInt convGraph u1) $ printf "Unit %s not found in graph" u1
+            n2 <- maybeToExcept (UG.getNodeInt convGraph u2) $ printf "Unit %s not found in graph" u2
+            let edges = UG.getEdgesFromPath $ BFS.lesp n1 n2 (UG.graph convGraph)
+
+            -- create the conversion expressions
+            case length edges >= 1 of
+                True -> let expr = foldl1 inlineCExpr edges in
+                    return $ trace' [MkSB expr]
+                        (printf "Inlined Conversion expression %s => %s in Dim %s" u1 u2 "unknown")
+                        expr
+                False -> throwError $ printf "Cannot find conversion between units %s and %s" u1 u2
 
 
 

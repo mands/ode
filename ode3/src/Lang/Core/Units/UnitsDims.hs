@@ -18,6 +18,7 @@ module Lang.Core.Units.UnitsDims (
     -- datatypes
     Quantity, Quantities,
     DimVec(..), addDim, subDim, mkDimVec, dimensionless, isZeroDim,
+    BaseDim(..), dimToDimVec,
     SrcUnit, UnitDef(..), Unit(..), BaseUnit, mkUnit, addUnit, subUnit, isBaseUnit,
 
     -- data structures
@@ -25,7 +26,8 @@ module Lang.Core.Units.UnitsDims (
 
     -- high-level accessor funcs
     addQuantitiesToBimap, addUnitsToEnv, getBaseDim,
-    calcUnitDim, getDimForUnits, getDimForBaseUnits, lookupBUnitDim
+    calcUnitDim, getDimForUnits,
+    getBDimForBUnits, lookupBUnitDim
 ) where
 
 import Control.Applicative
@@ -54,22 +56,36 @@ data DimVec = DimVec    { dimL :: Integer, dimM :: Integer, dimT :: Integer, dim
 mkDimVec = DimVec 0 0 0 0 0 0 0
 dimensionless = DimVec 0 0 0 0 0 0 0
 
-baseDimL = DimVec 1 0 0 0 0 0 0
-baseDimM = DimVec 0 1 0 0 0 0 0
-baseDimT = DimVec 0 0 1 0 0 0 0
-baseDimI = DimVec 0 0 0 1 0 0 0
-baseDimO = DimVec 0 0 0 0 1 0 0
-baseDimJ = DimVec 0 0 0 0 0 1 0
-baseDimN = DimVec 0 0 0 0 0 0 1
+data BaseDim = DimL | DimM | DimT | DimI | DimO | DimJ | DimN deriving (Show, Eq, Ord)
 
-getBaseDim :: Char -> DimVec
-getBaseDim 'L' = DimVec 1 0 0 0 0 0 0
-getBaseDim 'M' = DimVec 0 1 0 0 0 0 0
-getBaseDim 'T' = DimVec 0 0 1 0 0 0 0
-getBaseDim 'I' = DimVec 0 0 0 1 0 0 0
-getBaseDim 'O' = DimVec 0 0 0 0 1 0 0
-getBaseDim 'J' = DimVec 0 0 0 0 0 1 0
-getBaseDim 'N' = DimVec 0 0 0 0 0 0 1
+dimToDimVec :: BaseDim -> DimVec
+dimToDimVec DimL = DimVec 1 0 0 0 0 0 0
+dimToDimVec DimM = DimVec 0 1 0 0 0 0 0
+dimToDimVec DimT = DimVec 0 0 1 0 0 0 0
+dimToDimVec DimI = DimVec 0 0 0 1 0 0 0
+dimToDimVec DimO = DimVec 0 0 0 0 1 0 0
+dimToDimVec DimJ = DimVec 0 0 0 0 0 1 0
+dimToDimVec DimN = DimVec 0 0 0 0 0 0 1
+
+dimVecToDim :: DimVec -> BaseDim
+dimVecToDim (DimVec 1 0 0 0 0 0 0) = DimL
+dimVecToDim (DimVec 0 1 0 0 0 0 0) = DimM
+dimVecToDim (DimVec 0 0 1 0 0 0 0) = DimT
+dimVecToDim (DimVec 0 0 0 1 0 0 0) = DimI
+dimVecToDim (DimVec 0 0 0 0 1 0 0) = DimO
+dimVecToDim (DimVec 0 0 0 0 0 1 0) = DimJ
+dimVecToDim (DimVec 0 0 0 0 0 0 1) = DimN
+dimVecToDim dim = errorDump [MkSB dim] "Passed an invalid dimVec to get a baseDim"
+
+
+getBaseDim :: Char -> BaseDim
+getBaseDim 'L' = DimL
+getBaseDim 'M' = DimM
+getBaseDim 'T' = DimT
+getBaseDim 'I' = DimI
+getBaseDim 'O' = DimO
+getBaseDim 'J' = DimJ
+getBaseDim 'N' = DimN
 getBaseDim c = errorDump [MkSB c] "Parsed an invalid dimension"
 
 -- Dim helper funcs
@@ -125,10 +141,10 @@ instance Show Unit where
     show (UnitVar i) = "UnitVar:" ++ (show i)
 
 
-type SrcUnit = [(String, Integer)]
+type SrcUnit = [(BaseUnit, Integer)]
 
 -- hold this temp structure in indiv module, and promote to global state (UnitDimEnv) when imported & processed
-data UnitDef = UnitDef BaseUnit DimVec
+data UnitDef = UnitDef BaseUnit BaseDim
     -- DerivedUnitDef Unit
     deriving (Eq, Ord, Show)
 
@@ -138,7 +154,7 @@ data UnitDef = UnitDef BaseUnit DimVec
 
 -- TODO - can these structures be simplified/unified
 -- mapping from (base?) units to dimensions
-type UnitDimEnv = Map.Map BaseUnit DimVec
+type UnitDimEnv = Map.Map BaseUnit BaseDim
 
 
 -- Unit helper funcs
@@ -174,9 +190,9 @@ negUnit NoUnit = NoUnit
 calcUnitDim :: Unit -> UnitDimEnv -> MExcept DimVec
 calcUnitDim u@(UnitC units) uEnv = mconcat <$> mapM getDim units
   where
-    getDim (baseUnit, index) = mulDim <$> lookupBUnitDim baseUnit uEnv <*> pure index
+    getDim (baseUnit, index) = mulDim <$> (dimToDimVec <$> lookupBUnitDim baseUnit uEnv) <*> pure index
 
-lookupBUnitDim :: BaseUnit -> UnitDimEnv -> MExcept DimVec
+lookupBUnitDim :: BaseUnit -> UnitDimEnv -> MExcept BaseDim
 lookupBUnitDim u uEnv =
     maybeToExcept (Map.lookup u uEnv) $ printf "Reference to unknown base unit \'%s\' found" u
 
@@ -198,8 +214,8 @@ getDimForUnits u1 u2 uEnv = do
         throwError $ printf "Dimension mismatch - units %s (Dim %s) and %s (Dim %s)" (show u1) (show dim1) (show u2) (show dim2)
         else return dim1
 
-getDimForBaseUnits :: BaseUnit -> BaseUnit -> UnitDimEnv -> MExcept DimVec
-getDimForBaseUnits u1 u2 uEnv = do
+getBDimForBUnits :: BaseUnit -> BaseUnit -> UnitDimEnv -> MExcept BaseDim
+getBDimForBUnits u1 u2 uEnv = do
     dim1 <- lookupBUnitDim u1 uEnv
     dim2 <- lookupBUnitDim u2 uEnv
     if dim1 /= dim2 then
