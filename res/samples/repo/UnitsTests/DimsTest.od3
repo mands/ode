@@ -16,10 +16,6 @@ module Dim2 {
     // base unit
     unit m { dim : L, SI : False }
 
-    // derived units - area and volume
-    unit m^2
-    unit m^3
-
     // operations on our units, consider a rectangular cube
     val vol = 1 { unit : m^3 }
     val area = 1 { unit : m^2 }
@@ -66,15 +62,24 @@ module Dim4 {
 }
 
 
-// test auto-SI creation
-module Dim3 {
-    // base unit
-    unit m { dim : L, SI : True }
+// dervied units, casting, and operations
+module Dim5 {
+    quantity length = dim L
 
-    // derived units - area and volume
-    unit km^2
-    unit km^3
+    // base units
+    unit m { dim : L, SI : False }
+    unit mm { dim : L, SI : False }
 
-    // need test conversion funcs here too
+    // conversion func
+    conversion { from : m, to : mm, factor : x * 1000 }
+    conversion { from : mm, to : m, factor : x / 1000 }
+
+    // convert an area from mm2 to m2
+    val area = (1e6 { unit : mm^2 }) {unit : m^2}
+
+    // more complicated ops
+    val height = area / ((1 { unit : m^2 }) {unit : mm^2})
+
 }
+
 

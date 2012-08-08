@@ -1,20 +1,9 @@
-// dervied units, casting, and operations
-module Dim2 {
-    quantity length = dim L
+// test auto-SI creation
+module Dim6 {
+    // base unit
+    unit m { dim : L, SI : True }
 
-    // base units
-    unit m { dim : L, SI : False }
-    unit mm { dim : L, SI : False }
-
-    // conversion func
-    conversion { from : m, to : mm, factor : x * 1000 }
-    conversion { from : mm, to : m, factor : x / 1000 }
-
-    // derived units - area
-    // unit m^2
-    // unit mm^2
-
-    // convert an area from mm2 to m2
-    // val area = (1e6 { unit : mm^2 }) {unit : m^2}
+    // need test conversion funcs here too
+    val height = (1 { unit : km^3 } / 1 { unit : mm^2 }) { unit : m }
 }
 

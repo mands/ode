@@ -29,4 +29,5 @@ let (Right convEnv) = addConvsToGraph defConvs [ ConvDef "mm" "m" (CExpr CDiv CF
 -- simplifyUnits (mkUnit [("ft", 1), ("mm", 1)]) (mkUnit [("m", 2)]) unitEnv convEnv
 -- simplifyUnits (mkUnit [("mm", 1)]) (mkUnit [("m", 2), ("ft", -1)]) unitEnv convEnv
 
+convertCastUnit (mkUnit [("m", 1), ("s", -1)]) (mkUnit [("km", 1), ("hr", -1)]) unitEnv convEnv
 

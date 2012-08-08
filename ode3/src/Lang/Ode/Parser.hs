@@ -101,7 +101,7 @@ dimTerm = reserved "dim" *> lexeme parseDims
     parseDim dim = char dim *> option 1 (reservedOp "^" *> integer) <* optional (char '.')
 
 -- TODO - should this be a lexeme ??
-unitIdentifier :: Parser CA.SrcUnit
+unitIdentifier :: Parser CA.UnitList
 unitIdentifier = (sepBy parseSingUnit $ char '.')
   where
     parseSingUnit = (,) <$> alphaIdentifier <*> option 1 (reservedOp "^" *> integer)
@@ -277,7 +277,7 @@ unitCast p = do
     e1 <- p
     option e1 $ O.ConvCast <$> pure e1 <*> unitAttrib
 
-unitAttrib :: Parser CA.SrcUnit
+unitAttrib :: Parser CA.UnitList
 unitAttrib = braces (attrib "unit" unitIdentifier)
 
 

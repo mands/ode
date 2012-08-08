@@ -21,7 +21,7 @@ module Lang.Common.AST (
     mkModRoot, getModRootStr, mkModFullName,splitModFullName,
 
     -- reexport some common units stuff
-    U.DimVec(..), U.SrcUnit, U.BaseUnit, U.CExpr(..), U.COp(..)
+    U.DimVec(..), U.UnitList, U.BaseUnit, U.CExpr(..), U.COp(..)
 ) where
 
 import qualified Data.List as List

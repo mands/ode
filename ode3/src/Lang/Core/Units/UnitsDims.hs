@@ -19,14 +19,14 @@ module Lang.Core.Units.UnitsDims (
     Quantity, Quantities,
     DimVec(..), addDim, subDim, mkDimVec, dimensionless, isZeroDim,
     BaseDim(..), dimToDimVec,
-    SrcUnit, UnitDef(..), Unit(..), BaseUnit, mkUnit, addUnit, subUnit, isBaseUnit,
+    UnitList, UnitDef(..), Unit(..), BaseUnit, mkUnit, addUnit, subUnit, isBaseUnit,
 
     -- data structures
     QuantityBimap, UnitDimEnv,
 
     -- high-level accessor funcs
     addQuantitiesToBimap, addUnitsToEnv, getBaseDim,
-    calcUnitDim, getDimForUnits,
+    calcUnitDim, getDimForUnits, unitsSameDim,
     getBDimForBUnits, lookupBUnitDim
 ) where
 
@@ -125,7 +125,7 @@ addQuantitiesToBimap = foldl (\qBimap (quantity, dimVec) -> Bimap.insert quantit
 
 type BaseUnit = String
 
-data Unit  = UnitC [(BaseUnit, Integer)] -- an actual unit with a known dimensionless
+data Unit  = UnitC UnitList -- an actual unit with a known dimensionless
            | NoUnit                         -- no unit data infered, just a raw number (is this not same as ActualUnit []/dmless ?)
            -- UnknownUnit                    -- We don't know the unit type yet - used with TC
            | UnitVar Int                -- A unit variable, used for unit & dimension polymorphism
@@ -141,7 +141,7 @@ instance Show Unit where
     show (UnitVar i) = "UnitVar:" ++ (show i)
 
 
-type SrcUnit = [(BaseUnit, Integer)]
+type UnitList = [(BaseUnit, Integer)]
 
 -- hold this temp structure in indiv module, and promote to global state (UnitDimEnv) when imported & processed
 data UnitDef = UnitDef BaseUnit BaseDim
@@ -160,7 +160,7 @@ type UnitDimEnv = Map.Map BaseUnit BaseDim
 -- Unit helper funcs
 
 -- need to filter dups, process indices, and define ordering
-mkUnit :: SrcUnit -> Unit
+mkUnit :: UnitList -> Unit
 mkUnit [] = NoUnit
 mkUnit base@[(baseName, 1) ]= UnitC base
 mkUnit units = UnitC . Map.toList . foldl mkUnit' Map.empty $ units
@@ -188,6 +188,8 @@ negUnit NoUnit = NoUnit
 -- Unit Env helper funcs
 -- calculate on-demand the dimension of a derived unit
 calcUnitDim :: Unit -> UnitDimEnv -> MExcept DimVec
+-- handle case of un-dimenstioned values explitictly here
+calcUnitDim NoUnit uEnv = throwError $ printf "Cannot obtain a dimension for a NoUnit"
 calcUnitDim u@(UnitC units) uEnv = mconcat <$> mapM getDim units
   where
     getDim (baseUnit, index) = mulDim <$> (dimToDimVec <$> lookupBUnitDim baseUnit uEnv) <*> pure index
@@ -205,19 +207,25 @@ addUnitsToEnv unitEnv units = DF.foldlM addUnit unitEnv units
         Nothing -> return $ Map.insert u d unitEnv
         Just _ -> throwError $ printf "Base unit \'%s\' already defined" (show u)
 
--- do the units exist, and are they the same dimensions
+-- | get the dimensions for both units (if they exist), then check they are same and return the dim
 getDimForUnits :: Unit -> Unit -> UnitDimEnv -> MExcept DimVec
 getDimForUnits u1 u2 uEnv = do
     dim1 <- calcUnitDim u1 uEnv
     dim2 <- calcUnitDim u2 uEnv
     if dim1 /= dim2 then
-        throwError $ printf "Dimension mismatch - units %s (Dim %s) and %s (Dim %s)" (show u1) (show dim1) (show u2) (show dim2)
+        throwError $ printf "Dimension mismatch - units %s (%s) and %s (%s)" (show u1) (show dim1) (show u2) (show dim2)
         else return dim1
 
+-- | simple wrapper around getDimForUnits with short-circuit for equal units
+unitsSameDim :: Unit -> Unit -> UnitDimEnv -> MExcept ()
+unitsSameDim u1@(UnitC _) u2@(UnitC _) uEnv | u1 == u2 = return ()
+unitsSameDim u1 u2 uEnv = getDimForUnits u1 u2 uEnv >> return ()
+
+-- | get the dimensions for both baseunits (if they exist), then check they are same and return the dim
 getBDimForBUnits :: BaseUnit -> BaseUnit -> UnitDimEnv -> MExcept BaseDim
 getBDimForBUnits u1 u2 uEnv = do
     dim1 <- lookupBUnitDim u1 uEnv
     dim2 <- lookupBUnitDim u2 uEnv
     if dim1 /= dim2 then
-        throwError $ printf "Dimension mismatch - baseunits %s (Dim %s) and %s (Dim %s)" (show u1) (show dim1) (show u2) (show dim2)
+        throwError $ printf "Dimension mismatch - baseunits %s (%s) and %s (%s)" (show u1) (show dim1) (show u2) (show dim2)
         else return dim1
