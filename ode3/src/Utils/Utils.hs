@@ -20,7 +20,8 @@ PrettyPrint(..), mapFst, mapSnd, pairM,
 (|>),
 SB(..), trace', errorDump,
 openPipe, closePipe, readLoop,
-mkLabelName
+mkLabelName,
+listUniqs
 ) where
 
 import Control.Monad
@@ -30,6 +31,8 @@ import Debug.Trace
 import qualified System.IO as SIO
 import Data.Bimap
 import Data.Char (toUpper)
+import Data.List (nub)
+
 
 -- | my exception/error monad, could just import from Control.Monad.Error but anyway...
 type MExcept = Either String
@@ -133,4 +136,10 @@ mkLabelName :: String -> String
 mkLabelName s = 'l' : toUpper (head n) : tail n
   where
     n = drop 1 s
+
+-- Misc Functions
+
+listUniqs :: (Eq a) => [a] -> Bool
+listUniqs xs = length xs == (length . nub) xs
+
 

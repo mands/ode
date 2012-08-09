@@ -122,7 +122,7 @@ getMVarType mv@(E.ModVar m v) gModEnv modData mFuncArgs =
 
 -- Binding Helper Functions --------------------------------------------------------------------------------------------
 
--- | Adds a set of constraints for linking a multibind to a TVar
+-- | Adds a set of constraints for linking a multibind (from a tuple/record unpack) to a TVar
 multiBindConstraint :: E.BindList Int -> E.Type -> TypeEnv -> TypeConsM TypeEnv
 multiBindConstraint bs t tEnv = do
     -- create the new tvars for each binding
@@ -148,6 +148,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         tEnv' <- case eT of
             -- true if tuple on both side of same size, if so unplack and treat as indivudual elems
             (E.TTuple ts) | (length bs == length ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv (zip bs ts)
+            (E.TRecord ts) | (length bs == length ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv (zip bs (snd . unzip $ ts))
             -- true for individual elems, handle same as tuple above
             t | length bs == 1 -> return $ Map.insert (head bs) eT tEnv
             -- basic handling, is common case that subsumes special cases above, basically treat both sides as tuples
@@ -306,8 +307,17 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
 
     consExpr (E.Tuple es) = liftM consTuple $ DF.foldlM consElem [] es
       where
+        -- constrain the exps
         consElem eTs e = consExpr e >>= (\eT -> return $ eT:eTs)
+        -- create a TTuple type
         consTuple eTs = E.TTuple $ reverse eTs
+
+    consExpr (E.Record nEs) = liftM consRecord $ DF.foldlM consElem [] es
+      where
+        consElem eTs e = consExpr e >>= (\eT -> return $ eT:eTs)
+        consRecord eTs = E.TRecord $ zip ids (reverse eTs)
+        (ids, es) = unzip nEs
+
 
     consExpr (E.Ode (E.LocalVar v) eD) = do
         -- constrain the ode state val to be a float

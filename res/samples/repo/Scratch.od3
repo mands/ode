@@ -1,8 +1,9 @@
 module Record1 {
     // val tuple = (1,2,3)
-    // val rec = { i : 1, j : 2, k : 3 }
+    val rec = { i : 1 + 2, j : 2, k : 3 }
 
     // record selection
-    val a = rec#i
+    // val a = rec#i
+    // val a = (1 + 2, 3)
 }
 

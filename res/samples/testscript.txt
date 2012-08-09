@@ -1,4 +1,5 @@
 :addRepo ../res/samples/repo
 import Scratch.*
+:show all
 :quit
 

@@ -42,7 +42,7 @@ validate mod@(M.FunctorMod funArgs _ modData) = M.FunctorMod    <$> funArgs'
                                                                 <*> createTopExprs (M.modExprList modData)
                                                                 <*> pure (modData { M.modExprList = [] })
   where
-    funArgs' =  if (length funArgKeys == (length . nub) funArgKeys) then pure funArgs
+    funArgs' =  if listUniqs funArgKeys then pure funArgs
                 else throwError ("(VL05) - Functor has arguments with the same name")
     funArgKeys = OrdMap.keys funArgs
 
@@ -83,6 +83,13 @@ validExpr curBinds (E.If eB eT eF) = (validExpr curBinds eB) *> (validExpr curBi
 validExpr curBinds (E.Tuple []) = throwError "(VL01) Empty tuple found"
 validExpr curBinds (E.Tuple (e:[])) = throwError "(VL02) Tuple with only one element found"
 validExpr curBinds (E.Tuple es) = DF.traverse_ (validExpr curBinds) es
+
+-- need to make sure all identifiers are unique
+validExpr curBinds (E.Record nEs) =  uniqIds *> DF.traverse_ (validExpr curBinds) es
+  where
+    (ids, es) = unzip nEs
+    uniqIds = if listUniqs ids then pure ()
+        else throwError $ printf "(VL03) - Record has duplicate identifies - %s" (show ids)
 
 validExpr _ e = pure ()
 

@@ -57,7 +57,7 @@ data Type :: * where
     TUnit :: Type
     TArr :: Type -> Type -> Type
     TTuple :: [Type] -> Type -- don't want to allow tuples of tuples
-    TRecord :: [(SrcId, Type)] -> Type -- don't want to allow tuples of tuples
+    TRecord :: [(String, Type)] -> Type -- don't want to allow tuples of tuples
     deriving (Show, Eq, Ord)
 
 -- Bindings ------------------------------------------------------------------------------------------------------------
@@ -120,7 +120,7 @@ data Expr b = Var (VarId b)             -- a reference to any let-defined expres
             | Tuple [Expr b]            -- a collection of expressions
                                         -- do we allow nested tuples? if not, do we use GADTs to enforce unnested?
 
-            | Record [(b, Expr b)] -- a record, technically just a nmed tuple iwth ordering - need to unify with tuples
+            | Record [(String, Expr b)] -- a record, technically just a nmed tuple iwth ordering - need to unify with tuples
 
             | Ode (VarId b) (Expr b)   -- an Ode, uses a state variable defined in b, and runs the expression,
 

@@ -256,6 +256,10 @@ dsExpr (O.ValueRef (O.LocalId id) mRecId) = return $ C.Var (C.LocalVar id)
 dsExpr (O.ValueRef (O.ModId modId id) mRecId) = return $ C.Var (C.ModVar (ModName modId) id)
 dsExpr (O.Tuple exprs) = C.Tuple <$> DT.mapM dsExpr exprs
 
+dsExpr (O.Record nExprs) = C.Record <$> DT.mapM dsRecord nExprs
+  where
+    dsRecord (id, e) = (,) <$> pure id <*> dsExpr e
+
 -- create nested set of ifs for piecewise expression
 dsExpr (O.Piecewise cases e) = dsIf cases
   where
@@ -269,7 +273,7 @@ dsExpr (O.Call (O.ModId mId id) exprs) = liftM (C.App (C.ModVar (ModName mId) id
 dsExpr (O.ConvCast e u) = C.ConvCast <$> (dsExpr e) <*> pure (U.mkUnit u)
 
 -- any unknown/unimplemented paths - not needed as match all
-dsExpr a = errorDump [MkSB a] "(DS) Unknown ODE3 expression"
+--dsExpr a = errorDump [MkSB a] "(DS) Unknown ODE3 expression"
 
 -- | Simple test to see if an expression contains only a single element or is a packed tuple
 isSingleElem es = length es == 1
