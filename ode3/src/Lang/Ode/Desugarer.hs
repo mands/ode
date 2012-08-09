@@ -101,21 +101,21 @@ desugarOde elems = do
 desugarTopStmt :: M.ExprList -> O.Stmt -> TmpSupply (M.ExprList)
 desugarTopStmt es stmt@(O.SValue _ _) = do
     (ids, expr) <- desugarStmt stmt
-    return $ C.TopLet True (C.Bind ids) expr : es
+    return $ C.TopLet True ids expr : es
 
 desugarTopStmt es stmt@(O.OdeDef (O.ValId name) init _) = do
     (odeVar, odeExpr) <- desugarStmt stmt
     let initExpr = C.Lit (C.Num init U.NoUnit) -- TODO - fix units
-    let es' = C.TopLet True (C.Bind [name]) initExpr : es
-    return $ C.TopLet False (C.Bind odeVar) odeExpr : es'
+    let es' = C.TopLet True [name] initExpr : es
+    return $ C.TopLet False odeVar odeExpr : es'
 
 desugarTopStmt es stmt@(O.RreDef _ _  _) = do
     (rreVar, rreExpr) <- desugarStmt stmt
-    return $ C.TopLet False (C.Bind rreVar) rreExpr : es
+    return $ C.TopLet False rreVar rreExpr : es
 
 desugarTopStmt es stmt = do
     (ids, expr) <- desugarStmt stmt
-    return $ C.TopLet False (C.Bind ids) expr : es
+    return $ C.TopLet False ids expr : es
 
 -- desugar a nested let binding
 desugarS' :: [O.Stmt] -> O.Expr  -> TmpSupply (C.Expr C.DesId)
@@ -123,25 +123,25 @@ desugarS' [] outs = dsExpr outs
 
 desugarS' (s@(O.Value _ _ _):xs) outs = do
     (ids, expr) <- desugarStmt s
-    C.Let False (C.Bind ids) expr <$> desugarS' xs outs
+    C.Let False ids expr <$> desugarS' xs outs
 
 desugarS' (s@(O.SValue _ _):xs) outs = do
     (ids, expr) <- desugarStmt s
-    C.Let True (C.Bind ids) expr <$> desugarS' xs outs
+    C.Let True ids expr <$> desugarS' xs outs
 
 desugarS' (s@(O.OdeDef (O.ValId name) init _):xs) outs = do
     (odeVar, odeExpr) <- desugarStmt s
-    let subExpr' = C.Let False (C.Bind odeVar) odeExpr <$> desugarS' xs outs
+    let subExpr' = C.Let False odeVar odeExpr <$> desugarS' xs outs
     let initExpr = C.Lit (C.Num init U.NoUnit) -- TODO - fix units
-    C.Let True (C.Bind [name]) <$> pure initExpr <*> subExpr'
+    C.Let True [name] <$> pure initExpr <*> subExpr'
 
 desugarS' (s@(O.RreDef _ _ _):xs) outs = do
     (rreVar, rreExpr) <- desugarStmt s
-    C.Let False (C.Bind rreVar) rreExpr <$> desugarS' xs outs
+    C.Let False rreVar rreExpr <$> desugarS' xs outs
 
 desugarS' (s@(O.Component _ _ _ _):xs) outs = do
     (ids, expr) <- desugarStmt s
-    C.Let False (C.Bind ids) expr <$> desugarS' xs outs
+    C.Let False ids expr <$> desugarS' xs outs
 
 
 -- Main desugaring, called by top-level and nested level wrappers
@@ -182,7 +182,7 @@ desugarStmt (O.Component name ins outs body) = do
     -- | desugars and converts a component into a \c abstraction, not in tail-call form, could blow out the stack, but unlikely
     desugarComp :: O.SrcId -> [C.DesId] -> TmpSupply (C.Expr C.DesId)
     desugarComp _ (singIn:[]) = desugarS' body outs
-    desugarComp argName ins = C.Let False (C.Bind ins) (C.Var (C.LocalVar argName)) <$> desugarS' body outs
+    desugarComp argName ins = C.Let False ins (C.Var (C.LocalVar argName)) <$> desugarS' body outs
 
 desugarStmt stmt = throw $ printf "Found an unhandled stmt that is top-level only - not nested \n%s" (show stmt)
 
@@ -252,8 +252,8 @@ dsExpr (O.NumSeq a b c) = return $ C.Lit (C.NumSeq (enumFromThenTo a b c) U.NoUn
 dsExpr (O.Boolean b) = return $ C.Lit (C.Boolean b)
 dsExpr (O.Time) = return $ C.Lit (C.Time)
 dsExpr (O.Unit) = return $ C.Lit (C.Unit)
-dsExpr (O.ValueRef (O.LocalId id)) = return $ C.Var (C.LocalVar id)
-dsExpr (O.ValueRef (O.ModId mId id)) = return $ C.Var (C.ModVar (ModName mId) id)
+dsExpr (O.ValueRef (O.LocalId id) mRecId) = return $ C.Var (C.LocalVar id)
+dsExpr (O.ValueRef (O.ModId modId id) mRecId) = return $ C.Var (C.ModVar (ModName modId) id)
 dsExpr (O.Tuple exprs) = C.Tuple <$> DT.mapM dsExpr exprs
 
 -- create nested set of ifs for piecewise expression
@@ -269,7 +269,7 @@ dsExpr (O.Call (O.ModId mId id) exprs) = liftM (C.App (C.ModVar (ModName mId) id
 dsExpr (O.ConvCast e u) = C.ConvCast <$> (dsExpr e) <*> pure (U.mkUnit u)
 
 -- any unknown/unimplemented paths - not needed as match all
--- dsExpr a = errorDump [MkSB a] "(DS) Unknown ODE3 expression"
+dsExpr a = errorDump [MkSB a] "(DS) Unknown ODE3 expression"
 
 -- | Simple test to see if an expression contains only a single element or is a packed tuple
 isSingleElem es = length es == 1

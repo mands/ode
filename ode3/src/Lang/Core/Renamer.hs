@@ -106,8 +106,8 @@ renTop exprMap = do
 -- | converts the bindings into unique ids and adds to the current, scoped bindmap
 -- any additiona data, e.g. units defs, are added to the state monad
 -- NOTE - this modifies the bMap
-convBind :: E.Bind E.DesId -> IdSupply (E.Bind E.Id)
-convBind (E.Bind bs) = liftM (E.Bind . reverse) $ DF.foldlM f [] bs
+convBind :: E.BindList E.DesId -> IdSupply (E.BindList E.Id)
+convBind bs = liftM reverse $ DF.foldlM f [] bs
   where
     -- helper func to convert an indiv binding
     f :: [E.Id] -> E.DesId -> IdSupply [E.Id]
@@ -134,7 +134,7 @@ bLookup v = do
     bMap <- lift get
     case (Map.lookup v bMap) of
         (Just v') -> return v'
-        Nothing -> lift . lift . throwError $ printf "(RN01) Referenced variable %s not found in scope"
+        Nothing -> lift . lift . throwError $ printf "(RN01) Referenced variable %s not found in scope" (show v)
 
 -- | Basic traverse over the expression structure - make into Data.Traversable
 renExpr :: E.Expr E.DesId -> IdSupply (E.Expr E.Id)

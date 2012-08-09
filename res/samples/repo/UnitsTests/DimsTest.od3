@@ -82,4 +82,13 @@ module Dim5 {
 
 }
 
+// test auto-SI creation
+module Dim6 {
+    // base unit
+    unit m { dim : L, SI : True }
+
+    // need test conversion funcs here too
+    val height = (1 { unit : km^3 } / 1 { unit : mm^2 }) { unit : m }
+}
+
 

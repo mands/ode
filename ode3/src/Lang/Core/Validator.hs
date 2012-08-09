@@ -53,11 +53,12 @@ createTopExprs :: M.ExprList -> MExcept (M.ExprMap E.DesId)
 createTopExprs exprList = snd <$> DF.foldlM t (Set.empty, OrdMap.empty) exprList
   where
     t :: (Set.Set E.SrcId, M.ExprMap E.DesId) -> E.TopLet E.DesId -> MExcept (Set.Set E.SrcId, M.ExprMap E.DesId)
-    t s topExpr@(E.TopLet sv b expr) = validExpr (Set.empty) expr *> addTopBinding s b topExpr
+    t s topExpr@(E.TopLet sv bs expr) = validExpr (Set.empty) expr *> addTopBinding s bs topExpr
 
-    addTopBinding (topBinds, exprMap) b expr = case b of
-        -- E.SingBind ab -> (,) <$> addBinding topBinds ab <*> pure (OrdMap.insert b expr exprMap)
-        E.Bind bs -> (,) <$> DF.foldlM addBinding topBinds bs <*> pure (OrdMap.insert b expr exprMap)
+    addTopBinding (topBinds, exprMap) bs expr = (,) <$> DF.foldlM addBinding topBinds bs <*> pure (OrdMap.insert bs expr exprMap)
+--        case b of
+--        -- E.SingBind ab -> (,) <$> addBinding topBinds ab <*> pure (OrdMap.insert b expr exprMap)
+--        E.Bind bs -> (,) <$> DF.foldlM addBinding topBinds bs <*> pure (OrdMap.insert b expr exprMap)
 --      where
 --        addBinding topBinds (b, _) = case Set.member b topBinds of
 --            True -> throwError $ "(VL06) - Top Binding " ++ (show b) ++ " already exists in module"
@@ -72,7 +73,7 @@ validExpr curBinds (E.App v e) = validExpr curBinds e
 
 validExpr curBinds (E.Abs b e) = validExpr curBinds e
 
-validExpr curBinds (E.Let s (E.Bind bs) e1 e2) = do
+validExpr curBinds (E.Let s bs e1 e2) = do
     curBinds' <- DF.foldlM addBinding curBinds bs
     (validExpr Set.empty e1) *> (validExpr curBinds' e2)
 

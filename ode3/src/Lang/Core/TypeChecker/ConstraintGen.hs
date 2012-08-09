@@ -123,8 +123,8 @@ getMVarType mv@(E.ModVar m v) gModEnv modData mFuncArgs =
 -- Binding Helper Functions --------------------------------------------------------------------------------------------
 
 -- | Adds a set of constraints for linking a multibind to a TVar
-multiBindConstraint :: E.Bind Int -> E.Type -> TypeEnv -> TypeConsM TypeEnv
-multiBindConstraint (E.Bind bs) t tEnv = do
+multiBindConstraint :: E.BindList Int -> E.Type -> TypeEnv -> TypeConsM TypeEnv
+multiBindConstraint bs t tEnv = do
     -- create the new tvars for each binding
     bTs <- mapM (\_ -> newTypevar) bs
     -- add the constaint
@@ -141,7 +141,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
     consM :: TypeConsM ()
     consM = DF.mapM_ consTop (OrdMap.elems exprMap)
 
-    consTop (E.TopLet s (E.Bind bs) e) = do
+    consTop (E.TopLet s bs e) = do
         eT <- consExpr e
         (tEnv, mTEnv) <- get
         -- extend and return tEnv
@@ -152,7 +152,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
             t | length bs == 1 -> return $ Map.insert (head bs) eT tEnv
             -- basic handling, is common case that subsumes special cases above, basically treat both sides as tuples
             -- (with tvars), create contstrains and let unificiation solve it instead
-            t | (length bs > 1) -> multiBindConstraint (E.Bind bs) t tEnv
+            t | (length bs > 1) -> multiBindConstraint bs t tEnv
             _ -> errorDump [MkSB bs, MkSB eT, MkSB tEnv] "(TC) - toplet shit\n"
         put (tEnv', mTEnv)
 
@@ -207,7 +207,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         return $ E.TArr fromT toT
 
     -- NOTE - do we need to return the new tEnv here?
-    consExpr (E.Let s (E.Bind bs) e1 e2) = do
+    consExpr (E.Let s bs e1 e2) = do
         e1T <- consExpr e1
         -- extend tEnv with new env
         (tEnv, mTEnv) <- get
@@ -218,7 +218,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
             t | length bs == 1 -> return $ Map.insert (head bs) e1T tEnv
             -- basic handling, is common case that subsumes special cases above, basically treat both sides as tuples
             -- (with tvars), create contstrains and let unificiation solve it instead
-            t | (length bs > 1) -> multiBindConstraint (E.Bind bs) t tEnv
+            t | (length bs > 1) -> multiBindConstraint bs t tEnv
             _ -> errorDump [MkSB bs, MkSB e1T, MkSB tEnv] "(TC) - let shit\n"
         -- now constrain e2 using the new typeEnv
         put (tEnv', mTEnv)

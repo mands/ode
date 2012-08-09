@@ -24,8 +24,7 @@ import qualified Data.Map as Map
 import Lang.Common.AST
 
 -- | SrcIdentifier that may be local to current block or refer to a module parameter
-data ModLocalId =   LocalId SrcId | ModId SrcId SrcId
-                    deriving (Show, Eq, Ord)
+data ModLocalId =   LocalId SrcId | ModId SrcId SrcId deriving (Show, Eq, Ord)
 
 -- | used for creating new bindings that may differntiatin between actual ids and _ vals
 data ValId = ValId SrcId | DontCare deriving (Show, Ord, Eq)
@@ -72,7 +71,8 @@ data Stmt = -- each independent component, is basically function abstraction
 -- refernces to existing values, piecewise terms
 -- expressions are may be multiple types, these are determined later on
 data Expr   = BinExpr BinOp Expr Expr | UnExpr UnOp Expr | Number Double (Maybe UnitList) | NumSeq Double Double Double | Boolean Bool
-                    | Time | Unit | Call ModLocalId [Expr] | ValueRef ModLocalId | Piecewise [(Expr, Expr)] Expr | Tuple [Expr]
+                    | Time | Unit | Call ModLocalId [Expr] | ValueRef ModLocalId (Maybe SrcId) | Piecewise [(Expr, Expr)] Expr
+                    | Tuple [Expr] | Record [(SrcId, Expr)]
                     | ConvCast Expr UnitList
                     deriving (Show, Eq, Ord)
 

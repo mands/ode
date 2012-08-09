@@ -67,7 +67,7 @@ commonLangDef = emptyDef
                             , "*", "/", "%", "+", "-"
                             , "<", "<=", ">", ">=", "==", "!="
                             , "&&", "||", "!", "and", "or", "not"
-                            , "::", "^"
+                            , "::", "^", "#"
                             ]
     -- need case-sens for type and unit declarations
     , T.caseSensitive = True
@@ -99,6 +99,7 @@ commaSep    = T.commaSep lexer
 commaSep1   = T.commaSep1 lexer
 braces      = T.braces lexer
 brackets    = T.brackets lexer
+angles      = T.angles lexer
 dot         = T.dot lexer
 
 -- | parses a upper case identifier

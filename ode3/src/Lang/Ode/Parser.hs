@@ -57,9 +57,14 @@ attribDef p = braces (permute p)
 -- attrib :: String -> Parser String
 attrib res p = reserved res *> colon *> p <* optional comma
 
--- | tuple, requires at least two values, comma separated
+-- | tuple, ensures at least two values, comma separated
 tuple :: Parser a -> Parser [a]
 tuple p = parens $ (:) <$> (p <* comma) <*> commaSep1 p
+
+-- | a named tuple (fixed record), >= 1 values allowed
+namedTuple :: Parser a -> Parser [(O.SrcId, a)]
+namedTuple p = braces $ commaSep1 ((,) <$> identifier <*> (colon *> p))
+
 
 -- | used to parse a single element by itself, a, or contained eithin a comma-sep list, (a,...)
 singOrList :: Parser a -> Parser [a]
@@ -267,8 +272,9 @@ compTerm = -- try unitExpr
             <|> unitCast (try (braces piecewiseTerm))
             <|> unitCast (try (O.Call <$> modLocalIdentifier <*> paramList compExpr))
             -- <|> try convertCastStmt
-            <|> unitCast (O.ValueRef <$> modLocalIdentifier)
+            <|> unitCast (O.ValueRef <$> modLocalIdentifier <*> optionMaybe (reservedOp "#" *> identifier))
             <|> O.Tuple <$> tuple compExpr
+            <|> O.Record <$> namedTuple compExpr
             <?> "valid term"
 
 -- | parse a term then check for an, optional, trailing unit cast
@@ -291,6 +297,7 @@ numSeqTerm :: Parser O.Expr
 numSeqTerm = createSeq <$> number <*> (comma *> number) <*> (symbol ".." *> number) <?> "numerical sequence"
   where
     createSeq a b c = O.NumSeq a b c
+
 
 -- | a basic numeric expression, using parsec expression builder
 compExpr  :: Parser O.Expr

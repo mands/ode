@@ -70,7 +70,7 @@ data Module a = LitMod  (ExprMap a) ModData
 type ExprList = [E.TopLet DesId]
 
 -- | ExprMap is the basic collection of expressions that make up a module
-type ExprMap a = OrdMap.OrdMap (E.Bind a) (E.TopLet a)
+type ExprMap a = OrdMap.OrdMap [a] (E.TopLet a)
 
 -- | FunArgs are the list of module parameters, and thier required signatures, for a functor application
 -- is initially populated with just the modname/args by the parser, then filled with sigMaps during type-checking

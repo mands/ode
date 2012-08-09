@@ -22,7 +22,7 @@
 
 
 module Lang.Core.AST (
-VarId(..), Bind(..), Type(..), mapTypeM, mapType,
+VarId(..), BindList, Type(..), mapTypeM, mapType,
 TopLet(..), Expr(..), Op(..), Literal(..),
 SrcId, DesId, Id, -- rexported from Common.AST
 ) where
@@ -46,6 +46,8 @@ import qualified Lang.Core.Units as U
 -- | DetailId - holds both a (parameterised) identifier and a string that represetns the (closest) original/source file, variable and line num
 --data DetailId a = DetailId a SrcId Int deriving (Show, Eq, Ord)
 
+-- Types ------------------------------------------------------------------------------------------------------------
+
 -- TODO - add newtypes, records
 -- | Types
 data Type :: * where
@@ -55,9 +57,10 @@ data Type :: * where
     TUnit :: Type
     TArr :: Type -> Type -> Type
     TTuple :: [Type] -> Type -- don't want to allow tuples of tuples
+    TRecord :: [(SrcId, Type)] -> Type -- don't want to allow tuples of tuples
     deriving (Show, Eq, Ord)
 
-
+-- Bindings ------------------------------------------------------------------------------------------------------------
 -- | Bindings, may be a tuple unpacking
 -- could eventually optimise this and make more type-safe but this works for now
 -- unused GADT/DataKinds approach
@@ -67,17 +70,23 @@ data TBind :: * -> BindType -> * where
     TBindS :: b -> TBind b SingBind
     --deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
 
-data Bind b = Bind [b]
-    deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
+-- bindings within local scope, we use a list for pattern matching on tuples
+--data Bind b = Bind [b]
+--    deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
 
+type BindList a = [a]
+
+-- a variable ref identifier, either local or module scope
 data VarId a =  LocalVar a
                 | ModVar ModName SrcId
                 deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
 
+
+-- Main Exprs ----------------------------------------------------------------------------------------------------------
 -- TODO - could we use the Bind type to unify both b and [b], or use GADTs and type-classes for extra type-safety
 -- |Main model elements - maybe move these into a Map indexed by Id
 data TopLet :: * -> * where
-    TopLet :: Bool -> (Bind b) -> (Expr b) -> TopLet b    -- binding, expr
+    TopLet :: Bool -> (BindList b) -> (Expr b) -> TopLet b    -- binding, expr
     deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
 
 -- | Main body of a \c-calc expression
@@ -96,7 +105,7 @@ data Expr b = Var (VarId b)             -- a reference to any let-defined expres
 
             | Abs b (Expr b)            -- abs arg, expr
 
-            | Let Bool (Bind b) (Expr b) (Expr b)  -- basic let within sub-expression
+            | Let Bool (BindList b) (Expr b) (Expr b)  -- basic let within sub-expression
                                         -- test to try multi-lets within an expressino - handles unpacking with context
                                          -- can be stateful bindings that are held between time-steps if 1st param=True
 
@@ -110,6 +119,9 @@ data Expr b = Var (VarId b)             -- a reference to any let-defined expres
 
             | Tuple [Expr b]            -- a collection of expressions
                                         -- do we allow nested tuples? if not, do we use GADTs to enforce unnested?
+
+            | Record [(b, Expr b)] -- a record, technically just a nmed tuple iwth ordering - need to unify with tuples
+
             | Ode (VarId b) (Expr b)   -- an Ode, uses a state variable defined in b, and runs the expression,
 
             | Rre (VarId b) (VarId b) Double -- an RRE, from var->var with given rate
