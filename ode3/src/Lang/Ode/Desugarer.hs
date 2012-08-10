@@ -184,7 +184,7 @@ desugarStmt (O.Component name ins outs body) = do
     desugarComp _ (singIn:[]) = desugarS' body outs
     desugarComp argName ins = C.Let False ins (C.Var (C.LocalVar argName)) <$> desugarS' body outs
 
-desugarStmt stmt = throw $ printf "Found an unhandled stmt that is top-level only - not nested \n%s" (show stmt)
+desugarStmt stmt = throw $ printf "(DS01) Found an unhandled stmt that is top-level only - not nested \n%s" (show stmt)
 
 
 --error (show s)
@@ -254,11 +254,18 @@ dsExpr (O.Time) = return $ C.Lit (C.Time)
 dsExpr (O.Unit) = return $ C.Lit (C.Unit)
 dsExpr (O.ValueRef (O.LocalId id) mRecId) = return $ C.Var (C.LocalVar id)
 dsExpr (O.ValueRef (O.ModId modId id) mRecId) = return $ C.Var (C.ModVar (ModName modId) id)
+
+-- TODO - convert from tuple to record here
 dsExpr (O.Tuple exprs) = C.Tuple <$> DT.mapM dsExpr exprs
 
-dsExpr (O.Record nExprs) = C.Record <$> DT.mapM dsRecord nExprs
+-- desugar expr and convert from [(SrcId, Expr)] to Map.Map
+-- need to also make sure all identifiers are unique
+dsExpr (O.Record nExprs) = uniqIds >> C.Record <$> foldM insElem Map.empty nExprs
   where
-    dsRecord (id, e) = (,) <$> pure id <*> dsExpr e
+    insElem recMap (id, e) = Map.insert <$> pure id <*> dsExpr e <*> pure recMap
+    (ids, _) = unzip nExprs
+    uniqIds = if listUniqs ids then return ()
+        else throw $ printf "(DS02) - Record has duplicate identifies - %s" (show ids)
 
 -- create nested set of ifs for piecewise expression
 dsExpr (O.Piecewise cases e) = dsIf cases

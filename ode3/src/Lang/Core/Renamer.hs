@@ -184,7 +184,7 @@ renExpr (E.If bExpr tExpr fExpr) = E.If <$> renExpr bExpr <*> renExpr tExpr <*> 
 -- need to map (or fold?) over the elements - map should be okay as a tuple should never create sub-bindings
 renExpr (E.Tuple exprs) = E.Tuple <$> DT.mapM renExpr exprs
 
-renExpr (E.Record nExprs) = E.Record <$> DT.mapM (\(id, e) -> (,) <$> pure id <*> renExpr e) nExprs
+renExpr (E.Record nExprs) = E.Record <$> DT.mapM renExpr nExprs
 
 renExpr (E.Ode (E.LocalVar v) expr) = E.Ode <$> (E.LocalVar <$> bLookup v) <*> renExpr expr
 

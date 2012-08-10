@@ -25,6 +25,8 @@ import Control.Monad.Error
 import Control.Applicative
 import Data.Functor
 import Data.List (nub)
+import qualified Data.Map as Map
+
 import qualified Data.Traversable as DT
 import qualified Data.Foldable as DF
 import qualified Data.Set as Set
@@ -83,13 +85,7 @@ validExpr curBinds (E.If eB eT eF) = (validExpr curBinds eB) *> (validExpr curBi
 validExpr curBinds (E.Tuple []) = throwError "(VL01) Empty tuple found"
 validExpr curBinds (E.Tuple (e:[])) = throwError "(VL02) Tuple with only one element found"
 validExpr curBinds (E.Tuple es) = DF.traverse_ (validExpr curBinds) es
-
--- need to make sure all identifiers are unique
-validExpr curBinds (E.Record nEs) =  uniqIds *> DF.traverse_ (validExpr curBinds) es
-  where
-    (ids, es) = unzip nEs
-    uniqIds = if listUniqs ids then pure ()
-        else throwError $ printf "(VL03) - Record has duplicate identifies - %s" (show ids)
+validExpr curBinds (E.Record nEs) = DF.traverse_ (validExpr curBinds) nEs
 
 validExpr _ e = pure ()
 

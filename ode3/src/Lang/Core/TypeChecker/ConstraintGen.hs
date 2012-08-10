@@ -148,7 +148,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         tEnv' <- case eT of
             -- true if tuple on both side of same size, if so unplack and treat as indivudual elems
             (E.TTuple ts) | (length bs == length ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv (zip bs ts)
-            (E.TRecord ts) | (length bs == length ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv (zip bs (snd . unzip $ ts))
+            -- (E.TRecord ts) | (length bs == length ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv (zip bs (snd . unzip $ ts))
             -- true for individual elems, handle same as tuple above
             t | length bs == 1 -> return $ Map.insert (head bs) eT tEnv
             -- basic handling, is common case that subsumes special cases above, basically treat both sides as tuples
@@ -305,18 +305,18 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         addConsEqual $ ConEqual eTT eFT
         return eFT
 
-    consExpr (E.Tuple es) = liftM consTuple $ DF.foldlM consElem [] es
+    consExpr (E.Tuple es) = liftM E.TTuple $ DT.mapM consExpr es
       where
-        -- constrain the exps
-        consElem eTs e = consExpr e >>= (\eT -> return $ eT:eTs)
-        -- create a TTuple type
-        consTuple eTs = E.TTuple $ reverse eTs
+--        -- constrain the exps
+--        consElem eTs e = consExpr e >>= (\eT -> return $ eT:eTs)
+--        -- create a TTuple type
+--        consTuple eTs = $ reverse eTs
 
-    consExpr (E.Record nEs) = liftM consRecord $ DF.foldlM consElem [] es
+    consExpr (E.Record nEs) = liftM E.TRecord $ DT.mapM consExpr nEs
       where
-        consElem eTs e = consExpr e >>= (\eT -> return $ eT:eTs)
-        consRecord eTs = E.TRecord $ zip ids (reverse eTs)
-        (ids, es) = unzip nEs
+--        consElem eTs e = consExpr e >>= (\eT -> return $ eT:eTs)
+--        consRecord eTs = $ zip ids (reverse eTs)
+--        (ids, es) = unzip nEs
 
 
     consExpr (E.Ode (E.LocalVar v) eD) = do
