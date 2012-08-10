@@ -1,11 +1,6 @@
+// create a new type
+module NewType1 {
+    // newtype  creation
+    type Test
 
-// record unpacking -- allowed as we simulate a tuple
-module Record3 {
-    val a = { elem1 : 1 + 1, elem2 : 2, elem3 : 3 }
-
-    component f x => () where {
-      val i, j, k = x
-    }
-    
-    val b = f(a)
 }

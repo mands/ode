@@ -59,6 +59,7 @@ data Type :: * where
     TArr :: Type -> Type -> Type
     TTuple :: [Type] -> Type -- don't want to allow tuples of tuples
     TRecord :: (Map.Map String Type) -> Type -- don't want to allow tuples of tuples
+    TNewtype :: String -> Type -> Type -- a wrapper for a newtype
     deriving (Show, Eq, Ord)
 
 -- Helper functions

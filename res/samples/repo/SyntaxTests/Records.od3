@@ -6,7 +6,7 @@
 // create a trivial record
 module Record1 {
     // record creation
-    val rec = { i : 1 + 1, j : 2, k : l }
+    val rec = { i : 1 + 1, j : 2, k : 3 }
     
     // record selection
     val x = rec#i + rec#j

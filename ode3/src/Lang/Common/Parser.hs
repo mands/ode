@@ -58,6 +58,8 @@ commonLangDef = emptyDef
                         -- units lang
                         , "quantity", "dim", "unit", "SI", "alias"
                         , "conversion", "factor", "convert"
+                        -- type lang
+                        , "type", "wrap", "unwrap"
                         -- ion...implemented externally
                         ]
     -- unary ops and relational ops?
@@ -104,7 +106,7 @@ dot         = T.dot lexer
 
 -- | parses a upper case identifier
 upperIdentifier :: Parser String
-upperIdentifier = (:) <$> upper <*> many alphaNum <?> "capitalised identifier"
+upperIdentifier = lexeme ((:) <$> upper <*> many alphaNum <?> "capitalised identifier")
 
 -- | parses a case-insensitive, alpha-only identifier
 alphaIdentifier :: Parser String
@@ -138,10 +140,10 @@ paramList = parens . commaSep1
 -- Shared Module Parsers -----------------------------------------------------------------------------------------------
 -- | lexeme parser for module identifier, return a list of module URI elements
 modIdentifier :: Parser ModURIElems
-modIdentifier = lexeme $ upperIdentifier `sepBy` (char '.')
+modIdentifier = upperIdentifier `sepBy` (char '.')
 
 singModId :: Parser ModName
-singModId = ModName <$> lexeme upperIdentifier
+singModId = ModName <$> upperIdentifier
 
 -- | commands to import modules into the system, either globally or within module
 importCmd :: Parser ModImport
@@ -155,7 +157,7 @@ importCmd = try importAll
         return $ ModImport modRoot Nothing
 
     modPathImportAll :: Parser ModURIElems
-    modPathImportAll = lexeme $ upperIdentifier `sepEndBy` (char '.') <* (char '*')
+    modPathImportAll = upperIdentifier `sepEndBy` (char '.') <* (char '*')
 
     importSing = do
         modURI <- (reserved "import" *> modPathImport)
@@ -166,7 +168,7 @@ importCmd = try importAll
 
     -- | lexeme parser for a module string in dot notation
     modPathImport :: Parser ModURIElems
-    modPathImport = lexeme $ upperIdentifier `sepBy1` (char '.')
+    modPathImport = upperIdentifier `sepBy1` (char '.')
 
     -- add modURI to set
     -- addImport modURI = modifyState (\s -> s { stImports = Set.insert modURI (stImports s) } )

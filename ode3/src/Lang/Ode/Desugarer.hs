@@ -29,6 +29,7 @@ import Control.Monad.Error as E
 import Control.Monad.Trans
 
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import qualified Data.Bimap as Bimap
 import qualified Data.Traversable as DT
 import qualified Data.Foldable as DF
@@ -59,39 +60,45 @@ instance Applicative TmpSupply where
     pure = return
     (<*>) = ap
 
-data DesugarModData = DesugarModData M.ExprList U.Quantities [U.UnitDef] [ModImport] [U.ConvDef]
+data DesugarModData = DesugarModData    { mdE :: M.ExprList, mdQ :: U.Quantities, mdU :: [U.UnitDef]
+                                        , mdI :: [ModImport], mdC :: [U.ConvDef], mdT :: (Set.Set String)}
 
 desugarOde :: [O.OdeStmt] -> MExcept DesugarModData
 desugarOde elems = do
-    modData <- evalSupplyVars $ DF.foldlM desugarOde' (DesugarModData [] [] [] [] []) elems
+    modData <- evalSupplyVars $ DF.foldlM desugarOde' (DesugarModData [] [] [] [] [] Set.empty) elems
     return $ updateModData modData
   where
-    updateModData (DesugarModData e q u i c) = DesugarModData (reverse e) (reverse q) (reverse u) (reverse i) (reverse c)
+    updateModData (DesugarModData e q u i c t) = DesugarModData (reverse e) (reverse q) (reverse u) (reverse i) (reverse c) t
 
     -- wrapper around the fold, matches on the top-level stmt type
     desugarOde' :: DesugarModData -> O.OdeStmt -> TmpSupply DesugarModData
-    desugarOde' (DesugarModData e q u i c) stmt@(O.ExprStmt exprStmt) = desugarTopStmt e exprStmt >>= (\e'' -> return $ DesugarModData e'' q u i c)
+    desugarOde' dsModData stmt@(O.ExprStmt exprStmt) = desugarTopStmt (mdE dsModData) exprStmt >>= (\e1 -> return $ dsModData { mdE = e1 })
 
     -- filter the imports into their own list
-    desugarOde' (DesugarModData e q u i c) stmt@(O.ImportStmt imp) = return $ (DesugarModData e q u (imp:i) c)
+    desugarOde' dsModData stmt@(O.ImportStmt imp) = return $ dsModData { mdI = imp:(mdI dsModData) }
 
     -- add quantity into the quantities assoc-list
-    desugarOde'(DesugarModData e q u i c) stmt@(O.QuantityStmt qName qDim) = return $ (DesugarModData e ((qName, qDim):q) u i c)
+    desugarOde' dsModData stmt@(O.QuantityStmt qName qDim) = return $ dsModData { mdQ = (qName, qDim):(mdQ dsModData) }
 
     -- create a list of Units, handle SI expansion here too
     -- can throw an error - maybe move this check into parser
     -- TODO -fix alias
     -- Base Unit Def
-    desugarOde' (DesugarModData e q u i c) stmt@(O.UnitStmt baseUnit (Just baseDimChar) mAlias isSI) = return $ (DesugarModData e q u' i c')
+    desugarOde' dsModData stmt@(O.UnitStmt baseUnit (Just baseDimChar) mAlias isSI) = return $ dsModData { mdU=u', mdC=c' }
       where
         unitDef = U.UnitDef baseUnit $ U.getBaseDim baseDimChar
-        (u', c') = if isSI then (siUnitDefs ++ unitDef:u, siConvDefs ++ c) else (unitDef:u, c)
+        (u', c') = if isSI then (siUnitDefs ++ unitDef:(mdU dsModData), siConvDefs ++ (mdC dsModData)) else (unitDef:(mdU dsModData), (mdC dsModData))
         (siUnitDefs, siConvDefs) = U.createSIs unitDef
 
     -- add the conv statments to the module metadata
-    desugarOde' (DesugarModData e q u i c) stmt@(O.ConvDefStmt fromUnit toUnit cExpr) = return $ (DesugarModData e q u i c')
+    desugarOde' dsModData stmt@(O.ConvDefStmt fromUnit toUnit cExpr) = return $ dsModData { mdC = c' }
       where
-        c' = U.ConvDef fromUnit toUnit cExpr:c
+        c' = U.ConvDef fromUnit toUnit cExpr:(mdC dsModData)
+
+    -- add the type statments to the module metadata
+    desugarOde' dsModData stmt@(O.TypeStmt typeId) = return $ dsModData { mdT = t' }
+      where
+        t' = Set.insert typeId (mdT dsModData)
 
     -- desugarOde' st stmt@(O.UnitStmt baseUnits _ _ _) = throw $ printf "Found an invalid unit def %s" (show baseUnits)
 
@@ -255,8 +262,8 @@ dsExpr (O.Unit) = return $ C.Lit (C.Unit)
 dsExpr (O.ValueRef (O.LocalId id) mRecId) = return $ C.Var (C.LocalVar id)
 dsExpr (O.ValueRef (O.ModId modId id) mRecId) = return $ C.Var (C.ModVar (ModName modId) id)
 
--- TODO - convert from tuple to record here
-dsExpr (O.Tuple exprs) = C.Tuple <$> DT.mapM dsExpr exprs
+-- we convert from ext. tuple to int. record here
+dsExpr (O.Tuple exprs) = C.Record . C.addLabels <$> DT.mapM dsExpr exprs
 
 -- desugar expr and convert from [(SrcId, Expr)] to Map.Map
 -- need to also make sure all identifiers are unique

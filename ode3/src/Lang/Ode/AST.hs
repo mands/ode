@@ -36,6 +36,7 @@ data OdeStmt =  ExprStmt Stmt
                 -- a unit defntions, in terms of a unit sequence for a particular dimension
                 | UnitStmt { uName :: BaseUnit, uDim :: Maybe Char, uAlias :: Maybe String, uSI :: Bool}
                 | ConvDefStmt { cFrom :: BaseUnit, cTo :: BaseUnit, cExpr :: CExpr }
+                | TypeStmt { tType :: SrcId }
                 deriving (Show, Eq, Ord)
 
 -- | elements allowed within a module, basically components or top-level constant values
@@ -74,6 +75,7 @@ data Expr   = BinExpr BinOp Expr Expr | UnExpr UnOp Expr | Number Double (Maybe 
                     | Time | Unit | Call ModLocalId [Expr] | ValueRef ModLocalId (Maybe SrcId) | Piecewise [(Expr, Expr)] Expr
                     | Tuple [Expr] | Record [(SrcId, Expr)]
                     | ConvCast Expr UnitList
+                    | WrapType SrcId Expr | UnwrapType SrcId Expr
                     deriving (Show, Eq, Ord)
 
 -- | basic binary expression operators

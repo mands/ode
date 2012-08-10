@@ -36,7 +36,7 @@ import qualified Lang.Ode.AST as O
 
 -- | parses a module element reference, e.g. A.x
 modElemIdentifier :: Parser O.ModLocalId
-modElemIdentifier  = lexeme (O.ModId <$> upperIdentifier <*> (char '.' *> identifier))
+modElemIdentifier  = O.ModId <$> upperIdentifier <*> (char '.' *> identifier)
 
 -- | parse either a local or module id e.g. A.x or x
 modLocalIdentifier :: Parser O.ModLocalId
@@ -83,6 +83,7 @@ odeStmt =   O.ImportStmt <$> importCmd
             <|> quantityDef     -- units support
             <|> unitDef
             <|> convDef
+            <|> typeDef
             <?> "import, expression, or unit defintion"
 
 -- | Parses a quantity "alias" for a given dimension
@@ -148,6 +149,10 @@ convExprOpTable =
     ]
   where
     binary name binop = Infix (reservedOp name *> pure (\a b -> CA.CExpr binop a b) <?> "binary operator") AssocLeft
+
+typeDef :: Parser O.OdeStmt
+typeDef = O.TypeStmt <$> (reserved "type" *> upperIdentifier)
+
 
 -- Ode Expression ------------------------------------------------------------------------------------------------------
 
@@ -275,7 +280,21 @@ compTerm = -- try unitExpr
             <|> unitCast (O.ValueRef <$> modLocalIdentifier <*> optionMaybe (reservedOp "#" *> identifier))
             <|> O.Tuple <$> tuple compExpr
             <|> O.Record <$> namedTuple compExpr
+            <|> wrapType
+            <|> unwrapType
             <?> "valid term"
+
+
+wrapType :: Parser O.Expr
+wrapType = reserved "wrap" *> attribDef (O.WrapType <$$> attrib "type" upperIdentifier
+                                                    <||> attrib "val" compExpr
+                                                    ) <?> "new type wrap"
+
+unwrapType :: Parser O.Expr
+unwrapType = reserved "unwrap" *> attribDef (O.WrapType <$$> attrib "type" upperIdentifier
+                                                        <||> attrib "val" compExpr
+                                                        ) <?> "new type unwrap"
+
 
 -- | parse a term then check for an, optional, trailing unit cast
 unitCast :: Parser O.Expr -> Parser O.Expr

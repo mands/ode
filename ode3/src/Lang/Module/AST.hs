@@ -82,12 +82,13 @@ data ModData = ModData  { modSig :: SigMap, modTMap :: TypeMap, modIdBimap :: Id
                         , modImportMap :: ImportMap, modLocalModEnv :: LocalModEnv
                         , modImportCmds :: [ModImport], modExprList :: ExprList
                         , modQuantities :: U.Quantities, modUnits :: [U.UnitDef], modConvs :: [U.ConvDef]
+                        , modTypes :: Set.Set String
                         } deriving (Show, Eq, Ord)
 
 mkModData = ModData     { modSig = Map.empty, modTMap = Map.empty, modIdBimap = Bimap.empty, modFreeId = Nothing
                         , modImportMap = Map.empty, modLocalModEnv = Map.empty
                         , modImportCmds = [], modExprList = []
-                        , modQuantities = [], modUnits = [], modConvs = []
+                        , modQuantities = [], modUnits = [], modConvs = [], modTypes = Set.empty
                         }
 
 -- Module ModData accessors
