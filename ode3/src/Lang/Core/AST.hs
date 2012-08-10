@@ -22,7 +22,8 @@
 
 
 module Lang.Core.AST (
-VarId(..), BindList, Type(..), mapTypeM, mapType,
+VarId(..), BindList,
+Type(..), mapTypeM, mapType, addLabels, dropLabels,
 TopLet(..), Expr(..), Op(..), Literal(..),
 SrcId, DesId, Id, -- rexported from Common.AST
 ) where
@@ -59,6 +60,28 @@ data Type :: * where
     TTuple :: [Type] -> Type -- don't want to allow tuples of tuples
     TRecord :: (Map.Map String Type) -> Type -- don't want to allow tuples of tuples
     deriving (Show, Eq, Ord)
+
+-- Helper functions
+-- is this some type of type-class? Functor? but it's non-parametric, makes it a problem, must do manually
+mapTypeM :: (Monad m) => (Type -> m Type) -> Type -> m Type
+mapTypeM f (TArr fromT toT) = liftM2 TArr (mapTypeM f fromT) (mapTypeM f toT)
+mapTypeM f (TTuple ts) = liftM TTuple $ mapM (mapTypeM f) ts
+mapTypeM f (TRecord nTs) = liftM TRecord $ DT.mapM (mapTypeM f) nTs
+mapTypeM f t = f t
+
+mapType :: (Type -> Type) -> Type -> Type
+mapType f (TArr t1 t2) = TArr (mapType f t1) (mapType f t2)
+mapType f (TTuple ts) = TTuple $ map (mapType f) ts
+mapType f (TRecord nTs) = TRecord $ Map.map (mapType f) nTs
+mapType f t = f t
+
+dropLabels :: Map.Map String a -> [a]
+dropLabels = Map.elems
+
+addLabels :: [a] -> Map.Map String a
+addLabels = fst . foldl addLabel (Map.empty, 1)
+  where
+    addLabel (nXs, i) x = let label = "elem"++(show i) in (Map.insert label x nXs, i+1)
 
 -- Bindings ------------------------------------------------------------------------------------------------------------
 -- | Bindings, may be a tuple unpacking
@@ -141,17 +164,6 @@ data Op = Add | Sub | Mul | Div | Mod
         | And | Or | Not
         deriving (Show, Eq, Ord)
 
--- Helper functions
--- is this some type of type-class? Functor? but it's non-parametric, makes it a problem, must do manually
-mapTypeM :: (Monad m) => (Type -> m Type) -> Type -> m Type
-mapTypeM f (TArr fromT toT) = liftM2 TArr (mapTypeM f fromT) (mapTypeM f toT)
-mapTypeM f (TTuple ts) = liftM TTuple $ mapM (mapTypeM f) ts
-mapTypeM f t = f t
-
-mapType :: (Type -> Type) -> Type -> Type
-mapType f (TArr t1 t2) = TArr (mapType f t1) (mapType f t2)
-mapType f (TTuple ts) = TTuple $ map (mapType f) ts
-mapType f t = f t
 
 
 

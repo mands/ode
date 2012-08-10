@@ -128,7 +128,10 @@ multiBindConstraint bs t tEnv = do
     -- create the new tvars for each binding
     bTs <- mapM (\_ -> newTypevar) bs
     -- add the constaint
-    addConsEqual $ ConEqual (E.TTuple bTs) t
+    -- TODO - cosntraints to a record, ensuring only internally-convered tuples may be unpacked inline
+    -- uncomment 2nd line below to switch behaviour and allow record-unpacking
+    addConsEqual $ ConEqual (E.TRecord $ E.addLabels bTs) t
+    -- addConsEqual $ ConEqual (E.TTuple $ bTs) t
     -- add the tvars to the type map
     DF.foldlM (\tEnv (b, bT) -> return $ Map.insert b bT tEnv) tEnv (zip bs bTs)
 
@@ -148,7 +151,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         tEnv' <- case eT of
             -- true if tuple on both side of same size, if so unplack and treat as indivudual elems
             (E.TTuple ts) | (length bs == length ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv (zip bs ts)
-            -- (E.TRecord ts) | (length bs == length ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv (zip bs (snd . unzip $ ts))
+            (E.TRecord ts) | (length bs == Map.size ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv (zip bs (Map.elems ts))
             -- true for individual elems, handle same as tuple above
             t | length bs == 1 -> return $ Map.insert (head bs) eT tEnv
             -- basic handling, is common case that subsumes special cases above, basically treat both sides as tuples
@@ -215,6 +218,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         tEnv' <- case e1T of
             -- true if tuple on both side of same size, if so unplack and treat as indivudual elems
             (E.TTuple ts) | (length bs == length ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv (zip bs ts)
+            (E.TRecord ts) | (length bs == Map.size ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv (zip bs (Map.elems ts))
             -- true for individual elems, handle same as tuple above
             t | length bs == 1 -> return $ Map.insert (head bs) e1T tEnv
             -- basic handling, is common case that subsumes special cases above, basically treat both sides as tuples
@@ -306,18 +310,8 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         return eFT
 
     consExpr (E.Tuple es) = liftM E.TTuple $ DT.mapM consExpr es
-      where
---        -- constrain the exps
---        consElem eTs e = consExpr e >>= (\eT -> return $ eT:eTs)
---        -- create a TTuple type
---        consTuple eTs = $ reverse eTs
 
     consExpr (E.Record nEs) = liftM E.TRecord $ DT.mapM consExpr nEs
-      where
---        consElem eTs e = consExpr e >>= (\eT -> return $ eT:eTs)
---        consRecord eTs = $ zip ids (reverse eTs)
---        (ids, es) = unzip nEs
-
 
     consExpr (E.Ode (E.LocalVar v) eD) = do
         -- constrain the ode state val to be a float

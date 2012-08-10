@@ -107,6 +107,9 @@ subAddType t1 t2 tEnv = case t1 of
 subTTerm t1 t2 t@(E.TTuple ts)
     | t == t1 = t2
     | otherwise = E.TTuple $ map (subTTerm t1 t2) ts
+subTTerm t1 t2 t@(E.TRecord ts)
+    | t == t1 = t2
+    | otherwise = E.TRecord $ Map.map (subTTerm t1 t2) ts
 subTTerm t1 t2 t@(E.TArr fromT toT)
     | t == t1 = t2
     | otherwise = E.TArr (subTTerm t1 t2 fromT) (subTTerm t1 t2 toT)
@@ -117,6 +120,9 @@ occursCheck :: E.Type -> E.Type -> Bool
 occursCheck t1 t@(E.TTuple ts)
     | t == t1 = True
     | otherwise = any (occursCheck t1) ts
+occursCheck t1 t@(E.TRecord ts)
+    | t == t1 = True
+    | otherwise = DF.any (occursCheck t1) ts
 occursCheck t1 t@(E.TArr fromT toT)
     | t == t1 = True
     | otherwise = (occursCheck t1 fromT) || (occursCheck t1 toT)
@@ -213,6 +219,19 @@ unifyEquals conEqualS = unifyEqualsLoop conEqualS
     -- Composite, Tuples
     processEqual (ConEqual (E.TTuple t1s) (E.TTuple t2s)) curS | (length t1s == length t2s) =
         DF.foldlM (\curS (t1, t2) -> processEqual (ConEqual t1 t2) curS) curS (zip t1s t2s)
+
+    -- Composite, Records
+    -- check ids are equal (not subtype/subset), then combine using ids and run equalty on each pair
+    processEqual (ConEqual (E.TRecord t1s) (E.TRecord t2s)) curS | (Map.keys t1s == Map.keys t2s) =
+        DF.foldlM (\curS (t1, t2) -> processEqual (ConEqual t1 t2) curS) curS (Map.intersectionWith (,) t1s t2s)
+
+    -- Composite, Tuple<->Record (should only be used internaly, as drops labels from record)
+    -- processEqual (ConEqual t1@(E.TTuple t1s) (E.TRecord t2s)) curS = processEqual (ConEqual t1 (E.TTuple $ E.dropLabels t2s)) curS
+    -- processEqual (ConEqual t1@(E.TRecord _) t2@(E.TTuple _)) curS = processEqual (ConEqual t2 t1) curS
+
+--    | (length t1s == Map.size t2s) =
+--        DF.foldlM (\curS (t1, t2) -> processEqual (ConEqual t1 t2) curS) curS (Map.intersectionWith (,) t1s t2s)
+
 
     -- UnitVars equality handling
 --    -- uV = uV

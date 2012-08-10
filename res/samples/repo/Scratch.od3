@@ -1,9 +1,11 @@
-module Record1 {
-    // val tuple = (1,2,3)
-    val rec = { i : 1 , j : 2, k : 3 }
 
-    // record selection
-    // val a = rec#i
-    // val a = (1 + 2, 3)
+// record unpacking -- allowed as we simulate a tuple
+module Record3 {
+    val a = { elem1 : 1 + 1, elem2 : 2, elem3 : 3 }
+
+    component f x => () where {
+      val i, j, k = x
+    }
+    
+    val b = f(a)
 }
-

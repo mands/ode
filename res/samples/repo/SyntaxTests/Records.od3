@@ -5,6 +5,32 @@
 
 // create a trivial record
 module Record1 {
-    val rec = < i : 1, j : 2, k : l >
+    // record creation
+    val rec = { i : 1 + 1, j : 2, k : l }
+    
+    // record selection
+    val x = rec#i + rec#j
+}
+
+// record unpacking --  error as not a tuple
+module Record2 {
+    val a = { i : 1 {unit : m} + 1 {unit : m} , j : 2, k : 3 }
+
+    component f x => () where {
+      val i, j, k = x
+    }
+    
+    val b = f(a)
+}
+
+// record unpacking -- allowed as we simulate a tuple
+module Record3 {
+    val a = { elem1 : 1 + 1, elem2 : 2, elem3 : 3 }
+
+    component f x => () where {
+      val i, j, k = x
+    }
+    
+    val b = f(a)
 }
 
