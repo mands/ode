@@ -191,7 +191,12 @@ renExpr (E.Ode (E.LocalVar v) expr) = E.Ode <$> (E.LocalVar <$> bLookup v) <*> r
 renExpr (E.Rre (E.LocalVar src) (E.LocalVar dest) rate) =
     E.Rre <$> (E.LocalVar <$> bLookup src) <*> (E.LocalVar <$> bLookup dest) <*> pure rate
 
-renExpr (E.ConvCast e u) = E.ConvCast <$> renExpr e <*> pure u
+renExpr (E.TypeCast e tC ) = E.TypeCast <$> renExpr e <*> tC'
+  where
+    tC' = case tC of
+        E.UnitCast u -> return $ E.UnitCast u
+        E.WrapType t -> return $ E.UnitCast u
+
 
 -- any unknown/unimplemented paths - not needed as match all
 renExpr a = errorDump [MkSB a] "(RN) Unknown Core expression"

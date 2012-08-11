@@ -352,5 +352,24 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         -- return the new "casted" type
         return $ E.TFloat u
 
+
+    -- TODO - need to look up within type env
+    consExpr (E.WrapType e t) = do
+        -- get type of e
+        eT <- consExpr e
+        -- wrap within a newtype
+        let eT' = E.TNewtype t eT
+        -- anything else??
+        return $ eT'
+
+    consExpr (E.UnwrapType e t) = do
+        -- get type of e
+        eT <- consExpr e
+        -- ensure eT is a wrapped type
+        tV <- newTypevar
+        addConsEqual $ ConEqual eT (E.TNewtype t tV)
+        -- anything else??
+        return $ tV
+
     -- other exprs - not needed as match all
     consExpr e = errorDump [MkSB e] "(TC02) Unknown expr"

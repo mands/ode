@@ -74,8 +74,8 @@ data Stmt = -- each independent component, is basically function abstraction
 data Expr   = BinExpr BinOp Expr Expr | UnExpr UnOp Expr | Number Double (Maybe UnitList) | NumSeq Double Double Double | Boolean Bool
                     | Time | Unit | Call ModLocalId [Expr] | ValueRef ModLocalId (Maybe SrcId) | Piecewise [(Expr, Expr)] Expr
                     | Tuple [Expr] | Record [(SrcId, Expr)]
-                    | ConvCast Expr UnitList
-                    | WrapType SrcId Expr | UnwrapType SrcId Expr
+                    -- type/unit commands
+                    | ConvCast Expr UnitList | WrapType Expr SrcId | UnwrapType Expr SrcId
                     deriving (Show, Eq, Ord)
 
 -- | basic binary expression operators

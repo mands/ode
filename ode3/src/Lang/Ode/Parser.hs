@@ -286,13 +286,13 @@ compTerm = -- try unitExpr
 
 
 wrapType :: Parser O.Expr
-wrapType = reserved "wrap" *> attribDef (O.WrapType <$$> attrib "type" upperIdentifier
-                                                    <||> attrib "val" compExpr
+wrapType = reserved "wrap" *> attribDef (O.WrapType <$$> attrib "val" compExpr
+                                                    <||> attrib "type" upperIdentifier
                                                     ) <?> "new type wrap"
 
 unwrapType :: Parser O.Expr
-unwrapType = reserved "unwrap" *> attribDef (O.WrapType <$$> attrib "type" upperIdentifier
-                                                        <||> attrib "val" compExpr
+unwrapType = reserved "unwrap" *> attribDef (O.WrapType <$$> attrib "val" compExpr
+                                                        <||> attrib "type" upperIdentifier
                                                         ) <?> "new type unwrap"
 
 

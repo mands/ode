@@ -24,7 +24,7 @@
 module Lang.Core.AST (
 VarId(..), BindList,
 Type(..), mapTypeM, mapType, addLabels, dropLabels,
-TopLet(..), Expr(..), Op(..), Literal(..),
+TopLet(..), Expr(..), Op(..), Literal(..), TypeCast(..),
 SrcId, DesId, Id, -- rexported from Common.AST
 ) where
 
@@ -59,7 +59,7 @@ data Type :: * where
     TArr :: Type -> Type -> Type
     TTuple :: [Type] -> Type -- don't want to allow tuples of tuples
     TRecord :: (Map.Map String Type) -> Type -- don't want to allow tuples of tuples
-    TNewtype :: String -> Type -> Type -- a wrapper for a newtype
+    TNewtype :: VarId Id -> Type -> Type -- a wrapper for a newtype
     deriving (Show, Eq, Ord)
 
 -- Helper functions
@@ -88,11 +88,11 @@ addLabels = fst . foldl addLabel (Map.empty, 1)
 -- | Bindings, may be a tuple unpacking
 -- could eventually optimise this and make more type-safe but this works for now
 -- unused GADT/DataKinds approach
-data BindType = MultiBind | SingBind
-data TBind :: * -> BindType -> * where
-    TBindM :: [b] -> TBind b MultiBind
-    TBindS :: b -> TBind b SingBind
-    --deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
+--data BindType = MultiBind | SingBind
+--data TBind :: * -> BindType -> * where
+--    TBindM :: [b] -> TBind b MultiBind
+--    TBindS :: b -> TBind b SingBind
+--    --deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
 
 -- bindings within local scope, we use a list for pattern matching on tuples
 --data Bind b = Bind [b]
@@ -111,6 +111,7 @@ data VarId a =  LocalVar a
 -- |Main model elements - maybe move these into a Map indexed by Id
 data TopLet :: * -> * where
     TopLet :: Bool -> (BindList b) -> (Expr b) -> TopLet b    -- binding, expr
+    TopType :: b -> TopLet b    -- binding, expr
     deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
 
 -- | Main body of a \c-calc expression
@@ -150,10 +151,17 @@ data Expr b = Var (VarId b)             -- a reference to any let-defined expres
 
             | Rre (VarId b) (VarId b) Double -- an RRE, from var->var with given rate
 
-            | ConvCast (Expr b) U.Unit -- a safe cast to the unit for the expr
-
+            | TypeCast (Expr b) (TypeCast b) -- type casts to expressions
             -- now add the simulation stuff!
             deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
+
+
+-- type casts for expressions
+data TypeCast b = UnitCast U.Unit -- a safe cast to the unit for the expr
+                | WrapType (VarId b) -- newtype wrapping/unwrapping exprs
+                | UnwrapType (VarId b)
+                deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
+
 
 -- | Atomic, core values, will eventually become atomic args during ANF conversion
 data Literal =  Num Double U.Unit | NumSeq [Double] U.Unit | Boolean Bool | Time | Unit
