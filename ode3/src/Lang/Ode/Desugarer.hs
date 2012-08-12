@@ -36,7 +36,7 @@ import qualified Data.Foldable as DF
 import Data.List (nub)
 import Text.Printf(printf)
 
-import Utils.Utils
+import Utils.CommonImports
 import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap
 import Lang.Common.AST
@@ -275,8 +275,8 @@ dsExpr (O.WrapType e (O.ModId modId id)) = C.TypeCast <$> (dsExpr e) <*> pure (C
 dsExpr (O.UnwrapType e (O.LocalId id)) = C.TypeCast <$> (dsExpr e) <*> pure (C.UnwrapType (C.LocalVar id))
 dsExpr (O.UnwrapType e (O.ModId modId id)) = C.TypeCast <$> (dsExpr e) <*> pure (C.UnwrapType (C.ModVar (ModName modId) id))
 
--- any unknown/unimplemented paths - not needed as match all
-dsExpr a = errorDump [MkSB a] "(DS) Unknown ODE3 expression"
+-- any unknown/unimplemented paths - not needed as overlapping
+dsExpr a = errorDump [MkSB a] "(DS) Unknown ODE3 expression" assert
 
 
 -- | simple patttern matching convertor, boring but gotta be done...

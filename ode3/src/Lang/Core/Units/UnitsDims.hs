@@ -43,7 +43,7 @@ import qualified Data.Bimap as Bimap
 import qualified Data.Map as Map
 import Data.Monoid
 
-import Utils.Utils
+import Utils.CommonImports
 
 -- Dimensions ----------------------------------------------------------------------------------------------------------
 
@@ -75,7 +75,7 @@ dimVecToDim (DimVec 0 0 0 1 0 0 0) = DimI
 dimVecToDim (DimVec 0 0 0 0 1 0 0) = DimO
 dimVecToDim (DimVec 0 0 0 0 0 1 0) = DimJ
 dimVecToDim (DimVec 0 0 0 0 0 0 1) = DimN
-dimVecToDim dim = errorDump [MkSB dim] "Passed an invalid dimVec to get a baseDim"
+dimVecToDim dim = errorDump [MkSB dim] "Passed an invalid dimVec to get a baseDim" assert
 
 
 getBaseDim :: Char -> BaseDim
@@ -86,7 +86,7 @@ getBaseDim 'I' = DimI
 getBaseDim 'O' = DimO
 getBaseDim 'J' = DimJ
 getBaseDim 'N' = DimN
-getBaseDim c = errorDump [MkSB c] "Parsed an invalid dimension"
+getBaseDim c = errorDump [MkSB c] "Parsed an invalid dimension" assert
 
 -- Dim helper funcs
 addDim (DimVec l m t i o j n) (DimVec l' m' t' i' o' j' n') =

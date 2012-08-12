@@ -97,24 +97,24 @@ typeCheck gModEnv fileData uState mod@(M.FunctorMod args exprMap modData) = do
           where
             updateModArgs modMap = Just (Map.insert v t modMap)
 
-
--- takes the funcModule, an closed enviroment of the module args,
---typeCheckApp :: M.Module E.Id -> M.FileModEnv ->  MExcept (M.Module E.Id, M.FileModEnv)
--- doesn't exists - check VCS history
-
 -- | Update the module data with the public module signature and internal typemap
 -- we create the mod signature by mapping over the idbimap data and looking up each value from the internal typemap
 updateModData :: M.ModData -> TypeEnv -> M.ModData
-updateModData modData tEnv = modData { M.modTMap = tEnv, M.modSig = modSig }
+updateModData modData tEnv = modData { M.modTMap = tEnv, M.modSig = sigMap }
   where
-    idMap = Bimap.toMap (M.modIdBimap modData)
-    modSig = Map.map (\id -> tEnv Map.! id) idMap
+    -- build the signature map, taking exported bindings into account
+    sigMap = if Set.size (M.modExportSet modData) == 0
+        then Map.map (\id -> tEnv Map.! id) $ Bimap.toMap (M.modIdBimap modData) -- export everything
+        else Set.foldr updateSig Map.empty (M.modExportSet modData) -- fold over the export set and build the sigMap
 
+    updateSig b sigMap' = Map.insert b t sigMap'
+      where
+        t = tEnv Map.! ((M.modIdBimap modData) Bimap.! b)
 
--- | use the TVar map to undate a type enviroment and substitute all TVars
+-- | use the TVar map to undate a type enviroment (either TypeEnv or ModTypeEnv) and substitute all TVars
 -- Bool argument determinst wheter the checking should allow polymophism and not fully-unify
 subTVars :: Show b => Map.Map b E.Type -> TypeVarEnv -> UnitVarEnv -> Bool -> MExcept (Map.Map b E.Type)
-subTVars tEnv tVEnv uVEnv allowPoly = DT.mapM (E.mapTypeM updateType) tEnv
+subTVars tEnv tVEnv uVEnv allowPoly = trace' [MkSB tEnv, MkSB tVEnv, MkSB uVEnv] "subTVars" DT.mapM (E.mapTypeM updateType) tEnv
   where
     -- try to substitute a tvar if it exists - this will behave differently depending on closed/open modules
     updateType :: E.Type -> MExcept E.Type

@@ -32,7 +32,7 @@ import qualified System.IO as SIO
 import Data.Bimap
 import Data.Char (toUpper)
 import Data.List (nub)
-
+import GHC.Base(assert)
 
 -- | my exception/error monad, could just import from Control.Monad.Error but anyway...
 type MExcept = Either String
@@ -88,9 +88,8 @@ trace' vars msg res = trace outStr res
     outStr = "TRACE - " ++ msg ++ "\n" ++ showVars
 
 -- | Terminates the program while printing the message and list of vars
-errorDump :: [SB] -> String -> a
-errorDump vars msg = trace' vars msg (error "Internal Compiler Error")
-
+-- errorDump :: [SB] -> String -> (Bool -> a -> a) -> a
+errorDump vars msg f = (trace' vars ("Internal Compiler Error\n" ++ msg) (f False)) undefined
 
 -- Bimap Ord Instance
 instance (Ord a, Ord b) => Ord (Bimap a b) where

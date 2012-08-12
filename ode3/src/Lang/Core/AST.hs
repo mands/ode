@@ -66,12 +66,14 @@ data Type :: * where
 -- is this some type of type-class? Functor? but it's non-parametric, makes it a problem, must do manually
 mapTypeM :: (Monad m) => (Type -> m Type) -> Type -> m Type
 mapTypeM f (TArr fromT toT) = liftM2 TArr (mapTypeM f fromT) (mapTypeM f toT)
+mapTypeM f (TNewtype tName t) = liftM (TNewtype tName) (mapTypeM f t)
 mapTypeM f (TTuple ts) = liftM TTuple $ mapM (mapTypeM f) ts
 mapTypeM f (TRecord nTs) = liftM TRecord $ DT.mapM (mapTypeM f) nTs
 mapTypeM f t = f t
 
 mapType :: (Type -> Type) -> Type -> Type
 mapType f (TArr t1 t2) = TArr (mapType f t1) (mapType f t2)
+mapType f (TNewtype tName t) = TNewtype tName (mapType f t)
 mapType f (TTuple ts) = TTuple $ map (mapType f) ts
 mapType f (TRecord nTs) = TRecord $ Map.map (mapType f) nTs
 mapType f t = f t
@@ -85,19 +87,11 @@ addLabels = fst . foldl addLabel (Map.empty, 1)
     addLabel (nXs, i) x = let label = "elem"++(show i) in (Map.insert label x nXs, i+1)
 
 -- Bindings ------------------------------------------------------------------------------------------------------------
--- | Bindings, may be a tuple unpacking
+
+-- | Bindings within local scope, we use a list for pattern matching on tuples
 -- could eventually optimise this and make more type-safe but this works for now
--- unused GADT/DataKinds approach
---data BindType = MultiBind | SingBind
---data TBind :: * -> BindType -> * where
---    TBindM :: [b] -> TBind b MultiBind
---    TBindS :: b -> TBind b SingBind
---    --deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
-
--- bindings within local scope, we use a list for pattern matching on tuples
---data Bind b = Bind [b]
+--data Bind b = MultiBind [b] | SingleBind b
 --    deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
-
 type BindList a = [a]
 
 -- a variable ref identifier, either local or module scope
@@ -173,9 +167,6 @@ data Op = Add | Sub | Mul | Div | Mod
         | And | Or | Not
         deriving (Show, Eq, Ord)
 
-
-
-
 -- TODO - where does this func go - is run after unitconversion, during ANF conversion?
 -- this prob needs supply monad to create a tmp var
 -- converts an expression from the restrictred CExpr format into the general Core Expression for code-gen
@@ -192,26 +183,17 @@ convertCoreExpr (U.CNum n) = Lit $ Num n U.NoUnit
 convertCoreExpr U.CFromId = Var $ LocalVar 1
 
 
--- |Standard functor defintion, could be derived automatically but still...
--- only applicable for the binding parameter, so maybe useless
--- could be used to determine bindings/fv, etc.
---instance Functor Bind where
---    fmap f (AbsBind b) = AbsBind $ f b
---    fmap f (LetBind b) = LetBind $ map f b
---
---instance Functor Top where
---    fmap f (TopLet b expr) = TopLet (fmap f b) (fmap f expr)
-    --fmap f (TopAbs b arg expr) = TopAbs (fmap f b) (f arg) (fmap f expr)
 
---instance Functor Expr where
---    fmap f (Var (LocalVar a)) = Var (LocalVar (f a))
---    fmap f (Var (ModVar m a)) = Var (ModVar m a)
---    fmap f (Lit a) = Lit a
---    fmap f (App (LocalVar a) e) = App (LocalVar (f a)) (fmap f e)
---    fmap f (App (ModVar m a) e) = App (ModVar m a) (fmap f e)
---
---    fmap f (Let b e1 e2) = Let (fmap f b) (fmap f e1) (fmap f e2)
---    fmap f (Op op e) = Op op (fmap f e)
---    fmap f (If e1 e2 e3) = If (fmap f e1) (fmap f e2) (fmap f e3)
---    fmap f (Tuple es) = Tuple (List.map (\e -> fmap f e) es)
---
+
+-- TraveExpr applies a function f over all sub-expressions within the expression
+-- is it a functor?
+-- travExpr :: (E.Expr E.SrcId -> b) -> E.Expr E.SrcId -> b
+travExpr f e@(Var v) = f e
+travExpr f e@(Lit l) = f e
+travExpr f (App v e1) = f (App v (travExpr f e1))
+travExpr f (Let s b e1 e2) = f (Let s b (travExpr f e1) (travExpr f e2))
+travExpr f (Op op e) = f (Op op (travExpr f e))
+travExpr f (If eB eT eF) = f (If (travExpr f eB) (travExpr f eT) (travExpr f eF))
+travExpr f (Tuple es) = f $ Tuple (map (travExpr f) es)
+travExpr f e = f e
+

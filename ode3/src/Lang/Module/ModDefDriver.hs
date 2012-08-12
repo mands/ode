@@ -46,7 +46,7 @@ import Text.Printf (printf)
 import System.Log.Logger
 
 -- Ode
-import Utils.Utils
+import Utils.CommonImports
 import qualified Utils.OrdMap as OrdMap
 import qualified Utils.OrdSet as OrdSet
 import qualified SysState as St
@@ -195,7 +195,8 @@ evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
             -- now insert the litmod into local modEnv using the arg name
             return (importMap, Map.insert argName mod modEnv)
 
-        interpretArgs _ (name, mod) = errorDump [MkSB name, MkSB mod] "Incorrect mod type found as functor arg" -- bomb out, should never happen
+        -- bomb out, should never happen
+        interpretArgs _ (name, mod) = errorDump [MkSB name, MkSB mod] "Incorrect mod type found as functor arg" assert
 
         -- an assocList of the (modName/argName, mod) for particular functor
         eModArgs = if (OrdMap.size funArgs == length modArgs)

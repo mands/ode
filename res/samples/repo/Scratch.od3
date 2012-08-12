@@ -1,9 +1,10 @@
-// create a new type and wrap/unwrap diff types
-module NewType3c {
-    // newtype  creation
-    type Test
-    val a = wrap { type : Test, val : 3 }
-    // this will fail
-    val b = unwrap { type : Test, val : a } or True
-}
+// export a component
+module Export2 {
+    export (f)
 
+    component f a => b where {
+        val b = a + 1
+    }
+    
+    val b = True
+}

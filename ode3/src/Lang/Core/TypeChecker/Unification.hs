@@ -182,22 +182,18 @@ unify uState tCons = snd <$> S.runStateT unifyM (Map.empty, Map.empty)
         tCons'' <- subStack (tCons' { conSameDimS = conSameDimS' })
         return tCons''
 
+
 -- | Unification (Full) and Checking (Some) for Equal rule
 unifyEquals :: ConEqualS ->  UnifyM ConEqualS
 unifyEquals conEqualS = unifyEqualsLoop conEqualS
   where
-
     unifyEqualsLoop curS = case Set.minView curS of
         Just (con, curS') -> processEqual con curS' >>= unifyEqualsLoop    -- get a constraint from the set if poss
         Nothing -> return curS                                           -- we're done, no constraints left in the set
 
     processEqual :: ConEqual -> ConEqualS -> UnifyM ConEqualS
-    -- two equal types - can by typevars, base units, unitVars, composites, anything that is fully equal
+    -- two equal types - can be typevars, base units, unitVars, composites, anything that is fully equal
     processEqual (ConEqual t1 t2) curS | (t1 == t2) = return curS
-
---    -- two equal ids - remove from set and ignore
---    processEqual (ConEqual (E.TVar xId) (E.TVar yId)) curS
---        | (xId == yId) = return curS
 
     -- TypeVars
     -- tV = t, replace all x with y
@@ -240,10 +236,6 @@ unifyEquals conEqualS = unifyEqualsLoop conEqualS
     -- processEqual (ConEqual t1@(E.TTuple t1s) (E.TRecord t2s)) curS = processEqual (ConEqual t1 (E.TTuple $ E.dropLabels t2s)) curS
     -- processEqual (ConEqual t1@(E.TRecord _) t2@(E.TTuple _)) curS = processEqual (ConEqual t2 t1) curS
 
---    | (length t1s == Map.size t2s) =
---        DF.foldlM (\curS (t1, t2) -> processEqual (ConEqual t1 t2) curS) curS (Map.intersectionWith (,) t1s t2s)
-
-
     -- UnitVars equality handling
 --    -- uV = uV
 --    processEqual (ConEqual (E.TFloat (U.UnitVar uV1)) (E.TFloat u2@(U.UnitVar uV2))) st | (uV1 == uV2) = return st
@@ -262,12 +254,9 @@ unifyEquals conEqualS = unifyEqualsLoop conEqualS
     -- u = uV
     processEqual (ConEqual t1@(E.TFloat _) t2@(E.TFloat (U.UnitVar _))) curS = processEqual (ConEqual t2 t1) curS
 
-    -- two equal types - can by typevars, base units, unitVars, composites, anything that is fully equal
-    -- TODO - enable at top of cases
-    -- processEqual (ConEqual t1 t2) curS | (t1 == t2) = return curS
-
     -- can't unify types
     processEqual (ConEqual t1 t2) curS = trace' [MkSB t1, MkSB t2, MkSB curS] "Type Error" $ throwError (printf "(TC01) - cannot unify %s and %s" (show t1) (show t2))
+
 
 -- | Unification (Some) and Checking (Full) for Sum rule
 unifySum :: ConSumS ->  UnifyM ConSumS
@@ -334,7 +323,6 @@ unifySum conSumS = unifySumLoop conSumS
                 let newS' = subSumS u1 u2 newS
                 return (curS', newS')
         | otherwise = return (curS, newS)
-
 
 
 -- | Unification (Minimal) and Checking (Full) for SameDim rule

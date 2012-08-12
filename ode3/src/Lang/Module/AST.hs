@@ -43,7 +43,7 @@ import Lang.Common.AST
 import qualified Lang.Core.AST as E
 import qualified Lang.Core.Units as U
 import qualified Utils.OrdMap as OrdMap
-import Utils.Utils
+import Utils.CommonImports
 import qualified System.FilePath as FP
 
 
@@ -76,17 +76,25 @@ type ExprMap a = OrdMap.OrdMap [a] (E.TopLet a)
 -- is initially populated with just the modname/args by the parser, then filled with sigMaps during type-checking
 type FunArgs = OrdMap.OrdMap ModName SigMap
 
+-- | bidirectional map between internal ids and source ids for all visible/top-level defined vars
+type IdBimap = Bimap.Bimap SrcId Id
+-- | SigMap is the external typemap for the module - can be created from the typemap, top-level expressions and idbimap
+type SigMap = Map.Map SrcId E.Type
+-- | Typemap is the internal typemap for all vars (top and expr) within a module
+type TypeMap = Map.Map Id E.Type -- maybe switch to IntMap?
+
+
 -- TODO - add explicity export lists
 -- | Metadata regarding a module
 data ModData = ModData  { modSig :: SigMap, modTMap :: TypeMap, modIdBimap :: IdBimap, modFreeId :: Maybe Id
                         , modImportMap :: ImportMap, modLocalModEnv :: LocalModEnv
-                        , modImportCmds :: [ModImport], modExprList :: ExprList
+                        , modImportCmds :: [ModImport], modExprList :: ExprList, modExportSet :: Set.Set SrcId
                         , modQuantities :: U.Quantities, modUnits :: [U.UnitDef], modConvs :: [U.ConvDef]
                         } deriving (Show, Eq, Ord)
 
 mkModData = ModData     { modSig = Map.empty, modTMap = Map.empty, modIdBimap = Bimap.empty, modFreeId = Nothing
                         , modImportMap = Map.empty, modLocalModEnv = Map.empty
-                        , modImportCmds = [], modExprList = []
+                        , modImportCmds = [], modExprList = [], modExportSet = Set.empty
                         , modQuantities = [], modUnits = [], modConvs = []
                         }
 
@@ -104,7 +112,6 @@ putModData mod _ = mod
 modifyModData :: Module a -> (ModData -> ModData) -> Module a
 modifyModData m f = maybe m (\md -> putModData m (f md)) $ getModData m
 
-
 getModExprs :: Module a -> Maybe (ExprMap a)
 getModExprs (LitMod exprMap _) = Just exprMap
 getModExprs (FunctorMod _ exprMap _) = Just exprMap
@@ -117,14 +124,6 @@ putModExprs mod _ = mod
 
 modifyModExprs :: Module a -> (ExprMap a -> ExprMap a) -> Module a
 modifyModExprs m f = maybe m (\md -> putModExprs m (f md)) $ getModExprs m
-
-
--- | bidirectional map between internal ids and source ids for all visible/top-level defined vars
-type IdBimap = Bimap.Bimap SrcId Id
--- | SigMap is the external typemap for the module - can be created from the typemap, top-level expressions and idbimap
-type SigMap = Map.Map SrcId E.Type
--- | Typemap is the internal typemap for all vars (top and expr) within a module
-type TypeMap = Map.Map Id E.Type -- maybe switch to IntMap?
 
 
 getIdType :: SrcId -> Module Id -> MExcept E.Type
@@ -176,7 +175,8 @@ getRealModuleFile modName fileData gModEnv = do
 getRealModule' ::  (ModFullName, Module Id) -> Maybe FileData -> GlobalModEnv ->  MExcept (ModFullName, Module Id)
 getRealModule' modRes mFileData gModEnv =
     case modRes of
-        (ModLocalName localName, VarMod varModName) -> errorDump [MkSB varModName, MkSB localName] "Found a varMod with only a local module name - can't resolve"
+        (ModLocalName localName, VarMod varModName) ->
+            errorDump [MkSB varModName, MkSB localName] "Found a varMod with only a local module name - can't resolve" assert
         (modFullName, VarMod varModName) -> processVarRef modFullName varModName
         otherwise -> return modRes
   where
@@ -185,7 +185,7 @@ getRealModule' modRes mFileData gModEnv =
         fileData <- maybe (getFileData modRoot gModEnv) pure mFileData
         getRealModuleFile varModName fileData gModEnv
     processVarRef (ModLocalName modName) varModName =
-        errorDump [MkSB modName, MkSB varModName] "Got a ref to a file-module from within a mod-module"
+        errorDump [MkSB modName, MkSB varModName] "Got a ref to a file-module from within a mod-module" assert
 
 -- | Top level function that resolves a module lookup at the module and global level,
 -- (NOTE - this does not look at the file-level, instead assume that all file-level refs,

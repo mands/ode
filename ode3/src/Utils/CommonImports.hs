@@ -26,7 +26,7 @@ module Utils.CommonImports (
     module Utils.Utils,
 
     -- indiv functions
-    printf,
+    printf, assert
 ) where
 
 -- higher-level control
@@ -52,6 +52,7 @@ import Data.Maybe (isJust, fromJust)
 
 -- other
 import Text.Printf (printf)
+import GHC.Base (assert)
 import System.Log.Logger
 import qualified System.Directory as Dir
 import qualified System.FilePath as FP

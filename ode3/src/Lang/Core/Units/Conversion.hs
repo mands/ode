@@ -14,7 +14,7 @@
 
 module Lang.Core.Units.Conversion (
 -- datatypes
-ConvDef(..), ConvGraph(..), ConvEnv(..), CExpr(..), COp(..),
+ConvDef(..), ConvGraph, ConvEnv, CExpr(..), COp(..),
 
 -- main functions
 addConvsToGraph, convertCastUnit,
@@ -185,7 +185,7 @@ convertCastUnit fromUnitC@(UnitC fromUnit) toUnitC@(UnitC toUnit) uEnv cEnv = do
         -- now convert the remaining, one-by-one from the lhs
         (rhsUs'', cExpr') <- DF.foldlM convertSingleUnit (rhsUs', cExpr) $ Map.toAscList lhsUs'
         -- check we converted all vals
-        _ <- if (Map.null rhsUs'') then return () else errorDump [MkSB lhsUs, MkSB rhsUs, MkSB rhsUs''] "(UC) Final rhs map not empty after sucessful conversion"
+        _ <- if (Map.null rhsUs'') then return () else errorDump [MkSB lhsUs, MkSB rhsUs, MkSB rhsUs''] "(UC) Final rhs map not empty after sucessful conversion" assert
 
         return cExpr'
       where
@@ -211,7 +211,7 @@ convertCastUnit fromUnitC@(UnitC fromUnit) toUnitC@(UnitC toUnit) uEnv cEnv = do
                 -- get a base unit from rhs
                 let ((rhsUnit, rIdx), rhsUs') = case Map.minViewWithKey rhsUs of
                                                     Just x  -> trace' [MkSB x] "rhs selected unit" $ x
-                                                    Nothing -> errorDump [MkSB rhsUs] "(UC) Cannot find anymore rhs units"
+                                                    Nothing -> errorDump [MkSB rhsUs] "(UC) Cannot find anymore rhs units" assert
 
                 cExpr' <- convertBaseUnit lhsUnit rhsUnit (getConvGraph dim cEnv)
                 _ <- trace' [MkSB lhsUnit, MkSB rhsUnit, MkSB cExpr'] "dervied conversion expr" $ return ()

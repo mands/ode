@@ -96,17 +96,21 @@ moduleDef modRoot = TopModDef <$> pure modRoot <*> (reserved "module" *> singMod
                 <?> "module definition"
 
     modData = do
-        DesugarModData exprList q u importCmds c <- braces modBody
-        return $ mkModData { modImportCmds = importCmds, modExprList = exprList, modQuantities = q, modUnits = u, modConvs = c}
+        (exports, DesugarModData exprList q u importCmds c) <- braces modBody
+        return $ mkModData  { modImportCmds = importCmds, modExprList = exprList, modQuantities = q
+                            , modUnits = u, modConvs = c, modExportSet = Set.fromList exports}
 
     funcArgs args = OrdMap.fromList $ map (\arg -> (arg, Map.empty)) args
 
     -- | parses a Ode list of statements within module body, and automatically desugars into Core-lang
-    modBody :: Parser DesugarModData
+    modBody :: Parser ([String], DesugarModData)
     modBody = do
         -- parse the module imports here
         -- (imports, modElems) <- braces ((,) <$> many importCmd <*> )
+
+        exports <- option [] (reserved "export" *> paramList identifier)
+
         odeStmts <- many1 OP.odeStmt
         case desugarOde odeStmts of
             Left err -> unexpected $ printf "Unexpected error whilst desugaring Ode into Core, \n%s" (show err)
-            Right desugarModData -> return desugarModData
+            Right desugarModData -> return (exports, desugarModData)

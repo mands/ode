@@ -37,37 +37,36 @@ import qualified Lang.Core.AST as E
 import qualified Lang.Module.AST as M
 
 validate :: M.Module E.DesId -> MExcept (M.Module E.DesId)
-validate mod@(M.LitMod _ modData) = M.LitMod    <$> createTopExprs (M.modExprList modData)
-                                                <*> pure (modData { M.modExprList = [] })
+validate mod@(M.LitMod _ modData) = M.LitMod    <$> createTopExprs (M.modExprList modData) (M.modExportSet modData)
+                                                <*> validateModData modData
 
 validate mod@(M.FunctorMod funArgs _ modData) = M.FunctorMod    <$> funArgs'
-                                                                <*> createTopExprs (M.modExprList modData)
-                                                                <*> pure (modData { M.modExprList = [] })
+                                                                <*> createTopExprs (M.modExprList modData) (M.modExportSet modData)
+                                                                <*> validateModData modData
   where
     funArgs' =  if listUniqs funArgKeys then pure funArgs
                 else throwError ("(VL05) - Functor has arguments with the same name")
     funArgKeys = OrdMap.keys funArgs
 
-validate mod = return mod
+validateModData modData = return $ modData { M.modExprList = [] }
 
 -- create the expression map and check for duplicated top-level bindings
-createTopExprs :: M.ExprList -> MExcept (M.ExprMap E.DesId)
-createTopExprs exprList = snd <$> DF.foldlM t (Set.empty, OrdMap.empty) exprList
+createTopExprs :: M.ExprList -> Set.Set E.DesId -> MExcept (M.ExprMap E.DesId)
+createTopExprs exprList exports = do
+
+    (exprSet, exprMap) <- DF.foldlM t (Set.empty, OrdMap.empty) exprList
+    -- check all exports are within exprSet
+    if exports `Set.isSubsetOf` exprSet
+        then return exprMap
+        else throwError $ printf "(VL06) - References to unknown values found within export list"
+
   where
     -- folds over a set (that holds unique bindings) and the updated exprMap for each expr
     t :: (Set.Set E.DesId, M.ExprMap E.DesId) -> E.TopLet E.DesId -> MExcept (Set.Set E.DesId, M.ExprMap E.DesId)
     t s topExpr@(E.TopLet sv bs expr) = validExpr (Set.empty) expr *> addTopBinding s bs topExpr
     t s topExpr@(E.TopType tName) = addTopBinding s [tName] topExpr
 
-
     addTopBinding (topBinds, exprMap) bs expr = (,) <$> DF.foldlM addBinding topBinds bs <*> pure (OrdMap.insert bs expr exprMap)
---        case b of
---        -- E.SingBind ab -> (,) <$> addBinding topBinds ab <*> pure (OrdMap.insert b expr exprMap)
---        E.Bind bs -> (,) <$> DF.foldlM addBinding topBinds bs <*> pure (OrdMap.insert b expr exprMap)
---      where
---        addBinding topBinds (b, _) = case Set.member b topBinds of
---            True -> throwError $ "(VL06) - Top Binding " ++ (show b) ++ " already exists in module"
---            False -> pure $ (Set.insert b topBinds)
 
 
 addBinding curBinds b = case Set.member b curBinds of
@@ -76,9 +75,6 @@ addBinding curBinds b = case Set.member b curBinds of
 
 -- check several properties for expression tree, passes state down into exp, doesn't bother returning it for now
 validExpr :: (Set.Set E.SrcId) -> E.Expr E.DesId -> MExcept ()
--- validExpr _ e@(E.Var v) = pure ()
--- validExpr _ e@(E.Lit l) = pure ()
-
 validExpr curBinds (E.App v e) = validExpr curBinds e
 
 validExpr curBinds (E.Abs b e) = validExpr curBinds e
@@ -96,17 +92,3 @@ validExpr curBinds (E.Tuple es) = DF.traverse_ (validExpr curBinds) es
 validExpr curBinds (E.Record nEs) = DF.traverse_ (validExpr curBinds) nEs
 
 validExpr _ e = pure ()
-
-
--- TraveExpr applies a function f over all sub-expressions within the expression
--- is it a functor?
--- travExpr :: (E.Expr E.SrcId -> b) -> E.Expr E.SrcId -> b
-travExpr f e@(E.Var v) = f e
-travExpr f e@(E.Lit l) = f e
-travExpr f (E.App v e1) = f (E.App v (travExpr f e1))
-travExpr f (E.Let s b e1 e2) = f (E.Let s b (travExpr f e1) (travExpr f e2))
-travExpr f (E.Op op e) = f (E.Op op (travExpr f e))
-travExpr f (E.If eB eT eF) = f (E.If (travExpr f eB) (travExpr f eT) (travExpr f eF))
-travExpr f (E.Tuple es) = f $ E.Tuple (map (travExpr f) es)
-travExpr f e = f e
-

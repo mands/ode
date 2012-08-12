@@ -32,7 +32,7 @@ import Data.Maybe (fromJust)
 import Debug.Trace (trace)
 import Text.Printf (printf)
 
-import Utils.Utils
+import Utils.CommonImports
 import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap
 
@@ -157,7 +157,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
             -- basic handling, is common case that subsumes special cases above, basically treat both sides as tuples
             -- (with tvars), create contstrains and let unificiation solve it instead
             t | (length bs > 1) -> multiBindConstraint bs t tEnv
-            _ -> errorDump [MkSB bs, MkSB eT, MkSB tEnv] "(TC) - toplet shit"
+            _ -> errorDump [MkSB bs, MkSB eT, MkSB tEnv] "(TC) - toplet shit" assert
         put (tEnv', mTEnv)
 
     -- is this right?
@@ -169,16 +169,9 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         let tEnv' = Map.insert tName tw tEnv
         put (tEnv', mTEnv)
 
---    consTop (tEnv, mTEnv) (E.TopLet (E.SingBind b) e) = do
---        (eT, tEnv', mTEnv') <- consExpr tEnv mTEnv e
---        -- true for individual elems, handle same as tuple above
---        return $ (Map.insert b eT tEnv', mTEnv')
-
     -- TODO - do we need to uniquely refer to each expression within AST?, or just bindings?
     -- | map over the expression elements, creating constraints as needed,
-
     consExpr :: E.Expr E.Id -> TypeConsM E.Type
-
     -- TODO - can auto-unit-convert at the var access here - but don't
     consExpr (E.Var (E.LocalVar v)) = getType v
 
@@ -233,7 +226,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
             -- basic handling, is common case that subsumes special cases above, basically treat both sides as tuples
             -- (with tvars), create contstrains and let unificiation solve it instead
             t | (length bs > 1) -> multiBindConstraint bs t tEnv
-            _ -> errorDump [MkSB bs, MkSB e1T, MkSB tEnv] "(TC) - let shit\n"
+            _ -> errorDump [MkSB bs, MkSB e1T, MkSB tEnv] "(TC) - let shit\n" assert
         -- now constrain e2 using the new typeEnv
         put (tEnv', mTEnv)
         consExpr e2
@@ -350,6 +343,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
 --        -- no contraints needed, direct cast
 --        return $ E.TFloat u
 
+    -- Type/Unit-casting constraints
     consExpr (E.TypeCast e (E.UnitCast u)) = do
         -- get type of e
         eT <- consExpr e
@@ -360,7 +354,6 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         addConsSameDim $ ConSameDim uV1 u
         -- return the new "casted" type
         return $ E.TFloat u
-
 
     -- TODO - need to look up within type env
     consExpr (E.TypeCast e (E.WrapType t@(E.LocalVar v))) = do
@@ -379,23 +372,12 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         eTw <-  consExpr e
         -- get the stored newType type
         -- we could create a newTypeVar here instead of the pattern-match, but match should always succeed at this point
-
-        -- trace' [MkSB eTw, MkSB fTw] "Unwrap Types" $ return ()
         fTw@(E.TNewtype _ fT)<- getType v
-
         trace' [MkSB eTw, MkSB fTw] "Unwrap Types" $ return ()
         -- add constraint on wrapped types
         addConsEqual $ ConEqual fTw eTw
         -- return unwrapped type
         return fT
 
---        -- get type of e
---        eT <- consExpr e
---        -- ensure eT is a wrapped type
---        tV <- newTypevar
---        addConsEqual $ ConEqual eT (E.TNewtype t tV)
---        -- anything else??
---        return $ tV
-
     -- other exprs - not needed as match all
-    consExpr e = errorDump [MkSB e] "(TC02) Unknown expr"
+    consExpr e = errorDump [MkSB e] "(TC02) Unknown expr" assert

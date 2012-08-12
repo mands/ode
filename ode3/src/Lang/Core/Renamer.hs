@@ -37,7 +37,7 @@ import Text.Printf (printf)
 
 import qualified Lang.Core.AST as E
 import qualified Lang.Module.AST as M
-import Utils.Utils
+import Utils.CommonImports
 import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap
 
@@ -71,8 +71,6 @@ rename (M.FunctorMod args exprMap modData) = do
     let modData' = updateModData modData topBinds freeId
     return $ M.FunctorMod args exprMap' modData'
 
-rename mod = errorDump [MkSB mod] ""
-
 -- | Update the module data with the idBimap and next free id
 updateModData :: M.ModData ->  BindMap -> E.Id -> M.ModData
 updateModData modData bMap freeId = modData { M.modIdBimap = idBimap', M.modFreeId = Just freeId }
@@ -80,7 +78,7 @@ updateModData modData bMap freeId = modData { M.modIdBimap = idBimap', M.modFree
     -- TODO - quick hack to convert
     idBimap = Bimap.fromList $ Map.toList bMap
     -- should never fail
-    idBimap' = if (Bimap.valid idBimap) then idBimap else errorDump [MkSB idBimap] "Invalid bimap!"
+    idBimap' = if (Bimap.valid idBimap) then idBimap else errorDump [MkSB idBimap] "Invalid bimap!" assert
 
 -- |Need to build a conversion map of the top values first
 renTop :: M.ExprMap E.DesId -> MExcept (M.ExprMap E.Id, BindMap, E.Id)
@@ -209,4 +207,4 @@ renExpr (E.TypeCast e tC ) = E.TypeCast <$> renExpr e <*> tC'
         E.UnwrapType (E.ModVar m v) -> return $ E.UnwrapType (E.ModVar m v)
 
 -- any unknown/unimplemented paths - not needed as match all
-renExpr a = errorDump [MkSB a] "(RN) Unknown Core expression"
+renExpr a = errorDump [MkSB a] "(RN) Unknown Core expression" assert

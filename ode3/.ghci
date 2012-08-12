@@ -6,6 +6,8 @@
 :set -fno-warn-unused-imports
 :set -fno-warn-unused-binds
 :set -fno-warn-unused-matches
+:set -fno-warn-overlapping-patterns
+:set -fno-warn-incomplete-patterns
 
 -- useful settings
 :set +t

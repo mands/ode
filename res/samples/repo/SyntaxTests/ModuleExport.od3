@@ -1,0 +1,35 @@
+// export a value
+module Export1 {
+    export (a)
+
+    val a = 3
+    val b = True
+}
+
+// export a component
+module Export2 {
+    export (f)
+
+    component f a => b where {
+        val b = a + 1
+    }
+    
+    val b = True
+}
+
+// export a type
+module Export3 {
+    export (TypeTest)
+
+    type TypeTest
+    
+    val b = wrap { type : TypeTest, val : True }
+}
+
+// try export something that doesn't exist
+module Export4 {
+    export (a)
+
+    val b = True
+}
+
