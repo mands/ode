@@ -5,11 +5,52 @@ module NewType1 {
 
 }
 
-// create a new type
-module NewType1 {
+// create a new type and wrap
+module NewType2 {
     // newtype  creation
     type Test
-
     val a = wrap { type : Test, val : 3 }
+}
+
+// create a new type and wrap and op
+module NewType2a {
+    // newtype  creation
+    type Test
+    val a = wrap { type : Test, val : 3 } + 1
+}
+
+// create a new type and wrap diff types
+module NewType2b {
+    // newtype  creation
+    type Test
+    val a = wrap { type : Test, val : 3 }
+    // this will fail
+    val b = wrap { type : Test, val : True }
+}
+
+// create a new type and wrap/unwrap
+module NewType3a {
+    // newtype  creation
+    type Test
+    val a = wrap { type : Test, val : 3 }
+    val b = unwrap { type : Test, val : a }
+}
+
+
+// create a new type and wrap/unwrap & op
+module NewType3b {
+    // newtype  creation
+    type Test
+    val a = wrap { type : Test, val : 3 }
+    val b = unwrap { type : Test, val : a } + 1
+}
+
+// create a new type and wrap/unwrap diff types
+module NewType3b {
+    // newtype  creation
+    type Test
+    val a = wrap { type : Test, val : 3 }
+    // this will fail
+    val b = unwrap { type : Test, val : a } or True
 }
 

@@ -111,7 +111,7 @@ data VarId a =  LocalVar a
 -- |Main model elements - maybe move these into a Map indexed by Id
 data TopLet :: * -> * where
     TopLet :: Bool -> (BindList b) -> (Expr b) -> TopLet b    -- binding, expr
-    TopType :: b -> TopLet b    -- binding, expr
+    TopType :: b -> TopLet b    -- typeid
     deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
 
 -- | Main body of a \c-calc expression

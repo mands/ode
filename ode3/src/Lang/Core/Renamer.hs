@@ -61,16 +61,17 @@ instance Applicative IdSupply where
 
 -- | Main rename function, takes a model bound by Ids and returns a single-scoped model bound by unique ints
 rename :: M.Module E.DesId -> MExcept (M.Module E.Id)
-rename mod@(M.LitMod exprMap modData) = do
+rename (M.LitMod exprMap modData) = do
     (exprMap', topBinds, freeId) <-  renTop exprMap
     let modData' = updateModData modData topBinds freeId
     return $ M.LitMod exprMap' modData'
 
-
-rename mod@(M.FunctorMod args exprMap modData) = do
+rename (M.FunctorMod args exprMap modData) = do
     (exprMap', topBinds, freeId) <-  renTop exprMap
     let modData' = updateModData modData topBinds freeId
     return $ M.FunctorMod args exprMap' modData'
+
+rename mod = errorDump [MkSB mod] ""
 
 -- | Update the module data with the idBimap and next free id
 updateModData :: M.ModData ->  BindMap -> E.Id -> M.ModData
@@ -94,6 +95,7 @@ renTop exprMap = do
     -- as traversing expr, as order is fixed this should be ok
     convTopBind :: M.ExprMap E.Id -> E.TopLet E.DesId -> IdSupply (M.ExprMap E.Id)
     convTopBind model (E.TopLet s b e) = do
+        -- store the bMap as modified within renExpr
         bMap <- lift $ get
         -- traverse over the expression, using initial bMap
         e' <- renExpr e
@@ -102,6 +104,12 @@ renTop exprMap = do
         b' <- convBind b
         -- return the new bindmap and model
         return $ OrdMap.insert b' (E.TopLet s b' e') model
+
+    convTopBind model (E.TopType tName) = do
+        b'@(tName':[]) <- convBind [tName]
+        -- return the new bindmap and model
+        return $ OrdMap.insert b' (E.TopType tName') model
+
 
 -- | converts the bindings into unique ids and adds to the current, scoped bindmap
 -- any additiona data, e.g. units defs, are added to the state monad
@@ -195,8 +203,10 @@ renExpr (E.TypeCast e tC ) = E.TypeCast <$> renExpr e <*> tC'
   where
     tC' = case tC of
         E.UnitCast u -> return $ E.UnitCast u
-        E.WrapType t -> return $ E.UnitCast u
-
+        E.WrapType (E.LocalVar t) -> E.WrapType <$> (E.LocalVar <$> bLookup t)
+        E.WrapType (E.ModVar m v) -> return $ E.WrapType (E.ModVar m v)
+        E.UnwrapType (E.LocalVar t) -> E.UnwrapType <$> (E.LocalVar <$> bLookup t)
+        E.UnwrapType (E.ModVar m v) -> return $ E.UnwrapType (E.ModVar m v)
 
 -- any unknown/unimplemented paths - not needed as match all
 renExpr a = errorDump [MkSB a] "(RN) Unknown Core expression"

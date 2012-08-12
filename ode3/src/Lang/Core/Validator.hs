@@ -54,8 +54,11 @@ validate mod = return mod
 createTopExprs :: M.ExprList -> MExcept (M.ExprMap E.DesId)
 createTopExprs exprList = snd <$> DF.foldlM t (Set.empty, OrdMap.empty) exprList
   where
-    t :: (Set.Set E.SrcId, M.ExprMap E.DesId) -> E.TopLet E.DesId -> MExcept (Set.Set E.SrcId, M.ExprMap E.DesId)
+    -- folds over a set (that holds unique bindings) and the updated exprMap for each expr
+    t :: (Set.Set E.DesId, M.ExprMap E.DesId) -> E.TopLet E.DesId -> MExcept (Set.Set E.DesId, M.ExprMap E.DesId)
     t s topExpr@(E.TopLet sv bs expr) = validExpr (Set.empty) expr *> addTopBinding s bs topExpr
+    t s topExpr@(E.TopType tName) = addTopBinding s [tName] topExpr
+
 
     addTopBinding (topBinds, exprMap) bs expr = (,) <$> DF.foldlM addBinding topBinds bs <*> pure (OrdMap.insert bs expr exprMap)
 --        case b of
@@ -65,6 +68,11 @@ createTopExprs exprList = snd <$> DF.foldlM t (Set.empty, OrdMap.empty) exprList
 --        addBinding topBinds (b, _) = case Set.member b topBinds of
 --            True -> throwError $ "(VL06) - Top Binding " ++ (show b) ++ " already exists in module"
 --            False -> pure $ (Set.insert b topBinds)
+
+
+addBinding curBinds b = case Set.member b curBinds of
+    True -> throwError $ printf "(VL04) - Binding %s already exists at this scoping level" b
+    False -> pure $ (Set.insert b curBinds)
 
 -- check several properties for expression tree, passes state down into exp, doesn't bother returning it for now
 validExpr :: (Set.Set E.SrcId) -> E.Expr E.DesId -> MExcept ()
@@ -88,10 +96,6 @@ validExpr curBinds (E.Tuple es) = DF.traverse_ (validExpr curBinds) es
 validExpr curBinds (E.Record nEs) = DF.traverse_ (validExpr curBinds) nEs
 
 validExpr _ e = pure ()
-
-addBinding curBinds b = case Set.member b curBinds of
-    True -> throwError $ printf "(VL04) - Binding %s already exists at this scoping level" b
-    False -> pure $ (Set.insert b curBinds)
 
 
 -- TraveExpr applies a function f over all sub-expressions within the expression

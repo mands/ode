@@ -96,8 +96,8 @@ moduleDef modRoot = TopModDef <$> pure modRoot <*> (reserved "module" *> singMod
                 <?> "module definition"
 
     modData = do
-        DesugarModData exprList q u importCmds c typeSet <- braces modBody
-        return $ mkModData { modImportCmds = importCmds, modExprList = exprList, modQuantities = q, modUnits = u, modConvs = c, modTypes = typeSet }
+        DesugarModData exprList q u importCmds c <- braces modBody
+        return $ mkModData { modImportCmds = importCmds, modExprList = exprList, modQuantities = q, modUnits = u, modConvs = c}
 
     funcArgs args = OrdMap.fromList $ map (\arg -> (arg, Map.empty)) args
 

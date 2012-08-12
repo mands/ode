@@ -1,20 +1,23 @@
--- default imports
---import Control.Applicative
---import Control.Monad
-
 -- look in correct dirs for src
 :set -idist/build/ode3/ode3-tmp:src:dist/build/autogen
+
+-- warnings
+:set -W
+:set -fno-warn-unused-imports
+:set -fno-warn-unused-binds
+:set -fno-warn-unused-matches
 
 -- useful settings
 :set +t
 -- :set +m
+-- :set prompt "> "
 
--- source cmd
+-- custom cmds
 :def source readFile
 
--- load ode
+-- load ode and configure imports
 :l src/Main
 import Utils.CommonImports
-
--- :set prompt "> "
+--import Control.Applicative
+--import Control.Monad
 

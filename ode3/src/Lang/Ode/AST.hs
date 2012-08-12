@@ -15,7 +15,7 @@
 -----------------------------------------------------------------------------
 
 module Lang.Ode.AST (
-    ModLocalId(..), ValId(..), OdeStmt(..), Stmt(..),
+    RefId(..), BindId(..), OdeStmt(..), Stmt(..),
     Expr(..), BinOp(..), UnOp(..),
     SrcId, NumTy -- rexported from Common.AST
 ) where
@@ -23,11 +23,11 @@ module Lang.Ode.AST (
 import qualified Data.Map as Map
 import Lang.Common.AST
 
--- | SrcIdentifier that may be local to current block or refer to a module parameter
-data ModLocalId =   LocalId SrcId | ModId SrcId SrcId deriving (Show, Eq, Ord)
+-- | SrcIdentifier that may be reference a local or module parameter
+data RefId =   LocalId SrcId | ModId SrcId SrcId deriving (Show, Eq, Ord)
 
 -- | used for creating new bindings that may differntiatin between actual ids and _ vals
-data ValId = ValId SrcId | DontCare deriving (Show, Ord, Eq)
+data BindId = BindId SrcId | DontCare deriving (Show, Ord, Eq)
 
 data OdeStmt =  ExprStmt Stmt
                 | ImportStmt ModImport
@@ -42,14 +42,14 @@ data OdeStmt =  ExprStmt Stmt
 -- | elements allowed within a module, basically components or top-level constant values
 data Stmt = -- each independent component, is basically function abstraction
             -- components may be defined inline, with name, ins, outs, and body
-            Component { cName :: SrcId, cInputs :: [ValId], cOutputs :: Expr, cBody :: [Stmt]}
+            Component { cName :: SrcId, cInputs :: [BindId], cOutputs :: Expr, cBody :: [Stmt]}
             -- value defintion
             -- they are constant, at least during single timestep
-            | Value { vName :: [ValId], vValue :: Expr, vBody :: [Stmt] }
+            | Value { vName :: [BindId], vValue :: Expr, vBody :: [Stmt] }
             -- state value defintion - indirectly mutable, stateful, values
-            | SValue { svName :: [ValId], svValue :: [Double] }
+            | SValue { svName :: [BindId], svValue :: [Double] }
             -- ODE - a SValue and ODE def combined
-            | OdeDef { odeName :: ValId, odeInit :: Double, odeExpr :: Expr}
+            | OdeDef { odeName :: BindId, odeInit :: Double, odeExpr :: Expr}
             -- RRE - takes two SValues and a rate parameter
             | RreDef { rreRate :: Double, rreSrc :: SrcId, rreDest :: SrcId }
             -- or they may be a reference to a component defined in a module param and re-exported here
@@ -72,10 +72,10 @@ data Stmt = -- each independent component, is basically function abstraction
 -- refernces to existing values, piecewise terms
 -- expressions are may be multiple types, these are determined later on
 data Expr   = BinExpr BinOp Expr Expr | UnExpr UnOp Expr | Number Double (Maybe UnitList) | NumSeq Double Double Double | Boolean Bool
-                    | Time | Unit | Call ModLocalId [Expr] | ValueRef ModLocalId (Maybe SrcId) | Piecewise [(Expr, Expr)] Expr
+                    | Time | Unit | Call RefId [Expr] | ValueRef RefId (Maybe SrcId) | Piecewise [(Expr, Expr)] Expr
                     | Tuple [Expr] | Record [(SrcId, Expr)]
                     -- type/unit commands
-                    | ConvCast Expr UnitList | WrapType Expr SrcId | UnwrapType Expr SrcId
+                    | ConvCast Expr UnitList | WrapType Expr RefId | UnwrapType Expr RefId
                     deriving (Show, Eq, Ord)
 
 -- | basic binary expression operators

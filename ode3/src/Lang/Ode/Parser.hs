@@ -35,18 +35,24 @@ import qualified Lang.Ode.AST as O
 -- Useful Lexical Combinators ------------------------------------------------------------------------------------------
 
 -- | parses a module element reference, e.g. A.x
-modElemIdentifier :: Parser O.ModLocalId
+modElemIdentifier :: Parser O.RefId
 modElemIdentifier  = O.ModId <$> upperIdentifier <*> (char '.' *> identifier)
 
 -- | parse either a local or module id e.g. A.x or x
-modLocalIdentifier :: Parser O.ModLocalId
+modLocalIdentifier :: Parser O.RefId
 modLocalIdentifier =    try modElemIdentifier
                         <|> O.LocalId <$> identifier <?> "local or module identifier"
 
+-- | parse either a local or module id e.g. A.x or x
+typeIdentifier :: Parser O.RefId
+typeIdentifier =    try (O.ModId <$> upperIdentifier <*> (char '.' *> upperIdentifier))
+                    <|> O.LocalId <$> upperIdentifier <?> "local or module type identifier"
+
+
 -- | value identifier, allows use of don't care vals
-valIdentifier :: Parser O.ValId
+valIdentifier :: Parser O.BindId
 valIdentifier = reservedOp "_" *> pure O.DontCare
-                <|> O.ValId <$> identifier
+                <|> O.BindId <$> identifier
                 <?> "value identifier"
 
 -- | Wrapper around our default attribute notation
@@ -287,13 +293,13 @@ compTerm = -- try unitExpr
 
 wrapType :: Parser O.Expr
 wrapType = reserved "wrap" *> attribDef (O.WrapType <$$> attrib "val" compExpr
-                                                    <||> attrib "type" upperIdentifier
-                                                    ) <?> "new type wrap"
+                                                    <||> attrib "type" typeIdentifier
+                                                    ) <?> "NewType wrap"
 
 unwrapType :: Parser O.Expr
-unwrapType = reserved "unwrap" *> attribDef (O.WrapType <$$> attrib "val" compExpr
-                                                        <||> attrib "type" upperIdentifier
-                                                        ) <?> "new type unwrap"
+unwrapType = reserved "unwrap" *> attribDef (O.UnwrapType   <$$> attrib "val" compExpr
+                                                            <||> attrib "type" typeIdentifier
+                                                            ) <?> "NewType unwrap"
 
 
 -- | parse a term then check for an, optional, trailing unit cast

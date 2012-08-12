@@ -1,11 +1,9 @@
-
-// create a new type
-module NewType1 {
+// create a new type and wrap/unwrap diff types
+module NewType3c {
     // newtype  creation
     type Test
-
     val a = wrap { type : Test, val : 3 }
-
-    val b = wrap { type : Test, val : True }
+    // this will fail
+    val b = unwrap { type : Test, val : a } or True
 }
 

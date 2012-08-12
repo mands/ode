@@ -61,14 +61,16 @@ instance Applicative TmpSupply where
     (<*>) = ap
 
 data DesugarModData = DesugarModData    { mdE :: M.ExprList, mdQ :: U.Quantities, mdU :: [U.UnitDef]
-                                        , mdI :: [ModImport], mdC :: [U.ConvDef], mdT :: (Set.Set String)}
+                                        , mdI :: [ModImport], mdC :: [U.ConvDef]}
+
+-- Desguar Top-Level Statements ----------------------------------------------------------------------------------------
 
 desugarOde :: [O.OdeStmt] -> MExcept DesugarModData
 desugarOde elems = do
-    modData <- evalSupplyVars $ DF.foldlM desugarOde' (DesugarModData [] [] [] [] [] Set.empty) elems
+    modData <- evalSupplyVars $ DF.foldlM desugarOde' (DesugarModData [] [] [] [] []) elems
     return $ updateModData modData
   where
-    updateModData (DesugarModData e q u i c t) = DesugarModData (reverse e) (reverse q) (reverse u) (reverse i) (reverse c) t
+    updateModData (DesugarModData e q u i c) = DesugarModData (reverse e) (reverse q) (reverse u) (reverse i) (reverse c)
 
     -- wrapper around the fold, matches on the top-level stmt type
     desugarOde' :: DesugarModData -> O.OdeStmt -> TmpSupply DesugarModData
@@ -95,22 +97,41 @@ desugarOde elems = do
       where
         c' = U.ConvDef fromUnit toUnit cExpr:(mdC dsModData)
 
-    -- add the type statments to the module metadata
-    desugarOde' dsModData stmt@(O.TypeStmt typeId) = return $ dsModData { mdT = t' }
-      where
-        t' = Set.insert typeId (mdT dsModData)
+    -- add the type statments to exprList
+    desugarOde' dsModData stmt@(O.TypeStmt typeName) = return $ dsModData { mdE = C.TopType typeName : (mdE dsModData) }
 
     -- desugarOde' st stmt@(O.UnitStmt baseUnits _ _ _) = throw $ printf "Found an invalid unit def %s" (show baseUnits)
 
+-- Helper Functions ----------------------------------------------------------------------------------------------------
+
+-- | Simple test to see if an expression contains only a single element or is a packed tuple
+isSingleElem es = length es == 1
+-- | Retrieve the single expression within a tuple, may cause exception
+singleElem es = head es
+
+-- | packs up elements, if required, to use when calling a comp or setting up comp outputs
+-- needed as \c-supports both single values and tuples
+packElems es = if (isSingleElem es)
+    then dsExpr $ singleElem es
+    else liftM C.Tuple $ mapM dsExpr es
+
+-- | creates new unique variable identifiers for all don't care values
+subDontCares :: O.BindId -> TmpSupply C.DesId
+subDontCares O.DontCare = supply
+subDontCares (O.BindId v) = return v
+
+
+-- Desugar Main Ode Statements -----------------------------------------------------------------------------------------
 
 -- | desugar a top-level value constant(s)
 -- throws an error if a top-level is already defined
+-- place in the font of the expr list, we reverse this later
 desugarTopStmt :: M.ExprList -> O.Stmt -> TmpSupply (M.ExprList)
 desugarTopStmt es stmt@(O.SValue _ _) = do
     (ids, expr) <- desugarStmt stmt
     return $ C.TopLet True ids expr : es
 
-desugarTopStmt es stmt@(O.OdeDef (O.ValId name) init _) = do
+desugarTopStmt es stmt@(O.OdeDef (O.BindId name) init _) = do
     (odeVar, odeExpr) <- desugarStmt stmt
     let initExpr = C.Lit (C.Num init U.NoUnit) -- TODO - fix units
     let es' = C.TopLet True [name] initExpr : es
@@ -136,7 +157,7 @@ desugarS' (s@(O.SValue _ _):xs) outs = do
     (ids, expr) <- desugarStmt s
     C.Let True ids expr <$> desugarS' xs outs
 
-desugarS' (s@(O.OdeDef (O.ValId name) init _):xs) outs = do
+desugarS' (s@(O.OdeDef (O.BindId name) init _):xs) outs = do
     (odeVar, odeExpr) <- desugarStmt s
     let subExpr' = C.Let False odeVar odeExpr <$> desugarS' xs outs
     let initExpr = C.Lit (C.Num init U.NoUnit) -- TODO - fix units
@@ -149,7 +170,6 @@ desugarS' (s@(O.RreDef _ _ _):xs) outs = do
 desugarS' (s@(O.Component _ _ _ _):xs) outs = do
     (ids, expr) <- desugarStmt s
     C.Let False ids expr <$> desugarS' xs outs
-
 
 -- Main desugaring, called by top-level and nested level wrappers
 desugarStmt :: O.Stmt -> TmpSupply ([C.DesId], C.Expr C.DesId)
@@ -167,7 +187,7 @@ desugarStmt (O.SValue ids values) = do
     return $ (ids', vs'')
 
 -- TODO - need to add the correct unit for the delta expr here
-desugarStmt (O.OdeDef (O.ValId name) init expr) = do
+desugarStmt (O.OdeDef (O.BindId name) init expr) = do
     odeExpr <- C.Ode <$> pure (C.LocalVar name) <*> dsExpr expr
     odeVar <- supply
     return $ ([odeVar], odeExpr)
@@ -194,44 +214,7 @@ desugarStmt (O.Component name ins outs body) = do
 desugarStmt stmt = throw $ printf "(DS01) Found an unhandled stmt that is top-level only - not nested \n%s" (show stmt)
 
 
---error (show s)
-
-
---desugarModElems :: O.Stmt -> TmpSupply (C.TopLet C.SrcId)
---desugarModElems (O.StmtValue (O.Value ids value body)) = do
---    v' <- desugarCompStmts body value
---    ids' <- DT.mapM subDontCares ids
---    return $ C.TopLet (C.Bind ids') v'
---
----- | desugar a top level component
---desugarModElems (O.StmtComponent (O.Component name ins outs body)) = do
---    -- sub the ins
---    ins' <- DT.mapM subDontCares ins
---    -- create a new tmpArg only if multiple elems
---    arg <- if (isSingleElem ins') then return (singleElem ins') else supply
---    v <- desugarComp arg ins'
---    return $ C.TopLet (C.Bind [name]) (C.Abs arg v)
---  where
---    -- | desugars and converts a component into a \c abstraction, not in tail-call form, could blow out the stack, but unlikely
---    desugarComp :: O.SrcId -> [O.SrcId] -> TmpSupply (C.Expr C.SrcId)
---    desugarComp argName (singIn:[]) = desugarCompStmts body outs
---    desugarComp argName ins = C.Let (C.Bind ins) (C.Var (C.LocalVar argName)) <$> desugarCompStmts body outs
---
---
---desugarCompStmts :: [O.Stmt] -> O.Expr  -> TmpSupply (C.Expr C.SrcId)
----- process the body by pattern-matching on the statement types
---desugarCompStmts [] outs = dsExpr outs
----- very similar to top-level value def
---desugarCompStmts ((O.StmtValue (O.Value ids e vOuts)):xs) outs = do
---        ids' <- DT.mapM subDontCares ids
---        let mB = C.Bind ids'
---        C.Let mB <$> desugarCompStmts vOuts e <*> desugarCompStmts xs outs
-
--- TODO - we ignore for nowddd
---desugarCompStmts ((O.InitValueDef ids e):xs) _ = lift $ throwError "test"
---desugarCompStmts ((O.OdeDef id init e):xs) _ = error "(DS) got ODE"
---desugarCompStmts ((O.RreDef id (from, to) e):xs) _ = error "(DS) got RRE"
-
+-- Desugar Expressions -------------------------------------------------------------------------------------------------
 
 -- | Expression desugarer - basically a big pattern amtch on all possible types
 -- should prob enable warnings to pick up all unmatched patterns
@@ -259,6 +242,7 @@ dsExpr (O.NumSeq a b c) = return $ C.Lit (C.NumSeq (enumFromThenTo a b c) U.NoUn
 dsExpr (O.Boolean b) = return $ C.Lit (C.Boolean b)
 dsExpr (O.Time) = return $ C.Lit (C.Time)
 dsExpr (O.Unit) = return $ C.Lit (C.Unit)
+-- TODO - add record selection here
 dsExpr (O.ValueRef (O.LocalId id) mRecId) = return $ C.Var (C.LocalVar id)
 dsExpr (O.ValueRef (O.ModId modId id) mRecId) = return $ C.Var (C.ModVar (ModName modId) id)
 
@@ -284,30 +268,16 @@ dsExpr (O.Piecewise cases e) = dsIf cases
 dsExpr (O.Call (O.LocalId id) exprs) = liftM (C.App (C.LocalVar id)) $ packElems exprs
 dsExpr (O.Call (O.ModId mId id) exprs) = liftM (C.App (C.ModVar (ModName mId) id)) $ packElems exprs
 
-dsExpr (O.ConvCast e u) = C.ConvCast <$> (dsExpr e) <*> pure (U.mkUnit u)
-dsExpr (O.WrapType e t) = C.WrapType <$> (dsExpr e) <*> pure t
-dsExpr (O.UnwrapType e t) = C.UnwrapType <$> (dsExpr e) <*> pure t
-
-
+-- type experessions
+dsExpr (O.ConvCast e u) = C.TypeCast <$> (dsExpr e) <*> pure (C.UnitCast $ U.mkUnit u)
+dsExpr (O.WrapType e (O.LocalId id)) = C.TypeCast <$> (dsExpr e) <*> pure (C.WrapType (C.LocalVar id))
+dsExpr (O.WrapType e (O.ModId modId id)) = C.TypeCast <$> (dsExpr e) <*> pure (C.WrapType (C.ModVar (ModName modId) id))
+dsExpr (O.UnwrapType e (O.LocalId id)) = C.TypeCast <$> (dsExpr e) <*> pure (C.UnwrapType (C.LocalVar id))
+dsExpr (O.UnwrapType e (O.ModId modId id)) = C.TypeCast <$> (dsExpr e) <*> pure (C.UnwrapType (C.ModVar (ModName modId) id))
 
 -- any unknown/unimplemented paths - not needed as match all
 dsExpr a = errorDump [MkSB a] "(DS) Unknown ODE3 expression"
 
--- | Simple test to see if an expression contains only a single element or is a packed tuple
-isSingleElem es = length es == 1
--- | Retrieve the single expression within a tuple, may cause exception
-singleElem es = head es
-
--- | packs up elements, if required, to use when calling a comp or setting up comp outputs
--- needed as \c-supports both single values and tuples
-packElems es = if (isSingleElem es)
-    then dsExpr $ singleElem es
-    else liftM C.Tuple $ mapM dsExpr es
-
--- | creates new unique variable identifiers for all don't care values
-subDontCares :: O.ValId -> TmpSupply C.DesId
-subDontCares O.DontCare = supply
-subDontCares (O.ValId v) = return v
 
 -- | simple patttern matching convertor, boring but gotta be done...
 binOps :: O.BinOp -> C.Op

@@ -113,6 +113,9 @@ subTTerm t1 t2 t@(E.TRecord ts)
 subTTerm t1 t2 t@(E.TArr fromT toT)
     | t == t1 = t2
     | otherwise = E.TArr (subTTerm t1 t2 fromT) (subTTerm t1 t2 toT)
+subTTerm t1 t2 t@(E.TNewtype tName tUnwrap)
+    | t == t1 = t2
+    | otherwise = E.TNewtype tName $ subTTerm t1 t2 tUnwrap
 subTTerm t1 t2 t = if t == t1 then t2 else t
 
 -- | checks that tVar x does not exist in tTerm t, stop recursive substitions
@@ -126,6 +129,9 @@ occursCheck t1 t@(E.TRecord ts)
 occursCheck t1 t@(E.TArr fromT toT)
     | t == t1 = True
     | otherwise = (occursCheck t1 fromT) || (occursCheck t1 toT)
+occursCheck t1 t@(E.TNewtype tName tUnwrap)
+    | t == t1 = True
+    | otherwise = occursCheck t1 tUnwrap
 occursCheck t1 t = if t == t1 then True else False
 
 -- TODO - inline these trivial functions ?
@@ -216,6 +222,10 @@ unifyEquals conEqualS = unifyEqualsLoop conEqualS
     processEqual (ConEqual (E.TArr t1From t1To) (E.TArr t2From t2To)) curS =
         processEqual (ConEqual t1From t2From) curS >>= processEqual (ConEqual t1To t2To)
 
+    -- Composite, Newtypes
+    processEqual (ConEqual (E.TNewtype t1Name t1Unwrap) (E.TNewtype t2Name t2Unwrap)) curS =
+        processEqual (ConEqual t1Unwrap t2Unwrap) curS
+
     -- Composite, Tuples
     processEqual (ConEqual (E.TTuple t1s) (E.TTuple t2s)) curS | (length t1s == length t2s) =
         DF.foldlM (\curS (t1, t2) -> processEqual (ConEqual t1 t2) curS) curS (zip t1s t2s)
@@ -225,6 +235,7 @@ unifyEquals conEqualS = unifyEqualsLoop conEqualS
     processEqual (ConEqual (E.TRecord t1s) (E.TRecord t2s)) curS | (Map.keys t1s == Map.keys t2s) =
         DF.foldlM (\curS (t1, t2) -> processEqual (ConEqual t1 t2) curS) curS (Map.intersectionWith (,) t1s t2s)
 
+    -- TODO - check this works!
     -- Composite, Tuple<->Record (should only be used internaly, as drops labels from record)
     -- processEqual (ConEqual t1@(E.TTuple t1s) (E.TRecord t2s)) curS = processEqual (ConEqual t1 (E.TTuple $ E.dropLabels t2s)) curS
     -- processEqual (ConEqual t1@(E.TRecord _) t2@(E.TTuple _)) curS = processEqual (ConEqual t2 t1) curS

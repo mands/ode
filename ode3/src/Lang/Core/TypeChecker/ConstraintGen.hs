@@ -157,7 +157,16 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
             -- basic handling, is common case that subsumes special cases above, basically treat both sides as tuples
             -- (with tvars), create contstrains and let unificiation solve it instead
             t | (length bs > 1) -> multiBindConstraint bs t tEnv
-            _ -> errorDump [MkSB bs, MkSB eT, MkSB tEnv] "(TC) - toplet shit\n"
+            _ -> errorDump [MkSB bs, MkSB eT, MkSB tEnv] "(TC) - toplet shit"
+        put (tEnv', mTEnv)
+
+    -- is this right?
+    consTop (E.TopType tName) = do
+        (tEnv, mTEnv) <- get
+        -- create a wrapped typevar
+        tw <- E.TNewtype (E.LocalVar tName) <$> newTypevar
+        -- extend and return tEnv
+        let tEnv' = Map.insert tName tw tEnv
         put (tEnv', mTEnv)
 
 --    consTop (tEnv, mTEnv) (E.TopLet (E.SingBind b) e) = do
@@ -341,7 +350,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
 --        -- no contraints needed, direct cast
 --        return $ E.TFloat u
 
-    consExpr (E.ConvCast e u) = do
+    consExpr (E.TypeCast e (E.UnitCast u)) = do
         -- get type of e
         eT <- consExpr e
         -- create unit for e
@@ -354,22 +363,39 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
 
 
     -- TODO - need to look up within type env
-    consExpr (E.WrapType e t) = do
-        -- get type of e
-        eT <- consExpr e
-        -- wrap within a newtype
-        let eT' = E.TNewtype t eT
-        -- anything else??
-        return $ eT'
+    consExpr (E.TypeCast e (E.WrapType t@(E.LocalVar v))) = do
+        -- get type of e and wrap it
+        eTw <- E.TNewtype t <$> consExpr e
+        -- get the stored newType type
+        fTw <- getType v
+        trace' [MkSB eTw, MkSB fTw] "Wrap Types" $ return ()
+        -- add constraint
+        addConsEqual $ ConEqual fTw eTw
+        -- return wrapped type
+        return eTw
 
-    consExpr (E.UnwrapType e t) = do
-        -- get type of e
-        eT <- consExpr e
-        -- ensure eT is a wrapped type
-        tV <- newTypevar
-        addConsEqual $ ConEqual eT (E.TNewtype t tV)
-        -- anything else??
-        return $ tV
+    consExpr (E.TypeCast e (E.UnwrapType t@(E.LocalVar v))) = do
+        -- get type of e, should be wrapped
+        eTw <-  consExpr e
+        -- get the stored newType type
+        -- we could create a newTypeVar here instead of the pattern-match, but match should always succeed at this point
+
+        -- trace' [MkSB eTw, MkSB fTw] "Unwrap Types" $ return ()
+        fTw@(E.TNewtype _ fT)<- getType v
+
+        trace' [MkSB eTw, MkSB fTw] "Unwrap Types" $ return ()
+        -- add constraint on wrapped types
+        addConsEqual $ ConEqual fTw eTw
+        -- return unwrapped type
+        return fT
+
+--        -- get type of e
+--        eT <- consExpr e
+--        -- ensure eT is a wrapped type
+--        tV <- newTypevar
+--        addConsEqual $ ConEqual eT (E.TNewtype t tV)
+--        -- anything else??
+--        return $ tV
 
     -- other exprs - not needed as match all
     consExpr e = errorDump [MkSB e] "(TC02) Unknown expr"
