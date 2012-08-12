@@ -114,7 +114,7 @@ updateModData modData tEnv = modData { M.modTMap = tEnv, M.modSig = sigMap }
 -- | use the TVar map to undate a type enviroment (either TypeEnv or ModTypeEnv) and substitute all TVars
 -- Bool argument determinst wheter the checking should allow polymophism and not fully-unify
 subTVars :: Show b => Map.Map b E.Type -> TypeVarEnv -> UnitVarEnv -> Bool -> MExcept (Map.Map b E.Type)
-subTVars tEnv tVEnv uVEnv allowPoly = trace' [MkSB tEnv, MkSB tVEnv, MkSB uVEnv] "subTVars" DT.mapM (E.mapTypeM updateType) tEnv
+subTVars tEnv tVEnv uVEnv allowPoly = DT.mapM (E.mapTypeM updateType) tEnv
   where
     -- try to substitute a tvar if it exists - this will behave differently depending on closed/open modules
     updateType :: E.Type -> MExcept E.Type

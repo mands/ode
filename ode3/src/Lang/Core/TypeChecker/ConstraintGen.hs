@@ -80,6 +80,10 @@ getUnit _ = Nothing
 getUnitFromEnv :: E.Id -> TypeEnv -> Maybe U.Unit
 getUnitFromEnv v tEnv = Map.lookup v tEnv >>= getUnit
 
+getIdType :: E.VarId E.Id -> M.GlobalModEnv ->  M.ModData -> Maybe (M.FunArgs) -> TypeConsM E.Type
+getIdType (E.LocalVar lv) _ _ _ = getType lv
+getIdType mVar@(E.ModVar m v) gModEnv modData mFuncArgs = getMVarType mVar gModEnv modData mFuncArgs
+
 -- have to use lifts as MonadSupply is only instance of MonadTrans, not MonadError
 getType :: E.Id -> TypeConsM E.Type
 getType v = do
@@ -172,29 +176,19 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
     -- TODO - do we need to uniquely refer to each expression within AST?, or just bindings?
     -- | map over the expression elements, creating constraints as needed,
     consExpr :: E.Expr E.Id -> TypeConsM E.Type
-    -- TODO - can auto-unit-convert at the var access here - but don't
-    consExpr (E.Var (E.LocalVar v)) = getType v
 
-    -- need to obtain the type of the module ref, either from functor or imported mod, creting a newTVar if needed
-    -- TODO - can auto-unit-convert at the module boundary here
-    consExpr (E.Var mVar@(E.ModVar m v)) = getMVarType mVar gModEnv modData mFuncArgs
+    -- TODO - can auto-unit-convert the var access (local or at module boundary) here
+    consExpr (E.Var v) = case v of
+        E.LocalVar lv -> getType lv
+        -- need to obtain the type of the module ref, either from functor or imported mod, creting a newTVar if needed
+        mVar@(E.ModVar m v) -> getMVarType mVar gModEnv modData mFuncArgs
 
-    -- TODO - can auto-unit-convert at the function boundary here
-    consExpr (E.App (E.LocalVar f) e) = do
+    -- TODO - can auto-unit-convert the function boundary here
+    consExpr (E.App f e) = do
         -- as HOFs not allowed
-        -- fT =  consExpr tEnv f
-        fT <- getType f
-        eT <- consExpr e
-        toT <- newTypevar
-        -- add constraint
-        addConsEqual $ ConEqual fT (E.TArr eT toT)
-        return toT
-
-    -- TODO - is this right?!
-    -- TODO - can auto-unit-convert at the module boundary here
-    consExpr (E.App mVar@(E.ModVar m v) e) = do
-        -- similar to localVar
-        fT <- getMVarType mVar gModEnv modData mFuncArgs
+        fT <- case f of
+            (E.LocalVar lv) -> getType lv
+            mVar@(E.ModVar m v) -> getMVarType mVar gModEnv modData mFuncArgs
         -- app type logic
         -- get the type of the expression
         eT <- consExpr e
@@ -356,24 +350,26 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         return $ E.TFloat u
 
     -- TODO - need to look up within type env
-    consExpr (E.TypeCast e (E.WrapType t@(E.LocalVar v))) = do
-        -- get type of e and wrap it
-        eTw <- E.TNewtype t <$> consExpr e
+    consExpr (E.TypeCast e (E.WrapType v)) = do
+        -- get type of e and wrap it with the typeName
+        eTw <- E.TNewtype v <$> consExpr e
         -- get the stored newType type
-        fTw <- getType v
-        trace' [MkSB eTw, MkSB fTw] "Wrap Types" $ return ()
+        fTw <- case v of
+            (E.LocalVar lv) -> getType lv
+            mVar@(E.ModVar m v) -> getMVarType mVar gModEnv modData mFuncArgs
         -- add constraint
         addConsEqual $ ConEqual fTw eTw
         -- return wrapped type
         return eTw
 
-    consExpr (E.TypeCast e (E.UnwrapType t@(E.LocalVar v))) = do
-        -- get type of e, should be wrapped
+    consExpr (E.TypeCast e (E.UnwrapType v)) = do
+        -- get type of e, should be wrapped with the typeName
         eTw <-  consExpr e
         -- get the stored newType type
         -- we could create a newTypeVar here instead of the pattern-match, but match should always succeed at this point
-        fTw@(E.TNewtype _ fT)<- getType v
-        trace' [MkSB eTw, MkSB fTw] "Unwrap Types" $ return ()
+        fTw@(E.TNewtype _ fT) <- case v of
+            (E.LocalVar lv) -> getType lv
+            mVar@(E.ModVar m v) -> getMVarType mVar gModEnv modData mFuncArgs
         -- add constraint on wrapped types
         addConsEqual $ ConEqual fTw eTw
         -- return unwrapped type
