@@ -7,10 +7,26 @@
 module Record1 {
     // record creation
     val rec = { i : 1 + 1, j : 2, k : 3 }
+}
+
+// record creation and selection
+module Record2 {
+    // record creation
+    val rec = { i : 1 + 1, j : 2, k : 3 }
     
     // record selection
-    val x = rec#i + rec#j
+    val x = rec#i + 2
 }
+
+// record creation and selection
+module Record2 {
+    // record creation
+    val rec = { i : 1 + 1, j : 2, k : 3 }
+    
+    // invalid record selection
+    val x = rec#i + rec#rr + 2
+}
+
 
 // record unpacking --  error as not a tuple
 module Record2 {

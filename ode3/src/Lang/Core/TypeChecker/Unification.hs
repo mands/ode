@@ -62,15 +62,18 @@ type UnifyM = S.StateT (TypeVarEnv, UnitVarEnv) MExcept
 
 -- Helper Functions ----------------------------------------------------------------------------------------------------
 
--- | replaces all occurances of tVar x with y in tCons where possible using the current tVMap and uVMap
-subStack :: TypeCons -> UnifyM TypeCons
-subStack tCons = do
+-- | try to update all occurances of (tVar x) within tCons using current tVMaps/uVMaps
+updateStack :: TypeCons -> UnifyM TypeCons
+updateStack tCons = do
     (tVEnv, uVEnv) <- S.get
-    subStack' tVEnv uVEnv
+    updateStack' tVEnv uVEnv
   where
-    subStack' tVEnv uVEnv = return $ tCons { conEqualS = conEqualS', conSumS = conSumS', conSameDimS = conSameDimS' }
+    updateStack' tVEnv uVEnv = return $ tCons { conEqualS = conEqualS', conSumS = conSumS', conSameDimS = conSameDimS' }
       where
-        conEqualS' = Set.map (\(ConEqual a b) -> (ConEqual (updateTypes a) (updateTypes b))) $ conEqualS tCons
+        conEqualS' = Set.map updateEqual $ conEqualS tCons
+        updateEqual (ConEqual a b) = ConEqual (updateTypes a) (updateTypes b)
+        updateEqual (ConRecSel recId a b) = ConRecSel recId (updateTypes a) (updateTypes b)
+
         conSumS' = Set.map (\(ConSum a b c) -> (ConSum (updateUnits a) (updateUnits b) (updateUnits c))) $ conSumS tCons
         conSameDimS' = Set.map (\(ConSameDim a b) -> (ConSameDim (updateUnits  a) (updateUnits b))) $ conSameDimS tCons
 
@@ -84,7 +87,10 @@ subStack tCons = do
 
 -- | replace all occurances of t1->t2 in the set of constraints
 subEqualS :: E.Type -> E.Type -> ConEqualS -> ConEqualS
-subEqualS t1 t2 = Set.map (\(ConEqual a b) -> (ConEqual (subTTerm t1 t2 a) (subTTerm t1 t2 b)))
+subEqualS t1 t2 = Set.map subEqual
+  where
+    subEqual (ConEqual a b) = ConEqual (subTTerm t1 t2 a) (subTTerm t1 t2 b)
+    subEqual (ConRecSel recId a b) = ConRecSel recId (subTTerm t1 t2 a) (subTTerm t1 t2 b)
 
 -- | replace all occurances of u1->u2 in the set of constraints
 subSumS :: U.Unit -> U.Unit -> ConSumS -> ConSumS
@@ -166,7 +172,7 @@ unify uState tCons = snd <$> S.runStateT unifyM (Map.empty, Map.empty)
     unifyM = do
         -- return set should be empty
         conEqualS' <- trace' [MkSB tCons] "Start unify" $ unifyEquals (conEqualS tCons)
-        tCons' <- subStack (tCons { conEqualS = conEqualS' })
+        tCons' <- updateStack (tCons { conEqualS = conEqualS' })
         unitLoop tCons'
 
     -- need to repeat unifyUnits until we can infer no more from tCons
@@ -176,10 +182,10 @@ unify uState tCons = snd <$> S.runStateT unifyM (Map.empty, Map.empty)
 
     unifyUnits tCons = do
         conSumS' <- unifySum (conSumS tCons)
-        tCons' <- subStack (tCons { conSumS = conSumS' })
+        tCons' <- updateStack (tCons { conSumS = conSumS' })
 
         conSameDimS' <- unifySameDim uState (conSameDimS tCons')
-        tCons'' <- subStack (tCons' { conSameDimS = conSameDimS' })
+        tCons'' <- updateStack (tCons' { conSameDimS = conSameDimS' })
         return tCons''
 
 
@@ -253,6 +259,17 @@ unifyEquals conEqualS = unifyEqualsLoop conEqualS
 
     -- u = uV
     processEqual (ConEqual t1@(E.TFloat _) t2@(E.TFloat (U.UnitVar _))) curS = processEqual (ConEqual t2 t1) curS
+
+
+    -- Record Selection
+--    processEqual (ConRecSel recId tSel (E.TRecord ts)) curS =
+--        case Map.lookup recId ts of
+--            Just t -> processEqual (ConEqual tSel t) curS
+--            Nothing -> Map.insert recId tSel ts
+--
+--        DF.foldlM (\curS (t1, t2) -> processEqual (ConEqual t1 t2) curS) curS (Map.intersectionWith (,) t1s t2s)
+--
+
 
     -- can't unify types
     processEqual (ConEqual t1 t2) curS = trace' [MkSB t1, MkSB t2, MkSB curS] "Type Error" $ throwError (printf "(TC01) - cannot unify %s and %s" (show t1) (show t2))

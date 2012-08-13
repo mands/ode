@@ -22,6 +22,7 @@ import qualified Lang.Core.AST as E
 import qualified Lang.Core.Units as U
 import qualified Lang.Module.AST as M
 
+
 -- Global Types ---------------------------------------------------------------------------------------------------------------
 
 type TypeEnv = M.TypeMap
@@ -32,6 +33,9 @@ type UnitVarEnv = Map.Map E.Id U.Unit
 -- * for imports copies the type from the global modEnv
 -- * for functor holds a type var for the first occurance of a module var
 type ModTypeEnv = Map.Map (E.VarId E.Id) E.Type
+
+-- collects all references to records within a module (both local and mod level)
+type RecordRefMap = Map.Map (E.VarId E.Id) E.Type
 
 -- Constraint Generation -----------------------------------------------------------------------------------------------
 
@@ -45,7 +49,9 @@ type ModTypeEnv = Map.Map (E.VarId E.Id) E.Type
 --                    deriving (Show, Eq, Ord)
 
 -- true for both types and units ?
-data ConEqual = ConEqual E.Type E.Type deriving (Show, Eq, Ord)
+data ConEqual   = ConEqual E.Type E.Type
+                | ConRecSel E.RecId E.Type E.Type -- record t1 has been selected from record t2
+                deriving (Show, Eq, Ord)
 -- can unify Mul&Div into ConsSum (a,b) = c
 data ConSum = ConSum U.Unit U.Unit U.Unit deriving (Show, Eq, Ord)
 -- should this be Unit, not type??

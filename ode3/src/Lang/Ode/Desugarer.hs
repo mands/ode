@@ -209,7 +209,7 @@ desugarStmt (O.Component name ins outs body) = do
     -- | desugars and converts a component into a \c abstraction, not in tail-call form, could blow out the stack, but unlikely
     desugarComp :: O.SrcId -> [C.DesId] -> TmpSupply (C.Expr C.DesId)
     desugarComp _ (singIn:[]) = desugarS' body outs
-    desugarComp argName ins = C.Let False ins (C.Var (C.LocalVar argName)) <$> desugarS' body outs
+    desugarComp argName ins = C.Let False ins (C.Var (C.LocalVar argName) Nothing) <$> desugarS' body outs
 
 desugarStmt stmt = throw $ printf "(DS01) Found an unhandled stmt that is top-level only - not nested \n%s" (show stmt)
 
@@ -243,8 +243,8 @@ dsExpr (O.Boolean b) = return $ C.Lit (C.Boolean b)
 dsExpr (O.Time) = return $ C.Lit (C.Time)
 dsExpr (O.Unit) = return $ C.Lit (C.Unit)
 -- TODO - add record selection here
-dsExpr (O.ValueRef (O.LocalId id) mRecId) = return $ C.Var (C.LocalVar id)
-dsExpr (O.ValueRef (O.ModId modId id) mRecId) = return $ C.Var (C.ModVar (ModName modId) id)
+dsExpr (O.ValueRef (O.LocalId id) mRecId) = return $ C.Var (C.LocalVar id) mRecId
+dsExpr (O.ValueRef (O.ModId modId id) mRecId) = return $ C.Var (C.ModVar (ModName modId) id) mRecId
 
 -- we convert from ext. tuple to int. record here
 dsExpr (O.Tuple exprs) = C.Record . C.addLabels <$> DT.mapM dsExpr exprs

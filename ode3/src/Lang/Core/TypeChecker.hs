@@ -59,7 +59,9 @@ import Lang.Core.TypeChecker.Unification
 typeCheck :: M.GlobalModEnv -> M.FileData -> St.UnitsState -> M.Module E.Id -> MExcept (M.Module E.Id)
 typeCheck gModEnv fileData uState mod@(M.LitMod exprMap modData) = do
     -- get the contraints
-    ((tEnv, mTEnv), tCons) <- constrain gModEnv modData Nothing exprMap
+    (tEnvs, tCons) <- constrain gModEnv modData Nothing exprMap
+
+    let (TypeEnvs tEnv mTEnv recRefEnv) = tEnvs
 
     -- unify the types and get the new typemap
     (tVEnv, uVEnv) <- unify uState tCons
@@ -74,8 +76,9 @@ typeCheck gModEnv fileData uState mod@(M.LitMod exprMap modData) = do
 
 typeCheck gModEnv fileData uState mod@(M.FunctorMod args exprMap modData) = do
     -- get the contraints
-    ((tEnv, mTEnv), tCons) <- constrain gModEnv modData (Just args) exprMap
+    (tEnvs, tCons) <- constrain gModEnv modData (Just args) exprMap
 
+    let (TypeEnvs tEnv mTEnv recRefEnv) = tEnvs
     -- unify the types and get the new typemap`
     (tVEnv, uVEnv) <- unify uState tCons
     -- substitute to obtain the new type env

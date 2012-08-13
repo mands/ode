@@ -25,7 +25,7 @@ module Lang.Core.AST (
 VarId(..), BindList,
 Type(..), mapTypeM, mapType, addLabels, dropLabels,
 TopLet(..), Expr(..), Op(..), Literal(..), TypeCast(..),
-SrcId, DesId, Id, -- rexported from Common.AST
+SrcId, DesId, Id, RecId -- rexported from Common.AST
 ) where
 
 import Prelude hiding (LT, GT, EQ)
@@ -58,7 +58,7 @@ data Type :: * where
     TUnit :: Type
     TArr :: Type -> Type -> Type
     TTuple :: [Type] -> Type -- don't want to allow tuples of tuples
-    TRecord :: (Map.Map String Type) -> Type -- don't want to allow tuples of tuples
+    TRecord :: (Map.Map RecId Type) -> Type -- don't want to allow tuples of tuples
     TNewtype :: VarId Id -> Type -> Type -- a wrapper for a newtype
     deriving (Show, Eq, Ord)
 
@@ -115,7 +115,7 @@ data TopLet :: * -> * where
 -- disabling currying means that all functions take only a single parameter, and evalute to an expression,
 -- thus to pass/return multiple values use tuples
 -- TODO - should this be a GADT??, should "b" be an instance of Ord
-data Expr b = Var (VarId b)             -- a reference to any let-defined expressions
+data Expr b = Var (VarId b) (Maybe RecId)             -- a reference to any let-defined expressions
                                         -- could potentially ref to a top-level abs but unlikely, would be optimised
 
             | App (VarId b) (Expr b)    -- name of top-level func, expression to apply
@@ -139,7 +139,7 @@ data Expr b = Var (VarId b)             -- a reference to any let-defined expres
             | Tuple [Expr b]            -- a collection of expressions
                                         -- do we allow nested tuples? if not, do we use GADTs to enforce unnested?
 
-            | Record (Map.Map String (Expr b)) -- a record, technically just a nmed tuple iwth ordering - need to unify with tuples
+            | Record (Map.Map RecId (Expr b)) -- a record, technically just a nmed tuple iwth ordering - need to unify with tuples
 
             | Ode (VarId b) (Expr b)   -- an Ode, uses a state variable defined in b, and runs the expression,
 
@@ -180,7 +180,7 @@ convertCoreExpr (U.CExpr op e1 e2) = Op (convertCoreOp op) $ Tuple [convertCoreE
 
 convertCoreExpr (U.CNum n) = Lit $ Num n U.NoUnit
 -- TODO - this is broken!
-convertCoreExpr U.CFromId = Var $ LocalVar 1
+convertCoreExpr U.CFromId = Var (LocalVar 1) Nothing
 
 
 
@@ -188,7 +188,7 @@ convertCoreExpr U.CFromId = Var $ LocalVar 1
 -- TraveExpr applies a function f over all sub-expressions within the expression
 -- is it a functor?
 -- travExpr :: (E.Expr E.SrcId -> b) -> E.Expr E.SrcId -> b
-travExpr f e@(Var v) = f e
+travExpr f e@(Var v _) = f e
 travExpr f e@(Lit l) = f e
 travExpr f (App v e1) = f (App v (travExpr f e1))
 travExpr f (Let s b e1 e2) = f (Let s b (travExpr f e1) (travExpr f e2))

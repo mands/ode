@@ -194,7 +194,7 @@ shEval str = do
     case eSt of
         Left err -> shellPutErrLn err
         -- update state and PRINT res
-        Right (_, st') -> putShellSt st' >> shellPutInfoLn "Command complete"
+        Right (_, st') -> putShellSt st' -- >> shellPutInfoLn "Command complete"
     -- return, setting up new LOOP
     return ()
   where

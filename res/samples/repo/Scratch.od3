@@ -1,10 +1,18 @@
-// export a component
-module Export2 {
-    export (f)
+// record creation and selection
+module Record2 {
+    // record creation
+    val rec = { i : 1 + 1, j : 2, k : 3 }
+    
+    // direct record selection
+    // val x = rec#i + rec#j + rec#k
 
-    component f a => b where {
-        val b = a + 1
+    // infered record selection
+    
+    component f x => () where {
+      val y = x#i + x#j + x#k
     }
     
-    val b = True
+    // constrain the poly func    
+    val z = f(rec)
 }
+

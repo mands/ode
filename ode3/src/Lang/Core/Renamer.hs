@@ -145,10 +145,10 @@ bLookup v = do
 -- | Basic traverse over the expression structure - make into Data.Traversable
 renExpr :: E.Expr E.DesId -> IdSupply (E.Expr E.Id)
 -- need to check the expr and top bindings
-renExpr (E.Var (E.LocalVar v)) = E.Var <$> (E.LocalVar <$> bLookup v)
+renExpr (E.Var (E.LocalVar v) mRecId) = E.Var <$> (E.LocalVar <$> bLookup v) <*> pure mRecId
 
 -- we don't rename module vars, least not yet - they are renamed during functor application
-renExpr (E.Var (E.ModVar m v)) = return $ E.Var (E.ModVar m v)
+renExpr (E.Var (E.ModVar m v) mRecId) = return $ E.Var (E.ModVar m v) mRecId
 
 -- same as above
 renExpr (E.App (E.LocalVar b) e) = E.App <$> (E.LocalVar <$> bLookup b) <*> renExpr e

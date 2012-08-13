@@ -13,7 +13,7 @@
 -----------------------------------------------------------------------------
 
 module Lang.Core.TypeChecker.ConstraintGen (
-constrain
+constrain, TypeEnvs(..)
 ) where
 
 import Control.Applicative
@@ -47,7 +47,10 @@ import Lang.Core.TypeChecker.Common
 -- Contraint Helpers Functions -----------------------------------------------------------------------------------------
 
 -- constraint monad, generates type/unit vars within the constraint set
-type TypeConsM  = StateT (TypeEnv, ModTypeEnv) (SupplyT Int (StateT TypeCons MExcept))
+data TypeEnvs = TypeEnvs { localTypeEnv :: TypeEnv, modTypeEnv :: ModTypeEnv, recordTypeEnv :: RecordRefMap } deriving (Show, Eq, Ord)
+mkTypeEnvs = TypeEnvs { localTypeEnv = Map.empty, modTypeEnv = Map.empty, recordTypeEnv = Map.empty }
+
+type TypeConsM  = StateT TypeEnvs (SupplyT Int (StateT TypeCons MExcept))
 
 liftMExcept = lift . lift . lift
 
@@ -87,7 +90,7 @@ getIdType mVar@(E.ModVar m v) gModEnv modData mFuncArgs = getMVarType mVar gModE
 -- have to use lifts as MonadSupply is only instance of MonadTrans, not MonadError
 getType :: E.Id -> TypeConsM E.Type
 getType v = do
-    (tEnv, _) <- get
+    tEnv <- localTypeEnv <$> get
     liftMExcept $ maybeToExcept (Map.lookup v tEnv) $ printf "Id %s not found in typeEnv" (show v)
 
 -- | Obtains the type of a modVar reference, either from a fucntor or imported module if not
@@ -107,7 +110,7 @@ getMVarType mv@(E.ModVar m v) gModEnv modData mFuncArgs =
             (_, impMod) <- liftMExcept $ M.getRealModuleMod m modData gModEnv
             -- if not found, raise error, el\se copy type into mTEnv
             eT <- liftMExcept $ M.getIdType v impMod
-            modify (\(tEnv, mTEnv) -> (tEnv, Map.insert mv eT mTEnv))
+            modify (\tEnvs -> tEnvs { modTypeEnv = Map.insert mv eT (modTypeEnv tEnvs)})
             return eT
 
         -- tries to lookup the type in the functor args, if not
@@ -118,17 +121,18 @@ getMVarType mv@(E.ModVar m v) gModEnv modData mFuncArgs =
                 Nothing -> Nothing
                 Just _ -> Just $ do
                     -- if so, then if v already exists get the type, else create a newtvar and add to the mTEnv
-                    (tEnv, mTEnv) <- get
+                    tEnvs <- get
+                    let mTEnv = modTypeEnv tEnvs
                     eT <- if (Map.member mv mTEnv) then return (mTEnv Map.! mv) else newTypevar
-                    put (tEnv, Map.insert mv eT mTEnv)
+                    put $ tEnvs { modTypeEnv = Map.insert mv eT mTEnv }
                     return eT
 
 
 -- Binding Helper Functions --------------------------------------------------------------------------------------------
 
 -- | Adds a set of constraints for linking a multibind (from a tuple/record unpack) to a TVar
-multiBindConstraint :: E.BindList Int -> E.Type -> TypeEnv -> TypeConsM TypeEnv
-multiBindConstraint bs t tEnv = do
+tupleUnpackCons :: E.BindList Int -> E.Type -> TypeEnv -> TypeConsM TypeEnv
+tupleUnpackCons bs t tEnv = do
     -- create the new tvars for each binding
     bTs <- mapM (\_ -> newTypevar) bs
     -- add the constaint
@@ -139,18 +143,39 @@ multiBindConstraint bs t tEnv = do
     -- add the tvars to the type map
     DF.foldlM (\tEnv (b, bT) -> return $ Map.insert b bT tEnv) tEnv (zip bs bTs)
 
+-- | Update the tEnvs for records using the information collected within the RecordRefMap
+recordRefsCons :: M.GlobalModEnv ->  M.ModData -> Maybe (M.FunArgs) -> TypeConsM ()
+recordRefsCons gModEnv modData mFuncArgs = do
+    -- get the data
+    recEnv <- recordTypeEnv <$> get
+    mapM_ addRecRefCons $ Map.toAscList recEnv
+    -- put $ TypeEnvs tEnv' mTEnv' Map.empty
+    -- return ()
+  where
+    addRecRefCons ((E.LocalVar lv), tInf@(E.TRecord nTs)) = do
+        tCur <- getType lv
+        trace' [MkSB tInf, MkSB tCur] "Adding rec refs cons" $ return ()
+        -- TODO - could make tInf a subtype here?
+        addConsEqual $ ConEqual tInf tCur
+
+    addRecRefCons (mv@(E.ModVar m v), tInf@(E.TRecord nTs)) = do
+        tCur <- getMVarType mv gModEnv modData mFuncArgs
+        -- TODO - could make tInf a subtype here?
+        addConsEqual $ ConEqual tInf tCur
+
 
 -- Constraint Generation -----------------------------------------------------------------------------------------------
 
-constrain :: M.GlobalModEnv ->  M.ModData -> Maybe (M.FunArgs) -> M.ExprMap Int -> MExcept ((TypeEnv, ModTypeEnv), TypeCons)
-constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT consM (Map.empty, Map.empty)) [1..]) mkTypeCons
+constrain :: M.GlobalModEnv ->  M.ModData -> Maybe (M.FunArgs) -> M.ExprMap Int -> MExcept (TypeEnvs, TypeCons)
+constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT consM mkTypeEnvs) [1..]) mkTypeCons
   where
     consM :: TypeConsM ()
-    consM = DF.mapM_ consTop (OrdMap.elems exprMap)
+    consM = DF.mapM_ consTop (OrdMap.elems exprMap) >> recordRefsCons gModEnv modData mFuncArgs
 
     consTop (E.TopLet s bs e) = do
         eT <- consExpr e
-        (tEnv, mTEnv) <- get
+        tEnvs <- get
+        let tEnv = localTypeEnv tEnvs
         -- extend and return tEnv
         tEnv' <- case eT of
             -- true if tuple on both side of same size, if so unplack and treat as indivudual elems
@@ -160,28 +185,86 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
             t | length bs == 1 -> return $ Map.insert (head bs) eT tEnv
             -- basic handling, is common case that subsumes special cases above, basically treat both sides as tuples
             -- (with tvars), create contstrains and let unificiation solve it instead
-            t | (length bs > 1) -> multiBindConstraint bs t tEnv
+            t | (length bs > 1) -> tupleUnpackCons bs t tEnv
             _ -> errorDump [MkSB bs, MkSB eT, MkSB tEnv] "(TC) - toplet shit" assert
-        put (tEnv', mTEnv)
+        put $ tEnvs { localTypeEnv = tEnv' }
 
     -- is this right?
     consTop (E.TopType tName) = do
-        (tEnv, mTEnv) <- get
+        tEnvs <- get
+        let tEnv = localTypeEnv tEnvs
+
         -- create a wrapped typevar
         tw <- E.TNewtype (E.LocalVar tName) <$> newTypevar
         -- extend and return tEnv
         let tEnv' = Map.insert tName tw tEnv
-        put (tEnv', mTEnv)
+        put $ tEnvs { localTypeEnv = tEnv' }
 
     -- TODO - do we need to uniquely refer to each expression within AST?, or just bindings?
     -- | map over the expression elements, creating constraints as needed,
     consExpr :: E.Expr E.Id -> TypeConsM E.Type
 
     -- TODO - can auto-unit-convert the var access (local or at module boundary) here
-    consExpr (E.Var v) = case v of
+    consExpr (E.Var v Nothing) = case v of
         E.LocalVar lv -> getType lv
         -- need to obtain the type of the module ref, either from functor or imported mod, creting a newTVar if needed
         mVar@(E.ModVar m v) -> getMVarType mVar gModEnv modData mFuncArgs
+
+
+    consExpr e@(E.Var v (Just recId)) = case v of
+        E.LocalVar lv -> do
+            recEnv <- recordTypeEnv <$> get
+            -- get the cur ref type
+            case Map.lookup v recEnv of
+                Just tRec@(E.TRecord ts) -> case Map.lookup recId ts of
+                    Just t -> return t
+                    Nothing -> addRecRef ts      -- update the inferered record
+                Nothing -> addRecRef Map.empty   -- first reference, create an inferred record
+                Just t -> errorDump [MkSB e, MkSB t] "Record reference TType pattern mismatch" assert
+        mVar@(E.ModVar m v) -> undefined -- getMVarType mVar gModEnv modData mFuncArgs
+      where
+        addRecRef ts = do
+            tV <- newTypevar
+            -- update the infered record
+            let t' = E.TRecord $ Map.insert recId tV ts
+            -- update the recEnv
+            modify (\tEnvs -> tEnvs { recordTypeEnv = Map.insert v t' (recordTypeEnv tEnvs) })
+            return tV
+
+
+
+
+
+--            tCur <- getType lv
+--            _ <- trace' [MkSB e, MkSB tCur] "Record lookup" $ return ()
+--            case tCur of
+--                (E.TRecord ts) -> case Map.lookup recId ts of
+--                    Just t -> return t
+--                    Nothing -> lift . lift . throwError $ printf "TC - Reference %s within record %s not found" (show recId) (show lv)
+--                (E.TRecord ts) -> case Map.lookup recId ts of
+--                    Just t -> return t
+--                    Nothing -> do
+--                        -- update the inferered record
+--                        tV <- newTypevar
+--                        let t' = E.TRecord $ Map.insert recId tV ts
+--                        -- update the tEnv
+--                        modify (\tEnvs -> tEnvs { localTypeEnv = Map.insert lv t' (localTypeEnv tEnvs) })
+--                        -- we need to update the constraints here - can't do it
+--                        return tV
+--                t@(E.TVar _) -> do
+--                    -- first reference, create an inferred record
+--                    tV <- newTypevar
+--                    let t' = E.TRecord $ Map.singleton recId tV
+--                    -- update the tEnv
+--                    modify (\tEnvs -> tEnvs { localTypeEnv = Map.insert lv t' (localTypeEnv tEnvs) })
+--                    -- create a constraint bettwen the old tVar and the new infered record
+--                    addConsEqual $ ConEqual t t'
+--                    return tV
+--                t -> errorDump [MkSB e, MkSB t] "Record reference TType pattern mismatch" assert
+
+
+        -- need to obtain the type of the module ref, either from functor or imported mod, creting a newTVar if needed
+
 
     -- TODO - can auto-unit-convert the function boundary here
     consExpr (E.App f e) = do
@@ -201,7 +284,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
     consExpr (E.Abs arg e) = do
         fromT <- newTypevar
         -- extend the tEnv
-        modify (\(tEnv, mTEnv) -> (Map.insert arg fromT tEnv, mTEnv))
+        modify (\tEnvs -> tEnvs { localTypeEnv = Map.insert arg fromT (localTypeEnv tEnvs) })
         toT <- consExpr e
         -- add a constraint?
         return $ E.TArr fromT toT
@@ -210,7 +293,8 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
     consExpr (E.Let s bs e1 e2) = do
         e1T <- consExpr e1
         -- extend tEnv with new env
-        (tEnv, mTEnv) <- get
+        tEnvs <- get
+        let tEnv = localTypeEnv tEnvs
         tEnv' <- case e1T of
             -- true if tuple on both side of same size, if so unplack and treat as indivudual elems
             (E.TTuple ts) | (length bs == length ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv (zip bs ts)
@@ -219,10 +303,10 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
             t | length bs == 1 -> return $ Map.insert (head bs) e1T tEnv
             -- basic handling, is common case that subsumes special cases above, basically treat both sides as tuples
             -- (with tvars), create contstrains and let unificiation solve it instead
-            t | (length bs > 1) -> multiBindConstraint bs t tEnv
+            t | (length bs > 1) -> tupleUnpackCons bs t tEnv
             _ -> errorDump [MkSB bs, MkSB e1T, MkSB tEnv] "(TC) - let shit\n" assert
         -- now constrain e2 using the new typeEnv
-        put (tEnv', mTEnv)
+        put $ tEnvs { localTypeEnv = tEnv' }
         consExpr e2
 
     -- Mapping from literal -> type
@@ -307,6 +391,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
 
     consExpr (E.Tuple es) = liftM E.TTuple $ DT.mapM consExpr es
 
+    -- is a literal record, record this within the type
     consExpr (E.Record nEs) = liftM E.TRecord $ DT.mapM consExpr nEs
 
     consExpr (E.Ode (E.LocalVar v) eD) = do

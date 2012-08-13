@@ -14,7 +14,7 @@
 
 module Lang.Common.AST (
     -- common id types
-    NumTy, SrcId, DesId, Id,
+    NumTy, SrcId, DesId, Id, RecId,
 
     -- modules
     ModImport(..), ModURIElems, ModRoot, ModName(..), ModFullName(..),
@@ -40,6 +40,7 @@ type SrcId = String
 type DesId = String
 type UntypedId = Int
 type Id = Int
+type RecId = String
 
 -- Shared Module AST ---------------------------------------------------------------------------------------------------
 

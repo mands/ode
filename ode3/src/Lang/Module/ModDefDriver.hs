@@ -247,8 +247,8 @@ appendModule argName argMod@(LitMod argExprMap argModData) baseMod@(LitMod baseE
         argIdBimap = modIdBimap argModData
 
         updateVars :: Expr Id -> Expr Id
-        updateVars (Var (ModVar modId id))
-            | modId == argName = Var (LocalVar (argIdBimap Bimap.! id))
+        updateVars (Var (ModVar modId id) mRecId)
+            | modId == argName = Var (LocalVar (argIdBimap Bimap.! id)) mRecId
 
         updateVars (App vId@(ModVar modId id) expr)
             | modId == argName = App (LocalVar (argIdBimap Bimap.! id)) (updateVars expr)

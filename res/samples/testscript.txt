@@ -1,8 +1,10 @@
+// setup the repo
 :addRepo ../res/samples/repo
+
+// import our modules
 import Scratch.*
-// a comment
-// :show all
 
-
+:show all
+// all done
 :quit
 
