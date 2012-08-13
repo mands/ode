@@ -46,14 +46,14 @@ import Lang.Ode.Desugarer
 
 -- | consoleParse parses a string given on the console command line, restricuted to moduleCmds only
 -- example "import X.Y.Z"
-consoleParse :: String -> MExceptIO (OdeTopElem E.DesId)
+consoleParse :: String -> MExceptIO (Maybe (OdeTopElem E.DesId))
 consoleParse cmdStr =   case (runParser parser () "<console>" cmdStr) of
                             Left err -> throwError ("Input error at " ++ show err)
                             Right res -> return res
   where
     -- parser for a single command string
-    parser :: Parser (OdeTopElem E.DesId)
-    parser = whiteSpace *> topModImport <|> moduleCmd <* eof
+    parser :: Parser (Maybe (OdeTopElem E.DesId))
+    parser = whiteSpace *> optionMaybe (topModImport <|> moduleCmd) <* eof
 
 -- | fileParse takes an input file and a current snapshot of the module env, and parse within this context
 -- sucessfully parsed modules are then converted into (Module E.Id) and added to the env
