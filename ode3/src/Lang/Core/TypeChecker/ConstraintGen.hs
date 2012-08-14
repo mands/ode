@@ -149,10 +149,9 @@ tupleUnpackCons bs t tEnv = do
     -- create the new tvars for each binding
     bTs <- mapM (\_ -> newTypevar) bs
     -- add the constaint
-    -- TODO - cosntraints to a record, ensuring only internally-convered tuples may be unpacked inline
-    -- uncomment 2nd line below to switch behaviour and allow record-unpacking
-    addConsType $ ConEqual (E.TRecord $ E.addLabels bTs) t
-    -- addConsEqual $ ConEqual (E.TTuple $ bTs) t
+    -- diff behavour and allow record-unpacking
+    -- addConsType $ ConEqual (E.TRecord $ E.addLabels bTs) t
+    addConsType $ ConEqual (E.TTuple $ bTs) t
     -- add the each of the tvars to the type map
     DF.foldlM (\tEnv (b, bT) -> return $ Map.insert b bT tEnv) tEnv $ zip (map E.LocalVar bs) bTs
 

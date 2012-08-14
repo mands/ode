@@ -246,8 +246,9 @@ dsExpr (O.Unit) = return $ C.Lit (C.Unit)
 dsExpr (O.ValueRef (O.LocalId id) mRecId) = return $ C.Var (C.LocalVar id) mRecId
 dsExpr (O.ValueRef (O.ModId modId id) mRecId) = return $ C.Var (C.ModVar (ModName modId) id) mRecId
 
--- we convert from ext. tuple to int. record here
-dsExpr (O.Tuple exprs) = C.Record . C.addLabels <$> DT.mapM dsExpr exprs
+-- we can convert from ext. tuple to int. record here
+-- dsExpr (O.Tuple exprs) = C.Record . C.addLabels <$> DT.mapM dsExpr exprs
+dsExpr (O.Tuple exprs) = C.Tuple <$> DT.mapM dsExpr exprs
 
 -- desugar expr and convert from [(SrcId, Expr)] to Map.Map
 -- need to also make sure all identifiers are unique

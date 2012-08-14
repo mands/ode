@@ -233,10 +233,9 @@ unifyTypes conTypeS = unifyTypesLoop conTypeS
         recordIdsEq = all (\refId -> Map.member refId t2s) (Map.keys t1s)
         -- recordIdsEq = (Map.keys t1s == Map.keys t2s) -- full equality check
 
-    -- TODO - check this works!
     -- Composite, Tuple<->Record (should only be used internaly, as drops labels from record)
-    -- processType (ConEqual t1@(E.TTuple t1s) (E.TRecord t2s)) curS = processType (ConEqual t1 (E.TTuple $ E.dropLabels t2s)) curS
-    -- processType (ConEqual t1@(E.TRecord _) t2@(E.TTuple _)) curS = processType (ConEqual t2 t1) curS
+--    processType (ConEqual t1@(E.TTuple t1s) (E.TRecord t2s)) curS = processType (ConEqual t1 (E.TTuple $ E.dropLabels t2s)) curS
+--    processType (ConEqual t1@(E.TRecord _) t2@(E.TTuple _)) curS = processType (ConEqual t2 t1) curS
 
     -- UnitVars equality handling
 --    -- uV = uV
