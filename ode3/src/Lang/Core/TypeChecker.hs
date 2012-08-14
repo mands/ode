@@ -61,14 +61,15 @@ typeCheck gModEnv fileData uState mod@(M.LitMod exprMap modData) = do
     -- get the contraints
     (tEnvs, tCons) <- constrain gModEnv modData Nothing exprMap
 
-    let (TypeEnvs tEnv mTEnv recRefEnv) = tEnvs
+    let (TypeEnvs tEnv recRefEnv) = tEnvs
 
     -- unify the types and get the new typemap
     (tVEnv, uVEnv) <- unify uState tCons
     -- substitute to obtain the new type env
     tEnv' <- subTVars tEnv tVEnv uVEnv False
-    let modData' = updateModData modData tEnv'
-
+    -- split the typeEnvs
+    let (tMap, _) = splitTypeEnvs tEnv'
+    let modData' = updateModData modData tMap
     -- trace ("(TC) " ++ show exprMap) ()
     _ <- trace' [MkSB tEnv'] "Final TypeEnv" $ Right ()
 
@@ -78,21 +79,22 @@ typeCheck gModEnv fileData uState mod@(M.FunctorMod args exprMap modData) = do
     -- get the contraints
     (tEnvs, tCons) <- constrain gModEnv modData (Just args) exprMap
 
-    let (TypeEnvs tEnv mTEnv recRefEnv) = tEnvs
+    let (TypeEnvs tEnv recRefEnv) = tEnvs
     -- unify the types and get the new typemap`
     (tVEnv, uVEnv) <- unify uState tCons
     -- substitute to obtain the new type env
     tEnv' <- subTVars tEnv tVEnv uVEnv True
-    let modData' = updateModData modData tEnv'
 
+    let (tMap, mTEnv) = splitTypeEnvs tEnv'
+    let modData' = updateModData modData tMap
     -- functor specific type-checking
-    mTEnv' <- subTVars mTEnv tVEnv uVEnv True
-    let args' = createFunModArgs args mTEnv'
+    -- mTEnv' <- subTVars mTEnv tVEnv uVEnv True
+    let args' = createFunModArgs args mTEnv
 
     return $ M.FunctorMod args' exprMap modData'
   where
     -- create the public module signatures for Functors
-    createFunModArgs :: M.FunArgs -> ModTypeEnv -> M.FunArgs
+    createFunModArgs :: M.FunArgs -> TypeEnv -> M.FunArgs
     createFunModArgs args mTEnv = Map.foldrWithKey addArg args mTEnv
       where
         -- add the type for M.v into the args OrdMap
@@ -100,23 +102,31 @@ typeCheck gModEnv fileData uState mod@(M.FunctorMod args exprMap modData) = do
           where
             updateModArgs modMap = Just (Map.insert v t modMap)
 
+-- | Take a typeenv and split both local and module-level type information
+splitTypeEnvs :: TypeEnv -> (M.TypeMap, TypeEnv)
+splitTypeEnvs tEnv = Map.foldrWithKey splitType (Map.empty, Map.empty) tEnv
+  where
+    splitType (E.LocalVar lv) t (tMap, mTEnv) = (Map.insert lv t tMap, mTEnv)
+    splitType mv@(E.ModVar _ _) t (tMap, mTEnv) = (tMap, Map.insert mv t mTEnv)
+
+
 -- | Update the module data with the public module signature and internal typemap
 -- we create the mod signature by mapping over the idbimap data and looking up each value from the internal typemap
-updateModData :: M.ModData -> TypeEnv -> M.ModData
-updateModData modData tEnv = modData { M.modTMap = tEnv, M.modSig = sigMap }
+updateModData :: M.ModData -> M.TypeMap -> M.ModData
+updateModData modData tMap = modData { M.modTMap = tMap, M.modSig = sigMap }
   where
     -- build the signature map, taking exported bindings into account
     sigMap = if Set.size (M.modExportSet modData) == 0
-        then Map.map (\id -> tEnv Map.! id) $ Bimap.toMap (M.modIdBimap modData) -- export everything
+        then Map.map (\id -> tMap Map.! id) $ Bimap.toMap (M.modIdBimap modData) -- export everything
         else Set.foldr updateSig Map.empty (M.modExportSet modData) -- fold over the export set and build the sigMap
 
     updateSig b sigMap' = Map.insert b t sigMap'
       where
-        t = tEnv Map.! ((M.modIdBimap modData) Bimap.! b)
+        t = tMap Map.! ((M.modIdBimap modData) Bimap.! b)
 
--- | use the TVar map to undate a type enviroment (either TypeEnv or ModTypeEnv) and substitute all TVars
+-- | use the TVar map to undate a type enviroment (including both local and mod-refs) and substitute all TVars
 -- Bool argument determinst wheter the checking should allow polymophism and not fully-unify
-subTVars :: Show b => Map.Map b E.Type -> TypeVarEnv -> UnitVarEnv -> Bool -> MExcept (Map.Map b E.Type)
+subTVars :: TypeEnv -> TypeVarEnv -> UnitVarEnv -> Bool -> MExcept TypeEnv
 subTVars tEnv tVEnv uVEnv allowPoly = DT.mapM (E.mapTypeM updateType) tEnv
   where
     -- try to substitute a tvar if it exists - this will behave differently depending on closed/open modules

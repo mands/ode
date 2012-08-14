@@ -25,14 +25,17 @@ import qualified Lang.Module.AST as M
 
 -- Global Types ---------------------------------------------------------------------------------------------------------------
 
-type TypeEnv = M.TypeMap
-type TypeVarEnv = Map.Map E.Id E.Type
-type UnitVarEnv = Map.Map E.Id U.Unit
-
+-- type TypeEnv = M.TypeMap
 -- type env for modules, only one needed as vars should be unique,
 -- * for imports copies the type from the global modEnv
 -- * for functor holds a type var for the first occurance of a module var
-type ModTypeEnv = Map.Map (E.VarId E.Id) E.Type
+-- holds both local and module-scope types for the module
+type TypeEnv = Map.Map (E.VarId E.Id) E.Type
+
+-- Mappings from a type/unit-variable to an actual type
+type TypeVarEnv = Map.Map Int E.Type
+type UnitVarEnv = Map.Map Int U.Unit
+
 
 -- collects all references to records within a module (both local and mod level)
 type RecordRefMap = Map.Map (E.VarId E.Id) E.Type
