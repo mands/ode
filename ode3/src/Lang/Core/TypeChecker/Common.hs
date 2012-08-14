@@ -50,7 +50,7 @@ type RecordRefMap = Map.Map (E.VarId E.Id) E.Type
 
 -- true for both types and units ?
 data ConEqual   = ConEqual E.Type E.Type
-                | ConRecSel E.RecId E.Type E.Type -- record t1 has been selected from record t2
+                -- | ConRecSubType E.Type E.Type -- record t1 is a subtype of record t2
                 deriving (Show, Eq, Ord)
 -- can unify Mul&Div into ConsSum (a,b) = c
 data ConSum = ConSum U.Unit U.Unit U.Unit deriving (Show, Eq, Ord)

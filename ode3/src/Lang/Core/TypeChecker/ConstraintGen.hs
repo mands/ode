@@ -162,6 +162,7 @@ recordRefsCons gModEnv modData mFuncArgs = do
         tCur <- getMVarType mv gModEnv modData mFuncArgs
         -- TODO - could make tInf a subtype here?
         addConsEqual $ ConEqual tInf tCur
+        -- addConsEqual $ ConEqual tInf tCur
 
 
 -- Constraint Generation -----------------------------------------------------------------------------------------------
@@ -210,7 +211,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         -- need to obtain the type of the module ref, either from functor or imported mod, creting a newTVar if needed
         mVar@(E.ModVar m v) -> getMVarType mVar gModEnv modData mFuncArgs
 
-
+    -- Handle record references within a varId
     consExpr e@(E.Var v (Just recId)) = case v of
         E.LocalVar lv -> do
             recEnv <- recordTypeEnv <$> get
@@ -230,40 +231,6 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
             -- update the recEnv
             modify (\tEnvs -> tEnvs { recordTypeEnv = Map.insert v t' (recordTypeEnv tEnvs) })
             return tV
-
-
-
-
-
---            tCur <- getType lv
---            _ <- trace' [MkSB e, MkSB tCur] "Record lookup" $ return ()
---            case tCur of
---                (E.TRecord ts) -> case Map.lookup recId ts of
---                    Just t -> return t
---                    Nothing -> lift . lift . throwError $ printf "TC - Reference %s within record %s not found" (show recId) (show lv)
---                (E.TRecord ts) -> case Map.lookup recId ts of
---                    Just t -> return t
---                    Nothing -> do
---                        -- update the inferered record
---                        tV <- newTypevar
---                        let t' = E.TRecord $ Map.insert recId tV ts
---                        -- update the tEnv
---                        modify (\tEnvs -> tEnvs { localTypeEnv = Map.insert lv t' (localTypeEnv tEnvs) })
---                        -- we need to update the constraints here - can't do it
---                        return tV
---                t@(E.TVar _) -> do
---                    -- first reference, create an inferred record
---                    tV <- newTypevar
---                    let t' = E.TRecord $ Map.singleton recId tV
---                    -- update the tEnv
---                    modify (\tEnvs -> tEnvs { localTypeEnv = Map.insert lv t' (localTypeEnv tEnvs) })
---                    -- create a constraint bettwen the old tVar and the new infered record
---                    addConsEqual $ ConEqual t t'
---                    return tV
---                t -> errorDump [MkSB e, MkSB t] "Record reference TType pattern mismatch" assert
-
-
-        -- need to obtain the type of the module ref, either from functor or imported mod, creting a newTVar if needed
 
 
     -- TODO - can auto-unit-convert the function boundary here
@@ -416,11 +383,6 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         destT <- getType dest
         addConsEqual =<< ConEqual destT <$> uFloat
         return E.TUnit
-
-    -- explicit cast->number here -- to handle case that convcast and inital unit creation are overloaded
---    consExpr (E.ConvCast (E.Lit (E.Num n u1)) u2) = do
---        -- no contraints needed, direct cast
---        return $ E.TFloat u
 
     -- Type/Unit-casting constraints
     consExpr (E.TypeCast e (E.UnitCast u)) = do

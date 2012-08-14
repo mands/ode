@@ -4,12 +4,11 @@ module Record2 {
     val rec = { i : 1 + 1, j : 2, k : 3 }
     
     // direct record selection
-    // val x = rec#i + rec#j + rec#k
-
+    // val x = rec#i + rec#j
     // infered record selection
     
     component f x => () where {
-      val y = x#i + x#j + x#k
+      val y = x#i + x#j
     }
     
     // constrain the poly func    

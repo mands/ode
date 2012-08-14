@@ -72,7 +72,6 @@ updateStack tCons = do
       where
         conEqualS' = Set.map updateEqual $ conEqualS tCons
         updateEqual (ConEqual a b) = ConEqual (updateTypes a) (updateTypes b)
-        updateEqual (ConRecSel recId a b) = ConRecSel recId (updateTypes a) (updateTypes b)
 
         conSumS' = Set.map (\(ConSum a b c) -> (ConSum (updateUnits a) (updateUnits b) (updateUnits c))) $ conSumS tCons
         conSameDimS' = Set.map (\(ConSameDim a b) -> (ConSameDim (updateUnits  a) (updateUnits b))) $ conSameDimS tCons
@@ -90,7 +89,6 @@ subEqualS :: E.Type -> E.Type -> ConEqualS -> ConEqualS
 subEqualS t1 t2 = Set.map subEqual
   where
     subEqual (ConEqual a b) = ConEqual (subTTerm t1 t2 a) (subTTerm t1 t2 b)
-    subEqual (ConRecSel recId a b) = ConRecSel recId (subTTerm t1 t2 a) (subTTerm t1 t2 b)
 
 -- | replace all occurances of u1->u2 in the set of constraints
 subSumS :: U.Unit -> U.Unit -> ConSumS -> ConSumS
@@ -234,8 +232,12 @@ unifyEquals conEqualS = unifyEqualsLoop conEqualS
 
     -- Composite, Records
     -- check ids are equal (not subtype/subset), then combine using ids and run equalty on each pair
-    processEqual (ConEqual (E.TRecord t1s) (E.TRecord t2s)) curS | (Map.keys t1s == Map.keys t2s) =
+    processEqual (ConEqual (E.TRecord t1s) (E.TRecord t2s)) curS | recordIdsEq =
         DF.foldlM (\curS (t1, t2) -> processEqual (ConEqual t1 t2) curS) curS (Map.intersectionWith (,) t1s t2s)
+      where
+        -- subtyping equality check for records Ids, t1 < t2
+        recordIdsEq = all (\refId -> Map.member refId t2s) (Map.keys t1s)
+        -- recordIdsEq = (Map.keys t1s == Map.keys t2s) -- full equality check
 
     -- TODO - check this works!
     -- Composite, Tuple<->Record (should only be used internaly, as drops labels from record)
@@ -259,17 +261,6 @@ unifyEquals conEqualS = unifyEqualsLoop conEqualS
 
     -- u = uV
     processEqual (ConEqual t1@(E.TFloat _) t2@(E.TFloat (U.UnitVar _))) curS = processEqual (ConEqual t2 t1) curS
-
-
-    -- Record Selection
---    processEqual (ConRecSel recId tSel (E.TRecord ts)) curS =
---        case Map.lookup recId ts of
---            Just t -> processEqual (ConEqual tSel t) curS
---            Nothing -> Map.insert recId tSel ts
---
---        DF.foldlM (\curS (t1, t2) -> processEqual (ConEqual t1 t2) curS) curS (Map.intersectionWith (,) t1s t2s)
---
-
 
     -- can't unify types
     processEqual (ConEqual t1 t2) curS = trace' [MkSB t1, MkSB t2, MkSB curS] "Type Error" $ throwError (printf "(TC01) - cannot unify %s and %s" (show t1) (show t2))
