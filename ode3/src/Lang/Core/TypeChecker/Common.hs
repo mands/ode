@@ -52,24 +52,22 @@ type RecordRefMap = Map.Map (E.VarId E.Id) E.Type
 --                    deriving (Show, Eq, Ord)
 
 -- true for both types and units ?
-data ConEqual   = ConEqual E.Type E.Type
+data ConType    = ConEqual E.Type E.Type
                 -- | ConRecSubType E.Type E.Type -- record t1 is a subtype of record t2
                 deriving (Show, Eq, Ord)
--- can unify Mul&Div into ConsSum (a,b) = c
-data ConSum = ConSum U.Unit U.Unit U.Unit deriving (Show, Eq, Ord)
--- should this be Unit, not type??
-data ConSameDim = ConSameDim U.Unit U.Unit deriving (Show, Eq, Ord)
 
-type ConEqualS = Set.Set ConEqual
-type ConSumS = Set.Set ConSum
-type ConSameDimS = Set.Set ConSameDim
+data ConUnit    = ConSum U.Unit U.Unit U.Unit   -- can unify Mul&Div into ConsSum (a,b) = c
+                | ConSameDim U.Unit U.Unit      -- should this be Unit, not type??
+                deriving (Show, Eq, Ord)
 
-data TypeCons = TypeCons    { conEqualS :: ConEqualS
-                            , conSumS :: ConSumS
-                            , conSameDimS :: ConSameDimS
+type ConTypeS = Set.Set ConType
+type ConUnitS = Set.Set ConUnit
+
+data TypeCons = TypeCons    { conTypeS :: ConTypeS
+                            , conUnitS :: ConUnitS
                             } deriving (Show, Eq, Ord)
 
-mkTypeCons = TypeCons Set.empty Set.empty Set.empty
+mkTypeCons = TypeCons Set.empty Set.empty
 --data ConsRule   = ConsEqual E.Type E.Type       -- true for both types and units ?
 --                | ConsSameDim E.Type E.Type     -- should this be Unit, not type??
 --                -- ConsMul E.Type E.Type E.Type  -- contrain the results from a multiplcation

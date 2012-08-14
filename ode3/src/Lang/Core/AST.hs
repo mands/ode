@@ -56,10 +56,11 @@ data Type :: * where
     TBool :: Type
     TFloat :: U.Unit -> Type
     TUnit :: Type
+    -- Composite Types
     TArr :: Type -> Type -> Type
-    TTuple :: [Type] -> Type -- don't want to allow tuples of tuples
-    TRecord :: (Map.Map RecId Type) -> Type -- don't want to allow tuples of tuples
-    TNewtype :: VarId Id -> Type -> Type -- a wrapper for a newtype
+    TNewtype :: VarId Id -> Type -> Type
+    TTuple :: [Type] -> Type
+    TRecord :: (Map.Map RecId Type) -> Type
     deriving (Show, Eq, Ord)
 
 -- Helper functions

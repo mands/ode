@@ -1,17 +1,20 @@
-// record creation and selection
-module Record2 {
-    // record creation
-    val rec = { i : 1 + 1, j : 2, k : 3 }
-    
-    // direct record selection
-    // val x = rec#i + rec#j
-    // infered record selection
-    
-    component f x => () where {
-      val y = x#i + x#j
-    }
-    
-    // constrain the poly func    
-    val z = f(rec)
+// dervied units, casting, and operations
+module Dim5 {
+    quantity length = dim L
+
+    // base units
+    unit m { dim : L, SI : False }
+    unit mm { dim : L, SI : False }
+
+    // conversion func
+    conversion { from : m, to : mm, factor : x * 1000 }
+    conversion { from : mm, to : m, factor : x / 1000 }
+
+    // convert an area from mm2 to m2
+    val area = (1e6 { unit : mm^2 }) {unit : m^2}
+
+    // more complicated ops
+    val height = area / ((1 { unit : m^2 }) {unit : mm^2})
+
 }
 

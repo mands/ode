@@ -10,7 +10,7 @@ module Record1 {
 }
 
 // record creation and selection
-module Record2 {
+module Record2a {
     // record creation
     val rec = { i : 1 + 1, j : 2, k : 3 }
     
@@ -19,17 +19,30 @@ module Record2 {
 }
 
 // record creation and selection
-module Record2 {
+module Record2b {
     // record creation
     val rec = { i : 1 + 1, j : 2, k : 3 }
     
-    // invalid record selection
-    val x = rec#i + rec#rr + 2
+    val x = rec#i + rec#j
+    // ? invalid record selection
+    val y = rec#i + rec#rr
 }
 
+// record creation and selection within a component
+module Record2c {
+    // record creation
+    val rec = { i : 1 + 1, j : 2, k : 3 }
+
+    component f x => () where {
+      val y = x#i + x#j
+    }
+    
+    // ? constrain the poly func    
+    val z = f(rec)
+}
 
 // record unpacking --  error as not a tuple
-module Record2 {
+module Record3 {
     val a = { i : 1 {unit : m} + 1 {unit : m} , j : 2, k : 3 }
 
     component f x => () where {
@@ -49,4 +62,6 @@ module Record3 {
     
     val b = f(a)
 }
+
+
 

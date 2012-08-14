@@ -54,14 +54,11 @@ type TypeConsM  = StateT TypeEnvs (SupplyT Int (StateT TypeCons MExcept))
 
 liftMExcept = lift . lift . lift
 
-addConsEqual :: ConEqual -> TypeConsM ()
-addConsEqual con = lift . lift $ modify (\tCons -> tCons { conEqualS = Set.insert con (conEqualS tCons) })
+addConsType :: ConType -> TypeConsM ()
+addConsType con = lift . lift $ modify (\tCons -> tCons { conTypeS = Set.insert con (conTypeS tCons) })
 
-addConsSameDim :: ConSameDim -> TypeConsM ()
-addConsSameDim con = lift . lift $ modify (\tCons -> tCons { conSameDimS = Set.insert con (conSameDimS tCons) })
-
-addConsSum :: ConSum -> TypeConsM ()
-addConsSum con = lift . lift $ modify (\tCons -> tCons { conSumS = Set.insert con (conSumS tCons) })
+addConsUnit :: ConUnit -> TypeConsM ()
+addConsUnit con = lift . lift $ modify (\tCons -> tCons { conUnitS = Set.insert con (conUnitS tCons) })
 
 -- we handle both unitvars and typevars within the same supply monad, they only need to be unique, not sequential
 newTypevar :: TypeConsM E.Type
@@ -154,7 +151,7 @@ tupleUnpackCons bs t tEnv = do
     -- add the constaint
     -- TODO - cosntraints to a record, ensuring only internally-convered tuples may be unpacked inline
     -- uncomment 2nd line below to switch behaviour and allow record-unpacking
-    addConsEqual $ ConEqual (E.TRecord $ E.addLabels bTs) t
+    addConsType $ ConEqual (E.TRecord $ E.addLabels bTs) t
     -- addConsEqual $ ConEqual (E.TTuple $ bTs) t
     -- add the each of the tvars to the type map
     DF.foldlM (\tEnv (b, bT) -> return $ Map.insert b bT tEnv) tEnv $ zip (map E.LocalVar bs) bTs
@@ -165,20 +162,12 @@ recordRefsCons gModEnv modData mFuncArgs = do
     -- get the data
     recEnv <- recordTypeEnv <$> get
     mapM_ addRecRefCons $ Map.toAscList recEnv
-    -- put $ TypeEnvs tEnv' mTEnv' Map.empty
-    -- return ()
   where
-    addRecRefCons (lv@(E.LocalVar _), tInf@(E.TRecord nTs)) = do
-        tCur <- getLVarType lv
+    addRecRefCons (v, tInf@(E.TRecord nTs)) = do
+        tCur <- getVarType v gModEnv modData mFuncArgs
         trace' [MkSB tInf, MkSB tCur] "Adding rec refs cons" $ return ()
         -- TODO - could make tInf a subtype here?
-        addConsEqual $ ConEqual tInf tCur
-
-    addRecRefCons (mv@(E.ModVar _ _), tInf@(E.TRecord nTs)) = do
-        tCur <- getMVarType mv gModEnv modData mFuncArgs
-        -- TODO - could make tInf a subtype here?
-        addConsEqual $ ConEqual tInf tCur
-        -- addConsEqual $ ConEqual tInf tCur
+        addConsType $ ConEqual tInf tCur
 
 
 -- Constraint Generation -----------------------------------------------------------------------------------------------
@@ -210,17 +199,15 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
     consExpr (E.Var v Nothing) = getVarType v gModEnv modData mFuncArgs
 
     -- Handle record references within a varId
-    consExpr e@(E.Var v (Just recId)) = case v of
-        E.LocalVar lv -> do
-            recEnv <- recordTypeEnv <$> get
-            -- get the cur ref type
-            case Map.lookup v recEnv of
-                Just tRec@(E.TRecord ts) -> case Map.lookup recId ts of
-                    Just t -> return t
-                    Nothing -> addRecRef ts      -- update the inferered record
-                Nothing -> addRecRef Map.empty   -- first reference, create an inferred record
-                Just t -> errorDump [MkSB e, MkSB t] "Record reference TType pattern mismatch" assert
-        mVar@(E.ModVar m v) -> undefined -- getMVarType mVar gModEnv modData mFuncArgs
+    consExpr e@(E.Var v (Just recId)) = do
+        recEnv <- recordTypeEnv <$> get
+        -- get the cur ref type
+        case Map.lookup v recEnv of
+            Just tRec@(E.TRecord ts) -> case Map.lookup recId ts of
+                Just t -> return t
+                Nothing -> addRecRef ts      -- update the inferered record
+            Nothing -> addRecRef Map.empty   -- first reference, create an inferred record
+            Just t -> errorDump [MkSB e, MkSB t] "Record reference TType pattern mismatch" assert
       where
         addRecRef ts = do
             tV <- newTypevar
@@ -229,7 +216,6 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
             -- update the recEnv
             modify (\tEnvs -> tEnvs { recordTypeEnv = Map.insert v t' (recordTypeEnv tEnvs) })
             return tV
-
 
     -- TODO - can auto-unit-convert the function boundary here
     consExpr (E.App f e) = do
@@ -241,7 +227,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         toT <- newTypevar
         -- add constraint -- we constrain fT as (fT1->fT2) to eT->newTypeVar,
         -- rather than unpacking fT, constraining (fT1,eT) and returning fT2 - is simpler as newTypeVar will resolve to fT2 anyway
-        addConsEqual $ ConEqual fT (E.TArr eT toT)
+        addConsType $ ConEqual fT (E.TArr eT toT)
         return toT
 
     consExpr (E.Abs arg e) = do
@@ -275,7 +261,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         -- get the arg type
         eT <- consExpr e
         -- add callee/caller constraints
-        addConsEqual $ ConEqual fromT eT
+        addConsType $ ConEqual fromT eT
         -- addUnitCons fromU eU  -- how do we get eU ??
         -- plus can't as Units aren't composite, same prob as UC, need a parallel, redudant ADT
         -- altohugh we now toT is a float, we don't know the unit, so gen a UnitCons
@@ -326,16 +312,16 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
                 uV3 <- newUnitVar
                 -- the inputs are indepedent, output depdendent on inputs - thus need special constraint rule, ConsMul
                 case op of
-                    E.Mul -> addConsSum $ ConSum uV1 uV2 uV3
-                    E.Div -> addConsSum $ ConSum uV3 uV2 uV1 -- a - b = c => a = b + c
+                    E.Mul -> addConsUnit $ ConSum uV1 uV2 uV3
+                    E.Div -> addConsUnit $ ConSum uV3 uV2 uV1 -- a - b = c => a = b + c
                 return $ E.TArr (E.TTuple [E.TFloat uV1, E.TFloat uV2]) (E.TFloat uV3)
 
     consExpr (E.If eB eT eF) = do
         eBT <- consExpr eB
-        addConsEqual $ ConEqual eBT E.TBool
+        addConsType $ ConEqual eBT E.TBool
         eTT <- consExpr eT
         eFT <- consExpr eF
-        addConsEqual $ ConEqual eTT eFT
+        addConsType $ ConEqual eTT eFT
         return eFT
 
     consExpr (E.Tuple es) = liftM E.TTuple $ DT.mapM consExpr es
@@ -347,23 +333,23 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         -- constrain the ode state val to be a float
         vT <- getLVarType lv
         uV1 <- newUnitVar
-        addConsEqual $ ConEqual vT (E.TFloat uV1)
+        addConsType $ ConEqual vT (E.TFloat uV1)
 
         -- add the deltaExpr type - must be Unit /s
         eDT <- consExpr eD
         uV2 <- newUnitVar
-        addConsEqual $ ConEqual eDT (E.TFloat uV2)
+        addConsType $ ConEqual eDT (E.TFloat uV2)
 
         -- TODO - contrain both types wrt Time -- is this right?
-        addConsSum $ ConSum uV2 U.uSeconds uV1
+        addConsUnit $ ConSum uV2 U.uSeconds uV1
         return E.TUnit
 
     consExpr (E.Rre src@(E.LocalVar _) dest@(E.LocalVar _) _) = do
         -- constrain both state vals to be floats
         srcT <- getLVarType src
-        addConsEqual =<< ConEqual srcT <$> uFloat
+        addConsType =<< ConEqual srcT <$> uFloat
         destT <- getLVarType dest
-        addConsEqual =<< ConEqual destT <$> uFloat
+        addConsType =<< ConEqual destT <$> uFloat
         return E.TUnit
 
     -- Type/Unit-casting constraints
@@ -372,9 +358,9 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         eT <- consExpr e
         -- create unit for e
         uV1 <- newUnitVar
-        addConsEqual $ ConEqual eT (E.TFloat uV1)
+        addConsType $ ConEqual eT (E.TFloat uV1)
         -- constrain them both to be of the same dimension
-        addConsSameDim $ ConSameDim uV1 u
+        addConsUnit $ ConSameDim uV1 u
         -- return the new "casted" type
         return $ E.TFloat u
 
@@ -385,7 +371,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         -- get the stored newType type
         fTw <- getVarType v gModEnv modData mFuncArgs
         -- add constraint
-        addConsEqual $ ConEqual fTw eTw
+        addConsType $ ConEqual fTw eTw
         -- return wrapped type
         return eTw
 
@@ -396,7 +382,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         -- we could create a newTypeVar here instead of the pattern-match, but match should always succeed at this point
         fTw@(E.TNewtype _ fT) <- getVarType v gModEnv modData mFuncArgs
         -- add constraint on wrapped types
-        addConsEqual $ ConEqual fTw eTw
+        addConsType $ ConEqual fTw eTw
         -- return unwrapped type
         return fT
 
