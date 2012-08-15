@@ -114,6 +114,10 @@ evalModDef fd mod = do
 evalModDef' :: GlobalModEnv -> FileData -> St.UnitsState -> Module DesId -> MExcept (Module Id)
 
 -- simply looks up the id within both the file and then global env and return the module if found
+evalModDef' gModEnv fileData _ mod@(EvaledMod modFullName importMap modEnv) = errorDump [MkSB mod] "Trying to eval a previousled evaled module" assert
+
+
+-- simply looks up the id within both the file and then global env and return the module if found
 evalModDef' gModEnv fileData _ mod@(VarMod modName) = snd <$> getModuleFile modName fileData gModEnv
 
 -- TODO - how do we merge expect and actual module interfaces??

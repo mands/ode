@@ -63,7 +63,12 @@ data Module a = LitMod  (ExprMap a) ModData
                 | FunctorMod FunArgs (ExprMap a) ModData
                 | AppMod ModName [Module a]     -- we never have access to the appmodules,
                                                 -- they are always immediatly applied and the resulting ClosedModule is saved under this name
-                | VarMod ModName            -- only used within appmods
+                | VarMod ModName            -- only used within appmods (and var refs)
+
+                -- this holds a ref/thunk to a previously evaled module
+                -- we ensure that all AppMod and VarMod eval to a RefMod that whose modfullname points
+                -- either to another EvaledMod or a LitMod
+                | EvaledMod ModFullName ImportMap LocalModEnv
                 deriving (Show, Eq, Ord)
 
 -- Module Body Data

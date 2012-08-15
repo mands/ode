@@ -3,3 +3,4 @@ module A {
 }
 
 module B = A
+
