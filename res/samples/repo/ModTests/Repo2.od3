@@ -1,12 +1,6 @@
-import ModTests.Repo1.*
-// import RepoTest.A
-
-module A {
-  val y = 2
-}
+import ModTests.Repo1.A
 
 // now test usage...
+// this should be a var ref, but seems to be a copy
 module B = A
-
-
 

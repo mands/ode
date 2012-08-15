@@ -177,7 +177,7 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
 
         -- indiv useful elems
         f "repos" = (ppShow <$> get vRepos <$> getShellSt) >>= shellPutInfoLn
-        f "modules" = (ppShow <$> get (lLocalFile . lModState) <$> getShellSt) >>= shellPutInfoLn
+        f "modules" = (ppShow <$> get (lReplFile . lModState) <$> getShellSt) >>= shellPutInfoLn
         f _ = shellPutInfoLn "Pass <all, repos, modules, units> to display current state"
 
     typeCmd = cmd "type" f "Display the type of the loaded module"

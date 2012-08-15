@@ -18,11 +18,11 @@ module Lang.Module.AST (
 OdeTopElem(..),
 ExprMap, ExprList, FunArgs,
 Module(..), getModExprs, putModExprs, modifyModExprs,
-GlobalModEnv, FileModEnv, LocalModEnv, FileData(..), mkFileData,
+GlobalModEnv, FileModEnv, LocalModEnv, FileData(..), mkFileData, replModRoot,
 getRealModuleMod, getModuleMod, getRealModuleFile, getModuleFile, getModuleGlobal,
 getFileData, ImportMap, getIdType,
 ModData(..), mkModData, getModData, putModData, modifyModData,
-SigMap, TypeMap, IdBimap, debugModuleExpr,
+SigMap, TypeMap, IdBimap
 ) where
 
 import Control.Monad
@@ -125,7 +125,7 @@ putModExprs mod _ = mod
 modifyModExprs :: Module a -> (ExprMap a -> ExprMap a) -> Module a
 modifyModExprs m f = maybe m (\md -> putModExprs m (f md)) $ getModExprs m
 
-
+-- Lookup the type of a binding within a module type-signature
 getIdType :: SrcId -> Module Id -> MExcept E.Type
 getIdType v mod = maybeToExcept (do
     sigMap <- mSigMap
@@ -143,7 +143,7 @@ getIdType v mod = maybeToExcept (do
 -- then the modName, returning the individual module after
 type GlobalModEnv = Map.Map ModRoot FileData
 
--- | File module env, used to hold modules currently avialable at the file level
+-- | Local/File module env, used to hold modules currently avialable within the module/file
 type LocalModEnv = Map.Map ModName (Module Id)
 type FileModEnv = LocalModEnv
 
@@ -156,6 +156,10 @@ data FileData = FileData { fileImportMap :: ImportMap, fileModEnv :: FileModEnv,
 
 -- | Makes an empty fileData object, requires a ModRoot
 mkFileData = FileData Map.empty Map.empty
+
+-- special datatype used to hold in-memory REPL file
+-- replFileData = mkFileData $ mkModRoot "<console>"
+replModRoot = mkModRoot ["<console>"]
 
 -- Module Lookups ------------------------------------------------------------------------------------------------------
 -- keep following VarMods within modEnvs until we find a lit/func module
@@ -230,9 +234,9 @@ getModuleGlobal (ModFullName modRoot modName) gModEnv =
 getModuleGlobal (ModLocalName modName) gModEnv = throwError $ printf "Cannot retireve global module for a local name %s" (show modName)
 
 
--- | Returns the filedata for a particvular modroot
+-- | Returns the filedata for a particular modroot
 getFileData :: ModRoot -> GlobalModEnv -> MExcept FileData
-getFileData modRoot modEnv = maybeToExcept (Map.lookup modRoot modEnv) $ "Module root " ++ show modRoot ++ " not found or currently loaded"
+getFileData modRoot modEnv = maybeToExcept (Map.lookup modRoot modEnv) $ printf "Module root %s not found or currently loaded" (show modRoot)
 
 -- | Returns the filedata for a particvular modroot, if it doesn't exist then one is created
 getCreateFileData :: ModRoot -> GlobalModEnv -> FileData
@@ -243,30 +247,3 @@ getCreateFileData modRoot modEnv = Map.findWithDefault (mkFileData $ mkModRoot [
 
 -- need to put more helper functions here
 -- for instance functions to union two exprMaps, modules, remap ids, etc.
-debugModuleExpr :: (Show a) => Module a -> String
-debugModuleExpr (LitMod exprMap _) = prettyPrint exprMap
-debugModuleExpr (FunctorMod _ exprMap _) = prettyPrint exprMap
-debugModuleExpr (AppMod _ _) = "Application - no exprs"
-
-
-instance (Show a) => PrettyPrint (OdeTopElem a) where
-    prettyPrint (TopModDef root name mod) = show root ++ "." ++ show name ++ " :: " ++ prettyPrint mod
-    prettyPrint _ = undefined
-
-instance (Show a) => PrettyPrint (Module a) where
-    -- show the module signature
-    prettyPrint (LitMod exprMap modData) = "Closed :: " ++ prettyPrint modData
-
-    -- show the args and module sig
-    prettyPrint (FunctorMod funcArgs exprMap modData) = "Functor :: (" ++ prettyPrint funcArgs ++ ") -> " ++ prettyPrint modData
-
-    -- show the functor and args
-    prettyPrint mod@(AppMod functor args) = "Application - " ++ show functor ++ "(" ++ show args ++ ")"
-
--- show the module signature
-instance PrettyPrint (ModData) where
-    prettyPrint mod = show $ modSig mod
-
-instance PrettyPrint FunArgs where
-    prettyPrint funArgs = List.intercalate "," $ List.map (\(m, sig) -> show m ++ " :: {" ++ show sig ++ "}") (OrdMap.toList funArgs)
-

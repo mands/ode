@@ -1,0 +1,5 @@
+module A {
+  val x = 2
+}
+
+module B = A

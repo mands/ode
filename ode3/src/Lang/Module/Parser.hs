@@ -43,7 +43,6 @@ import qualified Lang.Core.AST as E
 import Lang.Ode.Desugarer
 
 
-
 -- | consoleParse parses a string given on the console command line, restricuted to moduleCmds only
 -- example "import X.Y.Z"
 consoleParse :: String -> MExceptIO (Maybe (OdeTopElem E.DesId))
@@ -53,7 +52,7 @@ consoleParse cmdStr =   case (runParser parser () "<console>" cmdStr) of
   where
     -- parser for a single command string
     parser :: Parser (Maybe (OdeTopElem E.DesId))
-    parser = whiteSpace *> optionMaybe (topModImport <|> moduleCmd) <* eof
+    parser = whiteSpace *> optionMaybe (topModImport <|> moduleCmd replModRoot) <* eof
 
 -- | fileParse takes an input file and a current snapshot of the module env, and parse within this context
 -- sucessfully parsed modules are then converted into (Module E.Id) and added to the env
@@ -65,16 +64,16 @@ fileParse fileName fileData modRoot = case runParser parser () fileName fileData
   where
     -- | parser for an Ode file, containing both module commands and definitions
     parser :: Parser [OdeTopElem E.DesId]
-    parser = whiteSpace *> (many1 $ topModImport <|> moduleCmd <|> moduleDef modRoot) <* eof
+    parser = whiteSpace *> (many1 $ topModImport <|> moduleCmd modRoot <|> moduleDef modRoot) <* eof
 
 topModImport = TopModImport <$> importCmd
 
 -- | modules commands, used to import and setup alias - used from console and files, both at top-level and within module?
-moduleCmd :: Parser (OdeTopElem E.DesId)
-moduleCmd = modCmdParse
+moduleCmd :: ModRoot -> Parser (OdeTopElem E.DesId)
+moduleCmd modRoot = modCmdParse
   where
     modCmdParse :: Parser (OdeTopElem E.DesId)
-    modCmdParse =   try (TopModDef <$> pure (mkModRoot [""]) <*> (reserved "module" *> singModId) <*> (reservedOp "=" *> moduleAppParams))
+    modCmdParse =   try (TopModDef <$> pure modRoot <*> (reserved "module" *> singModId) <*> (reservedOp "=" *> moduleAppParams))
                     -- test, this should be removed
                     -- <|> try (ModAlias <$> (reserved "module" *> singModId) <*> (reservedOp "=" *> singModId))
                     <?> "valid module command"

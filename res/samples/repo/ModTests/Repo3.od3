@@ -1,8 +1,5 @@
-import ModTests.RepoTest.*
-// import RepoTest.A
-
 module A {
-  import ModTests.RepoTest.A
+  import ModTests.Repo1.A
   
   val y = 2 + A.x
 }

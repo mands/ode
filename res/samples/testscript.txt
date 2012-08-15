@@ -2,8 +2,13 @@
 :addRepo ../res/samples/repo
 
 // import our modules
-import ModTests.Repo1.*
+// import ModTests.Imports.B
+// import ModTests.Imports.*
+import ModTests.Functors.*
+// import ModTests.Repo3.*
+//import ModTests.Refs.*
 
+//module C = B
 // :show all
 :show modState
 // all done

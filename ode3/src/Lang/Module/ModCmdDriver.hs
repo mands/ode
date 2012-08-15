@@ -70,13 +70,18 @@ evalTopElems fd topMod@(TopModDef modRoot modName mod) = do
   where
     -- check if module already exists in fileModEnv
     checkName = if Map.member modName (fileModEnv fd)
-        then throwError (printf "(MD06) - Module with name %s already defined" (show modName)) else pure ()
+        then throwError (printf "(MD06) - Module with name %s already defined" $ show modName) else pure ()
 
     -- add to both fileData and globalmodenv, so subsequent modules within file can access this module
     updateState :: FileData -> Module Id -> St.SysExceptIO FileData
     updateState fd mod = do
+        trace' [MkSB fd, MkSB mod] "updateState" $ return ()
         let fd' = fd { fileModEnv = Map.insert modName mod (fileModEnv fd) }
-        St.modSysState St.vModEnv (\modEnv -> Map.insert modRoot fd' modEnv)
+        -- only update global modEnv if not the console fileMod
+        if (fileModRoot fd) == replModRoot
+            then return ()
+            else St.modSysState St.vModEnv (\modEnv -> Map.insert modRoot fd' modEnv)
+
         return fd'
 
 -- top import, called from REPL or within a file
@@ -95,7 +100,7 @@ evalImport importMap importCmd@(ModImport modRoot _) = do
             then -- so add the imports to the cur filedata
                 addImportsToMap importMap importCmd
             else -- ifnot, shit, error, we must be in the process of analysing the file already, is parsed but not global cache
-                throwError $ "Modules " ++ show modRoot ++ " have already been parsed, import cycle detected"
+                throwError $ printf "Modules %s have already been parsed, import cycle detected" (show modRoot)
         else do -- module not parsed, this should can occur from within REPL, top file, or module
             -- liftIO $ debugM "ode3.modules" ("Searching for modules in " ++ show modRoot)
             -- need to load module
@@ -120,7 +125,7 @@ addImportsToMap importMap (ModImport modRoot mMods) = do
     addImport importedModEnv impMap (modName, mAlias) =
         if Map.member modName importedModEnv
             then return $ Map.insert (maybe modName id mAlias) (ModFullName modRoot modName) impMap
-            else throwError $ "Imported module " ++ show modName ++ " not found in " ++ show modRoot
+            else throwError $ printf "Imported module %s not found in %s" (show modName) (show modRoot)
 
 -- | High level fuction to load a module specified by ModRoot and process it according to the Glboal state
 loadImport :: ModRoot -> St.SysExceptIO ()
@@ -135,7 +140,7 @@ loadImport modRoot = do
     -- now we're ready to process the elems contained within the file, i.e imports, mod defs, etc. using the local env
     fileData' <- DF.foldlM evalTopElems fileData fileElems
     -- have finished the file, so update the global modenv using the modified fileData'
-    liftIO $ debugM "ode3.modules" $ "Finished processing " ++ show modRoot
+    liftIO $ debugM "ode3.modules" $ printf "Finished processing %s" (show modRoot)
     St.modSysState St.vModEnv (\modEnv -> Map.insert modRoot fileData' modEnv)
 
 -- Actually loads an individual file of modules from a module root, return a list of top elems defined in the file
@@ -144,7 +149,7 @@ loadModFile :: ModRoot -> St.SysExceptIO [OdeTopElem DesId]
 loadModFile modRoot = do
     mFileExist <- repoFileSearch
     case mFileExist of
-        Nothing -> throwError $ "File " ++ show filePath ++ " not found in any module repositories"
+        Nothing -> throwError $ printf "File %s not found in any module repositories" (show filePath)
                 --debugM "ode3.modules" $ "File " ++ show filePath ++ " not found in any module repositories"
         Just modFilePath -> do
             -- need to load module - pass the data to orig mod parser

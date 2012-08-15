@@ -17,7 +17,7 @@
 
 module Utils.OrdMap (
 OrdMap, (!), lookup, size, member, empty, singleton, insert, delete, update, elems, keys, map, foldl, union,
-toList, fromList, mapAccum, toMap, prettyPrint
+toList, fromList, mapAccum, toMap
 
 ) where
 
@@ -137,9 +137,6 @@ instance DT.Traversable (OrdMap k) where
     traverse f (OrdMapC m) = OrdMapC <$> DT.traverse f' m
       where
         f' (k, v) = (,) <$> (pure k) <*> (f v)
-
-instance (Show k, Show v) => PrettyPrint (OrdMap k v) where
-    prettyPrint (OrdMapC m) = List.intercalate "\n" $ List.map (\(k, v) -> show k ++ " = " ++ show v) m
 
 -- Optimised version using a Map and Seq
 --

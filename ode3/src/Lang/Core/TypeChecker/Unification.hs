@@ -167,7 +167,8 @@ unify uState tCons = snd <$> S.runStateT unifyM (Map.empty, Map.empty)
   where
     --trace' [MkSB tCons] "Initial Unify tCons" $
     unifyM = do
-        conTypeS' <- trace' [MkSB tCons] "Start type unify" $ unifyTypes (conTypeS tCons)
+        -- trace' [MkSB tCons] "Start type unify" $ return ()
+        conTypeS' <- unifyTypes (conTypeS tCons)
         -- return set should be empty
         assert (Set.null conTypeS') $ return ()
 
@@ -176,9 +177,12 @@ unify uState tCons = snd <$> S.runStateT unifyM (Map.empty, Map.empty)
 
     -- need to repeat unifyUnits until we can infer no more from tCons
     unifyUnitsLoop conUnitS = do
-        trace' [MkSB conUnitS] "Start units unify loop" $ return ()
+        -- trace' [MkSB conUnitS] "Start units unify loop" $ return ()
         conUnitS' <- unifyUnits uState conUnitS
-        if (conUnitS /= conUnitS') then unifyUnitsLoop conUnitS' else trace' [MkSB conUnitS'] "Finish units unify loop" $ return conUnitS'
+        if (conUnitS /= conUnitS') then unifyUnitsLoop conUnitS'
+            else do
+                -- trace' [MkSB conUnitS'] "Finish units unify loop" $ return ()
+                return conUnitS'
 
 
 -- | Unification (Full) and Checking (Some) for Equal rule

@@ -16,7 +16,7 @@
 
 module Utils.Utils (
 MExcept, MExceptIO, mkExceptIO, maybeToExcept, maybeToExceptIO,
-PrettyPrint(..), mapFst, mapSnd, pairM,
+mapFst, mapSnd, pairM,
 (|>),
 SB(..), trace', errorDump,
 openPipe, closePipe, readLoop,
@@ -34,6 +34,36 @@ import Data.Char (toUpper)
 import Data.List (nub)
 import GHC.Base(assert)
 
+
+-- Misc Functions ------------------------------------------------------------------------------------------------------
+-- basic piping/chaining of functions
+(|>) :: a -> (a->b) -> b
+(|>) x f = f x
+infixl 0 |>
+
+mapFst :: (a -> b) -> (a, c) -> (b, c)
+mapFst f (x,y) = (f x,y)
+mapSnd :: (a -> b) -> (c, a) -> (c, b)
+mapSnd f (x,y) = (x,f y)
+
+pairM :: (Monad m) => m a -> m b -> m (a, b)
+pairM a b = liftM2 (,) a b
+
+-- test if all the elements within a list are unique
+listUniqs :: (Eq a) => [a] -> Bool
+listUniqs xs = length xs == (length . nub) xs
+
+-- | util function to split a list based on predicate function p
+splitList :: (a -> Bool) -> [a] -> [[a]]
+splitList p xs = h : t'
+  where
+    (h, t) = List.break p xs
+    t' = case t of x:xs -> splitList p xs
+                   [] -> []
+
+
+-- Monadic Error Handling ----------------------------------------------------------------------------------------------
+-- Switch to errors package
 -- | my exception/error monad, could just import from Control.Monad.Error but anyway...
 type MExcept = Either String
 type MExceptIO = ErrorT String IO
@@ -52,26 +82,10 @@ mExceptToError :: (MonadError String m) => MExcept a -> m a
 mExceptToError (Left err) = throwError err
 mExceptToError (Right res) = return res
 
-
 maybeToExceptIO m = mkExceptIO . maybeToExcept m
 
-mapFst :: (a -> b) -> (a, c) -> (b, c)
-mapFst f (x,y) = (f x,y)
-mapSnd :: (a -> b) -> (c, a) -> (c, b)
-mapSnd f (x,y) = (x,f y)
 
-pairM :: (Monad m) => m a -> m b -> m (a, b)
-pairM a b = liftM2 (,) a b
-
--- TODO - use PrettyPrint class from Platform
--- | pretty-printing class for viewing, not machine-readable like Show
-class PrettyPrint a where
-    prettyPrint :: a -> String
-
-(|>) :: a -> (a->b) -> b
-(|>) x f = f x
-infixl 0 |>
-
+-- Error Output --------------------------------------------------------------------------------------------------------
 -- existential wrapper, pass the type and the functions/interface that operates on the type,
 -- therefore unify/collect set of types  into a group
 data SB :: * where
@@ -96,8 +110,8 @@ instance (Ord a, Ord b) => Ord (Bimap a b) where
     compare bx by = compare (toAscList bx) (toAscList by)
 
 
+-- File Piping --------------------------------------------------------------------------------------------------------
 -- some helper routines to open a file/named pipe for input
-
 openPipe :: FilePath -> IO SIO.Handle
 openPipe inName = do
     -- open up the named pipe
@@ -121,24 +135,10 @@ readLoop hCmdPipe = forever (SIO.hGetLine hCmdPipe >>= outCmd)
   where
     outCmd s = putStrLn s >> SIO.hFlush SIO.stdout
 
-
--- | util function to split a list based on predicate function p
-splitList :: (a -> Bool) -> [a] -> [[a]]
-splitList p xs = h : t'
-  where
-    (h, t) = List.break p xs
-    t' = case t of x:xs -> splitList p xs
-                   [] -> []
-
+-- FCLabels Functions --------------------------------------------------------------------------------------------------
 -- | fclabels fucntion to create labels of form lRecordName
 mkLabelName :: String -> String
 mkLabelName s = 'l' : toUpper (head n) : tail n
   where
     n = drop 1 s
-
--- Misc Functions
-
-listUniqs :: (Eq a) => [a] -> Bool
-listUniqs xs = length xs == (length . nub) xs
-
 

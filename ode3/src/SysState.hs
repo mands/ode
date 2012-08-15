@@ -109,14 +109,14 @@ data ModState = ModState
     { _repos :: RepoSet                 -- list of enabled module repositories
     , _modEnv :: MA.GlobalModEnv        -- map of loaded modules
     , _parsedFiles :: Set.Set ModRoot   -- set of fully parsed files
-    , _localFile :: MA.FileData         -- a speical file that holds the REPL mod data
+    , _replFile :: MA.FileData         -- a speical file that holds the REPL mod data
     } deriving Show
 
 defModState = ModState
     { _repos = OrdSet.empty           -- do we add the defaults here?
     , _modEnv = Map.empty -- map of loaded modules
     , _parsedFiles = Set.empty
-    , _localFile = MA.mkFileData (mkModRoot ["<console>"])
+    , _replFile = MA.mkFileData MA.replModRoot
     }
 
 
@@ -150,7 +150,7 @@ vRepos :: SysState :-> RepoSet
 vRepos = lRepos . lModState
 
 vLocalFile :: SysState :-> MA.FileData
-vLocalFile = lLocalFile . lModState
+vLocalFile = lReplFile . lModState
 
 vQuantities :: SysState :-> U.QuantityBimap
 vQuantities = lQuantities . lUnitsState
