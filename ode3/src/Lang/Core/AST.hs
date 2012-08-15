@@ -58,6 +58,7 @@ data Type :: * where
     TUnit :: Type
     -- Composite Types
     TArr :: Type -> Type -> Type
+    -- TODO - this should hold the module canonical name - ModFullName instead of VarId
     TNewtype :: VarId Id -> Type -> Type
     TTuple :: [Type] -> Type
     TRecord :: (Map.Map RecId Type) -> Type

@@ -77,6 +77,7 @@ data SysState = SysState
     , _unitsState :: UnitsState
     } deriving Show
 
+
 defSysState = SysState
     { _debug = False
     , _simState = defSimState
@@ -186,3 +187,7 @@ mkDefSysState = do
     repos <- defRepos
     -- return $ defSysState { _modState = (_modState defSysState) {_repos = repos } }
     return $ set (lRepos . lModState) repos defSysState
+
+
+-- testS :: SysState
+-- testS =

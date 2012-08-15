@@ -23,15 +23,14 @@ module PotassiumChannel {
         val g_K = 36 // :: Num
         val e_K = e_R - 12 // :: Num
         val i_K = g_K * pow(n,4) * (v - e_K) // :: Num
-        return (i_K)
+        i_K
     }
 
     // :: Num -> Num
-    component potassium_channel_n_gate(v) {
+    component potassium_channel_n_gate (v) = {
         val alpha_n = (-0.01 * (v + 65)) / (exp(-(v + 65) / 10) - 1) // :: Num
         val beta_n = 0.125 * exp((v + 75) / 80) // :: Num
         ode n = {init: 0.325, delta: (alpha_n*(1-n) - (beta_n*n))} // :: Num/Ode
-        return (n)
     }
 }
 

@@ -36,6 +36,7 @@ import Control.Category
 import Data.Label
 import Prelude hiding ((.), id)
 
+import Text.Show.Pretty
 
 -- Shell backend - bit tricky
 -- haskeline broken atm within latests HP - uses old mtl & transformers libs
@@ -166,10 +167,17 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
     showCmd = cmd "show" f "Pass <all, repos, modules> to display current state"
       where
         f :: String -> Sh SysState ()
-        f "all" = (show <$> getShellSt) >>= shellPutInfoLn
-        f "repos" = (show <$> get vRepos <$> getShellSt) >>= shellPutInfoLn
-        f "modules" = (show <$> get (lLocalFile . lModState) <$> getShellSt) >>= shellPutInfoLn
-        f "units" = (show <$> get lUnitsState <$> getShellSt) >>= shellPutInfoLn
+        f "all" = (ppShow <$> getShellSt) >>= shellPutInfoLn
+        f "debug" = f "simState" >> f "modState"
+
+        -- top level
+        f "modState" =  (ppShow <$> get lModState <$> getShellSt) >>= shellPutInfoLn
+        f "unitsState" = (ppShow <$> get lUnitsState <$> getShellSt) >>= shellPutInfoLn
+        f "simState" = (ppShow <$> get lSimState <$> getShellSt) >>= shellPutInfoLn
+
+        -- indiv useful elems
+        f "repos" = (ppShow <$> get vRepos <$> getShellSt) >>= shellPutInfoLn
+        f "modules" = (ppShow <$> get (lLocalFile . lModState) <$> getShellSt) >>= shellPutInfoLn
         f _ = shellPutInfoLn "Pass <all, repos, modules, units> to display current state"
 
     typeCmd = cmd "type" f "Display the type of the loaded module"
