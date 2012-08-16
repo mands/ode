@@ -4,9 +4,9 @@
 // import our modules
 // import ModTests.Imports.B
 // import ModTests.Imports.*
-import ModTests.Functors.*
+// import ModTests.Functors.*
 // import ModTests.Repo3.*
-// import ModTests.Refs.*
+import ModTests.Refs.*
 
 // :show all
 :show modState

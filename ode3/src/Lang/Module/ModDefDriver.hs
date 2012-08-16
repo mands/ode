@@ -113,13 +113,12 @@ evalModDef fd mod = do
 evalModDef' :: GlobalModEnv -> FileData -> St.UnitsState -> Module DesId -> MExcept (Module Id)
 
 -- simply looks up the id within both the file and then global env and return the module if found
-evalModDef' gModEnv fileData _ mod@(EvaledMod modFullName _) = errorDump [MkSB mod] "Trying to eval a previously evaled module" assert
-
+evalModDef' gModEnv fileData _ mod@(RefMod _ modFullName _) = errorDump [MkSB mod] "Trying to eval a previously evaled module" assert
 
 -- simply looks up the id within both the file and then global env and return the module if found
 evalModDef' gModEnv fileData _ mod@(VarMod modName) = do
     (modFullName, mod) <- getModuleFile modName fileData gModEnv -- should this be getRealModuleFile ??
-    return $ mkEMod modFullName mod
+    return $ mkRefMod modFullName mod
 
 
 -- TODO - how do we merge expected and actual module interfaces??
@@ -142,8 +141,8 @@ evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
     let lMod = LitMod fExprMap (updateModData importMap modEnv fModData)
     lMod' <- typeCheck gModEnv fileData unitsState lMod
 
-    -- finally construct an EvaledMod to holds the results, using both the fMod modData and type-checked lMod sig
-    let eMod = modifyModData (mkEMod modFullName lMod') (updateModData importMap modEnv)
+    -- finally construct a "Closed" RefMod to holds the results, using both the fMod modData and type-checked lMod sig
+    let eMod = modifyModData (mkRefMod modFullName lMod') (updateModData importMap modEnv)
     -- let eMod = (EvaledMod modFullName fModData :: Module Id)
     trace' [MkSB eMod] "eMod" $ return eMod
   where
@@ -152,25 +151,30 @@ evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
     eFMod = do
         -- getModuleFile rather than getRealModuleFile should be fine here as we never allow chaining of functors
         (modFullName, mod) <- getModuleFile fModId fileData gModEnv
-        case mod of
-            (FunctorMod _ _ _) -> return (modFullName, mod) -- can only apply to a Functor, can't apply to an EvaledMod->FunctorMod
+        -- can only apply to a Functor, can't apply to an EvaledMod->FunctorMod
+        case trace' [MkSB mod] "eFMod" mod of
+            (FunctorMod _ _ _) -> return (modFullName, mod)
+            -- NOTE - we don't update the modFullName to point to the orig functor in case of a RefMod
+            rMod@(RefMod False _ _) ->  derefRefMod mod gModEnv >>= (\mod1 -> return (modFullName, mod1))
             _ -> throwError $ printf "(MD01) - Module %s is not a functor" (show fModId)
 
-    -- interpret the args, either eval inline apps or lookup
+    -- check the args, they are either inline apps or var lookups
     -- map and sequence thru interpretation of the args, using the same env
-
     -- create the new moddata for the module, i.e. convert the func args into explict imports/attached-modules
     processFArgs :: FunArgs -> MExcept (ImportMap, LocalModEnv)
     processFArgs funArgs = do
         modArgs <- eModArgs
         DF.foldlM interpretArgs (Map.empty, Map.empty) modArgs
       where
+
+--        interpretArgs (importMap, modEnv) (argName, mod@(RefMod _ _ _)) = do
+--            undefined
+
         -- need to convert the var mod into an importMap ref of the correct type
         interpretArgs (importMap, modEnv) (argName, mod@(VarMod modName)) = do
             -- need to look up within file
-            (modFullName, _) <- getRealModuleFile modName fileData gModEnv
-            -- now add modName->modFullName to importMap
-            return (Map.insert modName modFullName importMap, modEnv)
+            (modFullName, mod) <- getRealModuleFile modName fileData gModEnv
+            return (Map.insert argName modFullName importMap, modEnv)
           where
             fModEnv = fileModEnv fileData
             fImportMap = fileImportMap fileData
@@ -202,35 +206,43 @@ evalModDef' gModEnv fileData unitsState mod = do
     mod' <- validate mod >>= rename >>= typeCheck gModEnv fileData unitsState
     return mod'
 
--- Evaled Mod Helper Funcs ---------------------------------------------------------------------------------------------
+-- Ref Mod Helper Funcs ------------------------------------------------------------------------------------------------
 
 -- | Take the output from an evaled module and wrap/lift it to an EvaledMod
 -- is this partial evaluation??
 -- For EvaledMod, LitMod, and FunctorMod, just copy the typesig into an empty modData
 -- VarMods not handled, and AppMod handled directy within eval
-mkEMod :: ModFullName -> Module Id -> Module Id
-mkEMod modFullName mod = case mMod of
-        Just mod -> mod
-        Nothing -> errorDump [MkSB modFullName, MkSB mod] "Can't wrap into EvaledMod a module of this type" assert
+mkRefMod :: ModFullName -> Module Id -> Module Id
+mkRefMod modFullName mod = case mod of
+    mod'@(LitMod _ modData) ->  RefMod True modFullName $ wrapModData modData
+    mod'@(FunctorMod _ _ modData) ->  RefMod False modFullName $ wrapModData modData
+    mod'@(RefMod isClosed' _ modData) ->  RefMod isClosed' modFullName $ wrapModData modData
+    _ ->  errorDump [MkSB modFullName, MkSB mod] "Can't wrap into EvaledMod a module of this type" assert
   where
-    mMod = modifyModData <$> (pure $ EvaledMod modFullName mkModData) <*> (wrapModData <$> (getModData mod))
     -- copy across the modSig
-    wrapModData :: ModData -> ModData -> ModData
-    wrapModData origModData wrapModData = wrapModData { modSig = (modSig origModData) }
+    wrapModData :: ModData -> ModData
+    wrapModData modData = mkModData { modSig = (modSig modData) }
 
--- | Repeatdly lookup an evaled module, chaining together the associated importMap and localEnvs as required
--- (we can union them as shoudl only ever be a single indriection
-followEMod :: Module Id -> GlobalModEnv -> MExcept (Module Id, (ImportMap, LocalModEnv))
-followEMod mod@(EvaledMod _ _) gEnv = followEvaledMod' mod gEnv (getEModData mod (Map.empty, Map.empty))
-  where
-    followEvaledMod' mod@(EvaledMod modFullName _) gEnv st = case getModuleGlobal modFullName gEnv of
-        Right mod'@(EvaledMod _ _) -> followEvaledMod' mod' gEnv (getEModData mod st)
-        Right mod' -> return (mod', st)
+-- | Repeatdly lookup an evaled module, chaining together the associated modData as required
+-- unionData bool indicates wheater we both to union the modData or just drop it till the last refMod
+-- (we can union them as shoudl only ever be a single indriection that changes the modData, rest will be blank)
+collapseRefMods :: Bool -> Module Id -> GlobalModEnv -> MExcept (Module Id)
+collapseRefMods unionData mod1@(RefMod isClosed1 modFullName1 modData1) gEnv = case getModuleGlobal modFullName1 gEnv of
+        Right mod2@(RefMod isClosed2 modFullName2 modData2) | isClosed1 == isClosed2 -> if unionData
+            then collapseRefMods unionData (RefMod isClosed2 modFullName2 $ unionEModData modData1 modData2) gEnv
+            else collapseRefMods unionData mod2 gEnv
+        Right mod2@(RefMod _ _ _) -> errorDump [MkSB mod1, MkSB mod2] "(MD) Found chain of referenced modules with differing closed states" assert
+        Right mod1 -> return mod1
         Left err -> throwError err
+  where
+    unionEModData modData1 modData2 = modData2  { modImportMap = Map.union (modImportMap modData1) (modImportMap modData2)
+                                                , modLocalModEnv = Map.union (modLocalModEnv modData1) (modLocalModEnv modData2)
+                                                }
 
-    -- we bias to the innermost evaled mod, as the expansiosns should be followed outwards from the initial mod
-    getEModData (EvaledMod _ modData) (importMap, localEnv) =
-        (Map.union (modImportMap modData) importMap, Map.union (modLocalModEnv modData) localEnv)
+-- | Dereference a mod contiously till its final mod
+derefRefMod :: Module Id -> GlobalModEnv -> MExcept (Module Id)
+derefRefMod mod@(RefMod _ modFullName _) gEnv = getModuleGlobal modFullName gEnv >>= (\mod -> derefRefMod mod gEnv)
+derefRefMod mod _ = return mod
 
 
 -- Functor Application Helper Funcs ------------------------------------------------------------------------------------

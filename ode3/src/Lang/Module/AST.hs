@@ -20,7 +20,7 @@ ExprMap, ExprList, FunArgs,
 Module(..), getModExprs, putModExprs, modifyModExprs,
 GlobalModEnv, FileModEnv, LocalModEnv, FileData(..), mkFileData, replModRoot,
 getRealModuleMod, getModuleMod, getRealModuleFile, getModuleFile, getModuleGlobal,
-getFileData, ImportMap, getIdType,
+getFileData, ImportMap, lookupModSig,
 ModData(..), mkModData, getModData, putModData, modifyModData,
 SigMap, TypeMap, IdBimap
 ) where
@@ -68,7 +68,7 @@ data Module a = LitMod  (ExprMap a) ModData
                 -- this holds a ref/thunk to a previously evaled module
                 -- we ensure that all AppMod and VarMod eval to a RefMod that whose modfullname points
                 -- either to another EvaledMod or a LitMod
-                | EvaledMod ModFullName ModData -- ImportMap LocalModEnv
+                | RefMod Bool ModFullName ModData -- ImportMap LocalModEnv
                 deriving (Show, Eq, Ord)
 
 -- Module Body Data
@@ -107,13 +107,13 @@ mkModData = ModData     { modSig = Map.empty, modTMap = Map.empty, modIdBimap = 
 getModData :: Module a -> Maybe ModData
 getModData (LitMod _ modData) = Just modData
 getModData (FunctorMod _ _ modData) = Just modData
-getModData (EvaledMod _ modData) = Just modData
+getModData (RefMod _ _ modData) = Just modData
 getModData mod = Nothing
 
 putModData :: Module a -> ModData -> Module a
 putModData (LitMod exprMap _) modData' = LitMod exprMap modData'
 putModData (FunctorMod args exprMap _) modData' = FunctorMod args exprMap modData'
-putModData (EvaledMod modFullName _) modData' = EvaledMod modFullName modData'
+putModData (RefMod isClosed modFullName _) modData' = RefMod isClosed modFullName modData'
 putModData mod _ = mod
 
 modifyModData :: Module a -> (ModData -> ModData) -> Module a
@@ -133,15 +133,10 @@ modifyModExprs :: Module a -> (ExprMap a -> ExprMap a) -> Module a
 modifyModExprs m f = maybe m (\md -> putModExprs m (f md)) $ getModExprs m
 
 -- Lookup the type of a binding within a module type-signature
-getIdType :: SrcId -> Module Id -> MExcept E.Type
-getIdType v mod = maybeToExcept (do
-    sigMap <- mSigMap
-    Map.lookup v sigMap) $ printf "Binding %s not found in module" (show v)
-  where
-    mSigMap = case mod of
-        LitMod _ modData        -> Just $ modSig modData
-        FunctorMod _ _ modData  -> Just $ modSig modData
-        otherwise               -> Nothing
+lookupModSig :: SrcId -> Module Id -> MExcept E.Type
+lookupModSig v mod = maybeToExcept (do
+    sigMap <- modSig <$> getModData mod
+    Map.lookup v sigMap) $ printf "(MD) Binding %s not found in module" (show v)
 
 
 -- Module Environments -------------------------------------------------------------------------------------------------

@@ -106,8 +106,8 @@ getMVarType mv@(E.ModVar m v) gModEnv modData mFuncArgs =
         eImport = do
             -- look in all module-level repos
             (_, impMod) <- liftMExcept $ M.getRealModuleMod m modData gModEnv
-            -- if not found, raise error, el\se copy type into mTEnv
-            eT <- liftMExcept $ M.getIdType v impMod
+            -- if not found, raise error, else copy type into mTEnv
+            eT <- liftMExcept $ M.lookupModSig v impMod
             modify (\tEnvs -> tEnvs { typeEnv = Map.insert mv eT (typeEnv tEnvs)})
             return eT
 
