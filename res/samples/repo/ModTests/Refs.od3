@@ -3,4 +3,6 @@ module A {
 }
 
 module B = A
+// module C = A
+module D = B
 

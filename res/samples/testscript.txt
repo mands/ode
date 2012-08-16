@@ -6,9 +6,8 @@
 // import ModTests.Imports.*
 import ModTests.Functors.*
 // import ModTests.Repo3.*
-//import ModTests.Refs.*
+// import ModTests.Refs.*
 
-//module C = B
 // :show all
 :show modState
 // all done

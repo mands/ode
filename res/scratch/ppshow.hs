@@ -1,4 +1,5 @@
 import Text.Show.Pretty
+import Text.Groom
 
 data TestData = TestData String Integer deriving Show
 

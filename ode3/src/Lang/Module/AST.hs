@@ -68,7 +68,7 @@ data Module a = LitMod  (ExprMap a) ModData
                 -- this holds a ref/thunk to a previously evaled module
                 -- we ensure that all AppMod and VarMod eval to a RefMod that whose modfullname points
                 -- either to another EvaledMod or a LitMod
-                | EvaledMod ModFullName ImportMap LocalModEnv
+                | EvaledMod ModFullName ModData -- ImportMap LocalModEnv
                 deriving (Show, Eq, Ord)
 
 -- Module Body Data
@@ -107,11 +107,13 @@ mkModData = ModData     { modSig = Map.empty, modTMap = Map.empty, modIdBimap = 
 getModData :: Module a -> Maybe ModData
 getModData (LitMod _ modData) = Just modData
 getModData (FunctorMod _ _ modData) = Just modData
+getModData (EvaledMod _ modData) = Just modData
 getModData mod = Nothing
 
 putModData :: Module a -> ModData -> Module a
 putModData (LitMod exprMap _) modData' = LitMod exprMap modData'
 putModData (FunctorMod args exprMap _) modData' = FunctorMod args exprMap modData'
+putModData (EvaledMod modFullName _) modData' = EvaledMod modFullName modData'
 putModData mod _ = mod
 
 modifyModData :: Module a -> (ModData -> ModData) -> Module a

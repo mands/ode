@@ -130,15 +130,15 @@ data Unit  = UnitC UnitList -- an actual unit with a known dimensionless
            -- UnknownUnit                    -- We don't know the unit type yet - used with TC
            | UnitVar Int                -- A unit variable, used for unit & dimension polymorphism
                                             -- we can't do much with such types, can operate on the number but always retains it's unit type
-            deriving (Eq, Ord)
+            deriving (Eq, Ord, Show)
 
-instance Show Unit where
-    show (UnitC units) = List.intercalate "." (map showUnit units)
-      where
-        showUnit (baseUnit, index) = baseUnit ++ "^" ++ show index
-    show NoUnit = "NoUnit"
-    -- show UnknownUnit = "UnknownUnit"
-    show (UnitVar i) = "UnitVar:" ++ (show i)
+--instance Show Unit where
+--    show (UnitC units) = List.intercalate "." (map showUnit units)
+--      where
+--        showUnit (baseUnit, index) = baseUnit ++ "^" ++ show index
+--    show NoUnit = "NoUnit"
+--    -- show UnknownUnit = "UnknownUnit"
+--    show (UnitVar i) = "UnitVar:" ++ (show i)
 
 
 type UnitList = [(BaseUnit, Integer)]

@@ -36,7 +36,6 @@ type TypeEnv = Map.Map (E.VarId E.Id) E.Type
 type TypeVarEnv = Map.Map Int E.Type
 type UnitVarEnv = Map.Map Int U.Unit
 
-
 -- collects all references to records within a module (both local and mod level)
 type RecordRefMap = Map.Map (E.VarId E.Id) E.Type
 
@@ -44,20 +43,15 @@ type RecordRefMap = Map.Map (E.VarId E.Id) E.Type
 
 -- set of contraints for the module - include both the types and a set of rules that determine the
 -- unit level contraints
---data UnitsConRule   = --NoUnit    -- type?/float does not have unit information
-----                    | SameUnit  -- floats must be contrained to same unit
---                      Equal     -- Types must be fully equal, regardless if they have units
-----                    | SameDim   -- floats must be contrained to same dimenstion, effectively restricted unit-polymorpihism
-----                                -- we could add full unit-polymorphism by creating unit-vars for a particular dimenstions and constraining (again) later
---                    deriving (Show, Eq, Ord)
-
 -- true for both types and units ?
 data ConType    = ConEqual E.Type E.Type
-                -- | ConRecSubType E.Type E.Type -- record t1 is a subtype of record t2
+                -- ConRecSubType E.Type E.Type -- record t1 is a subtype of record t2
                 deriving (Show, Eq, Ord)
 
-data ConUnit    = ConSum U.Unit U.Unit U.Unit   -- can unify Mul&Div into ConsSum (a,b) = c
+data ConUnit    = ConSum U.Unit U.Unit U.Unit   -- floats must be contrained to same unit, can unify Mul&Div into ConsSum (a,b) = c
                 | ConSameDim U.Unit U.Unit      -- should this be Unit, not type??
+                                                -- floats must be contrained to same dimenstion, effectively restricted unit-polymorpihism
+                                                -- we could add full unit-polymorphism by creating unit-vars for a particular dimenstions and constraining (again) later
                 deriving (Show, Eq, Ord)
 
 type ConTypeS = Set.Set ConType
@@ -68,15 +62,6 @@ data TypeCons = TypeCons    { conTypeS :: ConTypeS
                             } deriving (Show, Eq, Ord)
 
 mkTypeCons = TypeCons Set.empty Set.empty
---data ConsRule   = ConsEqual E.Type E.Type       -- true for both types and units ?
---                | ConsSameDim E.Type E.Type     -- should this be Unit, not type??
---                -- ConsMul E.Type E.Type E.Type  -- contrain the results from a multiplcation
---                -- ConsDiv E.Type E.Type E.Type  -- contrain the results from a div
---                -- can unify Mul&Div into ConsSum (a,b) = c
---                | ConsSum (E.Type, E.Type) E.Type
---                -- unit stuff -- can we do at the float level?
---                -- ConsSameUnit Unit Unit     -- is needed?
---                deriving (Show, Eq, Ord)
 
 unitToType :: U.Unit -> E.Type
 unitToType = E.TFloat

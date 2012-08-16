@@ -109,24 +109,23 @@ evalModDef fd mod = do
                 return $ putModData mod (modData { modQuantities = [], modUnits = [], modConvs = [] })
 
 
-
 -- a basic interpreter over the set of module types, interpres the modules with regards to the moduleenv
 evalModDef' :: GlobalModEnv -> FileData -> St.UnitsState -> Module DesId -> MExcept (Module Id)
 
 -- simply looks up the id within both the file and then global env and return the module if found
-evalModDef' gModEnv fileData _ mod@(EvaledMod modFullName importMap modEnv) = errorDump [MkSB mod] "Trying to eval a previousled evaled module" assert
+evalModDef' gModEnv fileData _ mod@(EvaledMod modFullName _) = errorDump [MkSB mod] "Trying to eval a previously evaled module" assert
 
 
 -- simply looks up the id within both the file and then global env and return the module if found
-evalModDef' gModEnv fileData _ mod@(VarMod modName) = snd <$> getModuleFile modName fileData gModEnv
+evalModDef' gModEnv fileData _ mod@(VarMod modName) = do
+    (modFullName, mod) <- getModuleFile modName fileData gModEnv -- should this be getRealModuleFile ??
+    return $ mkEMod modFullName mod
 
--- TODO - how do we merge expect and actual module interfaces??
--- TODO - need to update to not actually apply the functor, just link and update the module sigMap
--- we use an App to convert a Functor Mod eith programmable imports into a Lit mod
+
+-- TODO - how do we merge expected and actual module interfaces??
+-- we use an App to convert a Functor Mod eith programmable imports into an Evaled mod
 -- where VarMod args are converted to explicit imports, and in-line apps to an internal modEnv (as not used elsewhere)
 evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
-    -- need to check that the application is valid, if so then create a new module
-    -- involves several steps with specialised pipeline operations
 
     -- reorder - place the expressions from args ahead of thos withing the func module
     -- renaming, use the free vars to deteermine a safe renaimg scheme
@@ -134,47 +133,31 @@ evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
     -- within an expression, run the same constraint algorithm, then matchup the sigs
 
     -- order is, args/sig check, typecheck, rename, reorder
-    -- should return a new closed module that can be reused later on
-    fMod@(FunctorMod fArgs fExprMap fModData) <- eFMod
+    -- should return a new evaled module that can be reused later on
+    (modFullName, (FunctorMod fArgs fExprMap fModData)) <- eFMod
     (importMap, modEnv) <- processFArgs fArgs
 
-    -- appModEnv <- (getAppModEnv fMod) =<< eModArgs
-    -- (fMod', appModEnv') <- typeCheckApp fMod appModEnv
-    -- let mod' = applyFunctor fMod' appModEnv'
-    -- return $ mod'
+    -- now create a dummy lMod from the fMod that would be created from the application of args to the functor
+    -- and type and unit check
+    let lMod = LitMod fExprMap (updateModData importMap modEnv fModData)
+    lMod' <- typeCheck gModEnv fileData unitsState lMod
 
-    -- now 'eval' the fMod into an lMod using the new modData
-    let lMod = LitMod fExprMap (updateModData fModData importMap modEnv)
-
-    -- now process the newly created litmod created from the application of args to the functor
-    -- i.e. type and unit check
-    typeCheck gModEnv fileData unitsState lMod
+    -- finally construct an EvaledMod to holds the results, using both the fMod modData and type-checked lMod sig
+    let eMod = modifyModData (mkEMod modFullName lMod') (updateModData importMap modEnv)
+    -- let eMod = (EvaledMod modFullName fModData :: Module Id)
+    trace' [MkSB eMod] "eMod" $ return eMod
   where
     -- lookup/evaluate the functor and params, dynamically type-check
-    eFMod :: MExcept (Module Id)
+    eFMod :: MExcept (ModFullName, Module Id)
     eFMod = do
-        (_, mod) <- getModuleFile fModId fileData gModEnv -- may need getRealModule here?
+        -- getModuleFile rather than getRealModuleFile should be fine here as we never allow chaining of functors
+        (modFullName, mod) <- getModuleFile fModId fileData gModEnv
         case mod of
-            (FunctorMod _ _ _) -> return mod
+            (FunctorMod _ _ _) -> return (modFullName, mod) -- can only apply to a Functor, can't apply to an EvaledMod->FunctorMod
             _ -> throwError $ printf "(MD01) - Module %s is not a functor" (show fModId)
 
     -- interpret the args, either eval inline apps or lookup
     -- map and sequence thru interpretation of the args, using the same env
-
---    eModArgs :: MExcept [Module Id]
---    eModArgs = DT.mapM interpretArgs modArgs
---      where
---        interpretArgs argMod = do
---            mod <- evalModDef gModEnv fileData argMod
---            case mod of
---                (LitMod _ _) -> return mod -- should always return a list of litmods
---                _ -> throwError $ printf "(MD03) - Module argument to functor %s is not a literal module" (show fModId)
---
---    -- rename the argMods according to pos/create a new modenv to evalulate the applciation within
---    getAppModEnv :: Module Id -> [Module Id] -> MExcept LocalModEnv
---    getAppModEnv (FunctorMod funArgs _ _) argMods = if (OrdMap.size funArgs == length argMods)
---        then return (Map.fromList $ zip (OrdMap.keys funArgs) argMods)
---        else throwError "(MD05) - Wrong number of arguments for functor application"
 
     -- create the new moddata for the module, i.e. convert the func args into explict imports/attached-modules
     processFArgs :: FunArgs -> MExcept (ImportMap, LocalModEnv)
@@ -207,9 +190,9 @@ evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
             then return $ zip (OrdMap.keys funArgs) modArgs
             else throwError $ printf "(MD05) - Wrong number of arguments for functor application, expected %d, got %d" (OrdMap.size funArgs) (length modArgs)
 
-    updateModData :: ModData -> ImportMap -> LocalModEnv -> ModData
-    updateModData fModData importMap modModEnv =
-        fModData    { modImportMap = Map.union importMap (modImportMap fModData) -- functor imports take precedence
+    updateModData :: ImportMap -> LocalModEnv -> ModData -> ModData
+    updateModData importMap modModEnv modData =
+        modData    { modImportMap = Map.union importMap (modImportMap modData) -- initital imports take precedence
                     , modLocalModEnv = modModEnv
                     }
 
@@ -218,6 +201,36 @@ evalModDef' gModEnv fileData unitsState mod = do
     -- reorder, rename and typecheck the expressinons within module, adding to the module metadata
     mod' <- validate mod >>= rename >>= typeCheck gModEnv fileData unitsState
     return mod'
+
+-- Evaled Mod Helper Funcs ---------------------------------------------------------------------------------------------
+
+-- | Take the output from an evaled module and wrap/lift it to an EvaledMod
+-- is this partial evaluation??
+-- For EvaledMod, LitMod, and FunctorMod, just copy the typesig into an empty modData
+-- VarMods not handled, and AppMod handled directy within eval
+mkEMod :: ModFullName -> Module Id -> Module Id
+mkEMod modFullName mod = case mMod of
+        Just mod -> mod
+        Nothing -> errorDump [MkSB modFullName, MkSB mod] "Can't wrap into EvaledMod a module of this type" assert
+  where
+    mMod = modifyModData <$> (pure $ EvaledMod modFullName mkModData) <*> (wrapModData <$> (getModData mod))
+    -- copy across the modSig
+    wrapModData :: ModData -> ModData -> ModData
+    wrapModData origModData wrapModData = wrapModData { modSig = (modSig origModData) }
+
+-- | Repeatdly lookup an evaled module, chaining together the associated importMap and localEnvs as required
+-- (we can union them as shoudl only ever be a single indriection
+followEMod :: Module Id -> GlobalModEnv -> MExcept (Module Id, (ImportMap, LocalModEnv))
+followEMod mod@(EvaledMod _ _) gEnv = followEvaledMod' mod gEnv (getEModData mod (Map.empty, Map.empty))
+  where
+    followEvaledMod' mod@(EvaledMod modFullName _) gEnv st = case getModuleGlobal modFullName gEnv of
+        Right mod'@(EvaledMod _ _) -> followEvaledMod' mod' gEnv (getEModData mod st)
+        Right mod' -> return (mod', st)
+        Left err -> throwError err
+
+    -- we bias to the innermost evaled mod, as the expansiosns should be followed outwards from the initial mod
+    getEModData (EvaledMod _ modData) (importMap, localEnv) =
+        (Map.union (modImportMap modData) importMap, Map.union (modLocalModEnv modData) localEnv)
 
 
 -- Functor Application Helper Funcs ------------------------------------------------------------------------------------

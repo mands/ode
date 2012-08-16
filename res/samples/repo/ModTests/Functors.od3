@@ -1,3 +1,4 @@
+
 module A {
   val x = 2
 }
@@ -5,8 +6,7 @@ module A {
 
 module B(A) {
     // import A  // use current file for scope
-    // import ModTests.Imports.A
-  
+    // import ModTests.Imports.A  
     val y = 2 + A.x
 }
 

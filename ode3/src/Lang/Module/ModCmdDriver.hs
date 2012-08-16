@@ -75,13 +75,14 @@ evalTopElems fd topMod@(TopModDef modRoot modName mod) = do
     -- add to both fileData and globalmodenv, so subsequent modules within file can access this module
     updateState :: FileData -> Module Id -> St.SysExceptIO FileData
     updateState fd mod = do
-        trace' [MkSB fd, MkSB mod] "updateState" $ return ()
+        -- trace' [MkSB fd, MkSB mod] "updateState" $ return ()
         let fd' = fd { fileModEnv = Map.insert modName mod (fileModEnv fd) }
         -- only update global modEnv if not the console fileMod
         if (fileModRoot fd) == replModRoot
             then return ()
+            -- update fEnv within global state after processing each module to allow refernces to modules in the same file
+            -- using the full path
             else St.modSysState St.vModEnv (\modEnv -> Map.insert modRoot fd' modEnv)
-
         return fd'
 
 -- top import, called from REPL or within a file

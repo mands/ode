@@ -33,7 +33,7 @@ import Data.Bimap
 import Data.Char (toUpper)
 import Data.List (nub)
 import GHC.Base(assert)
-
+import Text.Show.Pretty(ppShow)
 
 -- Misc Functions ------------------------------------------------------------------------------------------------------
 -- basic piping/chaining of functions
@@ -98,7 +98,7 @@ instance Show SB where
 trace' :: [SB] -> String -> a -> a
 trace' vars msg res = trace outStr res
   where
-    showVars = List.intercalate "\n" $ map show vars
+    showVars = List.intercalate "\n" $ map ppShow vars
     outStr = "TRACE - " ++ msg ++ "\n" ++ showVars
 
 -- | Terminates the program while printing the message and list of vars
