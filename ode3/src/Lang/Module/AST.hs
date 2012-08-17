@@ -68,7 +68,13 @@ data Module a = LitMod  (ExprMap a) ModData
                 -- this holds a ref/thunk to a previously evaled module
                 -- we ensure that all AppMod and VarMod eval to a RefMod that whose modfullname points
                 -- either to another EvaledMod or a LitMod
-                | RefMod Bool ModFullName ModData
+                | RefMod ModFullName Bool SigMap LocalModEnv
+                deriving (Show, Eq, Ord)
+
+
+data RefModType = RefLit
+                | RefFunc
+                | RefEvalApp SigMap LocalModEnv
                 deriving (Show, Eq, Ord)
 
 -- Module Body Data
@@ -90,13 +96,13 @@ type TypeMap = Map.Map Id E.Type -- maybe switch to IntMap?
 
 -- TODO - add explicity export lists
 -- | Metadata regarding a module
-data ModData = ModData  { modSig :: SigMap, modTMap :: TypeMap, modIdBimap :: IdBimap, modFreeId :: Maybe Id
+data ModData = ModData  { modSigMap :: SigMap, modTMap :: TypeMap, modIdBimap :: IdBimap, modFreeId :: Maybe Id
                         , modModEnv :: LocalModEnv
                         , modImportCmds :: [ModImport], modExportSet :: Set.Set SrcId, modExprList :: ExprList
                         , modQuantities :: U.Quantities, modUnits :: [U.UnitDef], modConvs :: [U.ConvDef]
                         } deriving (Show, Eq, Ord)
 
-mkModData = ModData     { modSig = Map.empty, modTMap = Map.empty, modIdBimap = Bimap.empty, modFreeId = Nothing
+mkModData = ModData     { modSigMap = Map.empty, modTMap = Map.empty, modIdBimap = Bimap.empty, modFreeId = Nothing
                         , modModEnv = Map.empty
                         , modImportCmds = [], modExportSet = Set.empty, modExprList = []
                         , modQuantities = [], modUnits = [], modConvs = []
@@ -106,13 +112,13 @@ mkModData = ModData     { modSig = Map.empty, modTMap = Map.empty, modIdBimap = 
 getModData :: Module a -> Maybe ModData
 getModData (LitMod _ modData) = Just modData
 getModData (FunctorMod _ _ modData) = Just modData
-getModData (RefMod _ _ modData) = Just modData
+-- getModData (RefMod _ _ modData) = Just modData
 getModData mod = Nothing
 
 putModData :: Module a -> ModData -> Module a
 putModData (LitMod exprMap _) modData' = LitMod exprMap modData'
 putModData (FunctorMod args exprMap _) modData' = FunctorMod args exprMap modData'
-putModData (RefMod isClosed modFullName _) modData' = RefMod isClosed modFullName modData'
+-- putModData (RefMod isClosed modFullName _) modData' = RefMod isClosed modFullName modData'
 putModData mod _ = mod
 
 modifyModData :: Module a -> (ModData -> ModData) -> Module a
@@ -133,10 +139,14 @@ modifyModExprs m f = maybe m (\md -> putModExprs m (f md)) $ getModExprs m
 
 -- Lookup the type of a binding within a module type-signature
 lookupModSig :: SrcId -> Module Id -> MExcept E.Type
-lookupModSig v mod = maybeToExcept (do
-    sigMap <- modSig <$> getModData mod
-    Map.lookup v sigMap) $ printf "(MD) Binding %s not found in module" (show v)
-
+lookupModSig v mod = maybeToExcept lookupM $ printf "(MD) Binding %s not found in module" (show v)
+  where
+    lookupM = do
+        sigMap <- case mod of
+            (RefMod _ True sigMap _)    -> return sigMap
+            (LitMod _ modData)          -> return (modSigMap modData)
+            _                           -> Nothing
+        Map.lookup v sigMap
 
 -- Module Environments -------------------------------------------------------------------------------------------------
 

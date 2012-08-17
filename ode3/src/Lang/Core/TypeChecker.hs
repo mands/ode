@@ -112,7 +112,7 @@ splitTypeEnvs tEnv = Map.foldrWithKey splitType (Map.empty, Map.empty) tEnv
 -- | Update the module data with the public module signature and internal typemap
 -- we create the mod signature by mapping over the idbimap data and looking up each value from the internal typemap
 updateModData :: M.ModData -> M.TypeMap -> M.ModData
-updateModData modData tMap = modData { M.modTMap = tMap, M.modSig = sigMap }
+updateModData modData tMap = modData { M.modTMap = tMap, M.modSigMap = sigMap }
   where
     -- build the signature map, taking exported bindings into account
     sigMap = if Set.size (M.modExportSet modData) == 0

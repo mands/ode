@@ -113,7 +113,7 @@ evalModDef fd mod = do
 evalModDef' :: GlobalModEnv -> FileData -> St.UnitsState -> Module DesId -> MExcept (Module Id)
 
 -- simply looks up the id within both the file and then global env and return the module if found
-evalModDef' gModEnv fileData _ mod@(RefMod _ modFullName _) = errorDump [MkSB mod] "Trying to eval a previously evaled module" assert
+evalModDef' gModEnv fileData _ mod@(RefMod _ _ _ _) = errorDump [MkSB mod] "Trying to eval a ref module" assert
 
 -- simply looks up the id within both the file and then global env and return the module if found
 evalModDef' gModEnv fileData _ mod@(VarMod modName) = do
@@ -125,42 +125,33 @@ evalModDef' gModEnv fileData _ mod@(VarMod modName) = do
 -- we use an App to convert a Functor Mod eith programmable imports into an Evaled mod
 -- where VarMod args are converted to explicit imports, and in-line apps to an internal modEnv (as not used elsewhere)
 evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
-
-    -- reorder - place the expressions from args ahead of thos withing the func module
-    -- renaming, use the free vars to deteermine a safe renaimg scheme
-    -- typecheck, check the args are valid, then typecheck the signatures, using the same alogirthm as typechecking an app
-    -- within an expression, run the same constraint algorithm, then matchup the sigs
-
-    -- order is, args/sig check, typecheck, rename, reorder
-    -- should return a new evaled module that can be reused later on
+    -- lookup all the required modules and dynamically type-check args/sig them
     (modFullName, (FunctorMod fArgs fExprMap fModData)) <- lookupFunctor
     lModEnv <- processFArgs fArgs
 
     -- now create a dummy lMod from the fMod that would be created from the application of args to the functor
     -- and type and unit check
     let lMod = LitMod fExprMap (updateModData lModEnv fModData)
-    lMod' <- typeCheck gModEnv fileData unitsState lMod
+    (LitMod _ modData') <- typeCheck gModEnv fileData unitsState lMod
 
     -- finally construct a "Closed" RefMod to holds the results, using both the fMod modData and type-checked lMod sig
-    let refMod = modifyModData (mkRefMod modFullName lMod') (updateModData lModEnv)
-    -- let eMod = (EvaledMod modFullName fModData :: Module Id)
-    trace' [MkSB refMod] "App -> RefMod" $ return refMod
+    let refMod = RefMod modFullName True (modSigMap modData') lModEnv
+    trace' [MkSB (refMod :: Module Id)] "App -> RefMod" $ return refMod
+    -- return refMod
   where
     -- lookup/evaluate the functor and params, dynamically type-check
     lookupFunctor :: MExcept (ModFullName, Module Id)
     lookupFunctor = do
-        -- getModuleFile rather than getRealModuleFile should be fine here as we never allow chaining of functors
         (modFullName, mod) <- getModuleFile fModId fileData gModEnv
-        -- can only apply to a Functor, can't apply to an EvaledMod->FunctorMod
-        if isClosedMod mod
-            then throwError $ printf "(MD01) - Module %s is not a functor" (show fModId)
-            -- NOTE - we deref to the Functor for typechecking code, but don't update
-            --        the modFullName to point to the orig functor in case of a RefMod
-            else derefRefMod mod gModEnv >>= (\mod1 -> return (modFullName, mod1))
+        -- can only apply to a Functor, can't apply to an RefMod->FunctorMod
+        case mod of
+            (FunctorMod _ _ _)              -> return (modFullName, mod)
+            (RefMod modFullName1 False _ _) -> derefRefMod mod gModEnv >>= (\mod1 -> return (modFullName1, mod1))
+            _                               -> throwError $ printf "(MD01) - Module %s is not a functor" (show fModId)
 
     -- check the args, they are either inline apps or var lookups
     -- map and sequence thru interpretation of the args, using the same env
-    -- create the new moddata for the module, i.e. convert the func args into explict imports/attached-modules
+    -- create the new moddata for the module, i.e. convert the func args into copied ref-modules within localEnv
     processFArgs :: FunArgs -> MExcept LocalModEnv
     processFArgs funArgs = do
         modArgs <- eModArgs
@@ -182,17 +173,18 @@ evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
                 _  -> errorDump [MkSB argName, MkSB mod] "Incorrect mod type found as functor arg" assert
             -- now check refMod is closed (thus either a LitMod or a prev. applied FuncMod)
             if isClosedMod mod'
-                -- NOTE - we don't deref, instead insert the RefMod using the arg name directly as has requierd typesig anyway
-                -- now insert the litmod into local modEnv
+                -- copy the RefMod directly into lModEnv, using the arg name, will have requierd typesig
                 then return $ Map.insert argName mod' modEnv
-                else throwError $ printf "(MD02) - Invalid module used as argument to functor %s" (show fModId)
+                else throwError $ printf "(MD02) - Module of invalid type used as argument to functor %s" (show fModId)
 
     updateModData :: LocalModEnv -> ModData -> ModData
     updateModData modModEnv modData = modData { modModEnv = modModEnv }
 
 -- handle both litmods and functor mods
 evalModDef' gModEnv fileData unitsState mod = do
-    -- reorder, rename and typecheck the expressinons within module, adding to the module metadata
+    -- reorder - place the expressions from args ahead of thos withing the func module
+    -- renaming, use the free vars to deteermine a safe renaimg scheme
+    -- typecheck, check the args are valid, then typecheck the signatures, using the same alogirthm as typechecking an app
     mod' <- validate mod >>= rename >>= typeCheck gModEnv fileData unitsState
     return mod'
 
@@ -204,41 +196,21 @@ evalModDef' gModEnv fileData unitsState mod = do
 -- VarMods not handled, and AppMod handled directy within eval
 mkRefMod :: ModFullName -> Module Id -> Module Id
 mkRefMod modFullName mod = case mod of
-    mod'@(LitMod _ modData) ->  RefMod True modFullName $ wrapModData modData
-    mod'@(FunctorMod _ _ modData) ->  RefMod False modFullName $ wrapModData modData
-    mod'@(RefMod isClosed' _ modData) ->  RefMod isClosed' modFullName $ wrapModData modData
-    _ ->  errorDump [MkSB modFullName, MkSB mod] "Can't wrap into EvaledMod a module of this type" assert
-  where
-    -- copy across the modSig
-    wrapModData :: ModData -> ModData
-    wrapModData modData = mkModData { modSig = (modSig modData) }
+    mod'@(LitMod _ modData)         ->  RefMod modFullName True (modSigMap modData) Map.empty
+    mod'@(FunctorMod _ _ modData)   ->  RefMod modFullName False Map.empty Map.empty
+    mod'@(RefMod _ _ _ _)           ->  mod' -- just return (a copy) of the same refmod - no need to link the refs
+    _ ->  errorDump [MkSB modFullName, MkSB mod] "Can't wrap a RefMod around a module of this type" assert
 
--- | Repeatdly lookup an evaled module, chaining together the associated modData as required
--- unionData bool indicates wheater we both to union the modData or just drop it till the last refMod
--- (we can union them as shoudl only ever be a single indriection that changes the modData, rest will be blank)
-collapseRefMods :: Bool -> Module Id -> GlobalModEnv -> MExcept (Module Id)
-collapseRefMods unionData mod1@(RefMod isClosed1 modFullName1 modData1) gEnv = case getModuleGlobal modFullName1 gEnv of
-        Right mod2@(RefMod isClosed2 modFullName2 modData2) | isClosed1 == isClosed2 -> if unionData
-            then collapseRefMods unionData (RefMod isClosed2 modFullName2 $ unionEModData modData1 modData2) gEnv
-            else collapseRefMods unionData mod2 gEnv
-        Right mod2@(RefMod _ _ _) -> errorDump [MkSB mod1, MkSB mod2] "(MD) Found chain of referenced modules with differing closed states" assert
-        Right mod1 -> return mod1
-        Left err -> throwError err
-  where
-    unionEModData modData1 modData2 = modData2  { modModEnv = Map.union (modModEnv modData1) (modModEnv modData2) }
-
--- | Dereference a mod contiously till its final mod
+-- | Dereference a mod
 derefRefMod :: Module Id -> GlobalModEnv -> MExcept (Module Id)
-derefRefMod mod@(RefMod _ modFullName _) gEnv = getModuleGlobal modFullName gEnv >>= (\mod -> derefRefMod mod gEnv)
+derefRefMod mod@(RefMod modFullName _ _ _) gEnv = getModuleGlobal modFullName gEnv
 derefRefMod mod _ = return mod
 
 -- | Check is the module is open or closed only applies to the three base Mod Types, App&Var Mods are only ever tmp
 isClosedMod :: Module Id -> Bool
-isClosedMod (RefMod isClosed _ _) = isClosed
-isClosedMod (FunctorMod _ _ _) = False
 isClosedMod (LitMod _ _) = True
--- isClosedMod (RefMod isClosed _ _) = isClosed
-
+isClosedMod (FunctorMod _ _ _) = False
+isClosedMod (RefMod _ isClosed _ _) = isClosed
 
 
 -- Functor Application Helper Funcs ------------------------------------------------------------------------------------

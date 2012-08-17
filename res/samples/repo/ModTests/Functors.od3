@@ -1,0 +1,15 @@
+// Functor Arg
+module Base {
+  val x = 2
+}
+
+
+// Functor
+module Func(Arg) {
+    val y = 2 + Arg.x
+    val x = 1
+}
+
+// App
+module App = Func(Base)
+
