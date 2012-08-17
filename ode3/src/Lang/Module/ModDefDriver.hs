@@ -133,22 +133,22 @@ evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
 
     -- order is, args/sig check, typecheck, rename, reorder
     -- should return a new evaled module that can be reused later on
-    (modFullName, (FunctorMod fArgs fExprMap fModData)) <- eFMod
-    (importMap, modEnv) <- processFArgs fArgs
+    (modFullName, (FunctorMod fArgs fExprMap fModData)) <- lookupFunctor
+    lModEnv <- processFArgs fArgs
 
     -- now create a dummy lMod from the fMod that would be created from the application of args to the functor
     -- and type and unit check
-    let lMod = LitMod fExprMap (updateModData importMap modEnv fModData)
+    let lMod = LitMod fExprMap (updateModData lModEnv fModData)
     lMod' <- typeCheck gModEnv fileData unitsState lMod
 
     -- finally construct a "Closed" RefMod to holds the results, using both the fMod modData and type-checked lMod sig
-    let refMod = modifyModData (mkRefMod modFullName lMod') (updateModData importMap modEnv)
+    let refMod = modifyModData (mkRefMod modFullName lMod') (updateModData lModEnv)
     -- let eMod = (EvaledMod modFullName fModData :: Module Id)
     trace' [MkSB refMod] "App -> RefMod" $ return refMod
   where
     -- lookup/evaluate the functor and params, dynamically type-check
-    eFMod :: MExcept (ModFullName, Module Id)
-    eFMod = do
+    lookupFunctor :: MExcept (ModFullName, Module Id)
+    lookupFunctor = do
         -- getModuleFile rather than getRealModuleFile should be fine here as we never allow chaining of functors
         (modFullName, mod) <- getModuleFile fModId fileData gModEnv
         -- can only apply to a Functor, can't apply to an EvaledMod->FunctorMod
@@ -161,49 +161,36 @@ evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
     -- check the args, they are either inline apps or var lookups
     -- map and sequence thru interpretation of the args, using the same env
     -- create the new moddata for the module, i.e. convert the func args into explict imports/attached-modules
-    processFArgs :: FunArgs -> MExcept (ImportMap, LocalModEnv)
+    processFArgs :: FunArgs -> MExcept LocalModEnv
     processFArgs funArgs = do
         modArgs <- eModArgs
-        DF.foldlM interpretArgs (Map.empty, Map.empty) modArgs
+        DF.foldlM interpretArgs Map.empty modArgs
       where
-        interpretArgs :: (ImportMap, LocalModEnv) -> (ModName, Module DesId) -> MExcept (ImportMap, LocalModEnv)
-        -- need to convert the var mod into an importMap ref of the correct type
-        interpretArgs (importMap, modEnv) (argName, mod@(VarMod modName)) = do
-            -- eval the VarMod -> RefMod and unpack it
-            mod@(RefMod isClosed _ _) <- evalModDef' gModEnv fileData unitsState mod
-
-            -- now check refMod is closed (thus either a LitMod or a prev. applied FuncMod)
-            if isClosed
-                -- NOTE - we don't deref, instead pass RefMod (if exists) directly as has requierd typesig anyway
-                -- then return (Map.insert argName modFullName importMap, modEnv)
-                then return (importMap, Map.insert argName mod modEnv)
-                else throwError $ printf "(MD02) - Module %s cannot be used as a functor argument" (show modName)
-          where
-            fModEnv = fileModEnv fileData
-            fImportMap = fileImportMap fileData
-
-        -- need eval the Argmod into a LitMod, then add directly into the localModEnv
-        interpretArgs (importMap, modEnv) (argName, mod@(AppMod modName modArgs)) = do
-            -- eval the Appmod
-            mod <- evalModDef' gModEnv fileData unitsState mod
-            -- NOTE - we don't need to check the type of the evaled Mod, as eval of an App always
-            --        results in a Closed RefMod -> FunctorMod, i.e. always valid
-            -- now insert the litmod into local modEnv using the arg name
-            return (importMap, Map.insert argName mod modEnv)
-
-        -- bomb out, should never happen as args can only ever be Var & App
-        interpretArgs _ (name, mod) = errorDump [MkSB name, MkSB mod] "Incorrect mod type found as functor arg" assert
-
         -- an assocList of the (modName/argName, mod) for particular functor
         eModArgs = if (OrdMap.size funArgs == length modArgs)
             then return $ zip (OrdMap.keys funArgs) modArgs
             else throwError $ printf "(MD05) - Wrong number of arguments for functor application, expected %d, got %d" (OrdMap.size funArgs) (length modArgs)
 
-    updateModData :: ImportMap -> LocalModEnv -> ModData -> ModData
-    updateModData importMap modModEnv modData =
-        modData    { modImportMap = Map.union importMap (modImportMap modData) -- initital imports take precedence
-                    , modLocalModEnv = modModEnv
-                    }
+        interpretArgs :: LocalModEnv -> (ModName, Module DesId) -> MExcept LocalModEnv
+        -- need to eval the module argument and add to the localModEnv
+        interpretArgs modEnv (argName, mod) = do
+            -- eval the VarMod/AppMod -> RefMod
+            mod' <- case mod of
+                (VarMod _) -> evalModDef' gModEnv fileData unitsState mod
+                (AppMod _ _) -> evalModDef' gModEnv fileData unitsState mod
+                -- bomb out, should never happen as args can only ever be Var & App
+                _  -> errorDump [MkSB argName, MkSB mod] "Incorrect mod type found as functor arg" assert
+            -- now check refMod is closed (thus either a LitMod or a prev. applied FuncMod)
+            if isClosedMod mod'
+                -- NOTE - we don't deref, instead insert the RefMod using the arg name directly as has requierd typesig anyway
+                -- now insert the litmod into local modEnv
+                then return $ Map.insert argName mod' modEnv
+                else throwError $ printf "(MD02) - Invalid module used as argument to functor %s" (show fModId)
+
+    updateModData :: LocalModEnv -> ModData -> ModData
+    updateModData modModEnv modData =
+        -- modImportMap = Map.union importMap (modImportMap modData) -- initital imports take precedence
+        modData     { modLocalModEnv = modModEnv }
 
 -- handle both litmods and functor mods
 evalModDef' gModEnv fileData unitsState mod = do
