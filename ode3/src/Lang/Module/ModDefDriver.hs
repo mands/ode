@@ -142,9 +142,9 @@ evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
     lMod' <- typeCheck gModEnv fileData unitsState lMod
 
     -- finally construct a "Closed" RefMod to holds the results, using both the fMod modData and type-checked lMod sig
-    let eMod = modifyModData (mkRefMod modFullName lMod') (updateModData importMap modEnv)
+    let refMod = modifyModData (mkRefMod modFullName lMod') (updateModData importMap modEnv)
     -- let eMod = (EvaledMod modFullName fModData :: Module Id)
-    trace' [MkSB eMod] "eMod" $ return eMod
+    trace' [MkSB refMod] "App -> RefMod" $ return refMod
   where
     -- lookup/evaluate the functor and params, dynamically type-check
     eFMod :: MExcept (ModFullName, Module Id)
@@ -152,11 +152,11 @@ evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
         -- getModuleFile rather than getRealModuleFile should be fine here as we never allow chaining of functors
         (modFullName, mod) <- getModuleFile fModId fileData gModEnv
         -- can only apply to a Functor, can't apply to an EvaledMod->FunctorMod
-        case trace' [MkSB mod] "eFMod" mod of
-            (FunctorMod _ _ _) -> return (modFullName, mod)
-            -- NOTE - we don't update the modFullName to point to the orig functor in case of a RefMod
-            rMod@(RefMod False _ _) ->  derefRefMod mod gModEnv >>= (\mod1 -> return (modFullName, mod1))
-            _ -> throwError $ printf "(MD01) - Module %s is not a functor" (show fModId)
+        if isClosedMod mod
+            then throwError $ printf "(MD01) - Module %s is not a functor" (show fModId)
+            -- NOTE - we deref to the Functor for typechecking code, but don't update
+            --        the modFullName to point to the orig functor in case of a RefMod
+            else derefRefMod mod gModEnv >>= (\mod1 -> return (modFullName, mod1))
 
     -- check the args, they are either inline apps or var lookups
     -- map and sequence thru interpretation of the args, using the same env
@@ -166,15 +166,18 @@ evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
         modArgs <- eModArgs
         DF.foldlM interpretArgs (Map.empty, Map.empty) modArgs
       where
-
---        interpretArgs (importMap, modEnv) (argName, mod@(RefMod _ _ _)) = do
---            undefined
-
+        interpretArgs :: (ImportMap, LocalModEnv) -> (ModName, Module DesId) -> MExcept (ImportMap, LocalModEnv)
         -- need to convert the var mod into an importMap ref of the correct type
         interpretArgs (importMap, modEnv) (argName, mod@(VarMod modName)) = do
-            -- need to look up within file
-            (modFullName, mod) <- getRealModuleFile modName fileData gModEnv
-            return (Map.insert argName modFullName importMap, modEnv)
+            -- eval the VarMod -> RefMod and unpack it
+            mod@(RefMod isClosed _ _) <- evalModDef' gModEnv fileData unitsState mod
+
+            -- now check refMod is closed (thus either a LitMod or a prev. applied FuncMod)
+            if isClosed
+                -- NOTE - we don't deref, instead pass RefMod (if exists) directly as has requierd typesig anyway
+                -- then return (Map.insert argName modFullName importMap, modEnv)
+                then return (importMap, Map.insert argName mod modEnv)
+                else throwError $ printf "(MD02) - Module %s cannot be used as a functor argument" (show modName)
           where
             fModEnv = fileModEnv fileData
             fImportMap = fileImportMap fileData
@@ -183,10 +186,12 @@ evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
         interpretArgs (importMap, modEnv) (argName, mod@(AppMod modName modArgs)) = do
             -- eval the Appmod
             mod <- evalModDef' gModEnv fileData unitsState mod
+            -- NOTE - we don't need to check the type of the evaled Mod, as eval of an App always
+            --        results in a Closed RefMod -> FunctorMod, i.e. always valid
             -- now insert the litmod into local modEnv using the arg name
             return (importMap, Map.insert argName mod modEnv)
 
-        -- bomb out, should never happen
+        -- bomb out, should never happen as args can only ever be Var & App
         interpretArgs _ (name, mod) = errorDump [MkSB name, MkSB mod] "Incorrect mod type found as functor arg" assert
 
         -- an assocList of the (modName/argName, mod) for particular functor
@@ -243,6 +248,14 @@ collapseRefMods unionData mod1@(RefMod isClosed1 modFullName1 modData1) gEnv = c
 derefRefMod :: Module Id -> GlobalModEnv -> MExcept (Module Id)
 derefRefMod mod@(RefMod _ modFullName _) gEnv = getModuleGlobal modFullName gEnv >>= (\mod -> derefRefMod mod gEnv)
 derefRefMod mod _ = return mod
+
+-- | Check is the module is open or closed only applies to the three base Mod Types, App&Var Mods are only ever tmp
+isClosedMod :: Module Id -> Bool
+isClosedMod (RefMod isClosed _ _) = isClosed
+isClosedMod (FunctorMod _ _ _) = False
+isClosedMod (LitMod _ _) = True
+-- isClosedMod (RefMod isClosed _ _) = isClosed
+
 
 
 -- Functor Application Helper Funcs ------------------------------------------------------------------------------------

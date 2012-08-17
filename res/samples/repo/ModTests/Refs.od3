@@ -1,51 +1,65 @@
+/******************************************************************************
+** Setup
+******************************************************************************/
 // Functor Arg
-module A {
+module Base {
   val x = 2
 }
 
-/*
-// ref of a ref
-module A1 = A
-module A2 = A1
-*/
 
 // Functor
-module B(A) {
-    // import A  // use current file for scope
-    // import ModTests.Imports.A  
-    val y = 2 + A.x
+module Func(Arg) {
+    val y = 2 + Arg.x
+    val x = 1
 }
 
-// Functor Applications
-// basic app
-// module C = B(A)
+// Basic Refs
+module BaseRef = Base
+module FuncRef = Func
+//ref of a ref
+//module BaseRef2 = BaseRef
+
+/******************************************************************************
+** Applications with Var Args
+** NOTE
+** - All complete
+******************************************************************************/
+
+// direct apps with type-checking
+module C = Func(Base)
+//module C1 = Base(Base)
+//module C2 = Func(Func)
 
 // app using a ref'd-arg
-// module D = A
-// module E = B(D)
+//module D = Func(BaseRef)
 
 // app using a ref'd-functor
-//module F = B
-//module G = F(A)
+//module E = FuncRef(Base)
 //// and ref again
-//module H = G
+//module E1 = E
 
+// wrapped apps with type-checking
+//module F = FuncRef(BaseRef)
+//module F1 = BaseRef(BaseRef)
+//module F2 = FuncRef(FuncRef)
+//module F3 = BaseRef(FuncRef)
 
-// app using a ref'd-functor & ref'd-arg
-//module H = A
-//module I = B
-//module J = I(H)
+// "recursive" app using the result
+//module P = Func(Base)
+//module P1 = P
+//module P2 = Func(P1)
 
-// checking types still correct after wrapping within a RefMod
-module K = A
-module L = B
-module M = K(K)
-//module N = L(L)
-//module O = K(L)
+/******************************************************************************
+** Applications with Nested App Args
+** NOTE
+** - This seems to be trivially complete due to restrictions on Nested AppMods in modlang semantics
+******************************************************************************/
+/*
+module Func2(Arg1, Arg2) {
+    val i = 2 + Arg2.x
+    val j = Arg1.x + Arg2.y
+}
 
-
-// app using the result
-
-// nested app
-
-
+// nested, direct app from var/app
+module T = Func2(Base, FuncRef(BaseRef))
+*/
