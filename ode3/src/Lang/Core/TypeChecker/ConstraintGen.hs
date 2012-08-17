@@ -99,13 +99,13 @@ getLVarType v = errorDump [MkSB v] "LocalVar expected" assert
 getMVarType :: E.VarId E.Id -> M.GlobalModEnv ->  M.ModData -> Maybe (M.FunArgs) -> TypeConsM E.Type
 getMVarType mv@(E.ModVar m v) gModEnv modData mFuncArgs =
     case mFuncArgs of
-        Nothing         -> eImport -- is in-module import only
-        Just funcArgs   -> maybe eImport id (eFunctor funcArgs) -- check funcArgs first, failing that then in-module import
+        Nothing         -> eLocalModEnv -- is ref to a localEnv module (thru imports/appMod)
+        Just funcArgs   -> maybe eLocalModEnv id (eFunctor funcArgs) -- check funcArgs first, failing that then localModEnv
       where
-        eImport :: TypeConsM E.Type
-        eImport = do
+        eLocalModEnv :: TypeConsM E.Type
+        eLocalModEnv = do
             -- look in all module-level repos
-            (_, impMod) <- liftMExcept $ M.getRealModuleMod m modData gModEnv
+            (_, impMod) <- liftMExcept $ M.getModuleMod m modData gModEnv
             -- if not found, raise error, else copy type into mTEnv
             eT <- liftMExcept $ M.lookupModSig v impMod
             modify (\tEnvs -> tEnvs { typeEnv = Map.insert mv eT (typeEnv tEnvs)})
@@ -114,7 +114,7 @@ getMVarType mv@(E.ModVar m v) gModEnv modData mFuncArgs =
         -- tries to lookup the type in the functor args, if not
         eFunctor :: M.FunArgs -> Maybe (TypeConsM E.Type)
         eFunctor funcArgs = do
-            -- does the mod name exist in functor's arg list
+            -- does the mod name exist in functor's arg map
             case (OrdMap.lookup m funcArgs) of
                 Nothing -> Nothing
                 Just _ -> Just $ do

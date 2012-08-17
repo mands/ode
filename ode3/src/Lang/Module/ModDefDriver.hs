@@ -17,7 +17,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module Lang.Module.ModDefDriver (
-evalModDef
+evalModDef, mkRefMod
 ) where
 
 -- higher-level control
@@ -83,10 +83,10 @@ evalModDef fd mod = do
         -- evalImport wrapper for modData
         processModImports' :: ModData -> St.SysExceptIO ModData
         processModImports' modData = do
-            -- calc new importMap
-            importMap <- DF.foldlM evalImport Map.empty (modImportCmds modData)
+            -- update the local mod env with imports
+            lEnv' <- DF.foldlM evalImport (modModEnv modData) (modImportCmds modData)
             -- update modData
-            return $ modData { modImportMap = importMap, modImportCmds = [] }
+            return $ modData { modModEnv = lEnv', modImportCmds = [] }
 
     -- extracts all unit data from module level to global state
     -- TODO - this doesn't need IO
@@ -188,9 +188,7 @@ evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
                 else throwError $ printf "(MD02) - Invalid module used as argument to functor %s" (show fModId)
 
     updateModData :: LocalModEnv -> ModData -> ModData
-    updateModData modModEnv modData =
-        -- modImportMap = Map.union importMap (modImportMap modData) -- initital imports take precedence
-        modData     { modLocalModEnv = modModEnv }
+    updateModData modModEnv modData = modData { modModEnv = modModEnv }
 
 -- handle both litmods and functor mods
 evalModDef' gModEnv fileData unitsState mod = do
@@ -227,9 +225,7 @@ collapseRefMods unionData mod1@(RefMod isClosed1 modFullName1 modData1) gEnv = c
         Right mod1 -> return mod1
         Left err -> throwError err
   where
-    unionEModData modData1 modData2 = modData2  { modImportMap = Map.union (modImportMap modData1) (modImportMap modData2)
-                                                , modLocalModEnv = Map.union (modLocalModEnv modData1) (modLocalModEnv modData2)
-                                                }
+    unionEModData modData1 modData2 = modData2  { modModEnv = Map.union (modModEnv modData1) (modModEnv modData2) }
 
 -- | Dereference a mod contiously till its final mod
 derefRefMod :: Module Id -> GlobalModEnv -> MExcept (Module Id)
@@ -249,7 +245,7 @@ isClosedMod (LitMod _ _) = True
 -- TODO - utilise this code later when we unfold all modules into a single block of code
 
 -- actually evaluate the functor applciation, similar to evaluation of function application
-applyFunctor :: Module Id -> FileModEnv -> Module Id
+applyFunctor :: Module Id -> LocalModEnv -> Module Id
 applyFunctor fMod@(FunctorMod fArgs fExprMap fModData) modEnv = resMod
   where
     -- best way to do this, create an empty lit mod, and add to it all the data by folding over the modEnv

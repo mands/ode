@@ -8,12 +8,11 @@
 -- Stability   :  alpha
 -- Portability :
 --
--- | New type-checker that uses full HM algorithm - hopefully to be extedned to support higher-order
--- differntials and units
+-- | Type and unit-checker that uses HM algorithm
 --
 -- Auxillary Checks Performed
--- * Referenced (module) binding does exist (within import scope)
--- * if import - is module in importMap, and if so does var exist
+-- * Referenced (module) binding does exist (within modEnv scope)
+-- * if import - is module in modEnv, and if so does var exist
 -- * if functor - is mod name equal to a functor arg name
 
 -----------------------------------------------------------------------------

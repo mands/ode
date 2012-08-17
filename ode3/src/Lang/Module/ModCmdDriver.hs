@@ -87,19 +87,19 @@ evalTopElems fd topMod@(TopModDef modRoot modName mod) = do
 
 -- top import, called from REPL or within a file
 evalTopElems fd (TopModImport importCmd@(ModImport modRoot mMods)) = do
-    importMap <- evalImport (fileImportMap fd) importCmd
-    return $ fd {fileImportMap = importMap }
+    lEnv' <- evalImport (fileModEnv fd) importCmd
+    return $ fd { fileModEnv = lEnv' }
 
 -- Module Importing Evaluation -----------------------------------------------------------------------------------------
 
 -- | Main function to eval an import command with respect to the system state
-evalImport :: ImportMap -> ModImport -> St.SysExceptIO ImportMap
-evalImport importMap importCmd@(ModImport modRoot _) = do
+evalImport :: LocalModEnv -> ModImport -> St.SysExceptIO LocalModEnv
+evalImport mEnv importCmd@(ModImport modRoot _) = do
     st <- S.get
     if Set.member modRoot (get St.vParsedFiles st) -- if we've parsed this file already
         then if Map.member modRoot (get St.vModEnv st) -- then it should be in global cache
             then -- so add the imports to the cur filedata
-                addImportsToMap importMap importCmd
+                addImportsToEnv mEnv importCmd
             else -- ifnot, shit, error, we must be in the process of analysing the file already, is parsed but not global cache
                 throwError $ printf "Modules %s have already been parsed, import cycle detected" (show modRoot)
         else do -- module not parsed, this should can occur from within REPL, top file, or module
@@ -107,26 +107,32 @@ evalImport importMap importCmd@(ModImport modRoot _) = do
             -- need to load module
             loadImport modRoot
             -- now process the import cmd
-            addImportsToMap importMap importCmd
+            addImportsToEnv mEnv importCmd
 
--- | Imports the modules cmds into the given importmap
+-- | Imports the modules cmds into the given LocalModEnv
 -- TODO - this doesn't need IO
-addImportsToMap :: ImportMap -> ModImport -> St.SysExceptIO ImportMap
-addImportsToMap importMap (ModImport modRoot mMods) = do
-    -- get list of modules of imported file
-    modEnv <- (St.getSysState St.vModEnv)
-    importedModEnv <- fileModEnv <$> (St.liftExSys $ getFileData modRoot modEnv)
-    -- update the cur fd import map with those from the imported modules
-    DF.foldlM (addImport importedModEnv) importMap (modList importedModEnv)
-    -- return $ fd { fileImportMap = importMap }
+addImportsToEnv :: LocalModEnv -> ModImport -> St.SysExceptIO LocalModEnv
+addImportsToEnv mEnv (ModImport modRoot mMods) = do
+    -- get the fileModEnv for the imported file
+    gModEnv <- (St.getSysState St.vModEnv)
+    fModEnv <- fileModEnv <$> (St.liftExSys $ getFileData modRoot gModEnv)
+    -- update the cur modEnv with those from the imported modules
+    DF.foldlM (addImport fModEnv) mEnv (calcImportedMods fModEnv)
   where
     -- create a list of modules to import, either all, or the given selection
-    modList importedModEnv = maybe (map (\mod -> (mod, Nothing)) $ Map.keys importedModEnv) id mMods
+    calcImportedMods fModEnv = maybe (map (\mod -> (mod, Nothing)) $ Map.keys fModEnv) id mMods
     -- create an import ref for the given modName, with potential alias
-    addImport importedModEnv impMap (modName, mAlias) =
-        if Map.member modName importedModEnv
-            then return $ Map.insert (maybe modName id mAlias) (ModFullName modRoot modName) impMap
-            else throwError $ printf "Imported module %s not found in %s" (show modName) (show modRoot)
+    addImport fModEnv mEnv (modName, mAlias) =
+        case Map.lookup modName fModEnv of
+            Just mod -> do
+                let impModName = maybe modName id mAlias
+                if Map.member impModName mEnv
+                    then throwError $ printf "Module %s already defined/imported in module" (show impModName)
+                    else do
+                        -- create a RefMod here to stand in for the import
+                        let refMod = mkRefMod (ModFullName modRoot modName) mod
+                        trace' [MkSB refMod] "addImports" $ return $ Map.insert impModName refMod mEnv
+            Nothing -> throwError $ printf "Imported module %s not found in %s" (show modName) (show modRoot)
 
 -- | High level fuction to load a module specified by ModRoot and process it according to the Glboal state
 loadImport :: ModRoot -> St.SysExceptIO ()

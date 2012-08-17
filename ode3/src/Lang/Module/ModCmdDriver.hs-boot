@@ -10,4 +10,4 @@ import qualified SysState as St
 import Lang.Common.AST
 import Lang.Module.AST
 
-evalImport :: ImportMap -> ModImport -> St.SysExceptIO ImportMap
+evalImport :: LocalModEnv -> ModImport -> St.SysExceptIO LocalModEnv
