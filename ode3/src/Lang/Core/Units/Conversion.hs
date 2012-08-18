@@ -176,16 +176,16 @@ convertCastUnit fromUnitC@(UnitC fromUnit) toUnitC@(UnitC toUnit) uEnv cEnv = do
     convertUnitsInDim lhsSUMap rhsSUMap dim cExpr = do
         -- first rearrange
         let (lhsUs, rhsUs) = rearrangeUnits lhsSUMap rhsSUMap
-        _ <- trace' [MkSB lhsUs, MkSB rhsUs] "rearranged units" (return ())
+        trace' [MkSB lhsUs, MkSB rhsUs] "rearranged units" $ return ()
 
         -- then cancel
         let (lhsUs', rhsUs') = cancelUnits lhsUs rhsUs
-        _ <- trace' [MkSB lhsUs', MkSB rhsUs'] "after cancelling units" (return ())
+        trace' [MkSB lhsUs', MkSB rhsUs'] "after cancelling units" $ return ()
 
         -- now convert the remaining, one-by-one from the lhs
         (rhsUs'', cExpr') <- DF.foldlM convertSingleUnit (rhsUs', cExpr) $ Map.toAscList lhsUs'
         -- check we converted all vals
-        _ <- if (Map.null rhsUs'') then return () else errorDump [MkSB lhsUs, MkSB rhsUs, MkSB rhsUs''] "(UC) Final rhs map not empty after sucessful conversion" assert
+        unless (Map.null rhsUs'') $ errorDump [MkSB lhsUs, MkSB rhsUs, MkSB rhsUs''] "(UC) Final rhs map not empty after sucessful conversion" assert
 
         return cExpr'
       where
@@ -214,7 +214,7 @@ convertCastUnit fromUnitC@(UnitC fromUnit) toUnitC@(UnitC toUnit) uEnv cEnv = do
                                                     Nothing -> errorDump [MkSB rhsUs] "(UC) Cannot find anymore rhs units" assert
 
                 cExpr' <- convertBaseUnit lhsUnit rhsUnit (getConvGraph dim cEnv)
-                _ <- trace' [MkSB lhsUnit, MkSB rhsUnit, MkSB cExpr'] "dervied conversion expr" $ return ()
+                trace' [MkSB lhsUnit, MkSB rhsUnit, MkSB cExpr'] "derived conversion expr" $ return ()
                 -- return the updated rhs map minus an index, and the inlined conversion expr
                 let rhsUs'' = if (rIdx == 1) then rhsUs' else Map.insert rhsUnit (rIdx-1) rhsUs'
                 return (rhsUs'', inlineCExpr cExpr cExpr')

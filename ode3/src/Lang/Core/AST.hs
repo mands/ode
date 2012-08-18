@@ -49,7 +49,6 @@ import qualified Lang.Core.Units as U
 
 -- Types ------------------------------------------------------------------------------------------------------------
 
--- TODO - add newtypes, records
 -- | Types
 data Type :: * where
     TVar :: Int -> Type
@@ -58,35 +57,38 @@ data Type :: * where
     TUnit :: Type
     -- Composite Types
     TArr :: Type -> Type -> Type
-    -- TODO - this should hold the module canonical name - ModFullName instead of VarId
-    TNewtype :: VarId Id -> Type -> Type
+    -- We use ModFullName as a common ID between TTypeCons and TWrap in order to check they types are valid
+    -- NOTE - don't need to add SrcId as ID too, as duplicate bindings not allowed within module
+    TTypeCons :: ModFullName -> Type -> Type
+    TWrap :: ModFullName -> SrcId -> Type
     TTuple :: [Type] -> Type
     TRecord :: (Map.Map RecId Type) -> Type
     deriving (Show, Eq, Ord)
 
 -- Helper functions
 -- is this some type of type-class? Functor? but it's non-parametric, makes it a problem, must do manually
-mapTypeM :: (Monad m) => (Type -> m Type) -> Type -> m Type
-mapTypeM f (TArr fromT toT) = liftM2 TArr (mapTypeM f fromT) (mapTypeM f toT)
-mapTypeM f (TNewtype tName t) = liftM (TNewtype tName) (mapTypeM f t)
-mapTypeM f (TTuple ts) = liftM TTuple $ mapM (mapTypeM f) ts
-mapTypeM f (TRecord nTs) = liftM TRecord $ DT.mapM (mapTypeM f) nTs
-mapTypeM f t = f t
-
 mapType :: (Type -> Type) -> Type -> Type
 mapType f (TArr t1 t2) = TArr (mapType f t1) (mapType f t2)
-mapType f (TNewtype tName t) = TNewtype tName (mapType f t)
+mapType f (TTypeCons tName t) = TTypeCons tName (mapType f t)
 mapType f (TTuple ts) = TTuple $ map (mapType f) ts
 mapType f (TRecord nTs) = TRecord $ Map.map (mapType f) nTs
 mapType f t = f t
 
+mapTypeM :: (Monad m) => (Type -> m Type) -> Type -> m Type
+mapTypeM f (TArr fromT toT) = liftM2 TArr (mapTypeM f fromT) (mapTypeM f toT)
+mapTypeM f (TTypeCons tName t) = liftM (TTypeCons tName) (mapTypeM f t)
+mapTypeM f (TTuple ts) = liftM TTuple $ mapM (mapTypeM f) ts
+mapTypeM f (TRecord nTs) = liftM TRecord $ DT.mapM (mapTypeM f) nTs
+mapTypeM f t = f t
+
+-- utils for converting between tuples and records
 dropLabels :: Map.Map String a -> [a]
 dropLabels = Map.elems
 
 addLabels :: [a] -> Map.Map String a
 addLabels = fst . foldl addLabel (Map.empty, 1)
   where
-    addLabel (nXs, i) x = let label = "elem"++(show i) in (Map.insert label x nXs, i+1)
+    addLabel (nXs, i) x = let label = "elem" ++ (show i) in (Map.insert label x nXs, i+1)
 
 -- Bindings ------------------------------------------------------------------------------------------------------------
 
@@ -100,7 +102,6 @@ type BindList a = [a]
 data VarId a =  LocalVar a
                 | ModVar ModName SrcId
                 deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
-
 
 -- Main Exprs ----------------------------------------------------------------------------------------------------------
 -- TODO - could we use the Bind type to unify both b and [b], or use GADTs and type-classes for extra type-safety

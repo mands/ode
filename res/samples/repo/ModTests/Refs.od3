@@ -53,7 +53,7 @@ module AppRef = FuncRef(BaseRef)
 ** NOTE
 ** - This seems to be trivially complete due to restrictions on Nested AppMods in modlang semantics
 ******************************************************************************/
-
+/*
 module Func2(Arg1, Arg2) {
     val i = 2 + Arg2.x
     val j = Arg1.x + Arg2.y
@@ -62,4 +62,4 @@ module Func2(Arg1, Arg2) {
 // nested, direct app from var/app
 //module T = Func2(Base, FuncRef(BaseRef))
 module T = Func2(Base, AppRef)
-
+*/

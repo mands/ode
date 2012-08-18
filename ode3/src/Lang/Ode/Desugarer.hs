@@ -54,7 +54,7 @@ throw x = lift $ E.throwError x
 evalSupplyVars x = evalSupplyT x $ map (\x -> tmpPrefix ++ x) vars
   where
     vars = [replicate k ['A'..'Z'] | k <- [1..]] >>= sequence
-    tmpPrefix = "des"
+    tmpPrefix = "_des"
 
 instance Applicative TmpSupply where
     pure = return
@@ -256,8 +256,7 @@ dsExpr (O.Record nExprs) = uniqIds >> C.Record <$> foldM insElem Map.empty nExpr
   where
     insElem recMap (id, e) = Map.insert <$> pure id <*> dsExpr e <*> pure recMap
     (ids, _) = unzip nExprs
-    uniqIds = if listUniqs ids then return ()
-        else throw $ printf "(DS02) - Record has duplicate identifies - %s" (show ids)
+    uniqIds = unless (listUniqs ids) $ throw $ printf "(DS02) - Record has duplicate identifies - %s" (show ids)
 
 -- create nested set of ifs for piecewise expression
 dsExpr (O.Piecewise cases e) = dsIf cases

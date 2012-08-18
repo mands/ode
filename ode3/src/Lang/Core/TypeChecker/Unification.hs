@@ -116,9 +116,9 @@ subTTerm t1 t2 t@(E.TRecord ts)
 subTTerm t1 t2 t@(E.TArr fromT toT)
     | t == t1 = t2
     | otherwise = E.TArr (subTTerm t1 t2 fromT) (subTTerm t1 t2 toT)
-subTTerm t1 t2 t@(E.TNewtype tName tUnwrap)
+subTTerm t1 t2 t@(E.TTypeCons tName tUnwrap)
     | t == t1 = t2
-    | otherwise = E.TNewtype tName $ subTTerm t1 t2 tUnwrap
+    | otherwise = E.TTypeCons tName $ subTTerm t1 t2 tUnwrap
 subTTerm t1 t2 t = if t == t1 then t2 else t
 
 -- | checks that tVar x does not exist in tTerm t, stop recursive substitions
@@ -132,7 +132,7 @@ occursCheck t1 t@(E.TRecord ts)
 occursCheck t1 t@(E.TArr fromT toT)
     | t == t1 = True
     | otherwise = (occursCheck t1 fromT) || (occursCheck t1 toT)
-occursCheck t1 t@(E.TNewtype tName tUnwrap)
+occursCheck t1 t@(E.TTypeCons tName tUnwrap)
     | t == t1 = True
     | otherwise = occursCheck t1 tUnwrap
 occursCheck t1 t = if t == t1 then True else False
@@ -170,7 +170,7 @@ unify uState tCons = snd <$> S.runStateT unifyM (Map.empty, Map.empty)
         -- trace' [MkSB tCons] "Start type unify" $ return ()
         conTypeS' <- unifyTypes (conTypeS tCons)
         -- return set should be empty
-        assert (Set.null conTypeS') $ return ()
+        unless (Set.null conTypeS') $ errorDump [MkSB conTypeS'] "Unification Error - set not empty" assert
 
         tCons' <- updateStack (tCons { conTypeS = conTypeS' })
         unifyUnitsLoop (conUnitS tCons')
@@ -221,8 +221,8 @@ unifyTypes conTypeS = unifyTypesLoop conTypeS
         processType (ConEqual t1From t2From) curS >>= processType (ConEqual t1To t2To)
 
     -- Composite, Newtypes
-    processType (ConEqual (E.TNewtype t1Name t1Unwrap) (E.TNewtype t2Name t2Unwrap)) curS =
-        processType (ConEqual t1Unwrap t2Unwrap) curS
+    processType (ConEqual t1@(E.TTypeCons t1Name t1Unwrap) t2@(E.TTypeCons t2Name t2Unwrap)) curS =
+        trace' [MkSB t1, MkSB t2] "Unify TypeCons" $ processType (ConEqual t1Unwrap t2Unwrap) curS
 
     -- Composite, Tuples
     processType (ConEqual (E.TTuple t1s) (E.TTuple t2s)) curS | (length t1s == length t2s) =

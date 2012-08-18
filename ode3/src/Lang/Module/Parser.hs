@@ -88,16 +88,21 @@ moduleCmd modRoot = modCmdParse
 
 -- | module definitions, either an entire definition/abstraction or an application - only used from files
 moduleDef :: ModRoot -> Parser (OdeTopElem E.DesId)
-moduleDef modRoot = TopModDef <$> pure modRoot <*> (reserved "module" *> singModId) <*> modParse
+moduleDef modRoot = do
+    modName <- reserved "module" *> singModId
+    mod <- modParse modName
+    return $ TopModDef modRoot modName mod
   where
-    modParse =  FunctorMod <$> (funcArgs <$> paramList singModId) <*> pure OrdMap.empty <*> modData
-                <|> LitMod <$> pure OrdMap.empty <*> modData
+    modParse modName =  FunctorMod <$> (funcArgs <$> paramList singModId) <*> pure OrdMap.empty <*> modData modName
+                <|> LitMod <$> pure OrdMap.empty <*> modData modName
                 <?> "module definition"
 
-    modData = do
+    modData modName = do
         (exports, DesugarModData exprList q u importCmds c) <- braces modBody
         return $ mkModData  { modImportCmds = importCmds, modExprList = exprList, modQuantities = q
-                            , modUnits = u, modConvs = c, modExportSet = Set.fromList exports}
+                            , modUnits = u, modConvs = c, modExportSet = Set.fromList exports
+                            , modFullName = ModFullName modRoot modName
+                            }
 
     funcArgs args = OrdMap.fromList $ map (\arg -> (arg, Map.empty)) args
 

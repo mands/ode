@@ -1,3 +1,4 @@
+
 module A {
   val x = 2
 }

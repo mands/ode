@@ -2,11 +2,7 @@
 :addRepo ../res/samples/repo
 
 // import our modules
-//import ModTests.Imports.B
-//import ModTests.Imports.*
-//import ModTests.Functors.*
-// import ModTests.Repo3.*
-import ModTests.Refs.*
+import SyntaxTests.Newtypes.*
 
 // :show all
 :show modState

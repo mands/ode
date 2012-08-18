@@ -84,6 +84,7 @@ getVarType :: E.VarId E.Id -> M.GlobalModEnv ->  M.ModData -> Maybe (M.FunArgs) 
 getVarType lv@(E.LocalVar _) _ _ _ = getLVarType lv
 getVarType mv@(E.ModVar _ _) gModEnv modData mFuncArgs = getMVarType mv gModEnv modData mFuncArgs
 
+
 -- have to use lifts as MonadSupply is only instance of MonadTrans, not MonadError
 getLVarType :: E.VarId E.Id -> TypeConsM E.Type
 getLVarType v@(E.LocalVar lv) = do
@@ -185,7 +186,8 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
     consTop (E.TopType tName) = do
         -- create a wrapped typevar
         let lv = (E.LocalVar tName)
-        tw <- E.TNewtype lv <$> newTypevar
+        -- TODO - this is wrong - should be a newtype cons, not an actual type
+        tw <- E.TTypeCons (M.modFullName modData) <$> newTypevar
         -- extend and return tEnv
         modify (\tEnvs -> tEnvs { typeEnv = Map.insert lv tw (typeEnv tEnvs) })
 
@@ -364,26 +366,35 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         return $ E.TFloat u
 
     -- TODO - need to look up within type env
-    consExpr (E.TypeCast e (E.WrapType v)) = do
+    consExpr (E.TypeCast e (E.WrapType tName)) = do
         -- get type of e and wrap it with the typeName
-        eTw <- E.TNewtype v <$> consExpr e
+        eT <- consExpr e
         -- get the stored newType type
-        fTw <- getVarType v gModEnv modData mFuncArgs
-        -- add constraint
-        addConsType $ ConEqual fTw eTw
-        -- return wrapped type
-        return eTw
+        tTCons <- getVarType tName gModEnv modData mFuncArgs
+        case tTCons of
+            (E.TTypeCons modName tT) -> do
+                -- add constraint
+                addConsType $ ConEqual eT tT
+                -- return wrapped type
+                return $ E.TWrap modName (M.getVarSrcName tName modData)
+            _ -> liftMExcept . throwError $ printf "(TC) Var %s is not a type constructor" (show tName)
 
-    consExpr (E.TypeCast e (E.UnwrapType v)) = do
+    consExpr (E.TypeCast e (E.UnwrapType tName)) = do
         -- get type of e, should be wrapped with the typeName
         eTw <-  consExpr e
         -- get the stored newType type
         -- we could create a newTypeVar here instead of the pattern-match, but match should always succeed at this point
-        fTw@(E.TNewtype _ fT) <- getVarType v gModEnv modData mFuncArgs
-        -- add constraint on wrapped types
-        addConsType $ ConEqual fTw eTw
-        -- return unwrapped type
-        return fT
+        tTCons <- getVarType tName gModEnv modData mFuncArgs
+        case tTCons of
+            (E.TTypeCons modName tT) -> do
+                -- add constraint on wrapped types
+                -- addConsType $ ConEqual fTw eTw
+                addConsType $ ConEqual (E.TWrap modName (M.getVarSrcName tName modData)) eTw
+                -- return unwrapped type
+                return tT
+            _ -> liftMExcept . throwError $ printf "(TC) Var %s is not a type constructor" (show tName)
+
+
 
     -- other exprs - not needed as match all
     consExpr e = errorDump [MkSB e] "(TC02) Unknown expr" assert

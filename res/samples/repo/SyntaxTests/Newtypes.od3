@@ -1,3 +1,4 @@
+/*
 // create a new type
 module NewType1 {
     // newtype  creation
@@ -52,5 +53,78 @@ module NewType3c {
     val a = wrap { type : Test, val : 3 }
     // this will fail
     val b = unwrap { type : Test, val : a } or True
+}
+*/
+
+
+/*
+// create a new type
+module NewType1 {
+    // newtype  creation
+    type Test
+    val a = wrap { type : Test, val : 1 }
+    val b = unwrap { type : Test, val : a }
+}
+*/
+
+/*
+module NewType1 {
+    // newtype  creation
+    type AType
+//    type BType
+
+    val aWrap = wrap { type : AType, val : 1 }
+    val aUnwrap = unwrap { type : AType, val : aWrap } + 1
+
+//    val bWrap = wrap { type : BType, val : 1 }
+//    val bUnwrap = unwrap { type : BType, val :  bWrap } + 1
+
+//    val cWrap = wrap { type : AType, val : 1 }
+//    val cUnwrap = unwrap { type : BType, val : cWrap } + 1
+}
+
+
+module NewType2 {
+    type AType
+    val aWrap = wrap { type : AType, val : 1 }
+    val aUnwrap = unwrap { type : AType, val : aWrap } + 1
+}
+*/
+
+/*
+// ref the type within a diff module
+module NewType3 {
+    import SyntaxTests.Newtypes.NewType1 as T1
+    import SyntaxTests.Newtypes.NewType2 as T2
+
+    val aWrap = wrap { type : T1.AType, val : 1 }
+    val aUnwrap = unwrap { type : T2.AType, val : aWrap } + 1
+}
+*/
+
+/*
+module NewType3 {
+    import SyntaxTests.Newtypes.NewType1 as T1
+    import SyntaxTests.Newtypes.NewType2 as T2
+
+    val aUnwrap = unwrap { type : T1.AType, val : T1.aWrap }
+}
+*/
+
+module NewType4a {
+    type AType
+    val _ = wrap { type : AType, val : 1 } // just to constrain it
+}
+
+module NewType4b {
+    import SyntaxTests.Newtypes.NewType4a as Z
+    val aWrap = wrap { type : Z.AType, val : 1 }
+}
+
+module NewType4c {
+    import SyntaxTests.Newtypes.NewType4a as X
+    import SyntaxTests.Newtypes.NewType4b as Y
+
+    val aUnwrap = unwrap { type : X.AType, val : Y.aWrap }
 }
 
