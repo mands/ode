@@ -50,5 +50,19 @@ module State {
 
 }
 
+module Units {
+
+    val x = 1.0 { unit : m }
+    // others
+    val y = cast { unit : m, val : 1.0 }
+    val z = (m) 1.0
+    val x = 1.0<m>
+
+    // newtypes
+    val x = (1.0 { unit : m }) { wrap : Test }
+    val y = x { unwrap : Test }
+    
+}
+
 
 

@@ -233,7 +233,7 @@ dsExpr (O.NumSeq a b c) = return $ C.Lit (C.NumSeq (enumFromThenTo a b c) U.NoUn
 
 dsExpr (O.Boolean b) = return $ C.Lit (C.Boolean b)
 dsExpr (O.Time) = return $ C.Lit (C.Time)
-dsExpr (O.Unit) = return $ C.Lit (C.Unit)
+dsExpr (O.None) = return $ C.Lit (C.Unit)
 -- TODO - add record selection here
 dsExpr (O.ValueRef (O.LocalId id) mRecId) = return $ C.Var (C.LocalVar id) mRecId
 dsExpr (O.ValueRef (O.ModId modId id) mRecId) = return $ C.Var (C.ModVar (ModName modId) id) mRecId

@@ -54,7 +54,7 @@ commonLangDef = emptyDef
                         , "ode", "delta"
                         , "rre", "reaction", "rate"
                         , "piecewise", "default"
-                        , "True", "False", "time"
+                        , "True", "False", "time", "None"
                         -- units lang
                         , "quantity", "dim", "unit", "SI", "alias"
                         , "conversion", "factor", "convert"
@@ -114,6 +114,19 @@ alphaIdentifier = lexeme $ many1 letter
 
 -- | comma sepated parameter list of any parser, e.g. (a,b,c)
 paramList = parens . commaSep1
+
+
+-- | boolean parser, parses a case-sensitive, boolean literal
+boolean :: Parser Bool
+boolean =  reserved "True" *> pure True
+            <|> reserved "False"  *> pure False
+            <?> "boolean"
+
+-- | number parser, parses most formats
+number :: Parser Double
+number =    try float
+            <|> fromIntegral <$> integer
+            <?> "number"
 
 --
 ---- | Code to properly handle +/- signed numbers, both interger and floating

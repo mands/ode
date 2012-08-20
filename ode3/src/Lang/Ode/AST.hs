@@ -56,23 +56,13 @@ data Stmt = -- each independent component, is basically function abstraction
             -- ComponentRef SrcId ModLocalId
             deriving (Show, Eq, Ord)
 
-
--- | statments allowed within a component, these include,
--- constant value defintinos, intial value defintions, odes and rres
---data CompStmt   = CompValue Value       -- nested value
---                | CompComp Component    -- nested component
---                | InitValueDef { ivName :: [SrcId], ivValue :: Expr }
---                | OdeDef { odeName :: SrcId, odeInit :: Double, odeExp :: Expr}
---                | RreDef { rreName :: SrcId, reaction :: (SrcId, SrcId), rate :: Expr}
---                deriving Show
-
 -- | tree for basic arithmetic expressions, these are recursive and may include
 -- binary and unary opertors, literal numbers, number sequences ([a,b..c]),
 -- calls to local/module components and run-time functions
 -- refernces to existing values, piecewise terms
 -- expressions are may be multiple types, these are determined later on
 data Expr   = BinExpr BinOp Expr Expr | UnExpr UnOp Expr | Number Double (Maybe UnitList) | NumSeq Double Double Double | Boolean Bool
-                    | Time | Unit | Call RefId [Expr] | ValueRef RefId (Maybe SrcId) | Piecewise [(Expr, Expr)] Expr
+                    | Time | None | Call RefId [Expr] | ValueRef RefId (Maybe SrcId) | Piecewise [(Expr, Expr)] Expr
                     | Tuple [Expr] | Record [(SrcId, Expr)]
                     -- type/unit commands
                     | ConvCast Expr UnitList | WrapType Expr RefId | UnwrapType Expr RefId

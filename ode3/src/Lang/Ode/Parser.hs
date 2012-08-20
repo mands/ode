@@ -63,6 +63,9 @@ attribDef p = braces (permute p)
 -- attrib :: String -> Parser String
 attrib res p = reserved res *> colon *> p <* optional comma
 
+unitAttrib :: Parser CA.UnitList
+unitAttrib = braces (attrib "unit" unitIdentifier)
+
 -- | tuple, ensures at least two values, comma separated
 tuple :: Parser a -> Parser [a]
 tuple p = parens $ (:) <$> (p <* comma) <*> commaSep1 p
@@ -91,6 +94,13 @@ odeStmt =   O.ImportStmt <$> importCmd
             <|> convDef
             <|> typeDef
             <?> "import, expression, or unit defintion"
+
+
+typeDef :: Parser O.OdeStmt
+typeDef = O.TypeStmt <$> (reserved "type" *> upperIdentifier)
+
+
+-- Units Parser --------------------------------------------------------------------------------------------------------
 
 -- | Parses a quantity "alias" for a given dimension
 quantityDef :: Parser O.OdeStmt
@@ -156,10 +166,6 @@ convExprOpTable =
   where
     binary name binop = Infix (reservedOp name *> pure (\a b -> CA.CExpr binop a b) <?> "binary operator") AssocLeft
 
-typeDef :: Parser O.OdeStmt
-typeDef = O.TypeStmt <$> (reserved "type" *> upperIdentifier)
-
-
 -- Ode Expression ------------------------------------------------------------------------------------------------------
 
 -- | main parser into the Ode lang, returns a list of ODE statments
@@ -213,69 +219,34 @@ rreDef = O.RreDef <$> (reserved "rre" *> braces rreAttribs) <*> (reservedOp "=" 
 
 -- Ode Terms -----------------------------------------------------------------------------------------------------------
 
--- | time term, is a special identifier
-time :: Parser ()
-time = reserved "time" *> pure ()
-
--- | unit term, is a special identifier
-unit :: Parser ()
-unit = reservedOp "()" *> pure ()
-
--- | boolean parser, parses a case-sensitive, boolean literal
-boolean :: Parser Bool
-boolean =  reserved "True" *> pure True
-            <|> reserved "False"  *> pure False
-            <?> "boolean"
-
-
--- | number parser, parses most formats
-number :: Parser Double
-number =    try float
-            <|> fromIntegral <$> integer
-            <?> "number"
+-- | high level wrapper around compTerm', allows for type/unit-casting a term
+compTerm :: Parser O.Expr
+compTerm = do
+    e <- compTerm'
+    option e $ exprAttrib e
+  where
+    exprAttrib e =  O.ConvCast <$> pure e <*> unitAttrib
+                    <|> O.WrapType <$> pure e <*> braces (attrib "wrap" typeIdentifier)
+                    <|> O.UnwrapType <$> pure e <*> braces (attrib "unwrap" typeIdentifier)
 
 -- | parse a term - the value on either side of an operator
--- should ODEs be here - as terms or statements?
-compTerm :: Parser O.Expr
-compTerm = -- try unitExpr
-            unitCast (try (parens compExpr))
-            <|> unitCast (try (O.Number <$> number <*> optionMaybe unitAttrib))
-            <|> try (O.Boolean <$> boolean)
-            <|> unitCast (try (time *> pure O.Time))
-            <|> try (unit *> pure O.Unit)
-            -- <|> try (brackets numSeqTerm)
-            <|> unitCast (try (braces piecewiseTerm))
-            <|> unitCast (try (O.Call <$> modLocalIdentifier <*> paramList compExpr))
-            <|> unitCast (O.ValueRef <$> modLocalIdentifier <*> optionMaybe (reservedOp "#" *> identifier))
+compTerm' :: Parser O.Expr
+compTerm' = try (parens compExpr)
+            <|> try (O.Number <$> number <*> optionMaybe unitAttrib)
+            <|> O.Boolean <$> boolean
+            <|> (reserved "time" *> pure O.Time) -- put into Environment module instead ??
+            <|> (reserved "None" *> pure O.None)
+            <|> reserved "piecewise" *> piecewiseTerm
+            <|> try (O.Call <$> modLocalIdentifier <*> paramList compExpr)
+            <|> O.ValueRef <$> modLocalIdentifier <*> optionMaybe (reservedOp "#" *> identifier)
             <|> O.Tuple <$> tuple compExpr
             <|> O.Record <$> namedTuple compExpr
-            <|> wrapType
-            <|> unwrapType
+            -- <|> brackets numSeqTerm
             <?> "valid term"
 
-
-wrapType :: Parser O.Expr
-wrapType = reserved "wrap" *> attribDef (O.WrapType <$$> attrib "val" compExpr
-                                                    <||> attrib "type" typeIdentifier
-                                                    ) <?> "NewType wrap"
-
-unwrapType :: Parser O.Expr
-unwrapType = reserved "unwrap" *> attribDef (O.UnwrapType   <$$> attrib "val" compExpr
-                                                            <||> attrib "type" typeIdentifier
-                                                            ) <?> "NewType unwrap"
-
--- | parse a term then check for an, optional, trailing unit cast
-unitCast :: Parser O.Expr -> Parser O.Expr
-unitCast p = do
-    e1 <- p
-    option e1 $ O.ConvCast <$> pure e1 <*> unitAttrib
-
-unitAttrib :: Parser CA.UnitList
-unitAttrib = braces (attrib "unit" unitIdentifier)
-
 piecewiseTerm :: Parser O.Expr
-piecewiseTerm = O.Piecewise <$> (reserved "piecewise" *> endBy1 ((,) <$> compExpr <*> (colon *> compExpr)) comma)
-                            <*> (reserved "default" *> colon *> compExpr)
+piecewiseTerm = braces (O.Piecewise <$> endBy1 ((,) <$> compExpr <*> (colon *> compExpr)) comma
+                                    <*> (reserved "default" *> colon *> compExpr))
 
 -- | parser for a numerical sequence, e.g. [a, b .. c]
 -- where a is the start, b is the next element, and c is the stop
@@ -283,7 +254,6 @@ numSeqTerm :: Parser O.Expr
 numSeqTerm = createSeq <$> number <*> (comma *> number) <*> (symbol ".." *> number) <?> "numerical sequence"
   where
     createSeq a b c = O.NumSeq a b c
-
 
 -- | a basic numeric expression, using parsec expression builder
 compExpr  :: Parser O.Expr
