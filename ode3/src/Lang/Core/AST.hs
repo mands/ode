@@ -144,7 +144,7 @@ data Expr b = Var (VarId b) (Maybe RecId)             -- a reference to any let-
 
             | Record (Map.Map RecId (Expr b)) -- a record, technically just a nmed tuple iwth ordering - need to unify with tuples
 
-            | Ode (VarId b) (Expr b)   -- an Ode, uses a state variable defined in b, and runs the expression,
+            | Ode (VarId b) (Expr b)   -- an Ode, uses a state variable defined in b, and runs and returns the delta expression
 
             | Rre (VarId b) (VarId b) Double -- an RRE, from var->var with given rate
 

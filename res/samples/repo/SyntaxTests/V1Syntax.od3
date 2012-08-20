@@ -32,7 +32,7 @@ module Comp {
 
 // odes / stateful vals
 module State {
-    init x = 3 // create an initial value that sets the initial boundary condition for a stateful value
+    init x = 3 + sin(3) // create an initial value that sets the initial boundary condition for a stateful value
     
     /* other possible syntax for further boundary conditions */
     cond x(0) = 34

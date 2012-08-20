@@ -74,7 +74,7 @@ desugarOde elems = do
 
     -- wrapper around the fold, matches on the top-level stmt type
     desugarOde' :: DesugarModData -> O.OdeStmt -> TmpSupply DesugarModData
-    desugarOde' dsModData stmt@(O.ExprStmt exprStmt) = desugarTopStmt (mdE dsModData) exprStmt >>= (\e1 -> return $ dsModData { mdE = e1 })
+    desugarOde' dsModData stmt@(O.ExprStmt exprStmt) = dsTopStmt (mdE dsModData) exprStmt >>= (\e1 -> return $ dsModData { mdE = e1 })
 
     -- filter the imports into their own list
     desugarOde' dsModData stmt@(O.ImportStmt imp) = return $ dsModData { mdI = imp:(mdI dsModData) }
@@ -126,79 +126,77 @@ subDontCares (O.BindId v) = return v
 -- | desugar a top-level value constant(s)
 -- throws an error if a top-level is already defined
 -- place in the font of the expr list, we reverse this later
-desugarTopStmt :: M.ExprList -> O.Stmt -> TmpSupply (M.ExprList)
-desugarTopStmt es stmt@(O.SValue _ _) = do
-    (ids, expr) <- desugarStmt stmt
+dsTopStmt :: M.ExprList -> O.Stmt -> TmpSupply (M.ExprList)
+dsTopStmt es stmt@(O.SValue _ _) = do
+    (ids, expr) <- dsStmt stmt
     return $ C.TopLet True ids expr : es
 
-desugarTopStmt es stmt@(O.OdeDef (O.BindId name) init _) = do
-    (odeVar, odeExpr) <- desugarStmt stmt
-    let initExpr = C.Lit (C.Num init U.NoUnit) -- TODO - fix units
-    let es' = C.TopLet True [name] initExpr : es
-    return $ C.TopLet False odeVar odeExpr : es'
+dsTopStmt es stmt@(O.OdeDef _ _ _) = do
+    (odeVar, odeExpr) <- dsStmt stmt
+    -- let initExpr = C.Lit (C.Num init U.NoUnit) -- TODO - fix units
+    -- let es' = C.TopLet True [name] initExpr : es
+    return $ C.TopLet False odeVar odeExpr : es
 
-desugarTopStmt es stmt@(O.RreDef _ _  _) = do
-    (rreVar, rreExpr) <- desugarStmt stmt
+dsTopStmt es stmt@(O.RreDef _ _  _) = do
+    (rreVar, rreExpr) <- dsStmt stmt
     return $ C.TopLet False rreVar rreExpr : es
 
-desugarTopStmt es stmt = do
-    (ids, expr) <- desugarStmt stmt
+dsTopStmt es stmt = do
+    (ids, expr) <- dsStmt stmt
     return $ C.TopLet False ids expr : es
 
 -- desugar a nested let binding
-desugarS' :: [O.Stmt] -> O.Expr  -> TmpSupply (C.Expr C.DesId)
-desugarS' [] outs = dsExpr outs
+dsNestedStmt :: [O.Stmt] -> O.Expr  -> TmpSupply (C.Expr C.DesId)
+dsNestedStmt [] outs = dsExpr outs
 
-desugarS' (s@(O.Value _ _ _):xs) outs = do
-    (ids, expr) <- desugarStmt s
-    C.Let False ids expr <$> desugarS' xs outs
+dsNestedStmt (s@(O.Value _ _ _):xs) outs = do
+    (ids, expr) <- dsStmt s
+    C.Let False ids expr <$> dsNestedStmt xs outs
 
-desugarS' (s@(O.SValue _ _):xs) outs = do
-    (ids, expr) <- desugarStmt s
-    C.Let True ids expr <$> desugarS' xs outs
+dsNestedStmt (s@(O.SValue _ _):xs) outs = do
+    (ids, expr) <- dsStmt s
+    C.Let True ids expr <$> dsNestedStmt xs outs
 
-desugarS' (s@(O.OdeDef (O.BindId name) init _):xs) outs = do
-    (odeVar, odeExpr) <- desugarStmt s
-    let subExpr' = C.Let False odeVar odeExpr <$> desugarS' xs outs
-    let initExpr = C.Lit (C.Num init U.NoUnit) -- TODO - fix units
-    C.Let True [name] <$> pure initExpr <*> subExpr'
+dsNestedStmt (s@(O.OdeDef _ _ _):xs) outs = do
+    (odeVar, odeExpr) <- dsStmt s
+    -- let subExpr' =
+    -- let initExpr = C.Lit (C.Num init U.NoUnit) -- TODO - fix units
+    -- C.Let True [name] <$> pure initExpr <*> subExpr'
+    C.Let False odeVar odeExpr <$> dsNestedStmt xs outs
 
-desugarS' (s@(O.RreDef _ _ _):xs) outs = do
-    (rreVar, rreExpr) <- desugarStmt s
-    C.Let False rreVar rreExpr <$> desugarS' xs outs
+dsNestedStmt (s@(O.RreDef _ _ _):xs) outs = do
+    (rreVar, rreExpr) <- dsStmt s
+    C.Let False rreVar rreExpr <$> dsNestedStmt xs outs
 
-desugarS' (s@(O.Component _ _ _ _):xs) outs = do
-    (ids, expr) <- desugarStmt s
-    C.Let False ids expr <$> desugarS' xs outs
+dsNestedStmt (s@(O.Component _ _ _ _):xs) outs = do
+    (ids, expr) <- dsStmt s
+    C.Let False ids expr <$> dsNestedStmt xs outs
 
 -- Main desugaring, called by top-level and nested level wrappers
-desugarStmt :: O.Stmt -> TmpSupply ([C.DesId], C.Expr C.DesId)
-desugarStmt (O.Value ids value body) = do
-    v' <- desugarS' body value
+dsStmt :: O.Stmt -> TmpSupply ([C.DesId], C.Expr C.DesId)
+dsStmt (O.Value ids value body) = do
+    v' <- dsNestedStmt body value
     ids' <- DT.mapM subDontCares ids
     return $ (ids', v')
 
-desugarStmt (O.SValue ids values) = do
-    let vs' = map (\v -> C.Lit $ C.Num v U.NoUnit) values
-    let vs'' = case vs' of
-                    v:[] -> v
-                    _ -> C.Tuple vs'
-    ids' <- DT.mapM subDontCares ids
-    return $ (ids', vs'')
+dsStmt (O.SValue ids expr) = do
+    sExpr <- dsExpr expr
+    -- ids' <- DT.mapM subDontCares ids
+    return $ (ids, sExpr)
 
 -- TODO - need to add the correct unit for the delta expr here
-desugarStmt (O.OdeDef (O.BindId name) init expr) = do
-    odeExpr <- C.Ode <$> pure (C.LocalVar name) <*> dsExpr expr
-    odeVar <- supply
-    return $ ([odeVar], odeExpr)
+dsStmt (O.OdeDef initRef deltaName expr) = do
+    odeExpr <- C.Ode <$> pure (C.LocalVar initRef) <*> dsExpr expr
+    odeDeltaVar <- subDontCares deltaName
+    return $ ([odeDeltaVar], odeExpr)
 
-desugarStmt (O.RreDef rate src dest) = do
+dsStmt (O.RreDef rate src dest) = do
     rreVar <- supply
     rreExpr <- C.Rre <$> pure (C.LocalVar src) <*> pure (C.LocalVar dest) <*> pure rate
     return $ ([rreVar], rreExpr)
 
 -- desugar a top level component
-desugarStmt (O.Component name ins outs body) = do
+dsStmt (O.Component name ins outs body) = do
     -- sub the ins
     ins' <- DT.mapM subDontCares ins
     -- create a new tmpArg only if multiple elems
@@ -208,10 +206,10 @@ desugarStmt (O.Component name ins outs body) = do
   where
     -- | desugars and converts a component into a \c abstraction, not in tail-call form, could blow out the stack, but unlikely
     desugarComp :: O.SrcId -> [C.DesId] -> TmpSupply (C.Expr C.DesId)
-    desugarComp _ (singIn:[]) = desugarS' body outs
-    desugarComp argName ins = C.Let False ins (C.Var (C.LocalVar argName) Nothing) <$> desugarS' body outs
+    desugarComp _ (singIn:[]) = dsNestedStmt body outs
+    desugarComp argName ins = C.Let False ins (C.Var (C.LocalVar argName) Nothing) <$> dsNestedStmt body outs
 
-desugarStmt stmt = throw $ printf "(DS01) Found an unhandled stmt that is top-level only - not nested \n%s" (show stmt)
+dsStmt stmt = throw $ printf "(DS01) Found an unhandled stmt that is top-level only - not nested \n%s" (show stmt)
 
 
 -- Desugar Expressions -------------------------------------------------------------------------------------------------

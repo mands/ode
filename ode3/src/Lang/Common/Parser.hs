@@ -50,7 +50,7 @@ commonLangDef = emptyDef
                           "module", "import", "as", "let"
                         -- main ode lang
                         , "component", "where"
-                        , "val", "init", "sval"
+                        , "val", "init"
                         , "ode", "delta"
                         , "rre", "reaction", "rate"
                         , "default"
