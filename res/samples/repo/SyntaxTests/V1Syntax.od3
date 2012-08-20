@@ -1,0 +1,54 @@
+// basic computation - all immutable
+module Comp {
+    
+    val x = 1 // vals
+    val y = (1,2) // tuples
+    val z = { lab1 : 1, lab2 : 2 } // records
+    
+    // computation
+    val i = sin(x) + pow(y, 3) * exp(z)
+
+    // choice
+    val c = piecewise { x > 3 : 3, default : 34 }
+
+    // composite vals usage    
+    val y1, y2 = y
+    val w = x + y1 + z#lab1
+
+    // components (inlined, type-safe templates)
+    component c arg {	
+        val x = arg // arg always a single value, can use tuple or record to add multiples
+        val y = x + 23
+        y
+    }
+
+
+    val j = {
+        val k = 0
+        y
+    }
+
+}
+
+// odes / stateful vals
+module State {
+    init x = 3 // create an initial value that sets the initial boundary condition for a stateful value
+    
+    /* other possible syntax for further boundary conditions */
+    cond x(0) = 34
+    state x = piecewise { t == tState : 0, ... default : x } // set of piecewises 
+
+
+    // ODEs
+    ode dx = {init: x, delta: (1 + 1 - 1) };
+    ode dV = {init: V, delta: -(-i_Stim + i_Na + i_K + i_L) / Cm}
+    // or
+    ode { init : V, delta : dV } = -(-i_Stim + i_Na + i_K + i_L) / Cm
+
+    // RREs
+    rre { rate : 3 } = x -> y
+
+}
+
+
+
