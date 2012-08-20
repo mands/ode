@@ -49,11 +49,11 @@ commonLangDef = emptyDef
                         -- module lang
                           "module", "import", "as", "let"
                         -- main ode lang
-                        , "component", "where"
+                        , "component", "where", "return"
                         , "val", "init"
                         , "ode", "delta"
                         , "rre", "reaction", "rate"
-                        , "default"
+                        , "piecewise", "default"
                         , "True", "False", "time"
                         -- units lang
                         , "quantity", "dim", "unit", "SI", "alias"

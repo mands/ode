@@ -125,22 +125,20 @@ subDontCares (O.BindId v) = return v
 
 -- | desugar a top-level value constant(s)
 -- throws an error if a top-level is already defined
--- place in the font of the expr list, we reverse this later
+-- place in the front of the expr list, we reverse this later
 dsTopStmt :: M.ExprList -> O.Stmt -> TmpSupply (M.ExprList)
 dsTopStmt es stmt@(O.SValue _ _) = do
     (ids, expr) <- dsStmt stmt
     return $ C.TopLet True ids expr : es
 
-dsTopStmt es stmt@(O.OdeDef _ _ _) = do
-    (odeVar, odeExpr) <- dsStmt stmt
-    -- let initExpr = C.Lit (C.Num init U.NoUnit) -- TODO - fix units
-    -- let es' = C.TopLet True [name] initExpr : es
-    return $ C.TopLet False odeVar odeExpr : es
-
-dsTopStmt es stmt@(O.RreDef _ _  _) = do
-    (rreVar, rreExpr) <- dsStmt stmt
-    return $ C.TopLet False rreVar rreExpr : es
-
+--dsTopStmt es stmt@(O.OdeDef _ _ _) = do
+--    (odeVar, odeExpr) <- dsStmt stmt
+--    return $ C.TopLet False odeVar odeExpr : es
+--
+--dsTopStmt es stmt@(O.RreDef _ _  _) = do
+--    (rreVar, rreExpr) <- dsStmt stmt
+--    return $ C.TopLet False rreVar rreExpr : es
+--
 dsTopStmt es stmt = do
     (ids, expr) <- dsStmt stmt
     return $ C.TopLet False ids expr : es
@@ -149,7 +147,7 @@ dsTopStmt es stmt = do
 dsNestedStmt :: [O.Stmt] -> O.Expr  -> TmpSupply (C.Expr C.DesId)
 dsNestedStmt [] outs = dsExpr outs
 
-dsNestedStmt (s@(O.Value _ _ _):xs) outs = do
+dsNestedStmt (s@(O.Value _ _):xs) outs = do
     (ids, expr) <- dsStmt s
     C.Let False ids expr <$> dsNestedStmt xs outs
 
@@ -159,29 +157,25 @@ dsNestedStmt (s@(O.SValue _ _):xs) outs = do
 
 dsNestedStmt (s@(O.OdeDef _ _ _):xs) outs = do
     (odeVar, odeExpr) <- dsStmt s
-    -- let subExpr' =
-    -- let initExpr = C.Lit (C.Num init U.NoUnit) -- TODO - fix units
-    -- C.Let True [name] <$> pure initExpr <*> subExpr'
     C.Let False odeVar odeExpr <$> dsNestedStmt xs outs
 
 dsNestedStmt (s@(O.RreDef _ _ _):xs) outs = do
     (rreVar, rreExpr) <- dsStmt s
     C.Let False rreVar rreExpr <$> dsNestedStmt xs outs
 
-dsNestedStmt (s@(O.Component _ _ _ _):xs) outs = do
+dsNestedStmt (s@(O.Component _ _ _):xs) outs = do
     (ids, expr) <- dsStmt s
     C.Let False ids expr <$> dsNestedStmt xs outs
 
 -- Main desugaring, called by top-level and nested level wrappers
 dsStmt :: O.Stmt -> TmpSupply ([C.DesId], C.Expr C.DesId)
-dsStmt (O.Value ids value body) = do
+dsStmt (O.Value ids (body, value)) = do
     v' <- dsNestedStmt body value
     ids' <- DT.mapM subDontCares ids
     return $ (ids', v')
 
 dsStmt (O.SValue ids expr) = do
     sExpr <- dsExpr expr
-    -- ids' <- DT.mapM subDontCares ids
     return $ (ids, sExpr)
 
 -- TODO - need to add the correct unit for the delta expr here
@@ -196,18 +190,18 @@ dsStmt (O.RreDef rate src dest) = do
     return $ ([rreVar], rreExpr)
 
 -- desugar a top level component
-dsStmt (O.Component name ins outs body) = do
+dsStmt (O.Component name arg (body, out)) = do
     -- sub the ins
-    ins' <- DT.mapM subDontCares ins
+    arg' <- DT.mapM subDontCares arg
     -- create a new tmpArg only if multiple elems
-    argName <- if (isSingleElem ins') then return (singleElem ins') else supply
-    v <- desugarComp argName ins'
+    argName <- if (isSingleElem arg') then return (singleElem arg') else supply
+    v <- desugarComp argName arg'
     return $ ([name], (C.Abs argName v))
   where
     -- | desugars and converts a component into a \c abstraction, not in tail-call form, could blow out the stack, but unlikely
     desugarComp :: O.SrcId -> [C.DesId] -> TmpSupply (C.Expr C.DesId)
-    desugarComp _ (singIn:[]) = dsNestedStmt body outs
-    desugarComp argName ins = C.Let False ins (C.Var (C.LocalVar argName) Nothing) <$> dsNestedStmt body outs
+    desugarComp _ (singArg:[]) = dsNestedStmt body out
+    desugarComp argName ins = C.Let False ins (C.Var (C.LocalVar argName) Nothing) <$> dsNestedStmt body out
 
 dsStmt stmt = throw $ printf "(DS01) Found an unhandled stmt that is top-level only - not nested \n%s" (show stmt)
 

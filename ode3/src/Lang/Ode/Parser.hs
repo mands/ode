@@ -172,32 +172,28 @@ exprStmt    = compDef
             <|> rreDef
             <?> "component, value or simulation defintion"
 
--- | parse a value definition
--- e.g., val x = expr
-valueDef :: Parser O.Stmt
-valueDef = O.Value  <$> (reserved "val" *> commaSep1 valIdentifier) <*> (reservedOp "=" *> compExpr)
-                    <*> option [] (reserved "where" *> valBody)
-  where
-    valBody = braces $ many exprStmt
-
 -- |parse a sval/initial condition def
 sValueDef :: Parser O.Stmt
 sValueDef = O.SValue <$> (reserved "init" *> commaSep1 identifier) <*> (reservedOp "=" *> compExpr)
 
--- | parser for defining a component, where either a defintion or module parameter component may follow
-compDef :: Parser O.Stmt
-compDef = do
-    cName <- reserved "component" *> identifier
-    compParse cName
+-- | parse a value definition
+-- e.g., val x = expr
+valueDef :: Parser O.Stmt
+valueDef = O.Value  <$> (reserved "val" *> commaSep1 valIdentifier <* reservedOp "=")
+                    <*> (try singVal <|> blockStmt)
   where
-    compParse cName = O.Component <$> pure cName <*> singOrList valIdentifier <*>
-            (reservedOp "=>" *> compExpr) <*> option [] (reserved "where" *> compBody)
-        -- O.ComponentRef <$> pure cName <*> (reservedOp "=" *> modElemIdentifier)
-        -- <|>
-        <?> "component definition"
+    singVal = (,) <$> pure [] <*> compExpr
 
-    -- | parser for the component body, a list of statements
-    compBody = braces $ many exprStmt
+-- | parsers a independent block of statements, i.e. { a = 1, b = 2, ..., return z }
+blockStmt :: Parser ([O.Stmt], O.Expr)
+blockStmt = braces $ (,) <$> (option [] (many exprStmt)) <*> (reserved "return" *> compExpr)
+
+-- | parser for defining a component
+compDef :: Parser O.Stmt
+compDef = O.Component   <$> (reserved "component" *> identifier)
+                        <*> singOrList valIdentifier
+                        <*> blockStmt
+                        <?> "component definition"
 
 odeDef :: Parser O.Stmt
 odeDef = do
@@ -250,7 +246,6 @@ compTerm = -- try unitExpr
             -- <|> try (brackets numSeqTerm)
             <|> unitCast (try (braces piecewiseTerm))
             <|> unitCast (try (O.Call <$> modLocalIdentifier <*> paramList compExpr))
-            -- <|> try convertCastStmt
             <|> unitCast (O.ValueRef <$> modLocalIdentifier <*> optionMaybe (reservedOp "#" *> identifier))
             <|> O.Tuple <$> tuple compExpr
             <|> O.Record <$> namedTuple compExpr
@@ -269,7 +264,6 @@ unwrapType = reserved "unwrap" *> attribDef (O.UnwrapType   <$$> attrib "val" co
                                                             <||> attrib "type" typeIdentifier
                                                             ) <?> "NewType unwrap"
 
-
 -- | parse a term then check for an, optional, trailing unit cast
 unitCast :: Parser O.Expr -> Parser O.Expr
 unitCast p = do
@@ -279,9 +273,8 @@ unitCast p = do
 unitAttrib :: Parser CA.UnitList
 unitAttrib = braces (attrib "unit" unitIdentifier)
 
-
 piecewiseTerm :: Parser O.Expr
-piecewiseTerm = O.Piecewise <$> (endBy1 ((,) <$> compExpr <*> (colon *> compExpr)) comma)
+piecewiseTerm = O.Piecewise <$> (reserved "piecewise" *> endBy1 ((,) <$> compExpr <*> (colon *> compExpr)) comma)
                             <*> (reserved "default" *> colon *> compExpr)
 
 -- | parser for a numerical sequence, e.g. [a, b .. c]

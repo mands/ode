@@ -42,10 +42,10 @@ data OdeStmt =  ExprStmt Stmt
 -- | elements allowed within a module, basically components or top-level constant values
 data Stmt = -- each independent component, is basically function abstraction
             -- components may be defined inline, with name, ins, outs, and body
-            Component { cName :: SrcId, cInputs :: [BindId], cOutputs :: Expr, cBody :: [Stmt]}
+            Component { cName :: SrcId, cArg :: [BindId], cBody :: ([Stmt], Expr)}
             -- value defintion
             -- they are constant, at least during single timestep
-            | Value { vName :: [BindId], vValue :: Expr, vBody :: [Stmt] }
+            | Value { vName :: [BindId], vValue :: ([Stmt], Expr) }
             -- state value defintion - indirectly mutable, stateful, values
             | SValue { svName :: [SrcId], svValue :: Expr }
             -- ODE - a SValue and ODE def combined
