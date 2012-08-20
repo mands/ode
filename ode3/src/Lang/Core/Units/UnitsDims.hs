@@ -125,11 +125,12 @@ addQuantitiesToBimap = foldl (\qBimap (quantity, dimVec) -> Bimap.insert quantit
 
 type BaseUnit = String
 
-data Unit  = UnitC UnitList -- an actual unit with a known dimensionless
-           | NoUnit                         -- no unit data infered, just a raw number (is this not same as ActualUnit []/dmless ?)
-           -- UnknownUnit                    -- We don't know the unit type yet - used with TC
-           | UnitVar Int                -- A unit variable, used for unit & dimension polymorphism
+data Unit   = UnitC UnitList -- an actual unit with a known dimensionless
+            | NoUnit                         -- no unit data infered, just a raw number (is this not same as ActualUnit []/dmless ?)
+            -- UnknownUnit                    -- We don't know the unit type yet - used with TC
+            | UnitVar Int                -- A unit variable, used for unit & dimension polymorphism
                                             -- we can't do much with such types, can operate on the number but always retains it's unit type
+            | DMLess        -- an expression that previously had units that were cancelled out
             deriving (Eq, Ord, Show)
 
 --instance Show Unit where
@@ -161,11 +162,15 @@ type UnitDimEnv = Map.Map BaseUnit BaseDim
 
 -- need to filter dups, process indices, and define ordering
 mkUnit :: UnitList -> Unit
-mkUnit [] = NoUnit
+mkUnit [] = NoUnit -- we convert an empty list of dimenstinos directly into NoUnit - may be better have a Dmless value instead
 mkUnit base@[(baseName, 1) ]= UnitC base
-mkUnit units = UnitC . Map.toList . foldl mkUnit' Map.empty $ units
+mkUnit units = if length units' == 0 then NoUnit else UnitC units'
   where
-    mkUnit' unitMap (unitName, index) = Map.insertWith' (+) unitName index unitMap
+    -- sum all the base units, filter canceled units
+    units' = Map.toList . Map.filter (\idx -> not (idx == 0)) . foldl collectBUs Map.empty $ units
+    -- collect the baseunits
+    collectBUs unitMap (unitName, index) = Map.insertWith' (+) unitName index unitMap
+
 
 isBaseUnit :: Unit -> Bool
 isBaseUnit (UnitC [(baseName, 1)]) = True
@@ -173,7 +178,7 @@ isBaseUnit _ = False
 
 -- do we need any unitsstate for this, i.e. unitdimenv, do we need the dimensions?
 addUnit :: Unit -> Unit -> Unit
-addUnit (UnitC u1') (UnitC u2') = mkUnit $ u1' ++ u2'
+addUnit (UnitC u1') (UnitC u2') = trace' [MkSB u1', MkSB u2'] "addUnits" $ mkUnit $ u1' ++ u2'
 addUnit NoUnit u2 = u2
 addUnit u1 NoUnit = u1
 
@@ -188,7 +193,7 @@ negUnit NoUnit = NoUnit
 -- Unit Env helper funcs
 -- calculate on-demand the dimension of a derived unit
 calcUnitDim :: Unit -> UnitDimEnv -> MExcept DimVec
--- handle case of un-dimenstioned values explitictly here
+-- handle case of un-dimensioned values explitictly here
 calcUnitDim NoUnit uEnv = throwError $ printf "Cannot obtain a dimension for a NoUnit"
 calcUnitDim u@(UnitC units) uEnv = mconcat <$> mapM getDim units
   where

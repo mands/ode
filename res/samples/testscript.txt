@@ -2,7 +2,7 @@
 :addRepo ../res/samples/repo
 
 // import our modules
-import SyntaxTests.Newtypes.*
+import SyntaxTests.V1Syntax.*
 
 // :show all
 :show modState

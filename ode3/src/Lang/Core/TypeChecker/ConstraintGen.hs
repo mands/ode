@@ -343,7 +343,9 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
 
         -- TODO - contrain both types wrt Time -- is this right?
         addConsUnit $ ConSum uV2 U.uSeconds uV1
-        return E.TUnit
+
+        -- TODO - return the type of the dExpr
+        return eDT
 
     consExpr (E.Rre src@(E.LocalVar _) dest@(E.LocalVar _) _) = do
         -- constrain both state vals to be floats

@@ -308,8 +308,8 @@ unifyUnits uState conUnitS = unifyUnitLoop conUnitS
 
     -- 0 uVars - simply check the sums are correct
     -- u/NU u/NU u/NU
-    processUnit (ConSum u1 u2 u3) st | not (isUnitVar u1) && not (isUnitVar u2) && not (isUnitVar u3) =
-        if U.addUnit u1 u2 == u3 then return st
+    processUnit con@(ConSum u1 u2 u3) st | not (isUnitVar u1) && not (isUnitVar u2) && not (isUnitVar u3) =
+        trace' [MkSB con, MkSB st] "ConSum" $ if U.addUnit u1 u2 == u3 then return st
                                 else throwError $ printf "Invalid unit calculation - %s + %s does not equal %s" (show u1) (show u2) (show u3)
 
     -- Unification (Minimal) and Checking (Full) for SameDim rule ------------------------------------------------------

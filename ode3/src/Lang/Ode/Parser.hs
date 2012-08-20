@@ -63,9 +63,6 @@ attribDef p = braces (permute p)
 -- attrib :: String -> Parser String
 attrib res p = reserved res *> colon *> p <* optional comma
 
-unitAttrib :: Parser CA.UnitList
-unitAttrib = braces (attrib "unit" unitIdentifier)
-
 -- | tuple, ensures at least two values, comma separated
 tuple :: Parser a -> Parser [a]
 tuple p = parens $ (:) <$> (p <* comma) <*> commaSep1 p
@@ -124,20 +121,24 @@ dimTerm = reserved "dim" *> lexeme parseDims
 
 -- TODO - should this be a lexeme ??
 unitIdentifier :: Parser CA.UnitList
-unitIdentifier = (sepBy parseSingUnit $ char '.')
+unitIdentifier = (sepBy1 parseSingUnit $ char '.')
   where
     parseSingUnit = (,) <$> alphaIdentifier <*> option 1 (reservedOp "^" *> integer)
+
+unitAttrib :: Parser CA.UnitList
+unitAttrib = braces (attrib "unit" unitIdentifier)
+
 
 -- | Parses an avaiable unit definition for a given dimension, with optional alias
 unitDef :: Parser O.OdeStmt
 unitDef = do
     uName <- reserved "unit" *> alphaIdentifier
-    unit <- attribDef singUnitAttrib
+    unit <- attribDef unitDefAttrib
     return $ unit { O.uName = uName }
   where
-    singUnitAttrib = O.UnitStmt "" <$$> attrib "dim" (Just <$> oneOf "LMTIOJN")
-                                   <|?> (Nothing, attrib "alias" (Just <$> identifier))
-                                   <||> attrib "SI" boolean -- <?> "unit definition"
+    unitDefAttrib = O.UnitStmt ""   <$$> attrib "dim" (Just <$> oneOf "LMTIOJN")
+                                    <|?> (Nothing, attrib "alias" (Just <$> identifier))
+                                    <||> attrib "SI" boolean -- <?> "unit definition"
 
 
 -- | Parses a conversion defintion stmt for 2 units within a given dimension

@@ -113,7 +113,7 @@ renTop exprMap = do
 -- any additiona data, e.g. units defs, are added to the state monad
 -- NOTE - this modifies the bMap
 convBind :: E.BindList E.DesId -> IdSupply (E.BindList E.Id)
-convBind bs = liftM reverse $ DF.foldlM f [] bs
+convBind bs = reverse <$> DF.foldlM f [] bs
   where
     -- helper func to convert an indiv binding
     f :: [E.Id] -> E.DesId -> IdSupply [E.Id]
@@ -123,13 +123,6 @@ convBind bs = liftM reverse $ DF.foldlM f [] bs
         b' <- supply
         -- store the mapping
         lift . put $ Map.insert b b' map
-        -- add any unit data
---        _ <- case mUnit of
---            Just unit -> do
---                uMap <- lift get
---                let uMap' = Map.insert b' unit uMap
---                lift $ put uMap'
---            Nothing -> return ()
         return (b':bs')
 
 
