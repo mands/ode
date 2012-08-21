@@ -48,7 +48,6 @@ typeIdentifier :: Parser O.RefId
 typeIdentifier =    try (O.ModId <$> upperIdentifier <*> (char '.' *> upperIdentifier))
                     <|> O.LocalId <$> upperIdentifier <?> "local or module type identifier"
 
-
 -- | value identifier, allows use of don't care vals
 valIdentifier :: Parser O.BindId
 valIdentifier = reservedOp "_" *> pure O.DontCare

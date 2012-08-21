@@ -125,6 +125,11 @@ addQuantitiesToBimap = foldl (\qBimap (quantity, dimVec) -> Bimap.insert quantit
 
 type BaseUnit = String
 
+
+-- NOTE - currently we do not distinguish between NoUnit and DMLess - a unitless number and an expressions
+-- that cancels units are equal in terms of the system. Canc hange this later if required, to allow
+-- casting DMLess exprs.
+-- Also, we do not consider NoUnit (and thus DMLess) to have a dimension at present, instead throw an error
 data Unit   = UnitC UnitList -- an actual unit with a known dimensionless
             | NoUnit                         -- no unit data infered, just a raw number (is this not same as ActualUnit []/dmless ?)
             -- UnknownUnit                    -- We don't know the unit type yet - used with TC
@@ -132,15 +137,6 @@ data Unit   = UnitC UnitList -- an actual unit with a known dimensionless
                                             -- we can't do much with such types, can operate on the number but always retains it's unit type
             | DMLess        -- an expression that previously had units that were cancelled out
             deriving (Eq, Ord, Show)
-
---instance Show Unit where
---    show (UnitC units) = List.intercalate "." (map showUnit units)
---      where
---        showUnit (baseUnit, index) = baseUnit ++ "^" ++ show index
---    show NoUnit = "NoUnit"
---    -- show UnknownUnit = "UnknownUnit"
---    show (UnitVar i) = "UnitVar:" ++ (show i)
-
 
 type UnitList = [(BaseUnit, Integer)]
 
@@ -157,17 +153,17 @@ data UnitDef = UnitDef BaseUnit BaseDim
 -- mapping from (base?) units to dimensions
 type UnitDimEnv = Map.Map BaseUnit BaseDim
 
-
--- Unit helper funcs
+-- Unit helper funcs ---------------------------------------------------------------------------------------------------------------
 
 -- need to filter dups, process indices, and define ordering
+-- we consider an (passed or dervied) empty list as a NoUnit - may be better have a Dmless value instead
 mkUnit :: UnitList -> Unit
-mkUnit [] = NoUnit -- we convert an empty list of dimenstinos directly into NoUnit - may be better have a Dmless value instead
+mkUnit [] = NoUnit
 mkUnit base@[(baseName, 1) ]= UnitC base
 mkUnit units = if length units' == 0 then NoUnit else UnitC units'
   where
     -- sum all the base units, filter canceled units
-    units' = Map.toList . Map.filter (\idx -> not (idx == 0)) . foldl collectBUs Map.empty $ units
+    units' = Map.toList . Map.filter (notEqual 0) . foldl collectBUs Map.empty $ units
     -- collect the baseunits
     collectBUs unitMap (unitName, index) = Map.insertWith' (+) unitName index unitMap
 
@@ -194,7 +190,9 @@ negUnit NoUnit = NoUnit
 -- calculate on-demand the dimension of a derived unit
 calcUnitDim :: Unit -> UnitDimEnv -> MExcept DimVec
 -- handle case of un-dimensioned values explitictly here
-calcUnitDim NoUnit uEnv = throwError $ printf "Cannot obtain a dimension for a NoUnit"
+-- calcUnitDim NoUnit uEnv = throwError $ printf "NoUnit values do not have a dimension"
+calcUnitDim NoUnit uEnv = return dimensionless
+
 calcUnitDim u@(UnitC units) uEnv = mconcat <$> mapM getDim units
   where
     getDim (baseUnit, index) = mulDim <$> (dimToDimVec <$> lookupBUnitDim baseUnit uEnv) <*> pure index
