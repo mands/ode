@@ -58,6 +58,9 @@ valIdentifier = reservedOp "_" *> pure O.DontCare
 -- | Wrapper around our default attribute notation
 attribDef p = braces (permute p)
 
+-- | Combinator for a single attrib
+singAttrib res p = braces (reserved res *> colon *> p)
+
 -- | a parameterised single attribute parser for a given attribute identifier
 -- TODO - fix the comma separated list of attribute, commaSep?
 -- attrib :: String -> Parser String
@@ -126,7 +129,7 @@ unitIdentifier = (sepBy1 parseSingUnit $ char '.')
     parseSingUnit = (,) <$> alphaIdentifier <*> option 1 (reservedOp "^" *> integer)
 
 unitAttrib :: Parser CA.UnitList
-unitAttrib = braces (attrib "unit" unitIdentifier)
+unitAttrib = singAttrib "unit" unitIdentifier
 
 
 -- | Parses an avaiable unit definition for a given dimension, with optional alias
@@ -226,14 +229,14 @@ compTerm = do
     e <- compTerm'
     option e $ exprAttrib e
   where
-    exprAttrib e =  O.ConvCast <$> pure e <*> unitAttrib
-                    <|> O.WrapType <$> pure e <*> braces (attrib "wrap" typeIdentifier)
-                    <|> O.UnwrapType <$> pure e <*> braces (attrib "unwrap" typeIdentifier)
+    exprAttrib e =  try (O.ConvCast <$> pure e <*> unitAttrib)
+                    <|> try (O.WrapType <$> pure e <*> singAttrib "wrap" typeIdentifier)
+                    <|> try (O.UnwrapType <$> pure e <*> singAttrib "unwrap" typeIdentifier)
 
 -- | parse a term - the value on either side of an operator
 compTerm' :: Parser O.Expr
 compTerm' = try (parens compExpr)
-            <|> try (O.Number <$> number <*> optionMaybe unitAttrib)
+            <|> O.Number <$> number <*> optionMaybe (try unitAttrib)
             <|> O.Boolean <$> boolean
             <|> (reserved "time" *> pure O.Time) -- put into Environment module instead ??
             <|> (reserved "None" *> pure O.None)

@@ -30,10 +30,10 @@ module Comp {
 */
 
 
-
+/*
 // odes / stateful vals
 module State {
-    //unit m { dim : L, SI : False }
+    unit m { dim : L, SI : False }
     init x = 3 { unit : m } // create an initial value that sets the initial boundary condition for a stateful value
     init y = 3
     // other possible syntax for further boundary conditions
@@ -51,20 +51,24 @@ module State {
     rre { rate : 3 } = x -> y
 
 }
+*/
 
-/*
 module Units {
-
-    val x = 1.0 { unit : m }
+    // def a unit
+    val x = 1.0 { unit : s }
     // others
+    /*
     val y = cast { unit : m, val : 1.0 }
     val z = (m) 1.0
     val x = 1.0<m>
+    */
+    // cast a expr
+    val y = x { unit : hr }
 
     // newtypes
-    val x = (1.0 { unit : m }) { wrap : Test }
-    val y = x { unwrap : Test }
-    
+    type TestType
+    val zW = (1.0 { unit : hr }) { wrap  : TestType }
+    val zUW = zW { unwrap : TestType }
+
 }
 
-*/
