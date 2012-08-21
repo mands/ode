@@ -25,7 +25,8 @@ executable ode3
     main-is: Main.hs
     buildable: True
     hs-source-dirs: src
-    other-modules: ShellUI SysState Utils.CommonImports Utils.Utils
+    other-modules: Lang.Core.Flatten Lang.CoreFlat.AST Lang.CoreFlat
+                   Lang.Common.Ops ShellUI SysState Utils.CommonImports Utils.Utils
                    Utils.ShellHandleBackend Utils.OrdMap Utils.OrdSet
                    Utils.MonadSupply Utils.Graph Lang.Common.AST Lang.Common.Parser
                    Lang.Core.TypeChecker Lang.Core.AST Lang.Core.Units

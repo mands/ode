@@ -311,7 +311,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
                 uV1 <- newUnitVar
                 uV2 <- newUnitVar
                 uV3 <- newUnitVar
-                -- the inputs are indepedent, output depdendent on inputs - thus need special constraint rule, ConsMul
+                -- the inputs are indepedent, output depdendent on inputs - thus need special constraint rule, ConsSum
                 case op of
                     E.Mul -> addConsUnit $ ConSum uV1 uV2 uV3
                     E.Div -> addConsUnit $ ConSum uV3 uV2 uV1 -- a - b = c => a = b + c

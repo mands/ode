@@ -36,7 +36,7 @@ commonLangDef = emptyDef
     , T.commentEnd      = "*/"
     , T.commentLine     = "//"
 
-    -- same identifier parsers
+    -- reuse the initial identifier parsers
     -- , T.identStart     = letter <|> char '_'
     -- , T.identLetter    = alphaNum <|> oneOf "_'"
 

@@ -1,0 +1,26 @@
+/*
+module UnitsCancel {
+    val speed = 10.0 { unit : m.s^-1 }
+    val time1 = 2 { unit : s }
+
+    val dist = speed*time1 // should be m
+    val accel = speed/time1 // should be m^s-2
+    val nounit = speed / speed // should be NoUnit (or DMLess ??)
+}
+*/
+
+module UnitsCastExpr {
+    // not allowed, can't cast from NoUnit to m
+    //val time1 = (2 + 3) { unit : s }
+
+    // allowed, we cast as required
+    //val time2 = (2 { unit : s } + 3 { unit : hr } { unit : s} ) { unit : min }
+
+    // re-dimensionalise a previously cancelled value - not allowed
+    //val time3 = (1 { unit : s } / 2 { unit : s }) { unit : min }
+
+    // operators on a cancelled value/dmless - ok
+    val time4 = (1 { unit : s } / 2 { unit : s }) + 3 //{ unit : s}
+}
+
+
