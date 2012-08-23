@@ -54,7 +54,7 @@ import Utils.Utils
 import qualified Utils.OrdSet as OrdSet
 import qualified Parser.Module as MP
 import qualified AST.Module as MA
-import qualified Subsystem.ModCmdDriver as MD
+import qualified Subsystem.ModDriver as MD
 
 
 shellEntry :: IO ()

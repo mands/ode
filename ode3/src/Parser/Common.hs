@@ -29,8 +29,6 @@ import AST.Common
 
 -- import {-# SOURCE #-} Lang.Common.Ops (opReservedNames) -- special import to break import cycle
 
-import AST.Ops
-
 type Parser = Parsec String ()
 
 -- Default Parser style ------------------------------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 -- | Special interface to allow evalImport to be called from ModDefDriver, breaking the import cycle between
 -- ModCmdDriver and ModDefDriver
 
-module Subsystem.ModCmdDriver (
+module Subsystem.ModDriver.ModCmd (
 evalImport
 ) where
 

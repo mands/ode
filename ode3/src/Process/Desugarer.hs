@@ -40,7 +40,6 @@ import Utils.CommonImports
 import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap
 import AST.Common
-import qualified AST.Ops as Ops
 import qualified AST.Ode as O
 import qualified AST.Core as C
 import qualified Subsystem.Units as U
@@ -215,11 +214,11 @@ dsExpr :: O.Expr -> TmpSupply (C.Expr C.DesId)
 -- dsExpr (O.Op (Ops.BasicOp Ops.Not) (e:[])) = (C.Op (Ops.BasicOp Ops.Not)) <$> (dsExpr e)
 
 -- convert unary negation into (* -1), with direct negate of nums
-dsExpr (O.Op (Ops.BasicOp Ops.Neg) ((O.Number n u):[])) = dsExpr $ O.Number (negate n) u
+dsExpr (O.Op (BasicOp Neg) ((O.Number n u):[])) = dsExpr $ O.Number (negate n) u
 
-dsExpr (O.Op (Ops.BasicOp Ops.Neg) (e:[])) = do
+dsExpr (O.Op (BasicOp Neg) (e:[])) = do
     e' <- dsExpr e
-    return $ C.Op (Ops.BasicOp Ops.Mul) (C.Tuple [C.Lit (C.Num (-1) U.NoUnit), e'])
+    return $ C.Op (BasicOp Mul) (C.Tuple [C.Lit (C.Num (-1) U.NoUnit), e'])
 
 -- use do-notation as more verbose/complex to sequence the tuple and lift
 dsExpr (O.Op op es) = do

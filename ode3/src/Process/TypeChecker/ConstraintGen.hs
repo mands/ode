@@ -37,8 +37,7 @@ import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap
 
 import qualified Subsystem.SysState as St
-import AST.Common
-import AST.Ops as Ops
+import AST.Common as AC
 import qualified AST.Core as E
 import qualified AST.Module as M
 import qualified Subsystem.Units as U
@@ -366,7 +365,7 @@ getOpType op = case op of
     -- Basic Ops
     BasicOp x | x `elem` [Add, Sub]                 -> typeAddSub'    -- (f u1, f u1) -> f u1
     BasicOp x | x `elem` [Mul, Div, Mod]            -> typeMulDiv'     -- (f u1, f u2) -> f u3
-    BasicOp x | x `elem` [Ops.LT, LE, Ops.GT, GE, Ops.EQ, NEQ]  -> typeFFtoB'     -- (f u1, f u1) -> b
+    BasicOp x | x `elem` [AC.LT, LE, AC.GT, GE, AC.EQ, NEQ]  -> typeFFtoB'     -- (f u1, f u1) -> b
     BasicOp x | x `elem` [And, Or]                  -> typeBBtoB     -- (b, b) -> b
     BasicOp Not                                     -> typeBtoB     -- b -> b
     -- Math Ops

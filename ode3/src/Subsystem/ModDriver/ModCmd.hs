@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 --
--- Module      :  Subsystem.ModCmdDriver
+-- Module      :  Subsystem.ModDriver.ModCmd
 -- Copyright   :  Copyright (C) 2010-2012 Mandeep Gill
 -- License     :  GPL (Just (Version {versionBranch = [3], versionTags = []}))
 --
@@ -15,7 +15,7 @@
 --
 -----------------------------------------------------------------------------
 
-module Subsystem.ModCmdDriver (
+module Subsystem.ModDriver.ModCmd (
 evalTopElems, evalImport
 ) where
 
@@ -55,7 +55,7 @@ import Parser.Module
 import AST.Common
 import AST.Module
 import AST.Core
-import Subsystem.ModDefDriver
+import Subsystem.ModDriver.ModDef
 
 -- Top Command Evaluation ----------------------------------------------------------------------------------------------
 

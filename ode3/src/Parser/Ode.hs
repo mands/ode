@@ -27,8 +27,7 @@ import Text.Parsec.Perm
 import qualified Data.Map as Map
 
 import Parser.Common
-import qualified AST.Ops as Ops
-import qualified AST.Common as CA
+import qualified AST.Common as AC
 import Utils.Utils
 import qualified AST.Ode as O
 
@@ -107,11 +106,11 @@ quantityDef :: Parser O.OdeStmt
 quantityDef = O.QuantityStmt <$> (reserved "quantity" *> identifier) <*> (reservedOp "=" *> dimTerm)
 
 -- | Parse a DimVec term, like "Dim LT-2"
-dimTerm :: Parser CA.DimVec
+dimTerm :: Parser AC.DimVec
 dimTerm = reserved "dim" *> lexeme parseDims
   where
-    parseDims :: Parser CA.DimVec
-    parseDims = permute (CA.DimVec <$?> (0, parseDim 'L')
+    parseDims :: Parser AC.DimVec
+    parseDims = permute (AC.DimVec <$?> (0, parseDim 'L')
                                 <|?> (0, parseDim 'M')
                                 <|?> (0, parseDim 'T')
                                 <|?> (0, parseDim 'I')
@@ -123,12 +122,12 @@ dimTerm = reserved "dim" *> lexeme parseDims
     parseDim dim = char dim *> option 1 (reservedOp "^" *> integer) <* optional (char '.')
 
 -- TODO - should this be a lexeme ??
-unitIdentifier :: Parser CA.UnitList
+unitIdentifier :: Parser AC.UnitList
 unitIdentifier = (sepBy1 parseSingUnit $ char '.')
   where
     parseSingUnit = (,) <$> alphaIdentifier <*> option 1 (reservedOp "^" *> integer)
 
-unitAttrib :: Parser CA.UnitList
+unitAttrib :: Parser AC.UnitList
 unitAttrib = singAttrib "unit" unitIdentifier
 
 
@@ -152,23 +151,23 @@ convDef = reserved "conversion" *> attribDef (O.ConvDefStmt <$$> attrib "from" a
 
 
 -- | parse a term - the value on either side of an operator
-convTerm :: Parser CA.CExpr
+convTerm :: Parser AC.CExpr
 convTerm =  try (parens convExpr)
-            <|> CA.CNum <$> number
-            <|> symbol "x" *> pure CA.CFromId
+            <|> AC.CNum <$> number
+            <|> symbol "x" *> pure AC.CFromId
             <?> "conversion term"
 
 -- | restricted numeric expression for conversion factors only
-convExpr  :: Parser CA.CExpr
+convExpr  :: Parser AC.CExpr
 convExpr  =  buildExpressionParser convExprOpTable convTerm <?> "conversion expression"
 
 convExprOpTable =
     [
-    [binary "*" CA.CMul, binary "/" CA.CDiv]
-    ,[binary "+" CA.CAdd, binary "-" CA.CSub]
+    [binary "*" AC.CMul, binary "/" AC.CDiv]
+    ,[binary "+" AC.CAdd, binary "-" AC.CSub]
     ]
   where
-    binary name binop = Infix (reservedOp name *> pure (\a b -> CA.CExpr binop a b) <?> "binary operator") AssocLeft
+    binary name binop = Infix (reservedOp name *> pure (\a b -> AC.CExpr binop a b) <?> "binary operator") AssocLeft
 
 -- Ode Expression ------------------------------------------------------------------------------------------------------
 
@@ -268,15 +267,15 @@ compExpr  =  buildExpressionParser exprOpTable compTerm <?> "expression"
 exprOpTable :: OperatorTable String () Identity O.Expr
 exprOpTable =
     [
-    [prefix "-" Ops.Neg, prefix "!" Ops.Not, prefix "not" Ops.Not]
-    ,[binary "*" Ops.Mul AssocLeft, binary "/" Ops.Div AssocLeft, binary "%" Ops.Mod AssocLeft]
-    ,[binary "+" Ops.Add AssocLeft, binary "-" Ops.Sub AssocLeft]
-    ,[binary "<" Ops.LT AssocLeft, binary "<=" Ops.LE AssocLeft, binary ">" Ops.GT AssocLeft, binary ">=" Ops.GE AssocLeft]
-    ,[binary "==" Ops.EQ AssocLeft, binary "!=" Ops.NEQ AssocLeft]
-    ,[binary "&&" Ops.And AssocLeft, binary "and" Ops.And AssocLeft]
-    ,[binary "||" Ops.Or AssocLeft, binary "or" Ops.Or AssocLeft]
+    [prefix "-" AC.Neg, prefix "!" AC.Not, prefix "not" AC.Not]
+    ,[binary "*" AC.Mul AssocLeft, binary "/" AC.Div AssocLeft, binary "%" AC.Mod AssocLeft]
+    ,[binary "+" AC.Add AssocLeft, binary "-" AC.Sub AssocLeft]
+    ,[binary "<" AC.LT AssocLeft, binary "<=" AC.LE AssocLeft, binary ">" AC.GT AssocLeft, binary ">=" AC.GE AssocLeft]
+    ,[binary "==" AC.EQ AssocLeft, binary "!=" AC.NEQ AssocLeft]
+    ,[binary "&&" AC.And AssocLeft, binary "and" AC.And AssocLeft]
+    ,[binary "||" AC.Or AssocLeft, binary "or" AC.Or AssocLeft]
     ]
   where
-    binary name binop assoc = Infix (reservedOp name *> pure (\a b -> O.Op (Ops.BasicOp binop) [a, b]) <?> "binary operator") assoc
-    prefix name unop         = Prefix (reservedOp name *> pure (\a -> O.Op (Ops.BasicOp unop) [a]) <?> "unary operator")
+    binary name binop assoc = Infix (reservedOp name *> pure (\a b -> O.Op (AC.BasicOp binop) [a, b]) <?> "binary operator") assoc
+    prefix name unop         = Prefix (reservedOp name *> pure (\a -> O.Op (AC.BasicOp unop) [a]) <?> "unary operator")
 

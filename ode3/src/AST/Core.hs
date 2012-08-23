@@ -41,8 +41,7 @@ import qualified Data.Traversable as DT
 import Data.Functor
 
 import Utils.Utils
-import AST.Common
-import qualified AST.Ops as Ops
+import AST.Common as AC
 import qualified Subsystem.Units as U
 
 -- | DetailId - holds both a (parameterised) identifier and a string that represetns the (closest) original/source file, variable and line num
@@ -134,7 +133,7 @@ data Expr b = Var (VarId b) (Maybe RecId)             -- a reference to any let-
 
             | Lit Literal               -- basic built-in constant literals
 
-            | Op Ops.Op (Expr b)    -- is basically identical to App - however is used to refer to built-in/run-time functions
+            | Op AC.Op (Expr b)    -- is basically identical to App - however is used to refer to built-in/run-time functions
                                 -- we could but don't curry as would like to apply same optimsations to both sys/user functions
                                 -- instead pass pair-cons of expressions
 
@@ -165,28 +164,20 @@ data TypeCast b = UnitCast U.Unit -- a safe cast to the unit for the expr
 data Literal =  Num Double U.Unit | NumSeq [Double] U.Unit | Boolean Bool | Time | Unit
                 deriving (Show, Eq, Ord)
 
--- | built-in operators - basically any operators that may be expressed directly as hardware instructions or sys/built-ins
-data Op = Add | Sub | Mul | Div | Mod
-        | LT | LE | GT | GE | EQ | NEQ
-        | And | Or | Not
-        deriving (Show, Eq, Ord)
-
 -- TODO - where does this func go - is run after unitconversion, during ANF conversion?
 -- this prob needs supply monad to create a tmp var
 -- converts an expression from the restrictred CExpr format into the general Core Expression for code-gen
 convertCoreExpr :: U.CExpr -> Expr Id
 convertCoreExpr (U.CExpr op e1 e2) = Op (convertCoreOp op) $ Tuple [convertCoreExpr e1, convertCoreExpr e2]
   where
-    convertCoreOp U.CAdd = Ops.BasicOp Ops.Add
-    convertCoreOp U.CSub = Ops.BasicOp Ops.Sub
-    convertCoreOp U.CMul = Ops.BasicOp Ops.Mul
-    convertCoreOp U.CDiv = Ops.BasicOp Ops.Div
+    convertCoreOp U.CAdd = AC.BasicOp AC.Add
+    convertCoreOp U.CSub = AC.BasicOp AC.Sub
+    convertCoreOp U.CMul = AC.BasicOp AC.Mul
+    convertCoreOp U.CDiv = AC.BasicOp AC.Div
 
 convertCoreExpr (U.CNum n) = Lit $ Num n U.NoUnit
 -- TODO - this is broken!
 convertCoreExpr U.CFromId = Var (LocalVar 1) Nothing
-
-
 
 
 -- TraveExpr applies a function f over all sub-expressions within the expression

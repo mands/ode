@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 --
--- Module      :  Subsystem.ModDefDriver
+-- Module      :  Subsystem.ModDriver.ModDef
 -- Copyright   :  Copyright (C) 2010-2012 Mandeep Gill
 -- License     :  GPL (Just (Version {versionBranch = [3], versionTags = []}))
 --
@@ -16,7 +16,7 @@
 
 {-# LANGUAGE FlexibleContexts #-}
 
-module Subsystem.ModDefDriver (
+module Subsystem.ModDriver.ModDef (
 evalModDef, mkRefMod
 ) where
 
@@ -55,7 +55,7 @@ import AST.Common
 import AST.Module
 import AST.Core
 import qualified Subsystem.Units as U
-import {-# SOURCE #-} Subsystem.ModCmdDriver (evalImport) -- special import to break import cycle
+import {-# SOURCE #-} Subsystem.ModDriver.ModCmd (evalImport) -- special import to break import cycle
 
 --import Core.Reorderer (reorder)
 import Process.Renamer (rename)

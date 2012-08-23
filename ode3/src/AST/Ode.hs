@@ -22,7 +22,6 @@ module AST.Ode (
 
 import qualified Data.Map as Map
 import AST.Common
-import qualified AST.Ops as Ops
 
 -- | SrcIdentifier that may be reference a local or module parameter
 data RefId =   LocalId SrcId | ModId SrcId SrcId deriving (Show, Eq, Ord)
@@ -62,19 +61,9 @@ data Stmt = -- each independent component, is basically function abstraction
 -- calls to local/module components and run-time functions
 -- refernces to existing values, piecewise terms
 -- expressions are may be multiple types, these are determined later on
-data Expr   =   Op Ops.Op [Expr] | Number Double (Maybe UnitList) | NumSeq Double Double Double | Boolean Bool
+data Expr   =   Op Op [Expr] | Number Double (Maybe UnitList) | NumSeq Double Double Double | Boolean Bool
                 | Time | None | Call RefId [Expr] | ValueRef RefId (Maybe SrcId) | Piecewise [(Expr, Expr)] Expr
                 | Tuple [Expr] | Record [(SrcId, Expr)]
                 -- type/unit commands
                 | ConvCast Expr UnitList | WrapType Expr RefId | UnwrapType Expr RefId
                 deriving (Show, Eq, Ord)
-
----- | basic binary expression operators
---data BinOp  = Add | Sub | Mul | Div | Mod
---            | LT | LE | GT | GE | EQ | NEQ
---            | And | Or
---            deriving (Show, Eq, Ord)
---
----- | basic unary expression operators
---data UnOp   = Not | Neg
---            deriving (Show, Eq, Ord)
