@@ -38,6 +38,7 @@ import qualified Utils.OrdMap as OrdMap
 
 import qualified SysState as St
 import Lang.Common.AST
+import Lang.Common.Ops as Ops
 import qualified Lang.Core.AST as E
 import qualified Lang.Module.AST as M
 import qualified Lang.Core.Units as U
@@ -268,54 +269,6 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         -- altohugh we now toT is a float, we don't know the unit, so gen a UnitCons
         -- NOTE - we don't need to gen a new tvar for toT, as its type is always fixed so will always unify
         return toT
-      where
-        -- "static" function types for built-in ops,
-        -- creates the constraints interanal to the inputs and outputs of the op
-        -- (not callee/caller constraits)
-        getOpType :: E.Op -> TypeConsM E.Type
-        getOpType op = case op of
-            E.Add   -> binAddSub
-            E.Sub   -> binAddSub
-            E.Mul   -> binMulDiv
-            E.Div   -> binMulDiv
-            E.Mod   -> binAddSub -- TODO - is this right?
-            E.LT    -> binRel
-            E.LE    -> binRel
-            E.GT    -> binRel
-            E.GE    -> binRel
-            E.EQ    -> binRel
-            E.NEQ   -> binRel
-            E.And   -> return $ E.TArr (E.TTuple [E.TBool, E.TBool]) E.TBool
-            E.Or    -> return $ E.TArr (E.TTuple [E.TBool, E.TBool]) E.TBool
-            E.Not   -> return $ E.TArr E.TBool E.TBool
-          where
-            -- binary, (F,F) -> F, all equal type
-            binAddSub = do
-                -- we could even create a new typevar here rather than unitVar, but then how to contrain to Floats?
-                -- could do tVar<->Float UnknownUnit ? and then use speical rule in contrain-gen to replace all UnknownUnits
-                floatT <- E.TFloat <$> newUnitVar
-                -- use the same floatT for all them as they must all be the same type
-                return $ E.TArr (E.TTuple [floatT , floatT]) floatT
-
-            -- we need to constrict these to all the same unit
-            -- binAddSub = E.TArr (E.TTuple [(E.TFloat U.UnknownUnit), (E.TFloat U.UnknownUnit)]) (E.TFloat U.UnknownUnit)
-
-            -- binary, (F,F) -> B, all equal type
-            binRel = do
-                floatT <- E.TFloat <$> newUnitVar
-                return $ E.TArr (E.TTuple [floatT , floatT]) E.TBool
-
-            -- binary, (F,F) -> F, any units, mul/div semantics/constraint
-            binMulDiv = do
-                -- need create 3 unique uVars
-                uV1 <- newUnitVar
-                uV2 <- newUnitVar
-                uV3 <- newUnitVar
-                -- the inputs are indepedent, output depdendent on inputs - thus need special constraint rule, ConsSum
-                case op of
-                    E.Mul -> addConsUnit $ ConSum uV1 uV2 uV3
-                    E.Div -> addConsUnit $ ConSum uV3 uV2 uV1 -- a - b = c => a = b + c
-                return $ E.TArr (E.TTuple [E.TFloat uV1, E.TFloat uV2]) (E.TFloat uV3)
 
     consExpr (E.If eB eT eF) = do
         eBT <- consExpr eB
@@ -400,3 +353,64 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
 
     -- other exprs - not needed as match all
     consExpr e = errorDump [MkSB e] "(TC02) Unknown expr" assert
+
+
+
+-- TODOs- check units for math ops, esp Mod, Pow
+
+-- "static" function types for built-in ops,
+-- creates the constraints interanal to the inputs and outputs of the op
+-- (not callee/caller constraits)
+getOpType :: Op -> TypeConsM E.Type
+getOpType op = case op of
+    -- Basic Ops
+    BasicOp x | x `elem` [Add, Sub]                 -> typeAddSub'    -- (f u1, f u1) -> f u1
+    BasicOp x | x `elem` [Mul, Div, Mod]            -> typeMulDiv'     -- (f u1, f u2) -> f u3
+    BasicOp x | x `elem` [Ops.LT, LE, Ops.GT, GE, Ops.EQ, NEQ]  -> typeFFtoB'     -- (f u1, f u1) -> b
+    BasicOp x | x `elem` [And, Or]                  -> typeBBtoB     -- (b, b) -> b
+    BasicOp Not                                     -> typeBtoB     -- b -> b
+    -- Math Ops
+    MathOp x | x `elem` [ Sin, Cos, Tan, ASin, ACos, ATan, Exp, Exp2, Exp10, Pow10
+                        , Log, Log2, Log10, LogB, Sqrt, Cbrt, ExpM1, Log1P
+                        , SinH, CosH, TanH, ASinH, ACosH, ATanH
+                        , Erf, ErfC, LGamma, Gamma, TGamma] -> typeFtoF        -- f -> f
+    MathOp SinCos                                   -> typeFtoFF     -- f -> (f,f)
+    MathOp x | x `elem` [ATan2, Pow, Hypot]         -> typeFFtoF     -- (f,f) -> f
+  where
+    -- add actual types info here
+    -- basic NoUnit varients
+    typeFFtoF   = return $ E.TArr (E.TTuple [E.TFloat U.NoUnit, E.TFloat U.NoUnit]) (E.TFloat U.NoUnit)
+    -- typeFFtoB   = return $ E.TArr (E.TTuple [E.TFloat U.NoUnit, E.TFloat U.NoUnit]) E.TBool
+    typeBBtoB   = return $ E.TArr (E.TTuple [E.TBool, E.TBool]) E.TBool
+    typeBtoB    = return $ E.TArr E.TBool E.TBool
+    typeFtoF    = return $ E.TArr (E.TFloat U.NoUnit) (E.TFloat U.NoUnit)
+    typeFtoFF   = return $ E.TArr (E.TFloat U.NoUnit) (E.TTuple [E.TFloat U.NoUnit, E.TFloat U.NoUnit])
+
+    -- Units varients
+    -- (f u1, f u1) -> f u1
+    typeAddSub' = do
+        -- we could even create a new typevar here rather than unitVar, but then how to contrain to Floats?
+        -- could do tVar<->Float UnknownUnit ? and then use speical rule in contrain-gen to replace all UnknownUnits
+        floatT <- E.TFloat <$> newUnitVar
+        -- use the same floatT for all them as they must all be the same type
+        return $ E.TArr (E.TTuple [floatT, floatT]) floatT
+
+    -- (f u1, f u1) -> b, with units
+    typeFFtoB' = do
+        floatT <- E.TFloat <$> newUnitVar
+        return $ E.TArr (E.TTuple [floatT, floatT]) E.TBool
+
+    -- (f u1, f u2) -> f u3, any units, mul/div semantics/constraint
+    typeMulDiv' = do
+        -- need create 3 unique uVars
+        uV1 <- newUnitVar
+        uV2 <- newUnitVar
+        uV3 <- newUnitVar
+        -- the inputs are indepedent, output depdendent on inputs - thus need special constraint rule, ConsSum
+        case op of
+            (BasicOp Mul) -> addConsUnit $ ConSum uV1 uV2 uV3
+            (BasicOp Div) -> addConsUnit $ ConSum uV3 uV2 uV1 -- a - b = c => a = b + c
+        return $ E.TArr (E.TTuple [E.TFloat uV1, E.TFloat uV2]) (E.TFloat uV3)
+
+
+

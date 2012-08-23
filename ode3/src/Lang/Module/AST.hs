@@ -151,7 +151,7 @@ lookupModSig v mod = maybeToExcept lookupM $ printf "(MD) Binding %s not found i
         Map.lookup v sigMap
 
 
-getVarSrcName :: E.VarId E.Id -> ModData -> E.SrcId
+getVarSrcName :: E.VarId E.Id -> ModData -> SrcId
 getVarSrcName lv@(E.LocalVar v) modData = (modIdBimap modData) Bimap.!> v
 getVarSrcName mv@(E.ModVar _ v) _ = v
 

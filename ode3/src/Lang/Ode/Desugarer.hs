@@ -40,6 +40,7 @@ import Utils.CommonImports
 import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap
 import Lang.Common.AST
+import qualified Lang.Common.Ops as Ops
 import qualified Lang.Ode.AST as O
 import qualified Lang.Core.AST as C
 import qualified Lang.Core.Units as U
@@ -211,20 +212,19 @@ dsStmt stmt = throw $ printf "(DS01) Found an unhandled stmt that is top-level o
 -- | Expression desugarer - basically a big pattern amtch on all possible types
 -- should prob enable warnings to pick up all unmatched patterns
 dsExpr :: O.Expr -> TmpSupply (C.Expr C.DesId)
-dsExpr (O.UnExpr O.Not e) = (C.Op C.Not) <$> (dsExpr e)
+-- dsExpr (O.Op (Ops.BasicOp Ops.Not) (e:[])) = (C.Op (Ops.BasicOp Ops.Not)) <$> (dsExpr e)
 
 -- convert unary negation into (* -1), with direct negate of nums
-dsExpr (O.UnExpr O.Neg (O.Number n u)) = dsExpr $ O.Number (negate n) u
+dsExpr (O.Op (Ops.BasicOp Ops.Neg) ((O.Number n u):[])) = dsExpr $ O.Number (negate n) u
 
-dsExpr (O.UnExpr O.Neg e) = do
+dsExpr (O.Op (Ops.BasicOp Ops.Neg) (e:[])) = do
     e' <- dsExpr e
-    return $ C.Op C.Mul (C.Tuple [C.Lit (C.Num (-1) U.NoUnit), e'])
+    return $ C.Op (Ops.BasicOp Ops.Mul) (C.Tuple [C.Lit (C.Num (-1) U.NoUnit), e'])
 
 -- use do-notation as more verbose/complex to sequence the tuple and lift
-dsExpr (O.BinExpr op a b) = do
-    a' <- dsExpr a
-    b' <- dsExpr b
-    return $ C.Op (binOps op) (C.Tuple [a', b'])
+dsExpr (O.Op op es) = do
+    es' <- DT.mapM dsExpr es
+    return $ C.Op op (C.Tuple es')
 
 dsExpr (O.Number n Nothing) = return $ C.Lit (C.Num n U.NoUnit)
 dsExpr (O.Number n (Just u)) = return $ C.Lit (C.Num n (U.mkUnit u))
@@ -271,18 +271,18 @@ dsExpr (O.UnwrapType e (O.ModId modId id)) = C.TypeCast <$> (dsExpr e) <*> pure 
 dsExpr a = errorDump [MkSB a] "(DS) Unknown ODE3 expression" assert
 
 
--- | simple patttern matching convertor, boring but gotta be done...
-binOps :: O.BinOp -> C.Op
-binOps O.Add = C.Add
-binOps O.Sub = C.Sub
-binOps O.Mul = C.Mul
-binOps O.Div = C.Div
-binOps O.Mod = C.Mod
-binOps O.LT = C.LT
-binOps O.LE = C.LE
-binOps O.GT = C.GT
-binOps O.GE = C.GE
-binOps O.EQ = C.EQ
-binOps O.NEQ = C.NEQ
-binOps O.And = C.And
-binOps O.Or = C.Or
+---- | simple patttern matching convertor, boring but gotta be done...
+--binOps :: O.BinOp -> C.Op
+--binOps O.Add = C.Add
+--binOps O.Sub = C.Sub
+--binOps O.Mul = C.Mul
+--binOps O.Div = C.Div
+--binOps O.Mod = C.Mod
+--binOps O.LT = C.LT
+--binOps O.LE = C.LE
+--binOps O.GT = C.GT
+--binOps O.GE = C.GE
+--binOps O.EQ = C.EQ
+--binOps O.NEQ = C.NEQ
+--binOps O.And = C.And
+--binOps O.Or = C.Or

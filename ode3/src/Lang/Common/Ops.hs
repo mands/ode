@@ -20,8 +20,12 @@
 -----------------------------------------------------------------------------
 
 module Lang.Common.Ops (
-Op(..), BasicOp(..), MathOp(..), OtherOp(..)
+Op(..), BasicOp(..), MathOp(..), OtherOp(..) -- , opReservedNames
 ) where
+
+
+import Control.Applicative
+import Control.Monad.Identity
 
 -- Op Definitions -------------------------------------------------------------------------------------------
 
@@ -47,6 +51,7 @@ data BasicOp    =
                 | And           -- (b, b) -> b
                 | Or            -- (b, b) -> b
                 | Not           -- b -> b
+                | Neg           -- Only used within frontend
                 deriving (Show, Eq, Ord)
 
 -- these ops copied direct from GNU Math library (libm)
@@ -103,75 +108,7 @@ data OtherOp    =
 -- Parser -------------------------------------------------------------------------------------------
 
 -- used by parser
-reservedNames = [ "sin", "cos", "tan", "sincos"
-                , "asin", "acos", "atan", "atan2"
-                , "exp", "exp2", "exp10", "pow10"
-                , "log", "log2", "log10", "logb"
-                , "pow", "sqrt", "cbrt"
-                , "hypot", "expm1", "log1p"
-                , "sinh", "cosh", "tanh", "asinh", "acosh", "atanh"
-                , "erf", "erfc", "lgamma", "gamma", "tgamma"
-                ]
-
-builtinOpParser :: Parser Op
-builtinOpParser =   reserved "sin"      *> MathOp Sin
-                <|> reserved "cos"      *> MathOp Cos
-                <|> reserved "tan"      *> MathOp Tan
-                <|> reserved "sincos"   *> MathOp SinCos
-                <|> reserved "asin"     *> MathOp ASin
-                <|> reserved "acos"     *> MathOp ACos
-                <|> reserved "atan"     *> MathOp ATan
-                <|> reserved "atan2"    *> MathOp ATan2
-                <|> reserved "exp"      *> MathOp Exp
-                <|> reserved "exp2"     *> MathOp Exp2
-                <|> reserved "exp10"    *> MathOp Exp10
-                <|> reserved "pow10"    *> MathOp Pow10
-                <|> reserved "log"      *> MathOp Log
-                <|> reserved "log2"     *> MathOp Log2
-                <|> reserved "log10"    *> MathOp Log10
-                <|> reserved "logb"     *> MathOp LogB
-                <|> reserved "pow"      *> MathOp Pow
-                <|> reserved "sqrt"     *> MathOp Sqrt
-                <|> reserved "cbrt"     *> MathOp Cbrt
-                <|> reserved "hypot"    *> MathOp Hypot
-                <|> reserved "expm1"    *> MathOp ExpM1
-                <|> reserved "log1p"    *> MathOp Log1P
-                <|> reserved "sinh"     *> MathOp SinH
-                <|> reserved "cosh"     *> MathOp CosH
-                <|> reserved "tanh"     *> MathOp TanH
-                <|> reserved "asinh"    *> MathOp ASinH
-                <|> reserved "acosh"    *> MathOp ACosH
-                <|> reserved "atanh"    *> MathOp ATanH
-                <|> reserved "erf"      *> MathOp Erf
-                <|> reserved "erfc"     *> MathOp ErfC
-                <|> reserved "lgamma"   *> MathOp LGamma
-                <|> reserved "gamma"    *> MathOp Gamma
-                <|> reserved "tgamma"   *> MathOp TGamma
+-- moved
 
 -- Types -------------------------------------------------------------------------------------------
-
-getOpType :: Op -> Type
-getOpType op = case op of
-    -- Basic Ops
-    BasicOp x | x `elem` [Add, Sub, Mul, Div, Mod]  -> typeFFtoF     -- (f, f) -> f
-    BasicOp x | x `elem` [LT, LE, GT, GE, EQ, NEQ]  -> typeFFtoB     -- (f, f) -> b
-    BasicOp x | x `elem` [And, Or]                  -> typeBBtoB     -- (b, b) -> b
-    BasicOp Not                                     -> typeBtoB     -- b -> b
-    -- Math Ops
-    MathOp x | x `elem` [ Sin, Cos, Tan, ASin, ACos, ATan, Exp, Exp2, Exp10, Pow10
-                        , Log, Log2, Log10, LogB, Sqrt, Cbrt, ExpM1, Log1P
-                        , SinH, CosH, TanH, ASinH, ACosH, ATanH
-                        , Erf, ErfC, LGamma, Gamma, TGamma] -> typeFtoF        -- f -> f
-    MathOp SinCos                                   -> typeFtoFF     -- f -> (f,f)
-    MathOp x | x `elem` [ATan2, Pow, Hypot]         -> typeFFtoF     -- (f,f) -> f
-  where
-    -- add actual types info here
-    -- TODO - update for units
-    typeFFtoF   = E.TArr (E.TTuple [E.TFloat NoUnit, E.TFloat NoUnit]) (E.TFloat NoUnit)
-    typeFFtoB   = E.TArr (E.TTuple [E.TFloat NoUnit, E.TFloat NoUnit]) E.TBool
-    typeBBtoB   = E.TArr (E.TTuple [E.TBool, E.TBool]) E.TBool
-    typeBtoB    = E.TArr E.TBool E.TBool
-    typeFtoF    = E.TArr (E.TFloat NoUnit) (E.TFloat NoUnit)
-    typeFtoFF   = E.TArr (E.TFloat NoUnit) (E.TTuple [E.TFloat NoUnit, E.TFloat NoUnit])
-
 

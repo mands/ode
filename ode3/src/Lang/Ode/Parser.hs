@@ -27,6 +27,7 @@ import Text.Parsec.Perm
 import qualified Data.Map as Map
 
 import Lang.Common.Parser
+import qualified Lang.Common.Ops as Ops
 import qualified Lang.Common.AST as CA
 import Utils.Utils
 import qualified Lang.Ode.AST as O
@@ -267,15 +268,15 @@ compExpr  =  buildExpressionParser exprOpTable compTerm <?> "expression"
 exprOpTable :: OperatorTable String () Identity O.Expr
 exprOpTable =
     [
-    [prefix "-" O.Neg, prefix "!" O.Not, prefix "not" O.Not]
-    ,[binary "*" O.Mul AssocLeft, binary "/" O.Div AssocLeft, binary "%" O.Mod AssocLeft]
-    ,[binary "+" O.Add AssocLeft, binary "-" O.Sub AssocLeft]
-    ,[binary "<" O.LT AssocLeft, binary "<=" O.LE AssocLeft, binary ">" O.GT AssocLeft, binary ">=" O.GE AssocLeft]
-    ,[binary "==" O.EQ AssocLeft, binary "!=" O.NEQ AssocLeft]
-    ,[binary "&&" O.And AssocLeft, binary "and" O.And AssocLeft]
-    ,[binary "||" O.Or AssocLeft, binary "or" O.Or AssocLeft]
+    [prefix "-" Ops.Neg, prefix "!" Ops.Not, prefix "not" Ops.Not]
+    ,[binary "*" Ops.Mul AssocLeft, binary "/" Ops.Div AssocLeft, binary "%" Ops.Mod AssocLeft]
+    ,[binary "+" Ops.Add AssocLeft, binary "-" Ops.Sub AssocLeft]
+    ,[binary "<" Ops.LT AssocLeft, binary "<=" Ops.LE AssocLeft, binary ">" Ops.GT AssocLeft, binary ">=" Ops.GE AssocLeft]
+    ,[binary "==" Ops.EQ AssocLeft, binary "!=" Ops.NEQ AssocLeft]
+    ,[binary "&&" Ops.And AssocLeft, binary "and" Ops.And AssocLeft]
+    ,[binary "||" Ops.Or AssocLeft, binary "or" Ops.Or AssocLeft]
     ]
   where
-    binary name binop assoc = Infix (reservedOp name *> pure (\a b -> O.BinExpr binop a b) <?> "binary operator") assoc
-    prefix name unop         = Prefix (reservedOp name *> pure (\a -> O.UnExpr unop a) <?> "unary operator")
+    binary name binop assoc = Infix (reservedOp name *> pure (\a b -> O.Op (Ops.BasicOp binop) [a, b]) <?> "binary operator") assoc
+    prefix name unop         = Prefix (reservedOp name *> pure (\a -> O.Op (Ops.BasicOp unop) [a]) <?> "unary operator")
 

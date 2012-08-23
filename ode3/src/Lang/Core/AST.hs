@@ -42,6 +42,7 @@ import Data.Functor
 
 import Utils.Utils
 import Lang.Common.AST
+import qualified Lang.Common.Ops as Ops
 import qualified Lang.Core.Units as U
 
 -- | DetailId - holds both a (parameterised) identifier and a string that represetns the (closest) original/source file, variable and line num
@@ -133,7 +134,7 @@ data Expr b = Var (VarId b) (Maybe RecId)             -- a reference to any let-
 
             | Lit Literal               -- basic built-in constant literals
 
-            | Op Op (Expr b)    -- is basically identical to App - however is used to refer to built-in/run-time functions
+            | Op Ops.Op (Expr b)    -- is basically identical to App - however is used to refer to built-in/run-time functions
                                 -- we could but don't curry as would like to apply same optimsations to both sys/user functions
                                 -- instead pass pair-cons of expressions
 
@@ -176,10 +177,10 @@ data Op = Add | Sub | Mul | Div | Mod
 convertCoreExpr :: U.CExpr -> Expr Id
 convertCoreExpr (U.CExpr op e1 e2) = Op (convertCoreOp op) $ Tuple [convertCoreExpr e1, convertCoreExpr e2]
   where
-    convertCoreOp U.CAdd = Add
-    convertCoreOp U.CSub = Sub
-    convertCoreOp U.CMul = Mul
-    convertCoreOp U.CDiv = Div
+    convertCoreOp U.CAdd = Ops.BasicOp Ops.Add
+    convertCoreOp U.CSub = Ops.BasicOp Ops.Sub
+    convertCoreOp U.CMul = Ops.BasicOp Ops.Mul
+    convertCoreOp U.CDiv = Ops.BasicOp Ops.Div
 
 convertCoreExpr (U.CNum n) = Lit $ Num n U.NoUnit
 -- TODO - this is broken!
