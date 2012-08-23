@@ -240,6 +240,7 @@ compTerm' = try (parens compExpr)
             <|> (reserved "time" *> pure O.Time) -- put into Environment module instead ??
             <|> (reserved "None" *> pure O.None)
             <|> reserved "piecewise" *> piecewiseTerm
+            <|> try (O.Op <$> builtinOpParser <*> paramList compExpr)
             <|> try (O.Call <$> modLocalIdentifier <*> paramList compExpr)
             <|> O.ValueRef <$> modLocalIdentifier <*> optionMaybe (reservedOp "#" *> identifier)
             <|> O.Tuple <$> tuple compExpr

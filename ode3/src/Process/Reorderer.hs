@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 --
--- Module      :  Core.Reorderer
+-- Module      :  Process.Reorderer
 -- Copyright   :  Copyright (C) 2010-2012 Mandeep Gill
 -- License     :  GPL (Just (Version {versionBranch = [3], versionTags = []}))
 --
@@ -18,7 +18,7 @@
 
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Core.Reorderer (
+module Process.Reorderer (
 reorder
 ) where
 

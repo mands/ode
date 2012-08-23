@@ -9,12 +9,19 @@
 -- Portability :
 --
 -- | TODO - main functioalyity that takes a set of Core modules and flattens them into CoreFlat AST
---
+-- involves
+-- * inline all modules
+-- * inline components
+-- * convert all units & drop unneeded type-checking info (wraps/newtypes and units)
+-- * convert to ANF and CoreFlat AST
+
+-- Notes
+-- * use intmap to hold local ids
+-- * need create a new ADT to hold metadata
 -----------------------------------------------------------------------------
 
 module Process.Flatten (
 
 ) where
-
 
 

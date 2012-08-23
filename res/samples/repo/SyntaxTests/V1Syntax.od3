@@ -53,15 +53,16 @@ module State {
 }
 */
 
+/*
 module Units {
     // def a unit
     val x = 1.0 { unit : s }
     // others
-    /*
-    val y = cast { unit : m, val : 1.0 }
-    val z = (m) 1.0
-    val x = 1.0<m>
-    */
+    
+    // val y = cast { unit : m, val : 1.0 }
+    //val z = (m) 1.0
+    // val x = 1.0<m>
+
     // cast a expr
     val y = x { unit : hr }
 
@@ -71,4 +72,6 @@ module Units {
     val zUW = zW { unwrap : TestType }
 
 }
+*/
+
 

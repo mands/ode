@@ -1,0 +1,28 @@
+// test basic ops
+// basic computation - all immutable
+module BasicOps {
+
+    // num ops
+    val _ = 1 + 2 * 2
+
+    // rel ops
+    val _ = 1 > 2
+
+    // log ops
+    val _ = False or True
+
+    // None
+    val _ = None
+
+    // test units within ops
+    val _ = 1 { unit : m } + 2 { unit : m }
+    val _ = 1 { unit : m } * 2 { unit : m }
+    val _ = 1 { unit : m } / 2 { unit : m }
+
+}
+
+// test maths ops
+module MathOps {
+    val _ = -sin(2)
+
+}

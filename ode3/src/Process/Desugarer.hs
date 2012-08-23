@@ -216,14 +216,12 @@ dsExpr :: O.Expr -> TmpSupply (C.Expr C.DesId)
 -- convert unary negation into (* -1), with direct negate of nums
 dsExpr (O.Op (BasicOp Neg) ((O.Number n u):[])) = dsExpr $ O.Number (negate n) u
 
+-- use do-notation as more verbose/complex to sequence the tuple and lift
 dsExpr (O.Op (BasicOp Neg) (e:[])) = do
     e' <- dsExpr e
     return $ C.Op (BasicOp Mul) (C.Tuple [C.Lit (C.Num (-1) U.NoUnit), e'])
 
--- use do-notation as more verbose/complex to sequence the tuple and lift
-dsExpr (O.Op op es) = do
-    es' <- DT.mapM dsExpr es
-    return $ C.Op op (C.Tuple es')
+dsExpr (O.Op op es) = C.Op op <$> packElems es
 
 dsExpr (O.Number n Nothing) = return $ C.Lit (C.Num n U.NoUnit)
 dsExpr (O.Number n (Just u)) = return $ C.Lit (C.Num n (U.mkUnit u))
@@ -256,8 +254,8 @@ dsExpr (O.Piecewise cases e) = dsIf cases
     dsIf ((testExpr, runExpr):xs) = liftM3 C.If (dsExpr testExpr) (dsExpr runExpr) (dsIf xs)
 
 -- convert call to a app, need to convert ins/args into a tuple first
-dsExpr (O.Call (O.LocalId id) exprs) = liftM (C.App (C.LocalVar id)) $ packElems exprs
-dsExpr (O.Call (O.ModId mId id) exprs) = liftM (C.App (C.ModVar (ModName mId) id)) $ packElems exprs
+dsExpr (O.Call (O.LocalId id) exprs) = C.App (C.LocalVar id) <$> packElems exprs
+dsExpr (O.Call (O.ModId mId id) exprs) = C.App (C.ModVar (ModName mId) id) <$> packElems exprs
 
 -- type experessions
 dsExpr (O.ConvCast e u) = C.TypeCast <$> (dsExpr e) <*> pure (C.UnitCast $ U.mkUnit u)
