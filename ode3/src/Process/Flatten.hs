@@ -12,7 +12,7 @@
 --
 -----------------------------------------------------------------------------
 
-module Lang.Core.Flatten (
+module Process.Flatten (
 
 ) where
 
