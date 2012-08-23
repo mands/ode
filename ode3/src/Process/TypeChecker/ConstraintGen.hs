@@ -12,7 +12,7 @@
 --
 -----------------------------------------------------------------------------
 
-module Lang.Core.TypeChecker.ConstraintGen (
+module Process.TypeChecker.ConstraintGen (
 constrain, TypeEnvs(..)
 ) where
 
@@ -36,14 +36,14 @@ import Utils.CommonImports
 import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap
 
-import qualified SysState as St
-import Lang.Common.AST
-import Lang.Common.Ops as Ops
-import qualified Lang.Core.AST as E
-import qualified Lang.Module.AST as M
-import qualified Lang.Core.Units as U
+import qualified Subsystem.SysState as St
+import AST.Common
+import AST.Ops as Ops
+import qualified AST.Core as E
+import qualified AST.Module as M
+import qualified Subsystem.Units as U
 
-import Lang.Core.TypeChecker.Common
+import Process.TypeChecker.Common
 
 -- Contraint Helpers Functions -----------------------------------------------------------------------------------------
 

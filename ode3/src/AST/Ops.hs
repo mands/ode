@@ -19,7 +19,7 @@
 -- TODO - maybe add a general FFI ??
 -----------------------------------------------------------------------------
 
-module Lang.Common.Ops (
+module AST.Ops (
 Op(..), BasicOp(..), MathOp(..), OtherOp(..) -- , opReservedNames
 ) where
 

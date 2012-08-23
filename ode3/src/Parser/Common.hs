@@ -13,7 +13,7 @@
 -----------------------------------------------------------------------------
 
 -- export everything
-module Lang.Common.Parser
+module Parser.Common
 where
 
 import Control.Applicative
@@ -24,12 +24,12 @@ import qualified Text.Parsec.Token as T
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import qualified Data.List as List
-import qualified Lang.Module.AST as MA
-import Lang.Common.AST
+import qualified AST.Module as MA
+import AST.Common
 
 -- import {-# SOURCE #-} Lang.Common.Ops (opReservedNames) -- special import to break import cycle
 
-import Lang.Common.Ops
+import AST.Ops
 
 type Parser = Parsec String ()
 

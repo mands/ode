@@ -12,15 +12,15 @@
 --
 -----------------------------------------------------------------------------
 
-module Lang.Core.TypeChecker.Common
+module Process.TypeChecker.Common
 where
 
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import qualified Lang.Core.AST as E
-import qualified Lang.Core.Units as U
-import qualified Lang.Module.AST as M
+import qualified AST.Core as E
+import qualified Subsystem.Units as U
+import qualified AST.Module as M
 
 
 -- Global Types ---------------------------------------------------------------------------------------------------------------

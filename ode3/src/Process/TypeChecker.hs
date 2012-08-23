@@ -18,7 +18,7 @@
 -----------------------------------------------------------------------------
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
 
-module Lang.Core.TypeChecker (
+module Process.TypeChecker (
 typeCheck, -- , typeCheckApp, TypeVarEnv, TypeCons, unify
 
 
@@ -44,15 +44,15 @@ import Utils.Utils
 import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap
 
-import qualified SysState as St
-import Lang.Common.AST
-import qualified Lang.Core.AST as E
-import qualified Lang.Module.AST as M
-import qualified Lang.Core.Units as U
+import qualified Subsystem.SysState as St
+import AST.Common
+import qualified AST.Core as E
+import qualified AST.Module as M
+import qualified Subsystem.Units as U
 
-import Lang.Core.TypeChecker.Common
-import Lang.Core.TypeChecker.ConstraintGen
-import Lang.Core.TypeChecker.Unification
+import Process.TypeChecker.Common
+import Process.TypeChecker.ConstraintGen
+import Process.TypeChecker.Unification
 
 -- Main Interface ------------------------------------------------------------------------------------------------------
 typeCheck :: M.GlobalModEnv -> M.FileData -> St.UnitsState -> M.Module E.Id -> MExcept (M.Module E.Id)

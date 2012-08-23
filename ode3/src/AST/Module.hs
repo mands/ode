@@ -14,7 +14,7 @@
 
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures, FlexibleInstances, TypeSynonymInstances #-}
 
-module Lang.Module.AST (
+module AST.Module(
 OdeTopElem(..),
 ExprMap, ExprList, FunArgs,
 Module(..), getModExprs, putModExprs, modifyModExprs,
@@ -39,9 +39,9 @@ import Data.Maybe (fromJust)
 import Text.Printf (printf)
 
 
-import Lang.Common.AST
-import qualified Lang.Core.AST as E
-import qualified Lang.Core.Units as U
+import AST.Common
+import qualified AST.Core as E
+import qualified Subsystem.Units as U
 import qualified Utils.OrdMap as OrdMap
 import Utils.CommonImports
 import qualified System.FilePath as FP

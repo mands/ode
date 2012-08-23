@@ -12,7 +12,7 @@
 --
 -----------------------------------------------------------------------------
 
-module ShellUI (
+module Subsystem.ShellUI (
 shellEntry
 ) where
 
@@ -48,13 +48,13 @@ import System.Console.Shell.ShellMonad
 -- import System.Console.Shell.Backend.Editline
 import System.Console.Shell.Backend.Readline
 import Utils.ShellHandleBackend
-import SysState
+import Subsystem.SysState
 
 import Utils.Utils
 import qualified Utils.OrdSet as OrdSet
-import qualified Lang.Module.Parser as MP
-import qualified Lang.Module.AST as MA
-import qualified Lang.Module.ModCmdDriver as MD
+import qualified Parser.Module as MP
+import qualified AST.Module as MA
+import qualified Subsystem.ModCmdDriver as MD
 
 
 shellEntry :: IO ()

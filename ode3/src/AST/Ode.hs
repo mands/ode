@@ -14,15 +14,15 @@
 -- AST is basically a direct translation of the language syntax/file format
 -----------------------------------------------------------------------------
 
-module Lang.Ode.AST (
+module AST.Ode (
     RefId(..), BindId(..), OdeStmt(..), Stmt(..),
     Expr(..), -- BinOp(..), UnOp(..),
     SrcId, NumTy -- rexported from Common.AST
 ) where
 
 import qualified Data.Map as Map
-import Lang.Common.AST
-import qualified Lang.Common.Ops as Ops
+import AST.Common
+import qualified AST.Ops as Ops
 
 -- | SrcIdentifier that may be reference a local or module parameter
 data RefId =   LocalId SrcId | ModId SrcId SrcId deriving (Show, Eq, Ord)

@@ -18,7 +18,7 @@
 -- * Ode and RREs reference to init/state vals
 -----------------------------------------------------------------------------
 
-module Lang.Core.Validator (
+module Process.Validator (
 validate,
 ) where
 
@@ -34,8 +34,8 @@ import qualified Data.Set as Set
 import Text.Printf (printf)
 import Utils.Utils
 import qualified Utils.OrdMap as OrdMap
-import qualified Lang.Core.AST as E
-import qualified Lang.Module.AST as M
+import qualified AST.Core as E
+import qualified AST.Module as M
 
 validate :: M.Module E.DesId -> MExcept (M.Module E.DesId)
 validate mod@(M.LitMod _ modData) = M.LitMod    <$> createTopExprs (M.modExprList modData) (M.modExportSet modData)

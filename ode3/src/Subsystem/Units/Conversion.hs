@@ -12,7 +12,7 @@
 --
 -----------------------------------------------------------------------------
 
-module Lang.Core.Units.Conversion (
+module Subsystem.Units.Conversion (
 -- datatypes
 ConvDef(..), ConvGraph, ConvEnv, CExpr(..), COp(..),
 
@@ -35,7 +35,7 @@ import qualified Data.Foldable as DF
 import Utils.CommonImports
 
 import qualified Utils.Graph as UG
-import Lang.Core.Units.UnitsDims
+import Subsystem.Units.UnitsDims
 
 -- Conversion Expressions ----------------------------------------------------------------------------------------------
 

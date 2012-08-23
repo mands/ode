@@ -14,7 +14,7 @@
 
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures, DeriveFunctor #-}
 
-module Lang.Core.Units.UnitsDims (
+module Subsystem.Units.UnitsDims (
     -- datatypes
     Quantity, Quantities,
     DimVec(..), addDim, subDim, mkDimVec, dimensionless, isZeroDim,

@@ -21,7 +21,7 @@
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
 
 
-module Lang.Core.AST (
+module AST.Core (
 VarId(..), BindList,
 Type(..), mapTypeM, mapType, addLabels, dropLabels,
 TopLet(..), Expr(..), Op(..), Literal(..), TypeCast(..),
@@ -41,9 +41,9 @@ import qualified Data.Traversable as DT
 import Data.Functor
 
 import Utils.Utils
-import Lang.Common.AST
-import qualified Lang.Common.Ops as Ops
-import qualified Lang.Core.Units as U
+import AST.Common
+import qualified AST.Ops as Ops
+import qualified Subsystem.Units as U
 
 -- | DetailId - holds both a (parameterised) identifier and a string that represetns the (closest) original/source file, variable and line num
 --data DetailId a = DetailId a SrcId Int deriving (Show, Eq, Ord)

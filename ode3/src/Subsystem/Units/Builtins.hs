@@ -13,7 +13,7 @@
 --
 -----------------------------------------------------------------------------
 
-module Lang.Core.Units.Builtins (
+module Subsystem.Units.Builtins (
     createSIs,
     -- builtins
     uSeconds, uMinutes, uHours,
@@ -24,8 +24,8 @@ import qualified Data.Map as Map
 import qualified Data.Bimap as Bimap
 import Data.Monoid
 
-import Lang.Core.Units.UnitsDims
-import Lang.Core.Units.Conversion
+import Subsystem.Units.UnitsDims
+import Subsystem.Units.Conversion
 import Utils.Utils
 
 createSIs :: UnitDef -> ([UnitDef], [ConvDef])

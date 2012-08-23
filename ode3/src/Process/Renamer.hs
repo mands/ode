@@ -19,7 +19,7 @@
 
 {-# LANGUAGE GeneralizedNewtypeDeriving, TypeSynonymInstances, FlexibleInstances #-}
 
-module Lang.Core.Renamer (
+module Process.Renamer (
 rename
 ) where
 
@@ -35,8 +35,8 @@ import Control.Applicative
 import Data.Maybe (fromJust)
 import Text.Printf (printf)
 
-import qualified Lang.Core.AST as E
-import qualified Lang.Module.AST as M
+import qualified AST.Core as E
+import qualified AST.Module as M
 import Utils.CommonImports
 import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap

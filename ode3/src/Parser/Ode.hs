@@ -13,7 +13,7 @@
 --
 -----------------------------------------------------------------------------
 
-module Lang.Ode.Parser (
+module Parser.Ode (
 odeStmt
 ) where
 
@@ -26,11 +26,11 @@ import Text.Parsec.Expr
 import Text.Parsec.Perm
 import qualified Data.Map as Map
 
-import Lang.Common.Parser
-import qualified Lang.Common.Ops as Ops
-import qualified Lang.Common.AST as CA
+import Parser.Common
+import qualified AST.Ops as Ops
+import qualified AST.Common as CA
 import Utils.Utils
-import qualified Lang.Ode.AST as O
+import qualified AST.Ode as O
 
 
 -- Useful Lexical Combinators ------------------------------------------------------------------------------------------

@@ -12,12 +12,12 @@
 --
 -----------------------------------------------------------------------------
 
-module Lang.Core.Units (
-    module Lang.Core.Units.UnitsDims,
-    module Lang.Core.Units.Conversion,
-    module Lang.Core.Units.Builtins,
+module Subsystem.Units (
+    module Subsystem.Units.UnitsDims,
+    module Subsystem.Units.Conversion,
+    module Subsystem.Units.Builtins,
 ) where
 
-import Lang.Core.Units.UnitsDims
-import Lang.Core.Units.Conversion
-import Lang.Core.Units.Builtins
+import Subsystem.Units.UnitsDims
+import Subsystem.Units.Conversion
+import Subsystem.Units.Builtins

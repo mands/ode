@@ -14,7 +14,7 @@
 
 {-# LANGUAGE TemplateHaskell, TypeOperators, GeneralizedNewtypeDeriving #-}
 
-module SysState where
+module Subsystem.SysState where
 --
 --(
 --SysState(..), mkDefSysState, SimState(..), ModState(..), UnitsState(..),
@@ -42,10 +42,10 @@ import qualified Data.Bimap as Bimap
 import qualified System.FilePath as FP
 import qualified System.Directory as Dir
 
-import Lang.Common.AST
-import qualified Lang.Module.AST as MA
+import AST.Common
+import qualified AST.Module as MA
 import qualified Utils.OrdSet as OrdSet
-import qualified Lang.Core.Units as U
+import qualified Subsystem.Units as U
 import Utils.Utils
 
 -- System State Monad --------------------------------------------------------------------------------------------------

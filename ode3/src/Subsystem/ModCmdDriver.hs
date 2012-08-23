@@ -15,7 +15,7 @@
 --
 -----------------------------------------------------------------------------
 
-module Lang.Module.ModCmdDriver (
+module Subsystem.ModCmdDriver (
 evalTopElems, evalImport
 ) where
 
@@ -49,13 +49,13 @@ import qualified System.FilePath as FP
 
 -- Ode
 import Utils.Utils
-import qualified SysState as St
+import qualified Subsystem.SysState as St
 
-import Lang.Module.Parser
-import Lang.Common.AST
-import Lang.Module.AST
-import Lang.Core.AST
-import Lang.Module.ModDefDriver
+import Parser.Module
+import AST.Common
+import AST.Module
+import AST.Core
+import Subsystem.ModDefDriver
 
 -- Top Command Evaluation ----------------------------------------------------------------------------------------------
 

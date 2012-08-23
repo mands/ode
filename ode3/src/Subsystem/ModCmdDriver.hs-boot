@@ -1,13 +1,13 @@
 -- | Special interface to allow evalImport to be called from ModDefDriver, breaking the import cycle between
 -- ModCmdDriver and ModDefDriver
 
-module Lang.Module.ModCmdDriver (
+module Subsystem.ModCmdDriver (
 evalImport
 ) where
 
 import Utils.Utils
-import qualified SysState as St
-import Lang.Common.AST
-import Lang.Module.AST
+import qualified Subsystem.SysState as St
+import AST.Common
+import AST.Module
 
 evalImport :: LocalModEnv -> ModImport -> St.SysExceptIO LocalModEnv

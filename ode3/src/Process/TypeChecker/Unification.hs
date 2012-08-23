@@ -12,7 +12,7 @@
 --
 -----------------------------------------------------------------------------
 
-module Lang.Core.TypeChecker.Unification (
+module Process.TypeChecker.Unification (
 unify
 ) where
 
@@ -44,13 +44,13 @@ import Utils.CommonImports
 import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap
 
-import qualified SysState as SysS
-import Lang.Common.AST
-import qualified Lang.Core.AST as E
-import qualified Lang.Module.AST as M
-import qualified Lang.Core.Units as U
+import qualified Subsystem.SysState as SysS
+import AST.Common
+import qualified AST.Core as E
+import qualified AST.Module as M
+import qualified Subsystem.Units as U
 
-import Lang.Core.TypeChecker.Common
+import Process.TypeChecker.Common
 
 -- TODO
 -- * check substiution and occursCheck rules for units

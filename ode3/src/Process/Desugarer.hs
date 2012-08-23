@@ -19,7 +19,7 @@
 
 {-# LANGUAGE FlexibleInstances #-}
 
-module Lang.Ode.Desugarer (
+module Process.Desugarer (
 desugarOde, DesugarModData(..)
 ) where
 
@@ -39,12 +39,12 @@ import Text.Printf(printf)
 import Utils.CommonImports
 import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap
-import Lang.Common.AST
-import qualified Lang.Common.Ops as Ops
-import qualified Lang.Ode.AST as O
-import qualified Lang.Core.AST as C
-import qualified Lang.Core.Units as U
-import qualified Lang.Module.AST as M
+import AST.Common
+import qualified AST.Ops as Ops
+import qualified AST.Ode as O
+import qualified AST.Core as C
+import qualified Subsystem.Units as U
+import qualified AST.Module as M
 
 -- We need a supply of unique Ids
 -- supply type, transformed with Error/Except Monad

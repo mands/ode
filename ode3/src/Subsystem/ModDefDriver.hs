@@ -16,7 +16,7 @@
 
 {-# LANGUAGE FlexibleContexts #-}
 
-module Lang.Module.ModDefDriver (
+module Subsystem.ModDefDriver (
 evalModDef, mkRefMod
 ) where
 
@@ -49,18 +49,18 @@ import System.Log.Logger
 import Utils.CommonImports
 import qualified Utils.OrdMap as OrdMap
 import qualified Utils.OrdSet as OrdSet
-import qualified SysState as St
+import qualified Subsystem.SysState as St
 
-import Lang.Common.AST
-import Lang.Module.AST
-import Lang.Core.AST
-import qualified Lang.Core.Units as U
-import {-# SOURCE #-} Lang.Module.ModCmdDriver (evalImport) -- special import to break import cycle
+import AST.Common
+import AST.Module
+import AST.Core
+import qualified Subsystem.Units as U
+import {-# SOURCE #-} Subsystem.ModCmdDriver (evalImport) -- special import to break import cycle
 
 --import Core.Reorderer (reorder)
-import Lang.Core.Renamer (rename)
-import Lang.Core.Validator (validate)
-import Lang.Core.TypeChecker (typeCheck)
+import Process.Renamer (rename)
+import Process.Validator (validate)
+import Process.TypeChecker (typeCheck)
 
 -- Evaluate Module Defintions ------------------------------------------------------------------------------------------
 

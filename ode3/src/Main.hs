@@ -24,7 +24,7 @@ import System.Log.Handler.Simple
 
 import Utils.Utils
 import Utils.OrdMap
-import ShellUI
+import Subsystem.ShellUI
 
 -- | main entry funtion
 main :: IO ()
@@ -51,14 +51,3 @@ main = do
 
     -- TODO - return exit code depending on success/failure
     -- TODO - close filelogger
-
--- | driver for the middle-end of the compiler
--- will run the middle-end of the compiler using the ANF/lowerlevel FIR - AST to be determined
--- basically runs a sequence of optimisations over the model, will some checking/valdiation/simulation
--- to check optimisation results
-coreANFDriver = undefined
-
--- | driver for the back-end of the compiler
- -- takes a final optimised model in the low-level AST, and runs the code-generation backend, either through
--- an interpreter, LLVM CPU, or OpenCL
-codeGenDriver = undefined

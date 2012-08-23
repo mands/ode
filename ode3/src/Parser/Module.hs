@@ -13,7 +13,7 @@
 --
 -----------------------------------------------------------------------------
 
-module Lang.Module.Parser (
+module Parser.Module (
 consoleParse, fileParse
 ) where
 
@@ -34,13 +34,13 @@ import Text.Parsec hiding (many, optional, (<|>))
 import Text.Printf (printf)
 
 import Utils.Utils
-import Lang.Common.Parser
-import qualified Lang.Ode.Parser as OP
-import Lang.Common.AST
-import Lang.Module.AST
-import qualified Lang.Ode.AST as O
-import qualified Lang.Core.AST as E
-import Lang.Ode.Desugarer
+import Parser.Common
+import qualified Parser.Ode as OP
+import AST.Common
+import AST.Module
+import qualified AST.Ode as O
+import qualified AST.Core as E
+import Process.Desugarer
 
 
 -- | consoleParse parses a string given on the console command line, restricuted to moduleCmds only

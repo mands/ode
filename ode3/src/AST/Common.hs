@@ -12,7 +12,7 @@
 --
 -----------------------------------------------------------------------------
 
-module Lang.Common.AST (
+module AST.Common (
     -- common id types
     NumTy, SrcId, DesId, Id, RecId,
 
@@ -25,7 +25,7 @@ module Lang.Common.AST (
 ) where
 
 import qualified Data.List as List
-import qualified Lang.Core.Units as U
+import qualified Subsystem.Units as U
 import Utils.Utils
 
 -- Shared Identifiers --------------------------------------------------------------------------------------------------
