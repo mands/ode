@@ -334,24 +334,3 @@ hardcodedOps =  upow
         (e, pow) <- reserved "uroot" *> parens ((,) <$> compExpr <*> (comma *> natural))
         return $ AO.Op (AC.OtherOp (AC.URoot pow)) [e]
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -21,7 +21,11 @@
 -----------------------------------------------------------------------------
 
 module Process.Flatten (
-
+flatten
 ) where
 
+import Utils.CommonImports
+import Subsystem.SysState
 
+flatten :: String -> SysExcept ()
+flatten initMod = return ()

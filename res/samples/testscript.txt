@@ -7,5 +7,6 @@ import SyntaxTests.Ops.*
 // :show all
 :show modState
 // all done
+:simulate OtherOps
 :quit
 

@@ -16,11 +16,9 @@ module Subsystem.ShellUI (
 shellEntry
 ) where
 
-import Control.Monad
 import Control.Monad.Error
 import Control.Monad.Trans(liftIO)
 import qualified Control.Monad.State as S
-import Control.Applicative
 import System.Environment(getArgs)
 import System.Log.Logger
 
@@ -48,14 +46,15 @@ import System.Console.Shell.ShellMonad
 -- import System.Console.Shell.Backend.Editline
 import System.Console.Shell.Backend.Readline
 import Utils.ShellHandleBackend
-import Subsystem.SysState
 
-import Utils.Utils
+-- Ode Imports
+import Utils.CommonImports
+import Subsystem.SysState
 import qualified Utils.OrdSet as OrdSet
 import qualified Parser.Module as MP
 import qualified AST.Module as MA
 import qualified Subsystem.ModDriver as MD
-
+import Process.Flatten (flatten)
 
 shellEntry :: IO ()
 shellEntry = do
@@ -131,11 +130,6 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
         f :: Float -> Sh SysState ()
         f x = modifyShellSt $ set (lTimestep . lSimState) x
 
-    simStartCmd = cmd "start" f "Start a simulation"
-      where
-        f :: Sh SysState ()
-        f = shellPutInfoLn "Starting simulation..."
-
     outPeriodCmd = cmd "period" f "Period iterations to save simulation state to disk"
       where
         f :: Integer -> Sh SysState ()
@@ -145,6 +139,11 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
       where
         f :: File -> Sh SysState ()
         f (File x) = modifyShellSt $ set (lFilename . lSimState) x
+
+    simStartCmd = cmd "simulate" f "Start a simulation"
+      where
+        f :: String -> Sh SysState ()
+        f initMod = shSimulate initMod
 
     repoAddCmd = cmd "addRepo" f "Add a directory path to the module repository"
       where
@@ -217,3 +216,33 @@ shEval str = do
                 -- return the modified state (with the newly updated local filedata)
                 putSysState vLocalFile fd'
             Nothing -> return ()
+
+
+-- | Main simulation driver function
+-- pulls up the initMod, converts into CoreFlat, (runs optimisations),
+-- finally starts the interpreter/CPU/GPU backend with the Sim Params
+shSimulate :: String -> Sh SysState ()
+shSimulate initMod = do
+    shellPutInfoLn $ printf "Simulation Params"
+    (ppShow <$> get lSimState <$> getShellSt) >>= shellPutInfoLn
+    shellPutInfoLn $ printf "Starting simulation for module %s" (show initMod)
+
+    st <- getShellSt
+    eSt <- liftIO $ runErrorT (runSysExceptIO simulate' st)
+    case eSt of
+        Left err -> shellPutErrLn err
+        -- update state and PRINT res
+        Right (_, st') -> putShellSt st' >> shellPutInfoLn "Simulation complete"
+    -- return, setting up new LOOP
+    return ()
+
+  where
+    simulate' :: SysExceptIO ()
+    simulate' = do
+        -- now call the flatten function
+        flatAST <- mkSysExceptIO $ flatten initMod
+        -- optimise flatAST
+        -- flatAST' <- optimise flatAST
+        -- _ <- interpret flatAST'
+        -- all done
+        return ()
