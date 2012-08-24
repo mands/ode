@@ -363,18 +363,24 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
 getOpType :: Op -> TypeConsM E.Type
 getOpType op = case op of
     -- Basic Ops
-    BasicOp x | x `elem` [Add, Sub]                 -> typeAddSub'    -- (f u1, f u1) -> f u1
-    BasicOp x | x `elem` [Mul, Div, Mod]            -> typeMulDiv'     -- (f u1, f u2) -> f u3
-    BasicOp x | x `elem` [AC.LT, LE, AC.GT, GE, AC.EQ, NEQ]  -> typeFFtoB'     -- (f u1, f u1) -> b
-    BasicOp x | x `elem` [And, Or]                  -> typeBBtoB     -- (b, b) -> b
-    BasicOp Not                                     -> typeBtoB     -- b -> b
+    BasicOp x | x `elem` [Add, Sub]                 -> typeFFtoF_USame   -- (f u1, f u1) -> f u1
+    BasicOp x | x `elem` [Mul, Div]            -> typeFFtoF_UAdd         -- (f u1, f u2) -> f u3
+    BasicOp x | x `elem` [AC.LT, LE, AC.GT, GE, AC.EQ, NEQ]  -> typeFFtoB_USame     -- (f u1, f u1) -> b
+    BasicOp x | x `elem` [And, Or]                  -> typeBBtoB         -- (b, b) -> b
+    BasicOp Not                                     -> typeBtoB          -- b -> b
     -- Math Ops
     MathOp x | x `elem` [ Sin, Cos, Tan, ASin, ACos, ATan, Exp, Exp2, Exp10, Pow10
                         , Log, Log2, Log10, LogB, Sqrt, Cbrt, ExpM1, Log1P
                         , SinH, CosH, TanH, ASinH, ACosH, ATanH
-                        , Erf, ErfC, LGamma, Gamma, TGamma] -> typeFtoF        -- f -> f
-    MathOp SinCos                                   -> typeFtoFF     -- f -> (f,f)
-    MathOp x | x `elem` [ATan2, Pow, Hypot]         -> typeFFtoF     -- (f,f) -> f
+                        , Erf, ErfC, LGamma, TGamma] -> typeFtoF         -- f -> f
+    MathOp SinCos                                   -> typeFtoFF         -- f -> (f,f)
+    MathOp x | x `elem` [ATan2, Pow]                -> typeFFtoF         -- (f,f) -> f
+    MathOp Hypot                                    -> typeFFtoF_USame   -- (f u1, f u1) -> f u1
+    -- Other Ops
+    OtherOp (UPow _)                                -> typeFtoF_UMul     -- f u1 -> f u2
+    OtherOp (URoot _)                               -> typeFtoF_UMul     -- f u1 -> f u2
+
+    op  -> errorDump [MkSB op] "Operation not yet implemented" assert
   where
     -- add actual types info here
     -- basic NoUnit varients
@@ -386,21 +392,21 @@ getOpType op = case op of
     typeFtoFF   = return $ E.TArr (E.TFloat U.NoUnit) (E.TTuple [E.TFloat U.NoUnit, E.TFloat U.NoUnit])
 
     -- Units varients
+    -- f u1 -> f u1
+    typeFtoF_USame = do
+        floatT <- E.TFloat <$> newUnitVar
+        return $ E.TArr floatT floatT
+
     -- (f u1, f u1) -> f u1
-    typeAddSub' = do
+    typeFFtoF_USame = do
         -- we could even create a new typevar here rather than unitVar, but then how to contrain to Floats?
         -- could do tVar<->Float UnknownUnit ? and then use speical rule in contrain-gen to replace all UnknownUnits
         floatT <- E.TFloat <$> newUnitVar
         -- use the same floatT for all them as they must all be the same type
         return $ E.TArr (E.TTuple [floatT, floatT]) floatT
 
-    -- (f u1, f u1) -> b, with units
-    typeFFtoB' = do
-        floatT <- E.TFloat <$> newUnitVar
-        return $ E.TArr (E.TTuple [floatT, floatT]) E.TBool
-
     -- (f u1, f u2) -> f u3, any units, mul/div semantics/constraint
-    typeMulDiv' = do
+    typeFFtoF_UAdd = do
         -- need create 3 unique uVars
         uV1 <- newUnitVar
         uV2 <- newUnitVar
@@ -411,5 +417,20 @@ getOpType op = case op of
             (BasicOp Div) -> addConsUnit $ ConSum uV3 uV2 uV1 -- a - b = c => a = b + c
         return $ E.TArr (E.TTuple [E.TFloat uV1, E.TFloat uV2]) (E.TFloat uV3)
 
+    -- (f u1, f u1) -> b, with units
+    typeFFtoB_USame = do
+        floatT <- E.TFloat <$> newUnitVar
+        return $ E.TArr (E.TTuple [floatT, floatT]) E.TBool
 
+    -- f u1 -> f u2
+    -- hardcoded support for upow/uroot
+    typeFtoF_UMul = do
+        uV1 <- newUnitVar
+        uV2 <- newUnitVar
+        -- need to create uV2 based on input and exp
+        case op of
+            OtherOp (UPow exp)  -> addConsUnit $ ConMul exp uV1 uV2 -- uV1**exp == uV2
+            OtherOp (URoot exp) -> addConsUnit $ ConMul exp uV2 uV1 -- uV2**exp == uV1
+
+        return $ E.TArr (E.TFloat uV1) (E.TFloat uV2)
 

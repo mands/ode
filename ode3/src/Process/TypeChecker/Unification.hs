@@ -76,6 +76,7 @@ updateStack tCons = do
         conUnitS' = Set.map updateConUnit $ conUnitS tCons
         updateConUnit (ConSum a b c) = ConSum (updateUnits a) (updateUnits b) (updateUnits c)
         updateConUnit (ConSameDim a b) = ConSameDim (updateUnits  a) (updateUnits b)
+        updateConUnit (ConMul e a b) = ConMul e (updateUnits  a) (updateUnits b)
 
         updateTypes = E.mapType (\t -> case t of
             t'@(E.TVar tV) -> Map.findWithDefault t' tV tVEnv
@@ -97,6 +98,7 @@ subUnitS u1 u2 = Set.map subUnit
   where
     subUnit (ConSum a b c) = ConSum (subUTerm u1 u2 a) (subUTerm u1 u2 b) (subUTerm u1 u2 c)
     subUnit (ConSameDim a b) = ConSameDim (subUTerm u1 u2 a) (subUTerm u1 u2 b)
+    subUnit (ConMul e a b) = ConMul e (subUTerm u1 u2 a) (subUTerm u1 u2 b)
 
 -- | replaces all occurances of (tVar x) with y in tEnv, then add [x->y] to the tEnv
 -- TODO - prob should have a separate env for UnitVar Ids -> Units/Types
@@ -310,7 +312,7 @@ unifyUnits uState conUnitS = unifyUnitLoop conUnitS
     -- u/NU u/NU u/NU
     processUnit con@(ConSum u1 u2 u3) st | not (isUnitVar u1) && not (isUnitVar u2) && not (isUnitVar u3) =
         trace' [MkSB con, MkSB st] "ConSum" $ if U.addUnit u1 u2 == u3 then return st
-                                else throwError $ printf "Invalid unit calculation - %s + %s does not equal %s" (show u1) (show u2) (show u3)
+                                else throwError $ printf "Unit Error - %s + %s does not equal %s" (show u1) (show u2) (show u3)
 
     -- Unification (Minimal) and Checking (Full) for SameDim rule ------------------------------------------------------
     -- completely equal - hence must be same dimension
@@ -340,8 +342,26 @@ unifyUnits uState conUnitS = unifyUnitLoop conUnitS
         lift $ U.unitsSameDim u1 u2 (L.get SysS.lUnitDimEnv uState)
         return st
 
+    -- Unification (Minimal) and Checking (Full) for Mul rule ----------------------------------------------------------
+
+    -- 1 uVar -- can infer and replace the correct unit
+    -- u/NU uV
+    processUnit (ConMul pow u1 u2@(U.UnitVar _)) st | not (isUnitVar u1) = replaceUnit u2 (U.mulUnit u1 pow) st
+    -- uV u/NU
+    processUnit (ConMul pow u1@(U.UnitVar _) u2) st | not (isUnitVar u2) =
+        case (U.divUnit u2 pow) of
+            Left err -> throwError err
+            Right u1' -> replaceUnit u1 u1' st
+
+    -- 0 uVars - simply check the sums are correct
+    -- u/NU u/NU u/NU
+    processUnit con@(ConMul pow u1 u2) st | not (isUnitVar u1) && not (isUnitVar u2) =
+        trace' [MkSB con, MkSB st] "ConMul" $ if U.mulUnit u1 pow == u2 then return st
+                                else throwError $ printf "Unit Error - %s * %s does not equal %s" (show u1) (show pow) (show u2)
+
+
     -- anything else - pass on to the newS for next iteration
-    processUnit con (curS, newS) = return (curS, Set.insert con newS)
+    processUnit con (curS, newS) = trace' [MkSB con] "Rule not processed" $ return (curS, Set.insert con newS)
         -- errorDump [MkSB con, MkSB curS, MkSB newS] "Found an invalid ConSameDim state"
 
     -- update all units x->y

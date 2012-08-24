@@ -1,5 +1,5 @@
-:m +*Lang.Core.Units.Conversion
-:m +*Lang.Core.Units
+:m +*Subsystem.Units.Conversion
+:m +*Subsystem.Units
 
 -- unitenv
 let (Right unitEnv) = addUnitsToEnv defUnits [UnitDef "m" DimL , UnitDef "mm" DimL, UnitDef "km" DimL, UnitDef "ft" DimL]
@@ -30,4 +30,13 @@ let (Right convEnv) = addConvsToGraph defConvs [ ConvDef "mm" "m" (CExpr CDiv CF
 -- simplifyUnits (mkUnit [("mm", 1)]) (mkUnit [("m", 2), ("ft", -1)]) unitEnv convEnv
 
 convertCastUnit (mkUnit [("m", 1), ("s", -1)]) (mkUnit [("km", 1), ("hr", -1)]) unitEnv convEnv
+
+-- units ops
+let u1 = mkUnit [("m", 6)]
+addUnit u1 u1
+subUnit u1 u1
+
+mulUnit u1 (2)
+divUnit u1 (-6)
+
 

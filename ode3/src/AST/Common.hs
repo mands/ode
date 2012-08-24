@@ -117,7 +117,7 @@ data BasicOp    =
                 | Sub           -- (f, f) -> f
                 | Mul           -- (f, f) -> f
                 | Div           -- (f, f) -> f
-                | Mod           -- (f, f) -> f
+                -- | Mod           -- (f, f) -> f -- doesn't make sense for floating point vals
                 -- Relational Ops
                 | LT            -- (f, f) -> b
                 | LE            -- (f, f) -> b
@@ -154,12 +154,12 @@ data MathOp     =
                 | Log2          -- f -> f
                 | Log10         -- f -> f
                 | LogB          -- f -> f
-                -- powers
+                -- non-unit powers - remove??
                 | Pow           -- (f,f) -> f
                 | Sqrt          -- f -> f
                 | Cbrt          -- f -> f
                 -- specialised, composite, funcs
-                | Hypot         -- (f,f) -> f
+                | Hypot         -- (f,f) -> f -- same unit
                 | ExpM1         -- f -> f
                 | Log1P         -- f -> f
                 -- hyperbolics
@@ -173,14 +173,20 @@ data MathOp     =
                 | Erf           -- f -> f
                 | ErfC          -- f -> f
                 | LGamma        -- f -> f
-                | Gamma         -- f -> f
+                -- | Gamma        -- f -> f -- not needed, instead both "gamma" and "tgamma" resovle to TGamma
                 | TGamma        -- f -> f
                 deriving (Show, Eq, Ord)
 
 -- custom operations
 data OtherOp    =
                 -- random numbers (assume automatic seeding)
-                Rand          -- None -> f (0 < f < 1)
+                Rand                    -- None -> f (0 < f < 1)
+                | UPow Integer          -- f -> f
+                | URoot Integer         -- f -> f
+--                | Abs                   -- f -> f
+--                | Floor                 -- f -> f
+--                | Ceil                  -- f -> f
+--                | Round                 -- f -> f
                 deriving (Show, Eq, Ord)
 
 

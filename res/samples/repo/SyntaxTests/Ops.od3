@@ -1,5 +1,6 @@
 // test basic ops
 // basic computation - all immutable
+/*
 module BasicOps {
 
     // num ops
@@ -20,9 +21,57 @@ module BasicOps {
     val _ = 1 { unit : m } / 2 { unit : m }
 
 }
+*/
 
+/*
 // test maths ops
 module MathOps {
-    val _ = -sin(2)
+    val _ = sin(1)  // -- f -> f
+    val _ = cos(1)      // -- f -> f
+    val _ = tan(1)      // -- f -> f
+    val a,b = sincos(1)     // -- f -> (f, f)
+    val _ = asin(1)     // -- f -> f
+    val _ = acos(1)     // -- f -> f
+    val _ = atan(1)     // -- f -> f
+    val _ = atan2(1,2)      // -- (f,f) -> f
+    val _ = exp(1)      // -- f -> f
+    val _ = exp2(1)     // -- f -> f
+    val _ = exp10(1)    // -- f -> f
+    val _ = pow10(1)    // -- f -> f
+    val _ = log(1)      // -- f -> f
+    val _ = log2(1)     // -- f -> f
+    val _ = log10(1)    // -- f -> f
+    val _ = logb(1)     // -- f -> f
+    val _ = pow(1,2)        // -- (f, f) -> f
+    val _ = sqrt(1)     // -- f -> f
+    val _ = cbrt(1)     // -- f -> f
+    val _ = hypot(1,2)      // -- (f,f) -> f
+    val _ = expm1(1)    // -- f -> f
+    val _ = log1p(1)    // -- f -> f
+    val _ = sinh(1)     // -- f -> f
+    val _ = cosh(1)     // -- f -> f
+    val _ = tanh(1)     // -- f -> f
+    val _ = asinh(1)    // -- f -> f
+    val _ = acosh(1)    // -- f -> f
+    val _ = atanh(1)    // -- f -> f
+    val _ = erf(1)      // -- f -> f
+    val _ = erfc(1)     // -- f -> f
+    val _ = lgamma(1)   // -- f -> f
+    val _ = gamma(1)    // -- f -> f
+    val _ = tgamma(1)   // -- f -> f
 
 }
+*/
+
+
+// test other ops
+module OtherOps {
+    //val _ = rand(None)
+
+    val a = upow(1 { unit : m }, 9)
+    val b = uroot(a, 4)
+
+	
+}
+
+

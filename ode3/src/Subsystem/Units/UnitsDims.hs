@@ -12,12 +12,12 @@
 --
 -----------------------------------------------------------------------------
 
-{-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures, DeriveFunctor #-}
+{-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures, DeriveFunctor, PatternGuards #-}
 
 module Subsystem.Units.UnitsDims (
     -- datatypes
     Quantity, Quantities,
-    DimVec(..), addDim, subDim, mkDimVec, dimensionless, isZeroDim,
+    DimVec(..), addDim, subDim, mulUnit, divUnit, mkDimVec, dimensionless, isZeroDim,
     BaseDim(..), dimToDimVec,
     UnitList, UnitDef(..), Unit(..), BaseUnit, mkUnit, addUnit, subUnit, isBaseUnit,
 
@@ -97,6 +97,14 @@ subDim (DimVec l m t i o j n) (DimVec l' m' t' i' o' j' n') =
 
 mulDim (DimVec l m t i o j n) x = DimVec (l*x) (m*x) (t*x) (i*x) (o*x) (j*x) (n*x)
 
+-- special handling here
+divDim :: DimVec -> Integer -> MExcept DimVec
+divDim dim x | x < 1 = throwError $ printf "Dimension error - can't divide %s by negative integer" (show dim)
+divDim dim@(DimVec l m t i o j n) x = DimVec <$> (divDim' l) <*> (divDim' m) <*> (divDim' t) <*> (divDim' i) <*> (divDim' o) <*> (divDim' j) <*> (divDim' n)
+  where
+    divDim' d | (quot, 0) <- quotRem d x = return quot
+    divDim' d | (_, rem) <- quotRem d x = throwError $ printf "Dimension error - can't divide %s by %s" (show dim) (show x)
+
 isZeroDim = (==) dimensionless
 
 negDim (DimVec l m t i o j n) = DimVec (negate l) (negate m) (negate t) (negate i) (negate o) (negate j) (negate n)
@@ -174,7 +182,7 @@ isBaseUnit _ = False
 
 -- do we need any unitsstate for this, i.e. unitdimenv, do we need the dimensions?
 addUnit :: Unit -> Unit -> Unit
-addUnit (UnitC u1') (UnitC u2') = trace' [MkSB u1', MkSB u2'] "addUnits" $ mkUnit $ u1' ++ u2'
+addUnit (UnitC u1') (UnitC u2') = mkUnit $ u1' ++ u2'
 addUnit NoUnit u2 = u2
 addUnit u1 NoUnit = u1
 
@@ -185,6 +193,19 @@ subUnit u1 u2 = addUnit u1 $ negUnit u2
 negUnit :: Unit -> Unit
 negUnit (UnitC u') = UnitC $ map (mapSnd negate) u'
 negUnit NoUnit = NoUnit
+
+-- we could just recurse and add the unit x times
+mulUnit :: Unit -> Integer -> Unit
+mulUnit NoUnit _ = NoUnit
+mulUnit (UnitC u1') x = UnitC $ map (\(u, i) -> (u, i*x)) u1'
+
+divUnit :: Unit -> Integer -> MExcept Unit
+divUnit NoUnit _ = return NoUnit
+divUnit u1 x | x < 1  = throwError $ printf "Unit Error - can't divide %s by negative integer" (show u1)
+divUnit u1@(UnitC u1') x = UnitC <$> mapM divBUnit u1'
+  where
+    divBUnit (u, i) | (quot, 0) <- quotRem i x = return (u, quot)
+    divBUnit (u, i) | (_, rem)  <- quotRem i x = throwError $ printf "Unit Error - can't divide %s by %s" (show u1) (show x)
 
 -- Unit Env helper funcs
 -- calculate on-demand the dimension of a derived unit

@@ -29,29 +29,29 @@ import qualified Data.Map as Map
 import Parser.Common
 import qualified AST.Common as AC
 import Utils.Utils
-import qualified AST.Ode as O
+import qualified AST.Ode as AO
 
 
 -- Useful Lexical Combinators ------------------------------------------------------------------------------------------
 
 -- | parses a module element reference, e.g. A.x
-modElemIdentifier :: Parser O.RefId
-modElemIdentifier  = O.ModId <$> upperIdentifier <*> (char '.' *> identifier)
+modElemIdentifier :: Parser AO.RefId
+modElemIdentifier  = AO.ModId <$> upperIdentifier <*> (char '.' *> identifier)
 
 -- | parse either a local or module id e.g. A.x or x
-modLocalIdentifier :: Parser O.RefId
+modLocalIdentifier :: Parser AO.RefId
 modLocalIdentifier =    try modElemIdentifier
-                        <|> O.LocalId <$> identifier <?> "local or module identifier"
+                        <|> AO.LocalId <$> identifier <?> "local or module identifier"
 
 -- | parse either a local or module id e.g. A.x or x
-typeIdentifier :: Parser O.RefId
-typeIdentifier =    try (O.ModId <$> upperIdentifier <*> (char '.' *> upperIdentifier))
-                    <|> O.LocalId <$> upperIdentifier <?> "local or module type identifier"
+typeIdentifier :: Parser AO.RefId
+typeIdentifier =    try (AO.ModId <$> upperIdentifier <*> (char '.' *> upperIdentifier))
+                    <|> AO.LocalId <$> upperIdentifier <?> "local or module type identifier"
 
 -- | value identifier, allows use of don't care vals
-valIdentifier :: Parser O.BindId
-valIdentifier = reservedOp "_" *> pure O.DontCare
-                <|> O.BindId <$> identifier
+valIdentifier :: Parser AO.BindId
+valIdentifier = reservedOp "_" *> pure AO.DontCare
+                <|> AO.BindId <$> identifier
                 <?> "value identifier"
 
 -- | Wrapper around our default attribute notation
@@ -70,7 +70,7 @@ tuple :: Parser a -> Parser [a]
 tuple p = parens $ (:) <$> (p <* comma) <*> commaSep1 p
 
 -- | a named tuple (fixed record), >= 1 values allowed
-namedTuple :: Parser a -> Parser [(O.SrcId, a)]
+namedTuple :: Parser a -> Parser [(AO.SrcId, a)]
 namedTuple p = braces $ commaSep1 ((,) <$> identifier <*> (colon *> p))
 
 
@@ -85,9 +85,9 @@ singOrList p = try ((\p -> p:[]) <$> (p))
 
 -- | main parser into the Ode lang, returns a list of ODE statments
 -- these can be, comp/value defs, or units/type defs
-odeStmt :: Parser O.OdeStmt
-odeStmt =   O.ImportStmt <$> importCmd
-            <|> O.ExprStmt <$> exprStmt -- main lang
+odeStmt :: Parser AO.OdeStmt
+odeStmt =   AO.ImportStmt <$> importCmd
+            <|> AO.ExprStmt <$> exprStmt -- main lang
             <|> quantityDef     -- units support
             <|> unitDef
             <|> convDef
@@ -95,15 +95,15 @@ odeStmt =   O.ImportStmt <$> importCmd
             <?> "import, expression, or unit defintion"
 
 
-typeDef :: Parser O.OdeStmt
-typeDef = O.TypeStmt <$> (reserved "type" *> upperIdentifier)
+typeDef :: Parser AO.OdeStmt
+typeDef = AO.TypeStmt <$> (reserved "type" *> upperIdentifier)
 
 
 -- Units Parser --------------------------------------------------------------------------------------------------------
 
 -- | Parses a quantity "alias" for a given dimension
-quantityDef :: Parser O.OdeStmt
-quantityDef = O.QuantityStmt <$> (reserved "quantity" *> identifier) <*> (reservedOp "=" *> dimTerm)
+quantityDef :: Parser AO.OdeStmt
+quantityDef = AO.QuantityStmt <$> (reserved "quantity" *> identifier) <*> (reservedOp "=" *> dimTerm)
 
 -- | Parse a DimVec term, like "Dim LT-2"
 dimTerm :: Parser AC.DimVec
@@ -132,20 +132,20 @@ unitAttrib = singAttrib "unit" unitIdentifier
 
 
 -- | Parses an avaiable unit definition for a given dimension, with optional alias
-unitDef :: Parser O.OdeStmt
+unitDef :: Parser AO.OdeStmt
 unitDef = do
     uName <- reserved "unit" *> alphaIdentifier
     unit <- attribDef unitDefAttrib
-    return $ unit { O.uName = uName }
+    return $ unit { AO.uName = uName }
   where
-    unitDefAttrib = O.UnitStmt ""   <$$> attrib "dim" (Just <$> oneOf "LMTIOJN")
+    unitDefAttrib = AO.UnitStmt ""   <$$> attrib "dim" (Just <$> oneOf "LMTIOJN")
                                     <|?> (Nothing, attrib "alias" (Just <$> identifier))
                                     <||> attrib "SI" boolean -- <?> "unit definition"
 
 
 -- | Parses a conversion defintion stmt for 2 units within a given dimension
-convDef :: Parser O.OdeStmt
-convDef = reserved "conversion" *> attribDef (O.ConvDefStmt <$$> attrib "from" alphaIdentifier
+convDef :: Parser AO.OdeStmt
+convDef = reserved "conversion" *> attribDef (AO.ConvDefStmt <$$> attrib "from" alphaIdentifier
                                                             <||> attrib "to" alphaIdentifier
                                                             <||> attrib "factor" convExpr) <?> "conversion definition"
 
@@ -173,7 +173,7 @@ convExprOpTable =
 
 -- | main parser into the Ode lang, returns a list of ODE statments
 -- these can be, comp/value defs, or units/type defs
-exprStmt :: Parser O.Stmt
+exprStmt :: Parser AO.Stmt
 exprStmt    = compDef
             <|> valueDef
             <|> sValueDef
@@ -182,39 +182,39 @@ exprStmt    = compDef
             <?> "component, value or simulation defintion"
 
 -- |parse a sval/initial condition def
-sValueDef :: Parser O.Stmt
-sValueDef = O.SValue <$> (reserved "init" *> commaSep1 identifier) <*> (reservedOp "=" *> compExpr)
+sValueDef :: Parser AO.Stmt
+sValueDef = AO.SValue <$> (reserved "init" *> commaSep1 identifier) <*> (reservedOp "=" *> compExpr)
 
 -- | parse a value definition
 -- e.g., val x = expr
-valueDef :: Parser O.Stmt
-valueDef = O.Value  <$> (reserved "val" *> commaSep1 valIdentifier <* reservedOp "=")
+valueDef :: Parser AO.Stmt
+valueDef = AO.Value  <$> (reserved "val" *> commaSep1 valIdentifier <* reservedOp "=")
                     <*> (try singVal <|> blockStmt)
   where
     singVal = (,) <$> pure [] <*> compExpr
 
 -- | parsers a independent block of statements, i.e. { a = 1, b = 2, ..., return z }
-blockStmt :: Parser ([O.Stmt], O.Expr)
+blockStmt :: Parser ([AO.Stmt], AO.Expr)
 blockStmt = braces $ (,) <$> (option [] (many exprStmt)) <*> (reserved "return" *> compExpr)
 
 -- | parser for defining a component
-compDef :: Parser O.Stmt
-compDef = O.Component   <$> (reserved "component" *> identifier)
+compDef :: Parser AO.Stmt
+compDef = AO.Component   <$> (reserved "component" *> identifier)
                         <*> singOrList valIdentifier
                         <*> blockStmt
                         <?> "component definition"
 
-odeDef :: Parser O.Stmt
+odeDef :: Parser AO.Stmt
 odeDef = do
     (initRef, deltaName) <- reserved "ode" *> attribDef odeAttribs
     expr <- reservedOp "=" *> compExpr
-    return $ O.OdeDef initRef deltaName expr
+    return $ AO.OdeDef initRef deltaName expr
   where
     odeAttribs  = (,)   <$$> attrib "init" identifier
-                        <|?> (O.DontCare, attrib "delta" valIdentifier)
+                        <|?> (AO.DontCare, attrib "delta" valIdentifier)
 
-rreDef :: Parser O.Stmt
-rreDef = O.RreDef <$> (reserved "rre" *> braces rreAttribs) <*> (reservedOp "=" *> identifier) <*> (reservedOp "->" *> identifier)
+rreDef :: Parser AO.Stmt
+rreDef = AO.RreDef <$> (reserved "rre" *> braces rreAttribs) <*> (reservedOp "=" *> identifier) <*> (reservedOp "->" *> identifier)
   where
     -- | parse a rre attribute definition
     rreAttribs = attrib "rate" number
@@ -223,53 +223,54 @@ rreDef = O.RreDef <$> (reserved "rre" *> braces rreAttribs) <*> (reservedOp "=" 
 -- Ode Terms -----------------------------------------------------------------------------------------------------------
 
 -- | high level wrapper around compTerm', allows for type/unit-casting a term
-compTerm :: Parser O.Expr
+compTerm :: Parser AO.Expr
 compTerm = do
     e <- compTerm'
     option e $ exprAttrib e
   where
-    exprAttrib e =  try (O.ConvCast <$> pure e <*> unitAttrib)
-                    <|> try (O.WrapType <$> pure e <*> singAttrib "wrap" typeIdentifier)
-                    <|> try (O.UnwrapType <$> pure e <*> singAttrib "unwrap" typeIdentifier)
+    exprAttrib e =  try (AO.ConvCast <$> pure e <*> unitAttrib)
+                    <|> try (AO.WrapType <$> pure e <*> singAttrib "wrap" typeIdentifier)
+                    <|> try (AO.UnwrapType <$> pure e <*> singAttrib "unwrap" typeIdentifier)
 
 -- | parse a term - the value on either side of an operator
-compTerm' :: Parser O.Expr
+compTerm' :: Parser AO.Expr
 compTerm' = try (parens compExpr)
-            <|> O.Number <$> number <*> optionMaybe (try unitAttrib)
-            <|> O.Boolean <$> boolean
-            <|> (reserved "time" *> pure O.Time) -- put into Environment module instead ??
-            <|> (reserved "None" *> pure O.None)
+            <|> AO.Number <$> number <*> optionMaybe (try unitAttrib)
+            <|> AO.Boolean <$> boolean
+            <|> (reserved "time" *> pure AO.Time) -- put into Environment module instead ??
+            <|> (reserved "None" *> pure AO.None)
             <|> reserved "piecewise" *> piecewiseTerm
-            <|> try (O.Op <$> builtinOpParser <*> paramList compExpr)
-            <|> try (O.Call <$> modLocalIdentifier <*> paramList compExpr)
-            <|> O.ValueRef <$> modLocalIdentifier <*> optionMaybe (reservedOp "#" *> identifier)
-            <|> O.Tuple <$> tuple compExpr
-            <|> O.Record <$> namedTuple compExpr
+            <|> try (hardcodedOps)
+            <|> try (AO.Op <$> builtinOpParser <*> paramList compExpr)
+            <|> try (AO.Call <$> modLocalIdentifier <*> paramList compExpr)
+            <|> AO.ValueRef <$> modLocalIdentifier <*> optionMaybe (reservedOp "#" *> identifier)
+            <|> AO.Tuple <$> tuple compExpr
+            <|> AO.Record <$> namedTuple compExpr
             -- <|> brackets numSeqTerm
             <?> "valid term"
 
-piecewiseTerm :: Parser O.Expr
-piecewiseTerm = braces (O.Piecewise <$> endBy1 ((,) <$> compExpr <*> (colon *> compExpr)) comma
+piecewiseTerm :: Parser AO.Expr
+piecewiseTerm = braces (AO.Piecewise <$> endBy1 ((,) <$> compExpr <*> (colon *> compExpr)) comma
                                     <*> (reserved "default" *> colon *> compExpr))
 
 -- | parser for a numerical sequence, e.g. [a, b .. c]
 -- where a is the start, b is the next element, and c is the stop
-numSeqTerm :: Parser O.Expr
+numSeqTerm :: Parser AO.Expr
 numSeqTerm = createSeq <$> number <*> (comma *> number) <*> (symbol ".." *> number) <?> "numerical sequence"
   where
-    createSeq a b c = O.NumSeq a b c
+    createSeq a b c = AO.NumSeq a b c
 
 -- | a basic numeric expression, using parsec expression builder
-compExpr  :: Parser O.Expr
+compExpr  :: Parser AO.Expr
 compExpr  =  buildExpressionParser exprOpTable compTerm <?> "expression"
 
 -- | Expression operator precedence table, based on C
 -- TODO - add parens and commas to the expressions?
-exprOpTable :: OperatorTable String () Identity O.Expr
+exprOpTable :: OperatorTable String () Identity AO.Expr
 exprOpTable =
     [
     [prefix "-" AC.Neg, prefix "!" AC.Not, prefix "not" AC.Not]
-    ,[binary "*" AC.Mul AssocLeft, binary "/" AC.Div AssocLeft, binary "%" AC.Mod AssocLeft]
+    ,[binary "*" AC.Mul AssocLeft, binary "/" AC.Div AssocLeft] -- , binary "%" AC.Mod AssocLeft]
     ,[binary "+" AC.Add AssocLeft, binary "-" AC.Sub AssocLeft]
     ,[binary "<" AC.LT AssocLeft, binary "<=" AC.LE AssocLeft, binary ">" AC.GT AssocLeft, binary ">=" AC.GE AssocLeft]
     ,[binary "==" AC.EQ AssocLeft, binary "!=" AC.NEQ AssocLeft]
@@ -277,6 +278,80 @@ exprOpTable =
     ,[binary "||" AC.Or AssocLeft, binary "or" AC.Or AssocLeft]
     ]
   where
-    binary name binop assoc = Infix (reservedOp name *> pure (\a b -> O.Op (AC.BasicOp binop) [a, b]) <?> "binary operator") assoc
-    prefix name unop         = Prefix (reservedOp name *> pure (\a -> O.Op (AC.BasicOp unop) [a]) <?> "unary operator")
+    binary name binop assoc = Infix (reservedOp name *> pure (\a b -> AO.Op (AC.BasicOp binop) [a, b]) <?> "binary operator") assoc
+    prefix name unop         = Prefix (reservedOp name *> pure (\a -> AO.Op (AC.BasicOp unop) [a]) <?> "unary operator")
+
+
+-- Ode Builtin Operators -----------------------------------------------------------------------------------------------
+
+builtinOpParser :: Parser AC.Op
+builtinOpParser =   reserved "sin"      *> pure (AC.MathOp AC.Sin)
+                <|> reserved "cos"      *> pure (AC.MathOp AC.Cos)
+                <|> reserved "tan"      *> pure (AC.MathOp AC.Tan)
+                <|> reserved "sincos"   *> pure (AC.MathOp AC.SinCos)
+                <|> reserved "asin"     *> pure (AC.MathOp AC.ASin)
+                <|> reserved "acos"     *> pure (AC.MathOp AC.ACos)
+                <|> reserved "atan"     *> pure (AC.MathOp AC.ATan)
+                <|> reserved "atan2"    *> pure (AC.MathOp AC.ATan2)
+                <|> reserved "exp"      *> pure (AC.MathOp AC.Exp)
+                <|> reserved "exp2"     *> pure (AC.MathOp AC.Exp2)
+                <|> reserved "exp10"    *> pure (AC.MathOp AC.Exp10)
+                <|> reserved "pow10"    *> pure (AC.MathOp AC.Pow10)
+                <|> reserved "log"      *> pure (AC.MathOp AC.Log)
+                <|> reserved "log2"     *> pure (AC.MathOp AC.Log2)
+                <|> reserved "log10"    *> pure (AC.MathOp AC.Log10)
+                <|> reserved "logb"     *> pure (AC.MathOp AC.LogB)
+                <|> reserved "pow"      *> pure (AC.MathOp AC.Pow)
+                <|> reserved "sqrt"     *> pure (AC.MathOp AC.Sqrt)
+                <|> reserved "cbrt"     *> pure (AC.MathOp AC.Cbrt)
+                <|> reserved "hypot"    *> pure (AC.MathOp AC.Hypot)
+                <|> reserved "expm1"    *> pure (AC.MathOp AC.ExpM1)
+                <|> reserved "log1p"    *> pure (AC.MathOp AC.Log1P)
+                <|> reserved "sinh"     *> pure (AC.MathOp AC.SinH)
+                <|> reserved "cosh"     *> pure (AC.MathOp AC.CosH)
+                <|> reserved "tanh"     *> pure (AC.MathOp AC.TanH)
+                <|> reserved "asinh"    *> pure (AC.MathOp AC.ASinH)
+                <|> reserved "acosh"    *> pure (AC.MathOp AC.ACosH)
+                <|> reserved "atanh"    *> pure (AC.MathOp AC.ATanH)
+                <|> reserved "erf"      *> pure (AC.MathOp AC.Erf)
+                <|> reserved "erfc"     *> pure (AC.MathOp AC.ErfC)
+                <|> reserved "lgamma"   *> pure (AC.MathOp AC.LGamma)
+                <|> reserved "gamma"    *> pure (AC.MathOp AC.TGamma)
+                <|> reserved "tgamma"   *> pure (AC.MathOp AC.TGamma)
+                -- other ops
+
+
+-- bit of a hack to handle certain op calls that are not supported explciity within the language semantics,
+-- for instace, ops with integer params
+hardcodedOps :: Parser AO.Expr
+hardcodedOps =  upow
+                <|> uroot
+  where
+    upow = do
+        (e, pow) <- reserved "upow" *> parens ((,) <$> compExpr <*> (comma *> natural))
+        return $ AO.Op (AC.OtherOp (AC.UPow pow)) [e]
+    uroot = do
+        (e, pow) <- reserved "uroot" *> parens ((,) <$> compExpr <*> (comma *> natural))
+        return $ AO.Op (AC.OtherOp (AC.URoot pow)) [e]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

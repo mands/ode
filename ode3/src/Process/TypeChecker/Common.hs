@@ -52,6 +52,7 @@ data ConUnit    = ConSum U.Unit U.Unit U.Unit   -- floats must be contrained to 
                 | ConSameDim U.Unit U.Unit      -- should this be Unit, not type??
                                                 -- floats must be contrained to same dimenstion, effectively restricted unit-polymorpihism
                                                 -- we could add full unit-polymorphism by creating unit-vars for a particular dimenstions and constraining (again) later
+                | ConMul Integer U.Unit U.Unit  -- multiply the unit by the integer, must result in a valid, integer dimension
                 deriving (Show, Eq, Ord)
 
 type ConTypeS = Set.Set ConType

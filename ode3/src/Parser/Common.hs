@@ -76,6 +76,20 @@ commonLangDef = emptyDef
     , T.caseSensitive = True
     }
 
+opReservedNames = [
+                -- math ops
+                "sin", "cos", "tan", "sincos"
+                , "asin", "acos", "atan", "atan2"
+                , "exp", "exp2", "exp10", "pow10"
+                , "log", "log2", "log10", "logb"
+                , "pow", "sqrt", "cbrt"
+                , "hypot", "expm1", "log1p"
+                , "sinh", "cosh", "tanh", "asinh", "acosh", "atanh"
+                , "erf", "erfc", "lgamma", "gamma", "tgamma"
+                -- other ops
+                , "upow", "uroot" -- "rand", "abs", "round", "floor", "ceil"
+                ]
+
 lexer :: T.TokenParser ()
 lexer  = T.makeTokenParser commonLangDef
 -- lexer  = T.makeTokenParser emptyDef
@@ -186,50 +200,3 @@ importCmd = try importAll
 
     -- add modURI to set
     -- addImport modURI = modifyState (\s -> s { stImports = Set.insert modURI (stImports s) } )
-
--- Shared Op Parser
-
-builtinOpParser :: Parser Op
-builtinOpParser =   reserved "sin"      *> pure (MathOp Sin)
-                <|> reserved "cos"      *> pure (MathOp Cos)
-                <|> reserved "tan"      *> pure (MathOp Tan)
-                <|> reserved "sincos"   *> pure (MathOp SinCos)
-                <|> reserved "asin"     *> pure (MathOp ASin)
-                <|> reserved "acos"     *> pure (MathOp ACos)
-                <|> reserved "atan"     *> pure (MathOp ATan)
-                <|> reserved "atan2"    *> pure (MathOp ATan2)
-                <|> reserved "exp"      *> pure (MathOp Exp)
-                <|> reserved "exp2"     *> pure (MathOp Exp2)
-                <|> reserved "exp10"    *> pure (MathOp Exp10)
-                <|> reserved "pow10"    *> pure (MathOp Pow10)
-                <|> reserved "log"      *> pure (MathOp Log)
-                <|> reserved "log2"     *> pure (MathOp Log2)
-                <|> reserved "log10"    *> pure (MathOp Log10)
-                <|> reserved "logb"     *> pure (MathOp LogB)
-                <|> reserved "pow"      *> pure (MathOp Pow)
-                <|> reserved "sqrt"     *> pure (MathOp Sqrt)
-                <|> reserved "cbrt"     *> pure (MathOp Cbrt)
-                <|> reserved "hypot"    *> pure (MathOp Hypot)
-                <|> reserved "expm1"    *> pure (MathOp ExpM1)
-                <|> reserved "log1p"    *> pure (MathOp Log1P)
-                <|> reserved "sinh"     *> pure (MathOp SinH)
-                <|> reserved "cosh"     *> pure (MathOp CosH)
-                <|> reserved "tanh"     *> pure (MathOp TanH)
-                <|> reserved "asinh"    *> pure (MathOp ASinH)
-                <|> reserved "acosh"    *> pure (MathOp ACosH)
-                <|> reserved "atanh"    *> pure (MathOp ATanH)
-                <|> reserved "erf"      *> pure (MathOp Erf)
-                <|> reserved "erfc"     *> pure (MathOp ErfC)
-                <|> reserved "lgamma"   *> pure (MathOp LGamma)
-                <|> reserved "gamma"    *> pure (MathOp Gamma)
-                <|> reserved "tgamma"   *> pure (MathOp TGamma)
-
-opReservedNames = [ "sin", "cos", "tan", "sincos"
-                , "asin", "acos", "atan", "atan2"
-                , "exp", "exp2", "exp10", "pow10"
-                , "log", "log2", "log10", "logb"
-                , "pow", "sqrt", "cbrt"
-                , "hypot", "expm1", "log1p"
-                , "sinh", "cosh", "tanh", "asinh", "acosh", "atanh"
-                , "erf", "erfc", "lgamma", "gamma", "tgamma"
-                ]
