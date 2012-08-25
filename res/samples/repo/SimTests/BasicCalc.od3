@@ -1,0 +1,16 @@
+// a couple of basic models
+
+
+// basic ops
+module BasicCalc1 {
+    val a = 1
+    val b = upow(2 + a, 2)
+}
+
+// math ops
+// piecewise
+// components
+// svals
+// odes
+// etc..
+

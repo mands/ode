@@ -99,11 +99,11 @@ mulDim (DimVec l m t i o j n) x = DimVec (l*x) (m*x) (t*x) (i*x) (o*x) (j*x) (n*
 
 -- special handling here
 divDim :: DimVec -> Integer -> MExcept DimVec
-divDim dim x | x < 1 = throwError $ printf "Dimension error - can't divide %s by negative integer" (show dim)
+divDim dim x | x < 1 = throwError $ printf "Dimension error - can't divide %s by zero or negative integer" (show dim)
 divDim dim@(DimVec l m t i o j n) x = DimVec <$> (divDim' l) <*> (divDim' m) <*> (divDim' t) <*> (divDim' i) <*> (divDim' o) <*> (divDim' j) <*> (divDim' n)
   where
     divDim' d | (quot, 0) <- quotRem d x = return quot
-    divDim' d | (_, rem) <- quotRem d x = throwError $ printf "Dimension error - can't divide %s by %s" (show dim) (show x)
+    divDim' d | (_, rem) <- quotRem d x = throwError $ printf "Dimension error - can't divide %s by %s, would create non-integer dimension" (show dim) (show x)
 
 isZeroDim = (==) dimensionless
 
@@ -197,15 +197,15 @@ negUnit NoUnit = NoUnit
 -- we could just recurse and add the unit x times
 mulUnit :: Unit -> Integer -> Unit
 mulUnit NoUnit _ = NoUnit
-mulUnit (UnitC u1') x = UnitC $ map (\(u, i) -> (u, i*x)) u1'
+mulUnit (UnitC u1') x = mkUnit $ map (\(u, i) -> (u, i*x)) u1'
 
 divUnit :: Unit -> Integer -> MExcept Unit
 divUnit NoUnit _ = return NoUnit
-divUnit u1 x | x < 1  = throwError $ printf "Unit Error - can't divide %s by negative integer" (show u1)
+divUnit u1 x | x < 1  = throwError $ printf "Unit Error - can't divide %s by zero or negative integer" (show u1)
 divUnit u1@(UnitC u1') x = UnitC <$> mapM divBUnit u1'
   where
     divBUnit (u, i) | (quot, 0) <- quotRem i x = return (u, quot)
-    divBUnit (u, i) | (_, rem)  <- quotRem i x = throwError $ printf "Unit Error - can't divide %s by %s" (show u1) (show x)
+    divBUnit (u, i) | (_, rem)  <- quotRem i x = throwError $ printf "Unit Error - can't divide %s by %s, would create non-integer dimension" (show u1) (show x)
 
 -- Unit Env helper funcs
 -- calculate on-demand the dimension of a derived unit

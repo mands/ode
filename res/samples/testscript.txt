@@ -2,11 +2,12 @@
 :addRepo ../res/samples/repo
 
 // import our modules
+//import SimTests.BasicCalc.*
 import SyntaxTests.Ops.*
 
 // :show all
 :show modState
 // all done
-:simulate OtherOps
+:simulate BasicCalc1
 :quit
 
