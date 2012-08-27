@@ -36,26 +36,19 @@ type TopLet = Id
 
 
 -- the main type of our simulatable expressions - basically ANF form
-data Expr   = -- Var Id                -- TODO - what about recId ?
-            -- Lit Literal
-            Var Var
+data Expr   = Var Var
             | Op AC.Op [Var]
             | If Var Var Var
             -- Tuple [Expr]          -- do we have tuples? NO, unpack all
             -- Record (Map.Map RecId Expr) -- no records, unpack all
-            | Ode Id Expr
+            | Ode Id Var
             -- Rre Id Id Expr     -- add later
             deriving (Show, Eq, Ord)
 
-
-
--- | Atomic, core values, will eventually become atomic args during ANF conversion
---data Literal =  Num Double | Boolean Bool | Unit
---                deriving (Show, Eq, Ord)
-
-
+-- | Atomic, core values
 data Var = VarRef Id | Num Double | Boolean Bool | Unit
                 deriving (Show, Eq, Ord)
+
 -- | Used to handle both input and output args to a library/runtime operator
 -- these are handled in an implementation-specific fashion for the given backend
 -- data OpParams = OpParams [Id] deriving (Show, Eq, Ord)

@@ -63,13 +63,12 @@ convertTop _ (id:[], AC.TopLet _ _ coreExpr) = do
 convertTop _ coreExpr = errorDump [MkSB coreExpr] "Cannot convert expression to CoreFlat" assert
 
 
-
 -- convert the expression, this is straightforwad for the resticted Core AST we have now anyway
 -- puts it into ANF too
 convertExpr :: AC.Expr Id -> IdSupply ACF.Expr
 convertExpr e@(AC.Var (AC.LocalVar v) Nothing) = return $ ACF.Var (ACF.VarRef v)
 -- directly store the nested let bindings within the flattened exprMap
--- TODO - what about multi-bindings?
+-- TODO - what about multi-bindings? and state lets
 convertExpr e@(AC.Let _ (b:[]) e1 e2) = do
     e1' <- convertExpr e1
     -- insert the binding using the given id
@@ -78,23 +77,37 @@ convertExpr e@(AC.Let _ (b:[]) e1 e2) = do
 
 -- Literals
 convertExpr e@(AC.Lit (AC.Num n U.NoUnit)) = return $ ACF.Var $ ACF.Num n
+convertExpr e@(AC.Lit (AC.Num n _)) = return $ ACF.Var $ ACF.Num n
 convertExpr e@(AC.Lit (AC.Boolean b)) = return $ ACF.Var $ ACF.Boolean b
 convertExpr e@(AC.Lit (AC.Unit)) = return $ ACF.Var $ ACF.Unit
 
-
+-- Operators
 -- multi-input op
 convertExpr e@(AC.Op op (AC.Tuple es)) = do
     vs <- mapM liftOrInsert es
     return $ ACF.Op op vs
-
 -- single-input Op
 convertExpr e@(AC.Op op e1) = do
     v <- liftOrInsert e1
     return $ ACF.Op op [v]
 
+-- If
+-- TODO - is the ordering correct?
+convertExpr e@(AC.If e1 e2 e3) = do
+    v1 <- liftOrInsert e1
+    v2 <- liftOrInsert e2
+    v3 <- liftOrInsert e3
+    return $ ACF.If v1 v2 v3
+
+-- Ode
+convertExpr e@(AC.Ode (AC.LocalVar v) e1) = do
+    v1 <- liftOrInsert e1
+    return $ ACF.Ode v v1
+
+-- anything else,
 convertExpr expr = errorDump [MkSB expr] "Cannot convert expression to CoreFlat" assert
 
-
+-- Conversion Helper Functions -----------------------------------------------------------------------------------------
 
 -- TODO - is this right?
 -- should either embed a var or create a new binding and return a refvar to it

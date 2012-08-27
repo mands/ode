@@ -5,13 +5,22 @@
 module BasicFlat1 {
     val a = 1
     // val b = upow(2 + a, 2)
-    val b = not True // single input op
-    val c = 1 + 2 // multi-input op
-    val d = 1 + (2 - 3) // multi-multi input op
+    val _ = not True // single input op
+    val _ = 1 + 2 // multi-input op
+    val _ = 1 + a // multi-multi input op
+    val _ = 1 + (2 - 3) // multi-multi input op
+
+    // piecewises
+    val _ = piecewise { True : 1, default : 0 }
+    val _ = piecewise { True : 1, False : 0, default : 2 }
+    val _ = piecewise { a == 0 : True, a < 0 : False, a > 0 : False , default : False}
+
+    // odes
+    init x = 0 { unit : m }
+    ode { init : x, delta : dx} = 1 { unit : m.s^-1 }
 
 }
 // math ops
-// piecewise
 // components
 // svals
 // odes
