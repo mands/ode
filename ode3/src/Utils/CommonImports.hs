@@ -26,7 +26,7 @@ module Utils.CommonImports (
     module Utils.Utils,
 
     -- indiv functions
-    printf, assert
+    printf, assert, fromJust, isJust
 ) where
 
 -- higher-level control

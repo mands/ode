@@ -40,7 +40,7 @@ import qualified Data.Foldable as DF
 import qualified Data.Traversable as DT
 import Data.Functor
 
-import Utils.Utils
+import Utils.CommonImports
 import AST.Common as AC
 import qualified Subsystem.Units as U
 
@@ -164,31 +164,29 @@ data TypeCast b = UnitCast U.Unit -- a safe cast to the unit for the expr
 data Literal =  Num Double U.Unit | NumSeq [Double] U.Unit | Boolean Bool | Time | Unit
                 deriving (Show, Eq, Ord)
 
--- TODO - where does this func go - is run after unitconversion, during ANF conversion?
--- this prob needs supply monad to create a tmp var
--- converts an expression from the restrictred CExpr format into the general Core Expression for code-gen
-convertCoreExpr :: U.CExpr -> Expr Id
-convertCoreExpr (U.CExpr op e1 e2) = Op (convertCoreOp op) $ Tuple [convertCoreExpr e1, convertCoreExpr e2]
-  where
-    convertCoreOp U.CAdd = AC.BasicOp AC.Add
-    convertCoreOp U.CSub = AC.BasicOp AC.Sub
-    convertCoreOp U.CMul = AC.BasicOp AC.Mul
-    convertCoreOp U.CDiv = AC.BasicOp AC.Div
 
-convertCoreExpr (U.CNum n) = Lit $ Num n U.NoUnit
--- TODO - this is broken!
-convertCoreExpr U.CFromId = Var (LocalVar 1) Nothing
-
-
--- TraveExpr applies a function f over all sub-expressions within the expression
+-- mapExpr applies a function f over all sub-expressions within the expression
 -- is it a functor?
--- travExpr :: (E.Expr E.SrcId -> b) -> E.Expr E.SrcId -> b
-travExpr f e@(Var v _) = f e
-travExpr f e@(Lit l) = f e
-travExpr f (App v e1) = f (App v (travExpr f e1))
-travExpr f (Let s b e1 e2) = f (Let s b (travExpr f e1) (travExpr f e2))
-travExpr f (Op op e) = f (Op op (travExpr f e))
-travExpr f (If eB eT eF) = f (If (travExpr f eB) (travExpr f eT) (travExpr f eF))
-travExpr f (Tuple es) = f $ Tuple (map (travExpr f) es)
-travExpr f e = f e
+mapExpr :: (Show a) => (Expr a -> Expr a) -> Expr a -> Expr a
+mapExpr f (App v e1) = f (App v (mapExpr f e1))
+mapExpr f (Abs b e1) = f (Abs b (mapExpr f e1))
+mapExpr f (Let s b e1 e2) = f (Let s b (mapExpr f e1) (mapExpr f e2))
+mapExpr f (Op op e) = f (Op op (mapExpr f e))
+mapExpr f (If eB eT eF) = f (If (mapExpr f eB) (mapExpr f eT) (mapExpr f eF))
+mapExpr f (Tuple es) = f $ Tuple (map (mapExpr f) es)
+mapExpr f (Record es) = f $ Record (Map.map (mapExpr f) es)
+mapExpr f (Ode v e1) = f (Ode v (mapExpr f e1))
+mapExpr f (TypeCast e1 t) = f (TypeCast (mapExpr f e1) t)
+mapExpr f e = trace' [MkSB e] "Applying mapExprM to base e" $ f e
 
+mapExprM :: (Show a, Applicative m, Monad m) => (Expr a -> m (Expr a)) -> Expr a -> m (Expr a)
+mapExprM f (App v e1) = f =<< App v <$> mapExprM f e1
+mapExprM f (Abs b e1) = f =<< Abs b <$> mapExprM f e1
+mapExprM f (Let s b e1 e2) = f =<< Let s b <$> mapExprM f e1 <*> mapExprM f e2
+mapExprM f (Op op e) = f =<< Op op <$> mapExprM f e
+mapExprM f (If eB eT eF) = f =<< If <$> mapExprM f eB <*> mapExprM f eT <*> mapExprM f eF
+mapExprM f (Tuple es) = f =<< Tuple <$> mapM (mapExprM f) es
+mapExprM f (Record es) = f =<< Record <$> DT.mapM (mapExprM f) es
+mapExprM f (Ode v e1) = f =<< Ode v <$> mapExprM f e1
+mapExprM f (TypeCast e1 t) = f =<< TypeCast <$> mapExprM f e1 <*> pure t
+mapExprM f e = trace' [MkSB e] "Applying mapExprM to base e" $ f e

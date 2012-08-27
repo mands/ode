@@ -1,0 +1,19 @@
+// a couple of basic models
+
+
+// basic ops
+module BasicFlat1 {
+    val a = 1
+    // val b = upow(2 + a, 2)
+    val b = not True // single input op
+    val c = 1 + 2 // multi-input op
+    val d = 1 + (2 - 3) // multi-multi input op
+
+}
+// math ops
+// piecewise
+// components
+// svals
+// odes
+// etc..
+

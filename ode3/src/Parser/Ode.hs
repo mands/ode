@@ -288,7 +288,7 @@ builtinOpParser :: Parser AC.Op
 builtinOpParser =   reserved "sin"      *> pure (AC.MathOp AC.Sin)
                 <|> reserved "cos"      *> pure (AC.MathOp AC.Cos)
                 <|> reserved "tan"      *> pure (AC.MathOp AC.Tan)
-                <|> reserved "sincos"   *> pure (AC.MathOp AC.SinCos)
+                -- <|> reserved "sincos"   *> pure (AC.MathOp AC.SinCos) -- removed support for now
                 <|> reserved "asin"     *> pure (AC.MathOp AC.ASin)
                 <|> reserved "acos"     *> pure (AC.MathOp AC.ACos)
                 <|> reserved "atan"     *> pure (AC.MathOp AC.ATan)

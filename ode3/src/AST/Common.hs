@@ -138,7 +138,7 @@ data MathOp     =
                   Sin           -- f -> f
                 | Cos           -- f -> f
                 | Tan           -- f -> f
-                | SinCos        -- f -> (f,f)
+                -- | SinCos        -- f -> (f,f) -- removed for now until add support for MRVs within Ops
                 -- inverse trig
                 | ASin          -- f -> f
                 | ACos          -- f -> f

@@ -206,7 +206,7 @@ getModuleGlobal (ModFullName modRoot modName) gModEnv =
     maybeToExcept mMod $ printf "Referenced module %s.%s not found or currently loaded in global envirnoment" (show modRoot) (show modName)
   where
     mMod = Map.lookup modRoot gModEnv >>= (\fileData -> Map.lookup modName (fileModEnv fileData))
-getModuleGlobal (ModLocalName modName) gModEnv = throwError $ printf "Cannot retireve global module for a local name %s" (show modName)
+getModuleGlobal (ModLocalName modName) gModEnv = throwError $ printf "Cannot retrieve global module for a local name %s" (show modName)
 
 
 -- | Returns the filedata for a particular modroot

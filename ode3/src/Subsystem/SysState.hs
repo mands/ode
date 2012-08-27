@@ -161,7 +161,7 @@ vUnitDimEnv = lUnitDimEnv . lUnitsState
 vConvEnv :: SysState :-> U.ConvEnv
 vConvEnv = lConvEnv . lUnitsState
 
--- helper func to modify records directly within SysState monad
+-- helper func to modify records directly within SysState/SysExcept monad
 getSysState l = Data.Label.get l <$> S.get
 putSysState l a = (set l a <$> S.get) >>= put
 modSysState l f = S.modify (\st -> Data.Label.modify l f st)

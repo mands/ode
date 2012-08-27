@@ -373,7 +373,7 @@ getOpType op = case op of
                         , Log, Log2, Log10, LogB, Sqrt, Cbrt, ExpM1, Log1P
                         , SinH, CosH, TanH, ASinH, ACosH, ATanH
                         , Erf, ErfC, LGamma, TGamma] -> typeFtoF         -- f -> f
-    MathOp SinCos                                   -> typeFtoFF         -- f -> (f,f)
+    -- MathOp SinCos                                   -> typeFtoFF         -- f -> (f,f)
     MathOp x | x `elem` [ATan2, Pow]                -> typeFFtoF         -- (f,f) -> f
     MathOp Hypot                                    -> typeFFtoF_USame   -- (f u1, f u1) -> f u1
     -- Other Ops
@@ -389,7 +389,7 @@ getOpType op = case op of
     typeBBtoB   = return $ E.TArr (E.TTuple [E.TBool, E.TBool]) E.TBool
     typeBtoB    = return $ E.TArr E.TBool E.TBool
     typeFtoF    = return $ E.TArr (E.TFloat U.NoUnit) (E.TFloat U.NoUnit)
-    typeFtoFF   = return $ E.TArr (E.TFloat U.NoUnit) (E.TTuple [E.TFloat U.NoUnit, E.TFloat U.NoUnit])
+    -- typeFtoFF   = return $ E.TArr (E.TFloat U.NoUnit) (E.TTuple [E.TFloat U.NoUnit, E.TFloat U.NoUnit])
 
     -- Units varients
     -- f u1 -> f u1
