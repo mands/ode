@@ -70,7 +70,7 @@ flatten initMod = do
     trace' [MkSB tmpMod] "CoreFlat AST input" $ return ()
 
     unitsState <- getSysState lUnitsState
-    mod' <- lift $ convertTypes tmpMod unitsState (modTMap . fromJust $ getModData tmpMod)
+    mod' <- lift $ convertTypes tmpMod unitsState
 
     trace' [MkSB mod'] "Convert units output" $ return ()
     -- convert to CoreFlat

@@ -150,7 +150,7 @@ lookupModSig v mod = maybeToExcept lookupM $ printf "(MD) Binding %s not found i
             _                           -> Nothing
         Map.lookup v sigMap
 
-
+-- | Returns the readable srcName for a var within a module (inc mod refs)
 getVarSrcName :: E.VarId E.Id -> ModData -> SrcId
 getVarSrcName lv@(E.LocalVar v) modData = (modIdBimap modData) Bimap.!> v
 getVarSrcName mv@(E.ModVar _ v) _ = v
