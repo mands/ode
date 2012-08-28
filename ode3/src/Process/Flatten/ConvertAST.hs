@@ -33,7 +33,7 @@ import Utils.MonadSupply
 import qualified Subsystem.Units as U
 
 -- Same monad as renamer
-type IdSupply = SupplyT Int (StateT ACF.ExprMap MExcept)
+type IdSupply = SupplyT Id (StateT ACF.ExprMap MExcept)
 -- type IdSupply = Supply Id
 
 instance Applicative IdSupply where
@@ -44,9 +44,10 @@ instance Applicative IdSupply where
 convertAST :: Module Id -> MExcept ACF.Module
 convertAST (LitMod exprMap modData) = do
     ((_, freeIds'), flatExprMap) <- runStateT (runSupplyT flatExprM [freeId ..]) OrdMap.empty
-    return $ ACF.Module flatExprMap flatModData
+    return $ ACF.Module flatExprMap OrdMap.empty (head freeIds')
   where
-    flatModData = ACF.ModData "Hi!"
+    -- flatModData = ACF.ModData "Hi!"
+    freeId :: Id
     freeId = maybe 0 id $ modFreeId modData
 
     flatExprM :: IdSupply ()

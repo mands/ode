@@ -33,8 +33,8 @@ import qualified AST.Module as M
 type TypeEnv = Map.Map (E.VarId E.Id) E.Type
 
 -- Mappings from a type/unit-variable to an actual type
-type TypeVarEnv = Map.Map Int E.Type
-type UnitVarEnv = Map.Map Int U.Unit
+type TypeVarEnv = Map.Map Integer E.Type
+type UnitVarEnv = Map.Map Integer U.Unit
 
 -- collects all references to records within a module (both local and mod level)
 type RecordRefMap = Map.Map (E.VarId E.Id) E.Type

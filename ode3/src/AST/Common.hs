@@ -41,8 +41,8 @@ type NumTy = Double
 type SrcId = String
 -- type DesId = (SrcId, Maybe UnitT)
 type DesId = String
-type UntypedId = Int
-type Id = Int
+type UntypedId = Integer
+type Id = Integer
 type RecId = String
 
 -- Shared Module AST ---------------------------------------------------------------------------------------------------

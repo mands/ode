@@ -13,7 +13,7 @@
 -----------------------------------------------------------------------------
 
 module AST.CoreFlat (
-Module(..), ModData(..), Expr(..), TopLet, ExprMap, Var(..), -- Literal(..)
+Module(..), ExprMap, TopLet, Expr(..), Var(..)
 ) where
 
 -- import Data.IntMap as IM
@@ -21,10 +21,8 @@ import qualified Utils.OrdMap as OrdMap
 import AST.Common as AC
 
 -- not really a module, but datatype to hold both the exeutable simulation expressions and related metadata
-data Module = Module ExprMap ModData
+data Module = Module { loopExprs :: ExprMap,  initExprs :: ExprMap, freeId :: Id }
             deriving (Show, Eq, Ord)
-
-data ModData = ModData String deriving (Show, Eq, Ord)
 
 -- this becomes our 'let' now - both toplevel and 'nested', creates a new binding for the expression
 -- ordering is maintained as ids are ascending -- TODO, check??

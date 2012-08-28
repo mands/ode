@@ -46,7 +46,7 @@ type BindMap = Map.Map E.SrcId E.Id
 -- type UnitMap = Map.Map E.Id E.UnitT
 
 -- we need a supply of uniques, use monad supply again but with user-start param
-type IdSupply = SupplyT Int (StateT BindMap MExcept)
+type IdSupply = SupplyT E.Id (StateT BindMap MExcept)
 -- type IdSupply = Supply E.Id
 
 -- TODO - may need this monad when unify AST in order to process errors

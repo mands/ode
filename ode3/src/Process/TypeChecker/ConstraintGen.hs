@@ -50,7 +50,7 @@ import Process.TypeChecker.Common
 data TypeEnvs = TypeEnvs { typeEnv :: TypeEnv, recordTypeEnv :: RecordRefMap } deriving (Show, Eq, Ord)
 mkTypeEnvs = TypeEnvs { typeEnv = Map.empty, recordTypeEnv = Map.empty }
 
-type TypeConsM  = StateT TypeEnvs (SupplyT Int (StateT TypeCons MExcept))
+type TypeConsM  = StateT TypeEnvs (SupplyT Integer (StateT TypeCons MExcept))
 
 liftMExcept = lift . lift . lift
 
@@ -128,7 +128,7 @@ getMVarType mv@(E.ModVar m v) gModEnv modData mFuncArgs =
 
 -- Binding Helper Functions --------------------------------------------------------------------------------------------
 
-processLetBind :: E.BindList Int -> E.Type -> TypeConsM ()
+processLetBind :: E.BindList Integer -> E.Type -> TypeConsM ()
 processLetBind bs eT = do
     -- extend tEnv with new env
     tEnvs@(TypeEnvs tEnv _) <- get
@@ -145,7 +145,7 @@ processLetBind bs eT = do
     put $ tEnvs { typeEnv = tEnv' }
 
 -- | Adds a set of constraints for linking a multibind (from a tuple/record unpack) to a TVar
-tupleUnpackCons :: E.BindList Int -> E.Type -> TypeEnv -> TypeConsM TypeEnv
+tupleUnpackCons :: E.BindList Integer -> E.Type -> TypeEnv -> TypeConsM TypeEnv
 tupleUnpackCons bs t tEnv = do
     -- create the new tvars for each binding
     bTs <- mapM (\_ -> newTypevar) bs
@@ -172,7 +172,7 @@ recordRefsCons gModEnv modData mFuncArgs = do
 
 -- Constraint Generation -----------------------------------------------------------------------------------------------
 
-constrain :: M.GlobalModEnv ->  M.ModData -> Maybe (M.FunArgs) -> M.ExprMap Int -> MExcept (TypeEnvs, TypeCons)
+constrain :: M.GlobalModEnv ->  M.ModData -> Maybe (M.FunArgs) -> M.ExprMap Integer -> MExcept (TypeEnvs, TypeCons)
 constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT consM mkTypeEnvs) [1..]) mkTypeCons
   where
     consM :: TypeConsM ()

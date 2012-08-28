@@ -51,7 +51,7 @@ import qualified Subsystem.Units as U
 
 -- | Types
 data Type :: * where
-    TVar :: Int -> Type
+    TVar :: Integer -> Type
     TBool :: Type
     TFloat :: U.Unit -> Type
     TUnit :: Type
