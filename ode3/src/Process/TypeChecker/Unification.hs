@@ -338,7 +338,6 @@ unifyUnits uState conUnitS = unifyUnitLoop conUnitS
     -- both units or nounits - check they are equal dimension
     processUnit (ConSameDim u1 u2) st | not (isUnitVar u1) && not (isUnitVar u2) = do
         -- make sure is within same dim as u, and a conversion path exists
-        -- lift $ U.convertCastUnit u1 u2 (L.get SysS.lUnitDimEnv uState) (L.get SysS.lConvEnv uState)
         lift $ U.unitsSameDim u1 u2 (L.get SysS.lUnitDimEnv uState)
         return st
 

@@ -20,8 +20,6 @@
 
 module Process.TypeChecker (
 typeCheck, -- , typeCheckApp, TypeVarEnv, TypeCons, unify
-
-
 ) where
 
 import Control.Applicative
@@ -36,16 +34,12 @@ import qualified Data.Set as Set
 import qualified Data.Foldable as DF
 import qualified Data.Traversable as DT
 
-import Data.Maybe (fromJust)
-import Debug.Trace (trace)
-import Text.Printf (printf)
-
-import Utils.Utils
+import Utils.CommonImports
 import Utils.MonadSupply
 import qualified Utils.OrdMap as OrdMap
 
 import qualified Subsystem.SysState as St
-import AST.Common
+import AST.Common as AC
 import qualified AST.Core as E
 import qualified AST.Module as M
 import qualified Subsystem.Units as U

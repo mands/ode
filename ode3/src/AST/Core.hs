@@ -25,7 +25,9 @@ module AST.Core (
 VarId(..), BindList,
 Type(..), mapTypeM, mapType, addLabels, dropLabels,
 TopLet(..), Expr(..), Op(..), Literal(..), TypeCast(..),
-SrcId, DesId, Id, RecId -- rexported from Common.AST
+mapExprM, mapExpr,
+
+SrcId, DesId, Id, RecId, -- rexported from Common.AST
 ) where
 
 import Prelude hiding (LT, GT, EQ)

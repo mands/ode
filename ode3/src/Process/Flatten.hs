@@ -19,17 +19,23 @@
 -- use intmap to hold local ids
 -- need create a new ADT to hold metadata
 -----------------------------------------------------------------------------
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 
 module Process.Flatten (
 flatten
 ) where
 
 import Control.Category
-import Data.Label
+import qualified Data.Label as L
 import Prelude hiding ((.), id)
 
+
+import qualified Data.Traversable as DT
 import qualified Data.Map as Map
 import qualified Data.Bimap as Bimap
+
+import Control.Monad.State
+import Utils.MonadSupply
 
 import Utils.CommonImports
 import Subsystem.SysState
@@ -41,7 +47,9 @@ import qualified Utils.OrdMap as OrdMap
 import qualified AST.Core as AC
 import qualified AST.CoreFlat as ACF
 import qualified Subsystem.Units as U
+
 import Process.Flatten.ConvertAST
+import Process.Flatten.ConvertTypes
 
 
 flatten :: String -> SysExcept ()
@@ -55,37 +63,24 @@ flatten initMod = do
 
     -- inline components
 
-    -- convert unitsDimI
-
-    -- convert to CoreFlat
+    -- convert units and types
     -- TODO - tmp/dummy module here to fool later stages
     gModEnv <- getSysState vModEnv
     tmpMod <- lift $ getModuleGlobal modFullName gModEnv
     trace' [MkSB tmpMod] "CoreFlat AST input" $ return ()
-    coreFlatMod <- lift $ convertAST tmpMod
+
+    unitsState <- getSysState lUnitsState
+    mod' <- lift $ convertTypes tmpMod unitsState (modTMap . fromJust $ getModData tmpMod)
+
+    trace' [MkSB mod'] "Convert units output" $ return ()
+    -- convert to CoreFlat
+    coreFlatMod <- lift $ convertAST mod'
     trace' [MkSB coreFlatMod] "CoreFlat AST output" $ return ()
 
 
 
     return ()
 
-
--- Unit Conversion -----------------------------------------------------------------------------------------------------
-
--- TODO - where does this func go - is run after unitconversion, during ANF conversion?
--- this prob needs supply monad to create a tmp var
--- converts an expression from the restrictred CExpr format into the general Core Expression for code-gen
-convertCoreExpr :: U.CExpr -> AC.Expr Id
-convertCoreExpr (U.CExpr op e1 e2) = AC.Op (convertCoreOp op) $ AC.Tuple [convertCoreExpr e1, convertCoreExpr e2]
-  where
-    convertCoreOp U.CAdd = AC.BasicOp Add
-    convertCoreOp U.CSub = AC.BasicOp Sub
-    convertCoreOp U.CMul = AC.BasicOp Mul
-    convertCoreOp U.CDiv = AC.BasicOp Div
-
-convertCoreExpr (U.CNum n) = AC.Lit $ AC.Num n U.NoUnit
--- TODO - this is broken!
-convertCoreExpr U.CFromId = AC.Var (AC.LocalVar 1) Nothing
 
 
 -- Functor Application Helper Funcs ------------------------------------------------------------------------------------

@@ -17,7 +17,7 @@
 
 module Utils.OrdMap (
 OrdMap, (!), lookup, size, member, empty, singleton, insert, delete, update, elems, keys, map, foldl, union,
-toList, fromList, mapAccum, toMap
+toList, fromList, mapAccum, toMap, filter
 
 ) where
 
@@ -29,7 +29,7 @@ import qualified Data.Traversable as DT
 import qualified Data.Functor as Functor
 import Control.Applicative (liftA, liftA2, pure, (<$>), (<*>))
 import Data.Maybe (fromJust, isJust)
-import Prelude hiding (foldl, lookup, map)
+import Prelude hiding (foldl, lookup, map, filter)
 import Utils.Utils
 
 type AssocList k v = [(k, v)]
@@ -99,6 +99,11 @@ fromList = OrdMapC
 
 toMap :: (Ord k) => OrdMap k v -> Map.Map k v
 toMap = Map.fromList . toList
+
+-- a filter on the values, need to convert to list to filter on both
+filter :: (v -> Bool) -> OrdMap k v -> OrdMap k v
+filter f (OrdMapC m) = OrdMapC $ List.filter (\(k, v) -> f v) m
+
 
 -- map over the keys and values - preserves the ordering regardless
 map :: ((k, v) -> (k', v')) -> OrdMap k v -> OrdMap k' v'
