@@ -32,33 +32,39 @@ import qualified AST.CoreFlat as ACF
 import Utils.MonadSupply
 import qualified Subsystem.Units as U
 
+
+-- Types ---------------------------------------------------------------------------------------------------------------
 -- Same monad as renamer
-type IdSupply = SupplyT Id (StateT ACF.ExprMap MExcept)
+type IdSupply = SupplyT Id (StateT FlatState MExcept)
 -- type IdSupply = Supply Id
 
 instance Applicative IdSupply where
     pure = return
     (<*>) = ap
 
+data FlatState = FlatState { curExprs :: ACF.ExprMap, loopExprs :: ACF.ExprMap,  initExprs :: ACF.ExprMap, inInit :: Bool } deriving (Show, Eq, Ord)
+mkFlatState = FlatState OrdMap.empty OrdMap.empty OrdMap.empty False
+
+-- Process Entry -------------------------------------------------------------------------------------------------------
 
 convertAST :: Module Id -> MExcept ACF.Module
 convertAST (LitMod exprMap modData) = do
-    ((_, freeIds'), flatExprMap) <- runStateT (runSupplyT flatExprM [freeId ..]) OrdMap.empty
-    return $ ACF.Module flatExprMap OrdMap.empty (head freeIds')
+    ((_, freeIds'), fSt') <- runStateT (runSupplyT flatExprM [freeId ..]) mkFlatState
+    return $ ACF.Module (loopExprs fSt') (initExprs fSt') (head freeIds')
   where
-    -- flatModData = ACF.ModData "Hi!"
-    freeId :: Id
     freeId = maybe 0 id $ modFreeId modData
-
     flatExprM :: IdSupply ()
     flatExprM = foldM_ convertTop () $ OrdMap.toList exprMap
 
 -- convert the toplet - we ensure that only TopLets with a single Id binding will exist at this point
 -- (multiple ids (tuples) and TopType will have been already converted
 convertTop :: () -> ([Id], AC.TopLet Id) -> IdSupply ()
-convertTop _ (id:[], AC.TopLet _ _ coreExpr) = do
-    flatExpr <- convertExpr coreExpr
-    lift $ modify (\exprMap -> OrdMap.insert id flatExpr exprMap)
+convertTop _ (id:[], AC.TopLet isInit (id':[]) cE) = do
+    assert (id == id') $ return ()
+    -- set Init flag
+    lift $ modify (\st -> st { inInit = isInit })
+    fE <- convertExpr cE
+    insertExpr id fE
 
 convertTop _ coreExpr = errorDump [MkSB coreExpr] "Cannot convert expression to CoreFlat" assert
 
@@ -69,10 +75,11 @@ convertExpr :: AC.Expr Id -> IdSupply ACF.Expr
 convertExpr e@(AC.Var (AC.LocalVar v) Nothing) = return $ ACF.Var (ACF.VarRef v)
 -- directly store the nested let bindings within the flattened exprMap
 -- TODO - what about multi-bindings? and state lets
-convertExpr e@(AC.Let _ (b:[]) e1 e2) = do
+convertExpr e@(AC.Let isInit (b:[]) e1 e2) = do
+    lift $ modify (\st -> st { inInit = isInit })
     e1' <- convertExpr e1
     -- insert the binding using the given id as a toplet
-    lift $ modify (\exprMap -> OrdMap.insert b e1' exprMap)
+    insertExpr b e1'
     convertExpr e2
 
 -- Literals
@@ -84,38 +91,41 @@ convertExpr e@(AC.Lit (AC.Unit)) = return $ ACF.Var $ ACF.Unit
 -- Operators
 -- multi-input op
 convertExpr e@(AC.Op op (AC.Tuple es)) = do
-    vs <- mapM liftOrInsert es
+    vs <- mapM convertVar es
     return $ ACF.Op op vs
 -- single-input Op
 convertExpr e@(AC.Op op e1) = do
-    v <- liftOrInsert e1
+    v <- convertVar e1
     return $ ACF.Op op [v]
 
 -- If
 -- TODO - is the ordering correct?
 convertExpr e@(AC.If eB eT eF) = do
-    vB <- liftOrInsert eB
+    vB <- convertVar eB
     esT <- createSubExprs eT
     esF <- createSubExprs eF
     return $ ACF.If vB esT esF
   where
     -- convert the expression within its own env
     createSubExprs e = do
+        -- fucking record updates inside a state monad - so verbose!
         -- save the old env
-        oldMap <- lift $ get
-        lift . put $ OrdMap.empty
+        st <- lift $ get
+        let oldCurMap = curExprs st
+        lift . put $ st { curExprs = OrdMap.empty }
         -- actuall convert the expression - returns the ret val
         e' <- convertExpr e
         -- create a dummy value to handle the returned value (as our Lets are top-level, rather than let e1 in e2)
         id <- supply
-        es <- OrdMap.insert id e' <$> lift get
+        st' <- lift $ get
+        let es = OrdMap.insert id e' ( curExprs st')
         -- restore the old env
-        lift . put $ oldMap
+        lift . put $ st' { curExprs = oldCurMap }
         return es
 
 -- Ode
 convertExpr e@(AC.Ode (AC.LocalVar v) e1) = do
-    v1 <- liftOrInsert e1
+    v1 <- convertVar e1
     return $ ACF.Ode v v1
 
 -- anything else,
@@ -124,22 +134,17 @@ convertExpr expr = errorDump [MkSB expr] "Cannot convert expression to CoreFlat"
 -- Conversion Helper Functions -----------------------------------------------------------------------------------------
 
 -- TODO - is this right?
--- should either embed a var or create a new binding and return a refvar to it
-liftOrInsert :: AC.Expr Id -> IdSupply ACF.Var
-liftOrInsert e = do
+-- should either lift/embed a var or convert an expr, create a new binding and return a refvar to it
+convertVar :: AC.Expr Id -> IdSupply ACF.Var
+convertVar e = do
     case liftVarExpr e of
         Just var -> return $ var
         Nothing -> do
-            id  <- insertExpr e
+            -- convert the expression and return a var pointing to it
+            id <- supply
+            e' <- convertExpr e
+            insertExpr id e'
             return $ ACF.VarRef id
-
--- | Wrapper function to convert and insert a given expression into the exprmap under a generated Id
-insertExpr :: AC.Expr Id -> IdSupply Id
-insertExpr e = do
-    id <- supply
-    e' <- convertExpr e
-    lift $ modify (\exprMap -> OrdMap.insert id e' exprMap)
-    return id
 
 -- | Performs single look-ahead into the expression and lifts to a Var expr if possible
 liftVarExpr :: AC.Expr Id -> Maybe ACF.Var
@@ -149,6 +154,13 @@ liftVarExpr e@(AC.Lit (AC.Unit)) = Just $ ACF.Unit
 liftVarExpr e@(AC.Var (AC.LocalVar v) Nothing) = Just $ (ACF.VarRef v)
 liftVarExpr e = Nothing
 
-
+-- | Wrapper function to insert a given expression into the correct exprmap under a given Id
+insertExpr :: Id -> ACF.Expr -> IdSupply ()
+insertExpr id fE = do
+    -- id <- maybe supply return mId
+    isInit <- inInit <$> lift get
+    case isInit of
+        True    -> lift $ modify (\st -> st { initExprs = OrdMap.insert id fE (initExprs st) })
+        False   -> lift $ modify (\st -> st { loopExprs = OrdMap.insert id fE (loopExprs st) })
 
 

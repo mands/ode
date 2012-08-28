@@ -37,6 +37,7 @@ import qualified Utils.OrdMap as OrdMap
 import qualified AST.Core as E
 import qualified AST.Module as M
 
+-- Process Entry -------------------------------------------------------------------------------------------------------
 validate :: M.Module E.DesId -> MExcept (M.Module E.DesId)
 validate mod@(M.LitMod _ modData) = M.LitMod    <$> createTopExprs (M.modExprList modData) (M.modExportSet modData)
                                                 <*> validateModData modData
@@ -52,10 +53,10 @@ validate mod@(M.FunctorMod funArgs _ modData) = M.FunctorMod    <$> funArgs'
 validateModData modData = return $ modData { M.modExprList = [] }
 
 
--- binding datatypes
+-- Binding datatypes ---------------------------------------------------------------------------------------------------
 -- data Metadata = Metadata { bindMap :: Map.Map E.DesId Bool }
-data ValidState = ValidState { exprMap :: M.ExprMap E.DesId, sValSet :: Set.Set E.DesId, curBinds :: Set.Set E.DesId }
-mkValidState = ValidState OrdMap.empty Set.empty Set.empty
+data ValidState = ValidState { exprMap :: M.ExprMap E.DesId, curBinds :: Set.Set E.DesId, sValSet :: Set.Set E.DesId, inSVal :: Bool }
+mkValidState = ValidState OrdMap.empty Set.empty Set.empty False
 
 addBinding :: Bool -> ValidState -> E.DesId -> MExcept ValidState
 addBinding isSVal st b = case Set.member b (curBinds st) of
@@ -66,7 +67,7 @@ addBinding isSVal st b = case Set.member b (curBinds st) of
 checkSVal :: E.DesId -> ValidState -> MExcept ()
 checkSVal v st = unless (Set.member v (sValSet st)) $ throwError $ printf "(VL07) Value %s must be an init value" (show v)
 
-
+-- Top Level Exprs -----------------------------------------------------------------------------------------------------
 -- create the expression map and check for duplicated top-level bindings
 createTopExprs :: M.ExprList -> Set.Set E.SrcId -> MExcept (M.ExprMap E.DesId)
 createTopExprs exprList exports = do
@@ -80,7 +81,8 @@ createTopExprs exprList exports = do
     -- folds over a set (that holds unique bindings) and the updated exprMap for each expr
     t :: ValidState -> E.TopLet E.DesId -> MExcept ValidState
     t st topExpr@(E.TopLet sv bs expr) = do
-        validExpr expr (st { curBinds = Set.empty })
+        -- reset the curBinds and update the SVal state flag
+        validExpr expr (st { curBinds = Set.empty, inSVal = sv })
         addTopBinding sv st bs topExpr
     t st topExpr@(E.TopType tName) = addTopBinding False st [tName] topExpr
 
@@ -88,14 +90,19 @@ createTopExprs exprList exports = do
         st' <- DF.foldlM (addBinding sv) st bs
         return $ st' { exprMap = OrdMap.insert bs expr (exprMap st') }
 
+
+-- Core Exprs ----------------------------------------------------------------------------------------------------------
 -- check several properties for expression tree, passes state down into exp, doesn't bother returning it for now
 validExpr :: E.Expr E.DesId -> ValidState -> MExcept ValidState
+validExpr (E.Var (E.LocalVar v) _) st = if (inSVal st) then checkSVal v st >> return st else return st
+
 validExpr (E.App v e) st = validExpr e st
 
 validExpr (E.Abs b e) st = validExpr e st
 
 validExpr (E.Let s bs e1 e2) st = do
-    validExpr e1 (st { curBinds = Set.empty })
+    -- reset the curBinds and update the SVal state flag
+    validExpr e1 (st { curBinds = Set.empty, inSVal = s })
     validExpr e2 =<< DF.foldlM (addBinding s) st bs
 
 validExpr (E.Op op e) st = validExpr e st
