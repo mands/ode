@@ -49,7 +49,6 @@ convertAST (LitMod exprMap modData) = do
     flatModData = ACF.ModData "Hi!"
     freeId = maybe 0 id $ modFreeId modData
 
-
     flatExprM :: IdSupply ()
     flatExprM = foldM_ convertTop () $ OrdMap.toList exprMap
 
@@ -71,13 +70,13 @@ convertExpr e@(AC.Var (AC.LocalVar v) Nothing) = return $ ACF.Var (ACF.VarRef v)
 -- TODO - what about multi-bindings? and state lets
 convertExpr e@(AC.Let _ (b:[]) e1 e2) = do
     e1' <- convertExpr e1
-    -- insert the binding using the given id
+    -- insert the binding using the given id as a toplet
     lift $ modify (\exprMap -> OrdMap.insert b e1' exprMap)
     convertExpr e2
 
 -- Literals
 convertExpr e@(AC.Lit (AC.Num n U.NoUnit)) = return $ ACF.Var $ ACF.Num n
-convertExpr e@(AC.Lit (AC.Num n _)) = return $ ACF.Var $ ACF.Num n
+convertExpr e@(AC.Lit (AC.Num n _)) = return $ ACF.Var $ ACF.Num n -- TODO - remove me!!
 convertExpr e@(AC.Lit (AC.Boolean b)) = return $ ACF.Var $ ACF.Boolean b
 convertExpr e@(AC.Lit (AC.Unit)) = return $ ACF.Var $ ACF.Unit
 
@@ -93,11 +92,25 @@ convertExpr e@(AC.Op op e1) = do
 
 -- If
 -- TODO - is the ordering correct?
-convertExpr e@(AC.If e1 e2 e3) = do
-    v1 <- liftOrInsert e1
-    v2 <- liftOrInsert e2
-    v3 <- liftOrInsert e3
-    return $ ACF.If v1 v2 v3
+convertExpr e@(AC.If eB eT eF) = do
+    vB <- liftOrInsert eB
+    esT <- createSubExprs eT
+    esF <- createSubExprs eF
+    return $ ACF.If vB esT esF
+  where
+    -- convert the expression within its own env
+    createSubExprs e = do
+        -- save the old env
+        oldMap <- lift $ get
+        lift . put $ OrdMap.empty
+        -- actuall convert the expression - returns the ret val
+        e' <- convertExpr e
+        -- create a dummy value to handle the returned value (as our Lets are top-level, rather than let e1 in e2)
+        id <- supply
+        es <- OrdMap.insert id e' <$> lift get
+        -- restore the old env
+        lift . put $ oldMap
+        return es
 
 -- Ode
 convertExpr e@(AC.Ode (AC.LocalVar v) e1) = do

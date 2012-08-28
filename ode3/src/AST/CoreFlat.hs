@@ -38,7 +38,7 @@ type TopLet = Id
 -- the main type of our simulatable expressions - basically ANF form
 data Expr   = Var Var
             | Op AC.Op [Var]
-            | If Var Var Var
+            | If Var ExprMap ExprMap
             -- Tuple [Expr]          -- do we have tuples? NO, unpack all
             -- Record (Map.Map RecId Expr) -- no records, unpack all
             | Ode Id Var
