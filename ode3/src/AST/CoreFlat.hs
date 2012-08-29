@@ -13,7 +13,7 @@
 -----------------------------------------------------------------------------
 
 module AST.CoreFlat (
-Module(..), ExprMap, TopLet, Expr(..), Var(..)
+Module(..), ExprMap, TopLet, Expr(..), Var(..), ExprData(..), Type(..)
 ) where
 
 -- import Data.IntMap as IM
@@ -26,26 +26,32 @@ data Module = Module { loopExprs :: ExprMap,  initExprs :: ExprMap, freeId :: Id
 
 -- this becomes our 'let' now - both toplevel and 'nested', creates a new binding for the expression
 -- ordering is maintained as ids are ascending -- TODO, check??
-type ExprMap = OrdMap.OrdMap TopLet Expr
+-- is essentiallaly a list of variable bindings within a program
+type ExprMap = OrdMap.OrdMap TopLet ExprData
 
 -- we can change this later to handle both single and multibind variables
 -- (need for Ops returning multiple vals)
 type TopLet = Id
 
+data ExprData = ExprData Expr Type deriving (Show, Eq, Ord)
+
+-- our minimal type info, held at every let/var binding
+data Type = TFloat | TBool | TUnit deriving (Show, Eq, Ord)
 
 -- the main type of our simulatable expressions - basically ANF form
 data Expr   = Var Var
             | Op AC.Op [Var]
-            | If Var ExprMap ExprMap
+            | If Var ExprMap ExprMap -- nested envs for each branch
             -- Tuple [Expr]          -- do we have tuples? NO, unpack all
             -- Record (Map.Map RecId Expr) -- no records, unpack all
             | Ode Id Var
-            -- Rre Id Id Expr     -- add later
+            -- Rre Id Id Expr     -- add later to separate exprs
             deriving (Show, Eq, Ord)
 
 -- | Atomic, core values
 data Var = VarRef Id | Num Double | Boolean Bool | Unit
                 deriving (Show, Eq, Ord)
+
 
 -- | Used to handle both input and output args to a library/runtime operator
 -- these are handled in an implementation-specific fashion for the given backend

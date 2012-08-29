@@ -26,65 +26,78 @@ import Subsystem.SysState
 import AST.Common
 import AST.Module
 
+import qualified Data.Map as Map
 import qualified Utils.OrdMap as OrdMap
 import qualified AST.Core as AC
 import qualified AST.CoreFlat as ACF
 import Utils.MonadSupply
 import qualified Subsystem.Units as U
 
+import Process.Flatten.ConvertTypes(calcTypeExpr)
 
 -- Types ---------------------------------------------------------------------------------------------------------------
 -- Same monad as renamer
-type IdSupply = SupplyT Id (StateT FlatState MExcept)
--- type IdSupply = Supply Id
+type ConvM = SupplyT Id (StateT FlatState MExcept)
+-- type ConvM = Supply Id
 
-instance Applicative IdSupply where
+instance Applicative ConvM where
     pure = return
     (<*>) = ap
 
-data FlatState = FlatState { curExprs :: ACF.ExprMap, loopExprs :: ACF.ExprMap,  initExprs :: ACF.ExprMap, inInit :: Bool } deriving (Show, Eq, Ord)
+data FlatState = FlatState  { curExprs :: ACF.ExprMap, loopExprs :: ACF.ExprMap,  initExprs :: ACF.ExprMap
+                            , inInit :: Bool, curTMap :: TypeMap } deriving (Show, Eq, Ord)
 mkFlatState = FlatState OrdMap.empty OrdMap.empty OrdMap.empty False
 
 -- Process Entry -------------------------------------------------------------------------------------------------------
 
+-- TODO - need to create typedata in ACF.module too
+
 convertAST :: Module Id -> MExcept ACF.Module
 convertAST (LitMod exprMap modData) = do
-    ((_, freeIds'), fSt') <- runStateT (runSupplyT flatExprM [freeId ..]) mkFlatState
+    ((_, freeIds'), fSt') <- runStateT (runSupplyT flatExprM [freeId ..]) initFlatState
     return $ ACF.Module (loopExprs fSt') (initExprs fSt') (head freeIds')
   where
     freeId = maybe 0 id $ modFreeId modData
-    flatExprM :: IdSupply ()
+    flatExprM :: ConvM ()
     flatExprM = foldM_ convertTop () $ OrdMap.toList exprMap
+    initFlatState = mkFlatState (modTMap modData)
 
 -- convert the toplet - we ensure that only TopLets with a single Id binding will exist at this point
 -- (multiple ids (tuples) and TopType will have been already converted
-convertTop :: () -> ([Id], AC.TopLet Id) -> IdSupply ()
+
+-- can find the type here
+convertTop :: () -> ([Id], AC.TopLet Id) -> ConvM ()
 convertTop _ (id:[], AC.TopLet isInit (id':[]) cE) = do
     assert (id == id') $ return ()
     -- set Init flag
     lift $ modify (\st -> st { inInit = isInit })
     fE <- convertExpr cE
-    insertExpr id fE
+    -- lookupt the type
+    fT <- convertType <$> lookupType id
+    insertExpr id fE fT
 
 convertTop _ coreExpr = errorDump [MkSB coreExpr] "Cannot convert expression to CoreFlat" assert
 
 
 -- convert the expression, this is straightforwad for the resticted Core AST we have now anyway
 -- puts it into ANF too
-convertExpr :: AC.Expr Id -> IdSupply ACF.Expr
+convertExpr :: AC.Expr Id -> ConvM ACF.Expr
 convertExpr e@(AC.Var (AC.LocalVar v) Nothing) = return $ ACF.Var (ACF.VarRef v)
 -- directly store the nested let bindings within the flattened exprMap
 -- TODO - what about multi-bindings? and state lets
+
+
+-- can find the type here
 convertExpr e@(AC.Let isInit (b:[]) e1 e2) = do
     lift $ modify (\st -> st { inInit = isInit })
-    e1' <- convertExpr e1
+    fE1 <- convertExpr e1
     -- insert the binding using the given id as a toplet
-    insertExpr b e1'
+    fT1 <- convertType <$> lookupType b
+    insertExpr b fE1 fT1
     convertExpr e2
 
 -- Literals
 convertExpr e@(AC.Lit (AC.Num n U.NoUnit)) = return $ ACF.Var $ ACF.Num n
-convertExpr e@(AC.Lit (AC.Num n _)) = return $ ACF.Var $ ACF.Num n -- TODO - remove me!!
 convertExpr e@(AC.Lit (AC.Boolean b)) = return $ ACF.Var $ ACF.Boolean b
 convertExpr e@(AC.Lit (AC.Unit)) = return $ ACF.Var $ ACF.Unit
 
@@ -118,7 +131,12 @@ convertExpr e@(AC.If eB eT eF) = do
         -- create a dummy value to handle the returned value (as our Lets are top-level, rather than let e1 in e2)
         id <- supply
         st' <- lift $ get
-        let es = OrdMap.insert id e' ( curExprs st')
+
+
+        -- need to calc and convert the type here
+        tMap <- curTMap <$> lift get
+        fT <- convertType <$> (lift . lift $ calcTypeExpr tMap e)
+        let es = OrdMap.insert id (ACF.ExprData e' fT) ( curExprs st')
         -- restore the old env
         lift . put $ st' { curExprs = oldCurMap }
         return es
@@ -135,7 +153,7 @@ convertExpr expr = errorDump [MkSB expr] "Cannot convert expression to CoreFlat"
 
 -- TODO - is this right?
 -- should either lift/embed a var or convert an expr, create a new binding and return a refvar to it
-convertVar :: AC.Expr Id -> IdSupply ACF.Var
+convertVar :: AC.Expr Id -> ConvM ACF.Var
 convertVar e = do
     case liftVarExpr e of
         Just var -> return $ var
@@ -143,7 +161,10 @@ convertVar e = do
             -- convert the expression and return a var pointing to it
             id <- supply
             e' <- convertExpr e
-            insertExpr id e'
+            -- need to calc and convert the type here
+            tMap <- curTMap <$> lift get
+            fT <- convertType <$> (lift . lift $ calcTypeExpr tMap e)
+            insertExpr id e' fT
             return $ ACF.VarRef id
 
 -- | Performs single look-ahead into the expression and lifts to a Var expr if possible
@@ -155,12 +176,21 @@ liftVarExpr e@(AC.Var (AC.LocalVar v) Nothing) = Just $ (ACF.VarRef v)
 liftVarExpr e = Nothing
 
 -- | Wrapper function to insert a given expression into the correct exprmap under a given Id
-insertExpr :: Id -> ACF.Expr -> IdSupply ()
-insertExpr id fE = do
+insertExpr :: Id -> ACF.Expr -> ACF.Type -> ConvM ()
+insertExpr id fE fT = do
     -- id <- maybe supply return mId
     isInit <- inInit <$> lift get
+    let exprData = ACF.ExprData fE fT
     case isInit of
-        True    -> lift $ modify (\st -> st { initExprs = OrdMap.insert id fE (initExprs st) })
-        False   -> lift $ modify (\st -> st { loopExprs = OrdMap.insert id fE (loopExprs st) })
+        True    -> lift $ modify (\st -> st { initExprs = OrdMap.insert id exprData (initExprs st) })
+        False   -> lift $ modify (\st -> st { loopExprs = OrdMap.insert id exprData (loopExprs st) })
 
 
+-- | lookups and converts a Core type to a CoreFlat type
+lookupType :: Id -> ConvM AC.Type
+lookupType id = (Map.!) <$> (curTMap <$> lift get) <*> pure id
+
+convertType :: AC.Type -> ACF.Type
+convertType (AC.TBool)      = ACF.TBool
+convertType (AC.TFloat _)   = ACF.TFloat
+convertType (AC.TUnit)      = ACF.TUnit

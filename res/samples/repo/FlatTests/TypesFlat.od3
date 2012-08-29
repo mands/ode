@@ -1,0 +1,15 @@
+// basic types
+module TypesFlat1 {
+    type Test
+
+    val a = 1
+    val b = (1 + 1) { wrap : Test }
+
+    val c = b { unwrap : Test }
+    // inits
+    // init y1 = 1
+    // val y2 = 1 + y1
+    // init y = 0 + 1 + 2 + 3 + y1
+
+}
+

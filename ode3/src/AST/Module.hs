@@ -21,8 +21,9 @@ Module(..), getModExprs, putModExprs, modifyModExprs,
 GlobalModEnv, LocalModEnv, FileData(..), mkFileData, replModRoot,
 getModuleMod, getModuleFile, getModuleGlobal,
 getFileData, lookupModSig, getVarSrcName,
-ModData(..), mkModData, getModData, putModData, modifyModData,
-SigMap, TypeMap, IdBimap
+ModData(..), mkModData, getModData, putModData, modifyModData, recreateTypeInfo,
+SigMap, TypeMap, IdBimap,
+
 ) where
 
 import Control.Monad
@@ -94,7 +95,6 @@ type SigMap = Map.Map SrcId E.Type
 -- | Typemap is the internal typemap for all vars (top and expr) within a module
 type TypeMap = Map.Map Id E.Type -- maybe switch to IntMap?
 
--- TODO - add explicity export lists
 -- | Metadata regarding a module
 data ModData = ModData  { modSigMap :: SigMap, modTMap :: TypeMap, modIdBimap :: IdBimap, modFreeId :: Maybe Id
                         , modFullName :: ModFullName, modModEnv :: LocalModEnv
@@ -154,6 +154,14 @@ lookupModSig v mod = maybeToExcept lookupM $ printf "(MD) Binding %s not found i
 getVarSrcName :: E.VarId E.Id -> ModData -> SrcId
 getVarSrcName lv@(E.LocalVar v) modData = (modIdBimap modData) Bimap.!> v
 getVarSrcName mv@(E.ModVar _ v) _ = v
+
+-- | Updates the aux type strucutes within moddata
+-- (TODO - this is brittle - needs to be fixed by altering the ADTs)
+recreateTypeInfo :: ModData -> TypeMap -> ModData
+recreateTypeInfo modData tMap = modData { modTMap = tMap, modSigMap = sigMap', modIdBimap = idBimap' }
+  where
+    sigMap' = Map.mapKeys (\id -> idBimap' Bimap.!> id ) tMap
+    idBimap' = Bimap.filter (\srcId id -> Map.member id tMap) (modIdBimap modData)
 
 
 -- Module Environments -------------------------------------------------------------------------------------------------
