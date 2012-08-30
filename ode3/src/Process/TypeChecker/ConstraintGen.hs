@@ -178,7 +178,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
     consM :: TypeConsM ()
     consM = DF.mapM_ consTop (OrdMap.elems exprMap) >> recordRefsCons gModEnv modData mFuncArgs
 
-    consTop (E.TopLet s bs e) = do
+    consTop (E.TopLet s t bs e) = do
         eT <- consExpr e
         processLetBind bs eT
 
@@ -240,7 +240,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         return $ E.TArr fromT toT
 
     -- NOTE - do we need to return the new tEnv here?
-    consExpr (E.Let s bs e1 e2) = do
+    consExpr (E.Let s t bs e1 e2) = do
         e1T <- consExpr e1
         processLetBind bs e1T
         consExpr e2

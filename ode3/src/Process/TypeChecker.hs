@@ -52,9 +52,7 @@ import Process.TypeChecker.Unification
 typeCheck :: M.GlobalModEnv -> M.FileData -> St.UnitsState -> M.Module E.Id -> MExcept (M.Module E.Id)
 typeCheck gModEnv fileData uState mod@(M.LitMod exprMap modData) = do
     -- get the contraints
-    (tEnvs, tCons) <- constrain gModEnv modData Nothing exprMap
-
-    let (TypeEnvs tEnv recRefEnv) = tEnvs
+    ((TypeEnvs tEnv recRefEnv) , tCons) <- constrain gModEnv modData Nothing exprMap
 
     -- unify the types and get the new typemap
     (tVEnv, uVEnv) <- unify uState tCons
@@ -64,16 +62,18 @@ typeCheck gModEnv fileData uState mod@(M.LitMod exprMap modData) = do
     let (tMap, _) = splitTypeEnvs tEnv'
     -- Update the module data with the new typemap
     let modData' = modData { M.modTMap = tMap }
+
+    let exprMap' = M.addTypesToExpr exprMap tMap
+
     -- trace ("(TC) " ++ show exprMap) ()
     _ <- trace' [MkSB tEnv'] "Final TypeEnv" $ Right ()
 
-    return $ M.LitMod exprMap modData'
+    return $ M.LitMod exprMap' modData'
 
 typeCheck gModEnv fileData uState mod@(M.FunctorMod args exprMap modData) = do
     -- get the contraints
-    (tEnvs, tCons) <- constrain gModEnv modData (Just args) exprMap
+    ((TypeEnvs tEnv recRefEnv), tCons) <- constrain gModEnv modData (Just args) exprMap
 
-    let (TypeEnvs tEnv recRefEnv) = tEnvs
     -- unify the types and get the new typemap`
     (tVEnv, uVEnv) <- unify uState tCons
     -- substitute to obtain the new type env
@@ -82,11 +82,13 @@ typeCheck gModEnv fileData uState mod@(M.FunctorMod args exprMap modData) = do
     let (tMap, mTEnv) = splitTypeEnvs tEnv'
     -- Update the module data with the new typemap
     let modData' = modData { M.modTMap = tMap }
+    let exprMap' = M.addTypesToExpr exprMap tMap
+
     -- functor specific type-checking
     -- mTEnv' <- subTVars mTEnv tVEnv uVEnv True
     let args' = createFunModArgs args mTEnv
 
-    return $ M.FunctorMod args' exprMap modData'
+    return $ M.FunctorMod args' exprMap' modData'
   where
     -- create the public module signatures for Functors
     createFunModArgs :: M.FunArgs -> TypeEnv -> M.FunArgs
@@ -121,4 +123,5 @@ subTVars tEnv tVEnv uVEnv allowPoly = DT.mapM (E.mapTypeM updateType) tEnv
     processType t Nothing     = if allowPoly    then return t
                                                 else trace' [MkSB tEnv, MkSB tVEnv, MkSB uVEnv] "Poly error" $
                                                         throwError "(TC03) - Type/Unit-variable found in non-polymorphic closed module"
+
 

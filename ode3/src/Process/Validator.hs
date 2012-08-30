@@ -80,7 +80,7 @@ createTopExprs exprList exports = do
   where
     -- folds over a set (that holds unique bindings) and the updated exprMap for each expr
     t :: ValidState -> E.TopLet E.DesId -> MExcept ValidState
-    t st topExpr@(E.TopLet sv bs expr) = do
+    t st topExpr@(E.TopLet sv ty bs expr) = do
         -- reset the curBinds and update the SVal state flag
         validExpr expr (st { curBinds = Set.empty, inSVal = sv })
         addTopBinding sv st bs topExpr
@@ -100,7 +100,7 @@ validExpr (E.App v e) st = validExpr e st
 
 validExpr (E.Abs b e) st = validExpr e st
 
-validExpr (E.Let s bs e1 e2) st = do
+validExpr (E.Let s t bs e1 e2) st = do
     -- reset the curBinds and update the SVal state flag
     validExpr e1 (st { curBinds = Set.empty, inSVal = s })
     validExpr e2 =<< DF.foldlM (addBinding s) st bs

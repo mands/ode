@@ -92,7 +92,7 @@ renTop exprMap = do
     -- map over each expr, using the topmap, converting lets and building a new scopemap
     -- as traversing expr, as order is fixed this should be ok
     convTopBind :: M.ExprMap E.Id -> E.TopLet E.DesId -> IdSupply (M.ExprMap E.Id)
-    convTopBind model (E.TopLet s b e) = do
+    convTopBind model (E.TopLet s t b e) = do
         -- store the bMap as modified within renExpr
         bMap <- lift $ get
         -- traverse over the expression, using initial bMap
@@ -101,7 +101,7 @@ renTop exprMap = do
         lift $ put bMap
         b' <- convBind b
         -- return the new bindmap and model
-        return $ OrdMap.insert b' (E.TopLet s b' e') model
+        return $ OrdMap.insert b' (E.TopLet s t b' e') model
 
     convTopBind model (E.TopType tName) = do
         b'@(tName':[]) <- convBind [tName]
@@ -160,7 +160,7 @@ renExpr (E.Abs b expr) = do
     return $ E.Abs b' expr'
 
 -- need to create a new binding and keep processing
-renExpr (E.Let s b bExpr expr) = do
+renExpr (E.Let s t b bExpr expr) = do
     bMap <- lift $ get
     -- process the binding bExpr with the existing bMap
     bExpr' <- renExpr bExpr
@@ -171,7 +171,7 @@ renExpr (E.Let s b bExpr expr) = do
     expr' <- renExpr expr
     -- reset the bMap
     lift . put $ bMap
-    return $ E.Let s b' bExpr' expr'
+    return $ E.Let s t b' bExpr' expr'
 
 -- just traverse the structure
 renExpr (E.Lit l) = return $ E.Lit l

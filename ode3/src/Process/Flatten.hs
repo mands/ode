@@ -79,13 +79,13 @@ flatten initMod = do
 
     -- convert units and types
     -- TODO - tmp/dummy module here to fool later stages
-    unitsState <- getSysState lUnitsState
-    mod3 <- lift $ convertTypes mod2 unitsState
-    trace' [MkSB mod3] "Convert units output" $ return ()
+--    unitsState <- getSysState lUnitsState
+--    mod3 <- lift $ convertTypes mod2 unitsState
+--    trace' [MkSB mod3] "Convert units output" $ return ()
 
     -- convert to CoreFlat
-    coreFlatMod <- lift $ convertAST mod3
-    trace' [MkSB coreFlatMod] "CoreFlat AST output" $ return ()
+--    coreFlatMod <- lift $ convertAST mod3
+--    trace' [MkSB coreFlatMod] "CoreFlat AST output" $ return ()
 
 
     return ()
@@ -116,8 +116,8 @@ appendModule argName argMod@(LitMod argExprMap argModData) baseMod@(LitMod baseE
     exprMap' = OrdMap.union argExprMap (OrdMap.map updateExprs baseExprMap)
     updateExprs (topB, topExpr) = (fmap (+ deltaId) topB, topExpr'')
       where
-        topExpr'@(AC.TopLet s b expr) = fmap (+ deltaId) topExpr
-        topExpr'' = AC.TopLet s b (updateVars expr)
+        topExpr'@(AC.TopLet s t b expr) = fmap (+ deltaId) topExpr
+        topExpr'' = AC.TopLet s t b (updateVars expr)
 
         -- change all refernces from ModVar to LocalVar using the new ids, use the arg Id Bimap to calc
         -- TODO - use a traversable?
@@ -132,7 +132,7 @@ appendModule argName argMod@(LitMod argExprMap argModData) baseMod@(LitMod baseE
         updateVars (AC.App vId expr) = AC.App vId (updateVars expr)
 
         updateVars (AC.Abs v expr) = AC.Abs v (updateVars expr)
-        updateVars (AC.Let s b e1 e2) = AC.Let s b (updateVars e1) (updateVars e2)
+        updateVars (AC.Let s t b e1 e2) = AC.Let s t b (updateVars e1) (updateVars e2)
         updateVars (AC.Op op e) = AC.Op op (updateVars e)
         updateVars (AC.If eIf eT eF) = AC.If (updateVars eIf) (updateVars eT) (updateVars eF)
         updateVars (AC.Tuple es) = AC.Tuple $ map updateVars es

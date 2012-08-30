@@ -20,7 +20,10 @@ ExprMap, ExprList, FunArgs,
 Module(..), getModExprs, putModExprs, modifyModExprs,
 GlobalModEnv, LocalModEnv, FileData(..), mkFileData, replModRoot,
 getModuleMod, getModuleFile, getModuleGlobal,
+
 getFileData, lookupModSig, getVarId, lookupModId, calcSigMap,
+addTypesToExpr, getTypesFromExpr,
+
 ModData(..), mkModData, getModData, putModData, modifyModData,
 SigMap, TypeMap, IdMap
 
@@ -166,6 +169,36 @@ getVarId lv@(E.LocalVar v) _ _ = return v
 getVarId (E.ModVar m v) modName gModEnv = do
     mod <- getModuleGlobal modName gModEnv
     lookupModId v mod
+
+
+-- | Update the in-band type-annotations within the exprmap within the calculated typeMap
+addTypesToExpr :: ExprMap E.Id -> TypeMap -> ExprMap E.Id
+addTypesToExpr exprMap tMap = fmap addTypesTop exprMap
+  where
+    addTypesTop :: (E.TopLet E.Id) -> (E.TopLet E.Id)
+    addTypesTop (E.TopLet isSVal _ (b:[]) e) = E.TopLet isSVal (tMap ! b) [b] (addTypesExpr e)
+    addTypesTop (E.TopLet isSVal _ bs e) = E.TopLet isSVal (E.TTuple (map (\b -> tMap ! b) bs)) bs (addTypesExpr e)
+    addTypesTop tl = tl
+
+    addTypesExpr :: (E.Expr E.Id) -> (E.Expr E.Id)
+    addTypesExpr (E.Let isSVal _ (b:[]) e1 e2) = E.Let isSVal (tMap ! b) [b] (addTypesExpr e1) (addTypesExpr e2)
+    addTypesExpr (E.Let isSVal _ bs e1 e2) = E.Let isSVal (E.TTuple (map (\b -> tMap ! b) bs)) bs (addTypesExpr e1) (addTypesExpr e2)
+    addTypesExpr e = E.mapExpr addTypesExpr e
+
+getTypesFromExpr :: ExprMap E.Id -> TypeMap
+getTypesFromExpr exprMap = DF.foldl addTypesTop  Map.empty exprMap
+  where
+    addTypesTop :: TypeMap -> (E.TopLet E.Id) -> TypeMap
+    addTypesTop tMap (E.TopLet isSVal t (b:[]) e) = Map.insert b t tMap |> (\tMap -> addTypesExpr tMap e)
+    addTypesTop tMap (E.TopLet isSVal (E.TTuple ts) bs e) = foldl (\tMap (b, t) -> Map.insert b t tMap) tMap (zip bs ts) |> (\tMap -> addTypesExpr tMap e)
+    addTypesTop tMap tl = tMap
+
+    addTypesExpr :: TypeMap -> (E.Expr E.Id) -> TypeMap
+    addTypesExpr tMap (E.Let isSVal t (b:[]) e1 e2) = Map.insert b t tMap |> (\tMap -> addTypesExpr tMap e1) |> (\tMap -> addTypesExpr tMap e2)
+    addTypesExpr tMap (E.Let isSVal (E.TTuple ts) bs e1 e2) = foldl (\tMap (b, t) -> Map.insert b t tMap) tMap (zip bs ts)
+        |> (\tMap -> addTypesExpr tMap e1) |> (\tMap -> addTypesExpr tMap e2)
+    addTypesExpr tMap e = E.foldExpr addTypesExpr tMap e
+
 
 
 -- Module Environments -------------------------------------------------------------------------------------------------

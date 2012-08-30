@@ -70,7 +70,7 @@ convertTypes (LitMod exprMap modData) uState = do
 
 
 convertTypesTop :: AC.TopLet Id -> UnitConvM (AC.TopLet Id)
-convertTypesTop (AC.TopLet isInit bs tE) = AC.TopLet isInit bs <$> convertTypesExpr tE
+convertTypesTop (AC.TopLet isInit t bs tE) = AC.TopLet isInit t bs <$> convertTypesExpr tE
 convertTypesTop tLet = return tLet
 
 convertTypesExpr :: AC.Expr Id -> UnitConvM (AC.Expr Id)
@@ -85,7 +85,7 @@ convertTypesExpr (AC.TypeCast e (AC.UnitCast toU)) = do
     (_, tMap) <- lift get
     AC.TFloat fromU <- lift . lift $ calcTypeExpr tMap e
     -- TODO - what about the SVal type??
-    AC.Let False [id] e <$> (convertUnitCast id fromU toU)
+    AC.Let False (AC.TFloat U.NoUnit) [id] e <$> (convertUnitCast id fromU toU)
 
 -- don't care about the rest, pass on to mapExprM
 convertTypesExpr e = AC.mapExprM convertTypesExpr e
@@ -113,7 +113,7 @@ convertUnitExpr id U.CFromId = AC.Var (AC.LocalVar id) Nothing
 -- update typemap, first map over types, then drop TopType&TTypeCons
 dropTCons tMap exprMap modData = (tMap', exprMap')
   where
-    exprMap' = OrdMap.filter (\topLet -> case topLet of (AC.TopLet _ _ _) -> True; (AC.TopType _) -> False) exprMap
+    exprMap' = OrdMap.filter (\topLet -> case topLet of (AC.TopLet _ _ _ _) -> True; (AC.TopType _) -> False) exprMap
     tMap' = Map.map (AC.mapType updateType) tMap |> Map.filter (\t -> case t of (AC.TTypeCons _ _) -> False; _ -> True)
 
     -- drop type info
@@ -140,7 +140,7 @@ calcTypeExpr tMap (AC.App (AC.LocalVar f) _) | AC.TArr eT toT <- (tMap Map.! f) 
 -- what is the type of the arg? AC.TArr Unit (calcTypeExpr tMap e)
 -- calcTypeExpr tMap (AC.Abs arg e) = undefined -- calcTypeExpr tMap e
 
-calcTypeExpr tMap (AC.Let s bs e1 e2) = calcTypeExpr tMap e2
+calcTypeExpr tMap (AC.Let s t bs e1 e2) = return t -- calcTypeExpr tMap e2
 
 calcTypeExpr _ (AC.Lit l) = case l of
     AC.Boolean _ -> return AC.TBool

@@ -129,7 +129,7 @@ subDontCares (O.BindId v) = return v
 dsTopStmt :: M.ExprList -> O.Stmt -> TmpSupply (M.ExprList)
 dsTopStmt es stmt@(O.SValue _ _) = do
     (ids, expr) <- dsStmt stmt
-    return $ C.TopLet True ids expr : es
+    return $ C.TopLet True C.TUnit ids expr : es
 
 --dsTopStmt es stmt@(O.OdeDef _ _ _) = do
 --    (odeVar, odeExpr) <- dsStmt stmt
@@ -141,7 +141,7 @@ dsTopStmt es stmt@(O.SValue _ _) = do
 --
 dsTopStmt es stmt = do
     (ids, expr) <- dsStmt stmt
-    return $ C.TopLet False ids expr : es
+    return $ C.TopLet False C.TUnit ids expr : es
 
 -- desugar a nested let binding
 dsNestedStmt :: [O.Stmt] -> O.Expr  -> TmpSupply (C.Expr C.DesId)
@@ -149,23 +149,23 @@ dsNestedStmt [] outs = dsExpr outs
 
 dsNestedStmt (s@(O.Value _ _):xs) outs = do
     (ids, expr) <- dsStmt s
-    C.Let False ids expr <$> dsNestedStmt xs outs
+    C.Let False C.TUnit ids expr <$> dsNestedStmt xs outs
 
 dsNestedStmt (s@(O.SValue _ _):xs) outs = do
     (ids, expr) <- dsStmt s
-    C.Let True ids expr <$> dsNestedStmt xs outs
+    C.Let True C.TUnit ids expr <$> dsNestedStmt xs outs
 
 dsNestedStmt (s@(O.OdeDef _ _ _):xs) outs = do
     (odeVar, odeExpr) <- dsStmt s
-    C.Let False odeVar odeExpr <$> dsNestedStmt xs outs
+    C.Let False C.TUnit odeVar odeExpr <$> dsNestedStmt xs outs
 
 dsNestedStmt (s@(O.RreDef _ _ _):xs) outs = do
     (rreVar, rreExpr) <- dsStmt s
-    C.Let False rreVar rreExpr <$> dsNestedStmt xs outs
+    C.Let False C.TUnit rreVar rreExpr <$> dsNestedStmt xs outs
 
 dsNestedStmt (s@(O.Component _ _ _):xs) outs = do
     (ids, expr) <- dsStmt s
-    C.Let False ids expr <$> dsNestedStmt xs outs
+    C.Let False C.TUnit ids expr <$> dsNestedStmt xs outs
 
 -- Main desugaring, called by top-level and nested level wrappers
 dsStmt :: O.Stmt -> TmpSupply ([C.DesId], C.Expr C.DesId)
@@ -201,7 +201,7 @@ dsStmt (O.Component name arg (body, out)) = do
     -- | desugars and converts a component into a \c abstraction, not in tail-call form, could blow out the stack, but unlikely
     desugarComp :: O.SrcId -> [C.DesId] -> TmpSupply (C.Expr C.DesId)
     desugarComp _ (singArg:[]) = dsNestedStmt body out
-    desugarComp argName ins = C.Let False ins (C.Var (C.LocalVar argName) Nothing) <$> dsNestedStmt body out
+    desugarComp argName ins = C.Let False C.TUnit ins (C.Var (C.LocalVar argName) Nothing) <$> dsNestedStmt body out
 
 dsStmt stmt = throw $ printf "(DS01) Found an unhandled stmt that is top-level only - not nested \n%s" (show stmt)
 

@@ -67,7 +67,7 @@ convertAST (LitMod exprMap modData) = do
 
 -- can find the type here
 convertTop :: () -> ([Id], AC.TopLet Id) -> ConvM ()
-convertTop _ (id:[], AC.TopLet isInit (id':[]) cE) = do
+convertTop _ (id:[], AC.TopLet isInit t (id':[]) cE) = do
     assert (id == id') $ return ()
     -- set Init flag
     lift $ modify (\st -> st { inInit = isInit })
@@ -88,7 +88,7 @@ convertExpr e@(AC.Var (AC.LocalVar v) Nothing) = return $ ACF.Var (ACF.VarRef v)
 
 
 -- can find the type here
-convertExpr e@(AC.Let isInit (b:[]) e1 e2) = do
+convertExpr e@(AC.Let isInit t (b:[]) e1 e2) = do
     lift $ modify (\st -> st { inInit = isInit })
     fE1 <- convertExpr e1
     -- insert the binding using the given id as a toplet

@@ -2,12 +2,12 @@
 :addRepo ../res/samples/repo
 
 // import our modules
-//import FlatTests.TypesFlat.*
-import SyntaxTests.Newtypes.*
+import FlatTests.BasicFlat.*
+//import SyntaxTests.Newtypes.*
 
 // :show all
 :show modState
 // all done
-//:simulate TypesFlat1
+:simulate CompsFlat1
 :quit
 

@@ -25,8 +25,7 @@ module AST.Core (
 VarId(..), BindList,
 Type(..), mapTypeM, mapType, addLabels, dropLabels,
 TopLet(..), Expr(..), Op(..), Literal(..), TypeCast(..),
-mapExprM,
-mapExpr,
+mapExpr, mapExprM, foldExpr, foldExprM,
 
 SrcId, DesId, Id, RecId, -- rexported from Common.AST
 ) where
@@ -109,10 +108,9 @@ data VarId a =  LocalVar a
 -- Main Exprs ----------------------------------------------------------------------------------------------------------
 -- TODO - could we use the Bind type to unify both b and [b], or use GADTs and type-classes for extra type-safety
 -- |Main model elements - maybe move these into a Map indexed by Id
-data TopLet :: * -> * where
-    TopLet :: Bool -> (BindList b) -> (Expr b) -> TopLet b    -- binding, expr
-    TopType :: b -> TopLet b    -- typeid
-    deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
+data TopLet b   = TopLet Bool Type (BindList b) (Expr b)   -- binding, expr
+                | TopType b    -- typeid
+                deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
 
 -- | Main body of a \c-calc expression
 -- is parameterised by the binding type b - used for RdrNames/Ids, Uniques, Uniques+Types
@@ -130,7 +128,7 @@ data Expr b = Var (VarId b) (Maybe RecId)             -- a reference to any let-
 
             | Abs b (Expr b)            -- abs arg, expr
 
-            | Let Bool (BindList b) (Expr b) (Expr b)  -- basic let within sub-expression
+            | Let Bool Type (BindList b) (Expr b) (Expr b)  -- basic let within sub-expression
                                         -- test to try multi-lets within an expressino - handles unpacking with context
                                          -- can be stateful bindings that are held between time-steps if 1st param=True
 
@@ -174,53 +172,53 @@ data Literal =  Num Double U.Unit | NumSeq [Double] U.Unit | Boolean Bool | Time
 mapExpr :: (Show a) => (Expr a -> Expr a) -> Expr a -> Expr a
 mapExpr f (App v e1) = App v (f e1)
 mapExpr f (Abs b e1) = Abs b (f e1)
-mapExpr f (Let s b e1 e2) = Let s b (f e1) (f e2)
+mapExpr f (Let s t b e1 e2) = Let s t b (f e1) (f e2)
 mapExpr f (Op op e1) = Op op (f e1)
 mapExpr f (If eB eT eF) = If (f eB) (f eT) (f eF)
 mapExpr f (Tuple es) = Tuple (map f es)
 mapExpr f (Record es) = Record (Map.map f es)
 mapExpr f (Ode v e1) = Ode v (f e1)
 mapExpr f (TypeCast e1 t) = TypeCast (f e1) t
-mapExpr f e1 = trace' [MkSB e1] "Applying mapExpr to non-composite e" $ f e1
+mapExpr f e = trace' [MkSB e] "Returing unhandled non-composite e" $ e
 
 mapExprM :: (Show a, Applicative m, Monad m) => (Expr a -> m (Expr a)) -> Expr a -> m (Expr a)
 mapExprM f (App v e1) = App v <$> f e1
 mapExprM f (App v e1) = App v <$> f e1
 mapExprM f (Abs b e1) = Abs b <$> f e1
-mapExprM f (Let s b e1 e2) = Let s b <$> f e1 <*> f e2
+mapExprM f (Let s t b e1 e2) = Let s t b <$> f e1 <*> f e2
 mapExprM f (Op op e1) = Op op <$> f e1
 mapExprM f (If eB eT eF) = If <$> f eB <*> f eT <*> f eF
 mapExprM f (Tuple es) = Tuple <$> mapM f es
 mapExprM f (Record es) = Record <$> DT.mapM f es
 mapExprM f (Ode v e1) = Ode v <$> f e1
 mapExprM f (TypeCast e1 t) = TypeCast <$> f e1 <*> pure t
-mapExprM f e1 = trace' [MkSB e1] "Applying mapExprM to base e1" $ f e1
+mapExprM f e = trace' [MkSB e] "Returning unhandled non-composite e" $ return e
 
 -- be carful using these functions, as they handle the continousing fold themeselves
 -- we only use these if we need to capture any agg data within the compoosite datatypes
 foldExpr :: (Show a, Show b) => (b -> Expr a -> b) -> b -> Expr a -> b
 foldExpr f st (App v e1) = f st e1
 foldExpr f st (Abs b e1) = f st e1
-foldExpr f st (Let s b e1 e2) = f st e1 |> (\st -> f st e2)
+foldExpr f st (Let s t b e1 e2) = f st e1 |> (\st -> f st e2)
 foldExpr f st (Op op e1) = f st e1
 foldExpr f st (If eB eT eF) = f st eB |> (\st -> f st eT) |> (\st -> f st eF)
 foldExpr f st (Tuple es) = foldl f st es
 foldExpr f st (Record es) = Map.foldl f st es
 foldExpr f st (Ode v e1) = f st e1
 foldExpr f st (TypeCast e1 t) = f st e1
-foldExpr f st e = trace' [MkSB e, MkSB st] "Applying foldExpr to base e" f st e
+foldExpr f st e = trace' [MkSB e, MkSB st] "Returning unchanged state" st
 
 foldExprM :: (Show a, Show b, Applicative m, Monad m) => (b -> Expr a -> m b) -> b -> Expr a -> m b
 foldExprM f st (App v e1) = f st e1
 foldExprM f st (Abs b e1) = f st e1
-foldExprM f st (Let s b e1 e2) = f st e1 >>= (\st -> f st e2)
+foldExprM f st (Let s t b e1 e2) = f st e1 >>= (\st -> f st e2)
 foldExprM f st (Op op e1) = f st e1
 foldExprM f st (If eB eT eF) = f st eB >>= (\st -> f st eT) >>= (\st -> f st eF)
 foldExprM f st (Tuple es) = DF.foldlM f st es
 foldExprM f st (Record es) = DF.foldlM f st es
 foldExprM f st (Ode v e1) = f st e1
 foldExprM f st (TypeCast e1 t) = f st e1
-foldExprM f st e = trace' [MkSB e, MkSB st] "Applying foldExpr to base e" f st e
+foldExprM f st e = trace' [MkSB e, MkSB st] "Returning unchanged state" $ return st
 
 
 

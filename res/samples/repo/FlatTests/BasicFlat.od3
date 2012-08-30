@@ -1,6 +1,11 @@
 // a couple of basic models
+// math ops
+// components
+// svals
+// odes
+// etc..
 
-
+/*
 // basic ops
 module BasicFlat1 {
     //val a = 1
@@ -25,9 +30,16 @@ module BasicFlat1 {
     init y = 0 + 1 + 2 + 3 + y1
 
 }
-// math ops
-// components
-// svals
-// odes
-// etc..
+*/
+
+module CompsFlat1 {
+    component inc x {
+        val y = 1        
+        return x + y
+    }
+
+    // now call it
+    val _ = inc(2)
+    val _ = inc(3)
+}
 
