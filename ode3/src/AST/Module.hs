@@ -20,9 +20,9 @@ ExprMap, ExprList, FunArgs,
 Module(..), getModExprs, putModExprs, modifyModExprs,
 GlobalModEnv, LocalModEnv, FileData(..), mkFileData, replModRoot,
 getModuleMod, getModuleFile, getModuleGlobal,
-getFileData, lookupModSig, getVarSrcName, getVarId,
-ModData(..), mkModData, getModData, putModData, modifyModData, recreateTypeInfo,
-SigMap, TypeMap, IdBimap,
+getFileData, lookupModSig, getVarId, lookupModId, calcSigMap,
+ModData(..), mkModData, getModData, putModData, modifyModData,
+SigMap, TypeMap, IdMap
 
 ) where
 
@@ -88,25 +88,27 @@ type ExprMap a = OrdMap.OrdMap [a] (E.TopLet a)
 -- is initially populated with just the modname/args by the parser, then filled with sigMaps during type-checking
 type FunArgs = OrdMap.OrdMap ModName SigMap
 
--- | bidirectional map between internal ids and source ids for all visible/top-level defined vars
-type IdBimap = Bimap.Bimap SrcId Id
--- | SigMap is the external typemap for the module - can be created from the typemap, top-level expressions and idbimap
+-- | SigMap is the external signature/typemap for the module - is created on demand
 type SigMap = Map.Map SrcId E.Type
+-- | map between externally visible source ids and module internal ids
+type IdMap = Map.Map SrcId Id
 -- | Typemap is the internal typemap for all vars (top and expr) within a module
 type TypeMap = Map.Map Id E.Type -- maybe switch to IntMap?
 
 -- | Metadata regarding a module
-data ModData = ModData  { modSigMap :: SigMap, modTMap :: TypeMap, modIdBimap :: IdBimap, modFreeId :: Maybe Id
+data ModData = ModData  { modIdMap :: IdMap, modTMap :: TypeMap, modFreeId :: Maybe Id
                         , modFullName :: ModFullName, modModEnv :: LocalModEnv
-                        , modImportCmds :: [ModImport]
-                        , modExportSet :: Set.Set SrcId
-                        , modExprList :: ExprList
+                        -- tmp data
+                        , modImportCmds :: [ModImport], modExprList :: ExprList, modExportSet :: Set.Set SrcId
+                        -- units data
                         , modQuantities :: U.Quantities, modUnits :: [U.UnitDef], modConvs :: [U.ConvDef]
                         } deriving (Show, Eq, Ord)
 
-mkModData = ModData     { modSigMap = Map.empty, modTMap = Map.empty, modIdBimap = Bimap.empty, modFreeId = Nothing
+mkModData = ModData     { modIdMap = Map.empty, modTMap = Map.empty, modFreeId = Nothing
                         , modFullName = ModFullName (mkModRoot []) (ModName "<empty>"), modModEnv = Map.empty
-                        , modImportCmds = [], modExportSet = Set.empty, modExprList = []
+                        -- tmp data
+                        , modImportCmds = [], modExprList = [], modExportSet = Set.empty
+                        -- units data
                         , modQuantities = [], modUnits = [], modConvs = []
                         }
 
@@ -143,39 +145,27 @@ modifyModExprs m f = maybe m (\md -> putModExprs m (f md)) $ getModExprs m
 
 -- Lookup the type of a binding within a module type-signature
 lookupModSig :: SrcId -> Module Id -> MExcept E.Type
-lookupModSig v mod = maybeToExcept lookupM $ printf "(MD) Binding %s not found in module" (show v)
-  where
-    lookupM = do
-        sigMap <- case mod of
-            (RefMod _ True sigMap _)    -> return sigMap
-            (LitMod _ modData)          -> return (modSigMap modData)
-            _                           -> Nothing
-        Map.lookup v sigMap
+lookupModSig v mod = do
+    sigMap <- case mod of
+        (RefMod _ True sigMap _)    -> return sigMap
+        (LitMod _ modData)          -> return (calcSigMap modData)
+        _                           -> throwError "(MD) Module does not contain modData"
+    maybeToExcept (Map.lookup v sigMap) $ printf "(MD) Binding %s not found in module" (show v)
 
--- | Returns the readable srcName for a var within a module (inc mod refs)
-getVarSrcName :: E.VarId E.Id -> ModData -> SrcId
-getVarSrcName lv@(E.LocalVar v) modData = (modIdBimap modData) Bimap.!> v
-getVarSrcName mv@(E.ModVar _ v) _ = v
+calcSigMap :: ModData -> SigMap
+calcSigMap modData = Map.map (\id -> (modTMap modData) Map.! id) (modIdMap modData)
 
+lookupModId :: E.SrcId -> Module Id -> MExcept Id
+lookupModId v mod = do
+    idMap <- maybeToExcept (modIdMap <$> getModData mod) "(MD) Module does not contain modData"
+    maybeToExcept (Map.lookup v idMap) $ printf "(MD) Binding %s not found in module" (show v)
 
 getVarId :: E.VarId E.Id -> ModFullName -> GlobalModEnv -> MExcept Id
 getVarId lv@(E.LocalVar v) _ _ = return v
-
 -- need lookup id of v within modname
 getVarId (E.ModVar m v) modName gModEnv = do
     mod <- getModuleGlobal modName gModEnv
-    modData <- maybeToExcept (getModData mod) $ printf "Module %s does not have module data" (show modName)
-    id <- Bimap.lookup v (modIdBimap modData)
-    return $ id
-
-
--- | Updates the aux type strucutes within moddata
--- (TODO - this is brittle - needs to be fixed by altering the ADTs)
-recreateTypeInfo :: ModData -> TypeMap -> ModData
-recreateTypeInfo modData tMap = modData { modTMap = tMap, modSigMap = sigMap', modIdBimap = idBimap' }
-  where
-    sigMap' = Map.mapKeys (\id -> idBimap' Bimap.!> id ) tMap
-    idBimap' = Bimap.filter (\srcId id -> Map.member id tMap) (modIdBimap modData)
+    lookupModId v mod
 
 
 -- Module Environments -------------------------------------------------------------------------------------------------

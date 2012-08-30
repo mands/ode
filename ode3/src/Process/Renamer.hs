@@ -24,6 +24,7 @@ rename
 ) where
 
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import qualified Data.Foldable as DF
 import qualified Data.Traversable as DT
 import qualified Data.Bimap as Bimap
@@ -71,14 +72,13 @@ rename (M.FunctorMod args exprMap modData) = do
     let modData' = updateModData modData topBinds freeId
     return $ M.FunctorMod args exprMap' modData'
 
--- | Update the module data with the idBimap and next free id
+-- | Update the module data with the next free id and calculate the idMap using the export set (then wipe it)
 updateModData :: M.ModData ->  BindMap -> E.Id -> M.ModData
-updateModData modData bMap freeId = modData { M.modIdBimap = idBimap', M.modFreeId = Just freeId }
+updateModData modData bMap freeId = modData { M.modIdMap = idMap, M.modFreeId = Just freeId, M.modExportSet = Set.empty }
   where
-    -- TODO - quick hack to convert
-    idBimap = Bimap.fromList $ Map.toList bMap
-    -- should never fail
-    idBimap' = if (Bimap.valid idBimap) then idBimap else errorDump [MkSB idBimap] "Invalid bimap!" assert
+    idMap = if Set.size (M.modExportSet modData) == 0
+        then bMap -- export everything from top-level
+        else Set.foldr (\srcId idMap -> Map.insert srcId (bMap ! srcId) idMap) Map.empty (M.modExportSet modData) -- fold over the export set and build the sigMap
 
 -- |Need to build a conversion map of the top values first
 renTop :: M.ExprMap E.DesId -> MExcept (M.ExprMap E.Id, BindMap, E.Id)
@@ -135,7 +135,7 @@ bLookup v = do
         (Just v') -> return v'
         Nothing -> lift . lift . throwError $ printf "(RN01) Referenced variable %s not found in scope" (show v)
 
--- | Basic traverse over the expression structure - make into Data.Traversable
+-- | Basic traverse over the expression structure - can't use helpers as map from (Expr a -> Expr b)
 renExpr :: E.Expr E.DesId -> IdSupply (E.Expr E.Id)
 -- need to check the expr and top bindings
 renExpr (E.Var (E.LocalVar v) mRecId) = E.Var <$> (E.LocalVar <$> bLookup v) <*> pure mRecId

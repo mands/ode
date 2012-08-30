@@ -26,7 +26,7 @@ module Utils.CommonImports (
     module Utils.Utils,
 
     -- indiv functions
-    printf, assert, fromJust, isJust
+    printf, assert, fromJust, isJust, (!)
 ) where
 
 -- higher-level control
@@ -45,6 +45,7 @@ import Prelude hiding ((.), id)
 -- containers
 import qualified Data.Foldable as DF
 import qualified Data.Map as Map
+import Data.Map
 import qualified Utils.OrdSet as OrdSet
 import qualified Data.Set as Set
 import qualified Data.List.Split as ListSplit

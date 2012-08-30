@@ -135,7 +135,7 @@ evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
     (LitMod _ modData') <- typeCheck gModEnv fileData unitsState lMod
 
     -- finally construct a "Closed" RefMod to holds the results, using both the fMod modData and type-checked lMod sig
-    let refMod = RefMod modFullName True (modSigMap modData') lModEnv
+    let refMod = RefMod modFullName True (calcSigMap modData') lModEnv
     trace' [MkSB (refMod :: Module Id)] "App -> RefMod" $ return refMod
     -- return refMod
   where
@@ -196,7 +196,7 @@ evalModDef' gModEnv fileData unitsState mod = do
 -- VarMods not handled, and AppMod handled directy within eval
 mkRefMod :: ModFullName -> Module Id -> Module Id
 mkRefMod modFullName mod = case mod of
-    mod'@(LitMod _ modData)         ->  RefMod modFullName True (modSigMap modData) Map.empty
+    mod'@(LitMod _ modData)         ->  RefMod modFullName True (calcSigMap modData) Map.empty
     mod'@(FunctorMod _ _ modData)   ->  RefMod modFullName False Map.empty Map.empty
     mod'@(RefMod _ _ _ _)           ->  mod' -- just return (a copy) of the same refmod - no need to link the refs
     _ ->  errorDump [MkSB modFullName, MkSB mod] "Can't wrap a RefMod around a module of this type" assert

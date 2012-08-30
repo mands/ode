@@ -60,19 +60,13 @@ convertTypes (LitMod exprMap modData) uState = do
     ((exprMap', freeIds'), (_, tMap')) <- runStateT (runSupplyT convTypesM [freeId ..]) (uState, (modTMap modData))
     let (tMap'', exprMap'') = dropTCons tMap' exprMap' modData
 
-    let modData' = updateModData modData (head freeIds') tMap''
-
+    -- update modData and return new module
+    let modData' = modData { modFreeId = Just (head freeIds'), modTMap = tMap'' }
     return $ LitMod exprMap'' modData'
   where
     freeId = maybe 0 id $ modFreeId modData
     convTypesM :: UnitConvM (ExprMap Id)
     convTypesM = DT.mapM convertTypesTop exprMap
-
-
-updateModData :: ModData -> Id -> TypeMap -> ModData
-updateModData modData freeId tMap = modData' { modFreeId = Just freeId }
-  where
-    modData' = recreateTypeInfo modData tMap
 
 
 convertTypesTop :: AC.TopLet Id -> UnitConvM (AC.TopLet Id)

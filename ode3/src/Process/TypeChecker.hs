@@ -62,7 +62,8 @@ typeCheck gModEnv fileData uState mod@(M.LitMod exprMap modData) = do
     tEnv' <- subTVars tEnv tVEnv uVEnv False
     -- split the typeEnvs
     let (tMap, _) = splitTypeEnvs tEnv'
-    let modData' = updateModData modData tMap
+    -- Update the module data with the new typemap
+    let modData' = modData { M.modTMap = tMap }
     -- trace ("(TC) " ++ show exprMap) ()
     _ <- trace' [MkSB tEnv'] "Final TypeEnv" $ Right ()
 
@@ -79,7 +80,8 @@ typeCheck gModEnv fileData uState mod@(M.FunctorMod args exprMap modData) = do
     tEnv' <- subTVars tEnv tVEnv uVEnv True
 
     let (tMap, mTEnv) = splitTypeEnvs tEnv'
-    let modData' = updateModData modData tMap
+    -- Update the module data with the new typemap
+    let modData' = modData { M.modTMap = tMap }
     -- functor specific type-checking
     -- mTEnv' <- subTVars mTEnv tVEnv uVEnv True
     let args' = createFunModArgs args mTEnv
@@ -102,20 +104,6 @@ splitTypeEnvs tEnv = Map.foldrWithKey splitType (Map.empty, Map.empty) tEnv
     splitType (E.LocalVar lv) t (tMap, mTEnv) = (Map.insert lv t tMap, mTEnv)
     splitType mv@(E.ModVar _ _) t (tMap, mTEnv) = (tMap, Map.insert mv t mTEnv)
 
-
--- | Update the module data with the public module signature and internal typemap
--- we create the mod signature by mapping over the idbimap data and looking up each value from the internal typemap
-updateModData :: M.ModData -> M.TypeMap -> M.ModData
-updateModData modData tMap = modData { M.modTMap = tMap, M.modSigMap = sigMap }
-  where
-    -- build the signature map, taking exported bindings into account
-    sigMap = if Set.size (M.modExportSet modData) == 0
-        then Map.map (\id -> tMap Map.! id) $ Bimap.toMap (M.modIdBimap modData) -- export everything
-        else Set.foldr updateSig Map.empty (M.modExportSet modData) -- fold over the export set and build the sigMap
-
-    updateSig b sigMap' = Map.insert b t sigMap'
-      where
-        t = tMap Map.! ((M.modIdBimap modData) Bimap.! b)
 
 -- | use the TVar map to undate a type enviroment (including both local and mod-refs) and substitute all TVars
 -- Bool argument determinst wheter the checking should allow polymophism and not fully-unify

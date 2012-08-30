@@ -121,14 +121,14 @@ appendModule argName argMod@(LitMod argExprMap argModData) baseMod@(LitMod baseE
 
         -- change all refernces from ModVar to LocalVar using the new ids, use the arg Id Bimap to calc
         -- TODO - use a traversable?
-        argIdBimap = modIdBimap argModData
+        argIdMap = modIdMap argModData
 
         updateVars :: AC.Expr Id -> AC.Expr Id
         updateVars (AC.Var (AC.ModVar modId id) mRecId)
-            | modId == argName = AC.Var (AC.LocalVar (argIdBimap Bimap.! id)) mRecId
+            | modId == argName = AC.Var (AC.LocalVar (argIdMap Map.! id)) mRecId
 
         updateVars (AC.App vId@(AC.ModVar modId id) expr)
-            | modId == argName = AC.App (AC.LocalVar (argIdBimap Bimap.! id)) (updateVars expr)
+            | modId == argName = AC.App (AC.LocalVar (argIdMap Map.! id)) (updateVars expr)
         updateVars (AC.App vId expr) = AC.App vId (updateVars expr)
 
         updateVars (AC.Abs v expr) = AC.Abs v (updateVars expr)
@@ -141,9 +141,9 @@ appendModule argName argMod@(LitMod argExprMap argModData) baseMod@(LitMod baseE
 
 -- update mod data - sigMap doesn't change
 appendModuleData :: ModData -> ModData -> ModData
-appendModuleData argModData baseModData = baseModData { modTMap = typeMap', modIdBimap = idBimap', modFreeId = freeId' }
+appendModuleData argModData baseModData = baseModData { modTMap = typeMap', modIdMap = idMap', modFreeId = freeId' }
   where
     deltaId = fromJust $ (modFreeId argModData)
-    typeMap' = Map.union (modTMap argModData) (Map.mapKeys (+ deltaId) (modTMap baseModData)) -- update the base ids and merge
-    idBimap' = Bimap.fromList . map (\(srcId, id) -> (srcId, id + deltaId)) . Bimap.toList . modIdBimap $ baseModData   -- update the base ids only
     freeId' = liftM2 (+) (modFreeId argModData) (modFreeId baseModData) -- sum of both numbers
+    typeMap' = Map.union (modTMap argModData) (Map.mapKeys (+ deltaId) (modTMap baseModData)) -- update the base ids and merge
+    idMap' = Map.map (+ deltaId) $ modIdMap baseModData   -- update the base ids only
