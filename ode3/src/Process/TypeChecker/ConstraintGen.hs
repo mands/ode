@@ -319,7 +319,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
         -- return the new "casted" type
         return $ E.TFloat u
 
-    -- TODO - need to look up within type env
+    -- TODO - doesn't work for types exported in functors!!
     consExpr (E.TypeCast e (E.WrapType tName)) = do
         -- get type of e and wrap it with the typeName
         eT <- consExpr e
@@ -330,7 +330,7 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
                 -- add constraint
                 addConsType $ ConEqual eT tT
                 -- return wrapped type
-                return $ E.TWrap modName (M.getVarSrcName tName modData)
+                liftMExcept $ E.TWrap modName <$> (M.getVarId tName modName gModEnv) -- (M.getVarSrcName tName modData)
             _ -> liftMExcept . throwError $ printf "(TC) Var %s is not a type constructor" (show tName)
 
     consExpr (E.TypeCast e (E.UnwrapType tName)) = do
@@ -343,7 +343,9 @@ constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT
             (E.TTypeCons modName tT) -> do
                 -- add constraint on wrapped types
                 -- addConsType $ ConEqual fTw eTw
-                addConsType $ ConEqual (E.TWrap modName (M.getVarSrcName tName modData)) eTw
+                --addConsType $ ConEqual (E.TWrap modName (M.getVarSrcName tName modData)) eTw
+                tW <- liftMExcept $ E.TWrap modName <$> M.getVarId tName modName gModEnv
+                addConsType $ ConEqual tW eTw
                 -- return unwrapped type
                 return tT
             _ -> liftMExcept . throwError $ printf "(TC) Var %s is not a type constructor" (show tName)

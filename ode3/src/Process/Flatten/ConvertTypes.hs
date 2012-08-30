@@ -123,12 +123,13 @@ dropTCons tMap exprMap modData = (tMap', exprMap')
     tMap' = Map.map (AC.mapType updateType) tMap |> Map.filter (\t -> case t of (AC.TTypeCons _ _) -> False; _ -> True)
 
     -- drop type info
-    updateType (AC.TFloat u) = AC.TFloat U.NoUnit
-    -- have to use IdBimap to resovle tName into its actual TTypeCons
-    updateType (AC.TWrap modName tName) = t
-      where
-        (AC.TTypeCons _ t) = tMap Map.! ((modIdBimap modData) Bimap.! tName)
-    updateType t = t
+    updateType = undefined
+--    updateType (AC.TFloat u) = AC.TFloat U.NoUnit
+--    -- have to use IdBimap to resovle tName into its actual TTypeCons
+--    updateType (AC.TWrap modName tName) = t
+--      where
+--        (AC.TTypeCons _ t) = tMap Map.! ((modIdBimap modData) Bimap.! tName)
+--    updateType t = t
 
 -- Type Helper Funcs -----------------------------------------------------------------------------------------------------
 -- TODO - should this be moved??

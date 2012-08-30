@@ -20,7 +20,7 @@ ExprMap, ExprList, FunArgs,
 Module(..), getModExprs, putModExprs, modifyModExprs,
 GlobalModEnv, LocalModEnv, FileData(..), mkFileData, replModRoot,
 getModuleMod, getModuleFile, getModuleGlobal,
-getFileData, lookupModSig, getVarSrcName,
+getFileData, lookupModSig, getVarSrcName, getVarId,
 ModData(..), mkModData, getModData, putModData, modifyModData, recreateTypeInfo,
 SigMap, TypeMap, IdBimap,
 
@@ -156,6 +156,18 @@ lookupModSig v mod = maybeToExcept lookupM $ printf "(MD) Binding %s not found i
 getVarSrcName :: E.VarId E.Id -> ModData -> SrcId
 getVarSrcName lv@(E.LocalVar v) modData = (modIdBimap modData) Bimap.!> v
 getVarSrcName mv@(E.ModVar _ v) _ = v
+
+
+getVarId :: E.VarId E.Id -> ModFullName -> GlobalModEnv -> MExcept Id
+getVarId lv@(E.LocalVar v) _ _ = return v
+
+-- need lookup id of v within modname
+getVarId (E.ModVar m v) modName gModEnv = do
+    mod <- getModuleGlobal modName gModEnv
+    modData <- maybeToExcept (getModData mod) $ printf "Module %s does not have module data" (show modName)
+    id <- Bimap.lookup v (modIdBimap modData)
+    return $ id
+
 
 -- | Updates the aux type strucutes within moddata
 -- (TODO - this is brittle - needs to be fixed by altering the ADTs)

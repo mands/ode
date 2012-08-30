@@ -63,7 +63,7 @@ data Type :: * where
     -- We use ModFullName as a common ID between TTypeCons and TWrap in order to check they types are valid
     -- NOTE - don't need to add SrcId as ID too, as duplicate bindings not allowed within module
     TTypeCons :: ModFullName -> Type -> Type
-    TWrap :: ModFullName -> SrcId -> Type
+    TWrap :: ModFullName -> Id -> Type -- we store the localid of the value within the mod instead
     TTuple :: [Type] -> Type
     TRecord :: (Map.Map RecId Type) -> Type
     deriving (Show, Eq, Ord)
