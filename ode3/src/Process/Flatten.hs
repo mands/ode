@@ -50,6 +50,7 @@ import qualified Subsystem.Units as U
 
 import Process.Flatten.ConvertAST
 import Process.Flatten.ConvertTypes
+import Process.Flatten.InlineComps
 
 
 flatten :: String -> SysExcept ()
@@ -59,27 +60,36 @@ flatten initMod = do
     mod@(RefMod modFullName True sigMap lModEnv) <- lift $  maybeToExcept (Map.lookup (ModName initMod) (fileModEnv replFD))
                                                             (printf "Cannot find module %s loaded to simulate" (show initMod))
 
-    -- inline mods
-
-    -- inline components
-
-    -- convert units and types
-    -- TODO - tmp/dummy module here to fool later stages
     gModEnv <- getSysState vModEnv
     tmpMod <- lift $ getModuleGlobal modFullName gModEnv
     trace' [MkSB tmpMod] "CoreFlat AST input" $ return ()
 
-    unitsState <- getSysState lUnitsState
-    mod' <- lift $ convertTypes tmpMod unitsState
+    -- inline mods
 
-    trace' [MkSB mod'] "Convert units output" $ return ()
+
+    -- flatten all nested lets
+--    mod1 <- lift $ flattenExprs tmpMod
+    --trace' [MkSB mod1] "Flatten exprs output" $ return ()
+
+    -- inline components
+    mod2 <- lift $ inlineComps tmpMod
+    trace' [MkSB mod2] "Inline Comps output" $ return ()
+
+    -- TODO - expand tuples and recs
+
+    -- convert units and types
+    -- TODO - tmp/dummy module here to fool later stages
+    unitsState <- getSysState lUnitsState
+    mod3 <- lift $ convertTypes mod2 unitsState
+    trace' [MkSB mod3] "Convert units output" $ return ()
+
     -- convert to CoreFlat
-    coreFlatMod <- lift $ convertAST mod'
+    coreFlatMod <- lift $ convertAST mod3
     trace' [MkSB coreFlatMod] "CoreFlat AST output" $ return ()
 
 
-
     return ()
+
 
 
 

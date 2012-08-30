@@ -25,7 +25,8 @@ executable ode3
     main-is: Main.hs
     buildable: True
     hs-source-dirs: src
-    other-modules: Process.Flatten.ConvertTypes
+    other-modules: Process.Flatten.FlattenMod
+                   Process.Flatten.InlineComps Process.Flatten.ConvertTypes
                    Process.Flatten.ConvertAST Subsystem.ModDriver.ModCmd
                    Subsystem.ModDriver.ModDef Subsystem.ModDriver Parser.Ode
                    Parser.Common Parser.Module Parser.Ion Utils.CommonImports

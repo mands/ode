@@ -25,7 +25,8 @@ module AST.Core (
 VarId(..), BindList,
 Type(..), mapTypeM, mapType, addLabels, dropLabels,
 TopLet(..), Expr(..), Op(..), Literal(..), TypeCast(..),
-mapExprM, mapExpr,
+mapExprM,
+mapExpr,
 
 SrcId, DesId, Id, RecId, -- rexported from Common.AST
 ) where
@@ -166,29 +167,60 @@ data TypeCast b = UnitCast U.Unit -- a safe cast to the unit for the expr
 data Literal =  Num Double U.Unit | NumSeq [Double] U.Unit | Boolean Bool | Time | Unit
                 deriving (Show, Eq, Ord)
 
-
+-- Expression Traversal Helper Funcs -----------------------------------------------------------------------------------
 -- mapExpr applies a function f over all sub-expressions within the expression
 -- is it a functor?
+-- call this only after our own traversals to traverse non-handled cases within f
 mapExpr :: (Show a) => (Expr a -> Expr a) -> Expr a -> Expr a
-mapExpr f (App v e1) = f (App v (mapExpr f e1))
-mapExpr f (Abs b e1) = f (Abs b (mapExpr f e1))
-mapExpr f (Let s b e1 e2) = f (Let s b (mapExpr f e1) (mapExpr f e2))
-mapExpr f (Op op e) = f (Op op (mapExpr f e))
-mapExpr f (If eB eT eF) = f (If (mapExpr f eB) (mapExpr f eT) (mapExpr f eF))
-mapExpr f (Tuple es) = f $ Tuple (map (mapExpr f) es)
-mapExpr f (Record es) = f $ Record (Map.map (mapExpr f) es)
-mapExpr f (Ode v e1) = f (Ode v (mapExpr f e1))
-mapExpr f (TypeCast e1 t) = f (TypeCast (mapExpr f e1) t)
-mapExpr f e = trace' [MkSB e] "Applying mapExprM to base e" $ f e
+mapExpr f (App v e1) = App v (f e1)
+mapExpr f (Abs b e1) = Abs b (f e1)
+mapExpr f (Let s b e1 e2) = Let s b (f e1) (f e2)
+mapExpr f (Op op e1) = Op op (f e1)
+mapExpr f (If eB eT eF) = If (f eB) (f eT) (f eF)
+mapExpr f (Tuple es) = Tuple (map f es)
+mapExpr f (Record es) = Record (Map.map f es)
+mapExpr f (Ode v e1) = Ode v (f e1)
+mapExpr f (TypeCast e1 t) = TypeCast (f e1) t
+mapExpr f e1 = trace' [MkSB e1] "Applying mapExpr to non-composite e" $ f e1
 
 mapExprM :: (Show a, Applicative m, Monad m) => (Expr a -> m (Expr a)) -> Expr a -> m (Expr a)
-mapExprM f (App v e1) = f =<< App v <$> mapExprM f e1
-mapExprM f (Abs b e1) = f =<< Abs b <$> mapExprM f e1
-mapExprM f (Let s b e1 e2) = f =<< Let s b <$> mapExprM f e1 <*> mapExprM f e2
-mapExprM f (Op op e) = f =<< Op op <$> mapExprM f e
-mapExprM f (If eB eT eF) = f =<< If <$> mapExprM f eB <*> mapExprM f eT <*> mapExprM f eF
-mapExprM f (Tuple es) = f =<< Tuple <$> mapM (mapExprM f) es
-mapExprM f (Record es) = f =<< Record <$> DT.mapM (mapExprM f) es
-mapExprM f (Ode v e1) = f =<< Ode v <$> mapExprM f e1
-mapExprM f (TypeCast e1 t) = f =<< TypeCast <$> mapExprM f e1 <*> pure t
-mapExprM f e = trace' [MkSB e] "Applying mapExprM to base e" $ f e
+mapExprM f (App v e1) = App v <$> f e1
+mapExprM f (App v e1) = App v <$> f e1
+mapExprM f (Abs b e1) = Abs b <$> f e1
+mapExprM f (Let s b e1 e2) = Let s b <$> f e1 <*> f e2
+mapExprM f (Op op e1) = Op op <$> f e1
+mapExprM f (If eB eT eF) = If <$> f eB <*> f eT <*> f eF
+mapExprM f (Tuple es) = Tuple <$> mapM f es
+mapExprM f (Record es) = Record <$> DT.mapM f es
+mapExprM f (Ode v e1) = Ode v <$> f e1
+mapExprM f (TypeCast e1 t) = TypeCast <$> f e1 <*> pure t
+mapExprM f e1 = trace' [MkSB e1] "Applying mapExprM to base e1" $ f e1
+
+-- be carful using these functions, as they handle the continousing fold themeselves
+-- we only use these if we need to capture any agg data within the compoosite datatypes
+foldExpr :: (Show a, Show b) => (b -> Expr a -> b) -> b -> Expr a -> b
+foldExpr f st (App v e1) = f st e1
+foldExpr f st (Abs b e1) = f st e1
+foldExpr f st (Let s b e1 e2) = f st e1 |> (\st -> f st e2)
+foldExpr f st (Op op e1) = f st e1
+foldExpr f st (If eB eT eF) = f st eB |> (\st -> f st eT) |> (\st -> f st eF)
+foldExpr f st (Tuple es) = foldl f st es
+foldExpr f st (Record es) = Map.foldl f st es
+foldExpr f st (Ode v e1) = f st e1
+foldExpr f st (TypeCast e1 t) = f st e1
+foldExpr f st e = trace' [MkSB e, MkSB st] "Applying foldExpr to base e" f st e
+
+foldExprM :: (Show a, Show b, Applicative m, Monad m) => (b -> Expr a -> m b) -> b -> Expr a -> m b
+foldExprM f st (App v e1) = f st e1
+foldExprM f st (Abs b e1) = f st e1
+foldExprM f st (Let s b e1 e2) = f st e1 >>= (\st -> f st e2)
+foldExprM f st (Op op e1) = f st e1
+foldExprM f st (If eB eT eF) = f st eB >>= (\st -> f st eT) >>= (\st -> f st eF)
+foldExprM f st (Tuple es) = DF.foldlM f st es
+foldExprM f st (Record es) = DF.foldlM f st es
+foldExprM f st (Ode v e1) = f st e1
+foldExprM f st (TypeCast e1 t) = f st e1
+foldExprM f st e = trace' [MkSB e, MkSB st] "Applying foldExpr to base e" f st e
+
+
+

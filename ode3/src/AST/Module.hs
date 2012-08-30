@@ -98,7 +98,9 @@ type TypeMap = Map.Map Id E.Type -- maybe switch to IntMap?
 -- | Metadata regarding a module
 data ModData = ModData  { modSigMap :: SigMap, modTMap :: TypeMap, modIdBimap :: IdBimap, modFreeId :: Maybe Id
                         , modFullName :: ModFullName, modModEnv :: LocalModEnv
-                        , modImportCmds :: [ModImport], modExportSet :: Set.Set SrcId, modExprList :: ExprList
+                        , modImportCmds :: [ModImport]
+                        , modExportSet :: Set.Set SrcId
+                        , modExprList :: ExprList
                         , modQuantities :: U.Quantities, modUnits :: [U.UnitDef], modConvs :: [U.ConvDef]
                         } deriving (Show, Eq, Ord)
 

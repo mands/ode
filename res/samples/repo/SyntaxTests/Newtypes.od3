@@ -113,18 +113,18 @@ module NewType3 {
 
 module NewType4a {
     type AType
-    val _ = wrap { type : AType, val : 1 } // just to constrain it
+    val _ = 1 { wrap : AType } // just to constrain it
 }
 
 module NewType4b {
     import SyntaxTests.Newtypes.NewType4a as Z
-    val aWrap = wrap { type : Z.AType, val : 1 }
+    val aWrap = 1 { wrap : Z.AType }
 }
 
 module NewType4c {
     import SyntaxTests.Newtypes.NewType4a as X
     import SyntaxTests.Newtypes.NewType4b as Y
 
-    val aUnwrap = unwrap { type : X.AType, val : Y.aWrap }
+    val aUnwrap = Y.aWrap { unwrap : X.AType }
 }
 

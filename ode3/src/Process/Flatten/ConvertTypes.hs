@@ -76,7 +76,7 @@ updateModData modData freeId tMap = modData' { modFreeId = Just freeId }
 
 
 convertTypesTop :: AC.TopLet Id -> UnitConvM (AC.TopLet Id)
-convertTypesTop (AC.TopLet isInit bs tE) = AC.TopLet isInit bs <$> AC.mapExprM convertTypesExpr tE
+convertTypesTop (AC.TopLet isInit bs tE) = AC.TopLet isInit bs <$> convertTypesExpr tE
 convertTypesTop tLet = return tLet
 
 convertTypesExpr :: AC.Expr Id -> UnitConvM (AC.Expr Id)
@@ -93,7 +93,8 @@ convertTypesExpr (AC.TypeCast e (AC.UnitCast toU)) = do
     -- TODO - what about the SVal type??
     AC.Let False [id] e <$> (convertUnitCast id fromU toU)
 
-convertTypesExpr e = return e
+-- don't care about the rest, pass on to mapExprM
+convertTypesExpr e = AC.mapExprM convertTypesExpr e
 
 convertUnitCast :: Id -> U.Unit -> U.Unit -> UnitConvM (AC.Expr Id)
 convertUnitCast id u1 u2 = do
