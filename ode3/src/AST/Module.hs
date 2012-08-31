@@ -128,17 +128,17 @@ putModData (FunctorMod args _) modData' = FunctorMod args modData'
 -- putModData (RefMod isClosed modFullName _) modData' = RefMod isClosed modFullName modData'
 putModData mod _ = mod
 
-modifyModData :: Module a -> (ModData a -> ModData a) -> Module a
-modifyModData m f = maybe m (\md -> putModData m (f md)) $ getModData m
+modifyModData :: (ModData a -> ModData a) -> Module a -> Module a
+modifyModData f m = maybe m (\md -> putModData m (f md)) $ getModData m
 
 getModExprs :: Module a -> Maybe (ExprMap a)
 getModExprs mod = modExprMap <$> getModData mod
 
 putModExprs :: Module a -> ExprMap a -> Module a
-putModExprs mod exprMap = modifyModData mod (\modData -> modData { modExprMap = exprMap })
+putModExprs mod exprMap = modifyModData (\modData -> modData { modExprMap = exprMap }) mod
 
-modifyModExprs :: Module a -> (ExprMap a -> ExprMap a) -> Module a
-modifyModExprs m f = maybe m (\md -> putModExprs m (f md)) $ getModExprs m
+modifyModExprs :: (ExprMap a -> ExprMap a) -> Module a -> Module a
+modifyModExprs f m = maybe m (\md -> putModExprs m (f md)) $ getModExprs m
 
 -- Module-Level ModData Functions --------------------------------------------------------------------------------------
 
@@ -147,8 +147,8 @@ lookupModSig :: SrcId -> Module Id -> MExcept E.Type
 lookupModSig v mod = do
     sigMap <- case mod of
         (RefMod _ True sigMap _)    -> return sigMap
-        (LitMod modData)          -> return (calcSigMap modData)
-        _                           -> throwError "(MD) Module does not contain modData"
+        (LitMod modData)            -> return (calcSigMap modData)
+        _                           -> throwError "(MD) Module does not have a type signature"
     maybeToExcept (Map.lookup v sigMap) $ printf "(MD) Binding %s not found in module" (show v)
 
 calcSigMap :: ModData a -> SigMap

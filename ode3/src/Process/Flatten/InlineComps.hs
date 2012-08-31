@@ -44,18 +44,13 @@ import qualified Subsystem.Units as U
 
 import Subsystem.SysState
 
--- Unit Conversion -----------------------------------------------------------------------------------------------------
+-- State Monads -----------------------------------------------------------------------------------------------------
 
 type InlineCompsM = SupplyT Id (StateT InlineState MExcept)
 
 -- holds the current map of (let-bound) abs-expressions within scope
 data InlineState = InlineState { absMap :: Map.Map Id (AC.Expr Id), rebindsMap :: Map.Map Id Id, tMap :: TypeMap }
 mkInlineState = InlineState Map.empty Map.empty
-
-
-instance Applicative InlineCompsM where
-    pure = return
-    (<*>) = ap
 
 inlineComps :: Module Id -> MExcept (Module Id)
 inlineComps (LitMod modData) = do

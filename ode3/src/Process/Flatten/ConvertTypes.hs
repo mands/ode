@@ -48,10 +48,6 @@ import Subsystem.SysState
 
 type UnitConvM = SupplyT Id (StateT UnitConvState MExcept)
 
-instance Applicative UnitConvM where
-    pure = return
-    (<*>) = ap
-
 -- data UnitConvState = UnitConvState { uState :: UnitsState, typeMap :: TypeMap } deriving (Show, Eq, Ord)
 type UnitConvState = (UnitsState, TypeMap)
 

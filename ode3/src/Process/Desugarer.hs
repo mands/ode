@@ -56,10 +56,6 @@ evalSupplyVars x = evalSupplyT x $ map (\x -> tmpPrefix ++ x) vars
     vars = [replicate k ['A'..'Z'] | k <- [1..]] >>= sequence
     tmpPrefix = "_des"
 
-instance Applicative TmpSupply where
-    pure = return
-    (<*>) = ap
-
 data DesugarModData = DesugarModData    { mdE :: M.ExprList, mdQ :: U.Quantities, mdU :: [U.UnitDef]
                                         , mdI :: [ModImport], mdC :: [U.ConvDef]}
 

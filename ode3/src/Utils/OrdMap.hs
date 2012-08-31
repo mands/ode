@@ -16,7 +16,7 @@
 {-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, OverlappingInstances, FlexibleInstances, FunctionalDependencies  #-}
 
 module Utils.OrdMap (
-OrdMap, (!), lookup, size, member, empty, singleton, insert, delete, update, elems, keys, map, foldl, union,
+OrdMap, (!), lookup, size, member, empty, singleton, insert, delete, update, append, elems, keys, map, foldl, union,
 toList, fromList, mapAccum, toMap, filter
 
 ) where
@@ -84,6 +84,10 @@ update f b m = if member b m then update' (f (m!b)) else m
   where
     update' (Just v) = insert b v m
     update' Nothing = delete b m
+
+append :: OrdMap k v -> OrdMap k v -> OrdMap k v
+append (OrdMapC m1) (OrdMapC m2) = OrdMapC $ m1 ++ m2
+
 
 elems :: OrdMap k v -> [v]
 elems (OrdMapC m) = List.map snd m

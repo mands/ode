@@ -29,10 +29,8 @@ import Control.Category
 import qualified Data.Label as L
 import Prelude hiding ((.), id)
 
-
 import qualified Data.Traversable as DT
 import qualified Data.Map as Map
-import qualified Data.Bimap as Bimap
 
 import Control.Monad.State
 import Utils.MonadSupply
@@ -48,9 +46,10 @@ import qualified AST.Core as AC
 import qualified AST.CoreFlat as ACF
 import qualified Subsystem.Units as U
 
+import Process.Flatten.InlineMods
+import Process.Flatten.InlineComps
 import Process.Flatten.ConvertAST
 import Process.Flatten.ConvertTypes
-import Process.Flatten.InlineComps
 
 
 flatten :: String -> SysExcept ()
@@ -65,6 +64,8 @@ flatten initMod = do
     trace' [MkSB tmpMod] "CoreFlat AST input" $ return ()
 
     -- inline mods
+    mod1 <- lift $ inlineMod tmpMod gModEnv
+    trace' [MkSB mod1] "Inline Mods output" $ return ()
 
 
     -- flatten all nested lets
@@ -72,8 +73,8 @@ flatten initMod = do
     --trace' [MkSB mod1] "Flatten exprs output" $ return ()
 
     -- inline components
-    mod2 <- lift $ inlineComps tmpMod
-    trace' [MkSB mod2] "Inline Comps output" $ return ()
+    --mod2 <- lift $ inlineComps tmpMod
+    -- trace' [MkSB mod2] "Inline Comps output" $ return ()
 
     -- TODO - expand tuples and recs
 
@@ -91,59 +92,5 @@ flatten initMod = do
     return ()
 
 
-
-
 -- Functor Application Helper Funcs ------------------------------------------------------------------------------------
 -- TODO - utilise this code later when we unfold all modules into a single block of code
-
--- actually evaluate the functor applciation, similar to evaluation of function application
-applyFunctor :: Module Id -> LocalModEnv -> Module Id
-applyFunctor fMod@(FunctorMod fArgs fModData) modEnv = resMod
-  where
-    -- best way to do this, create an empty lit mod, and add to it all the data by folding over the modEnv
-    baseMod = LitMod fModData
-    resMod = Map.foldrWithKey appendModule baseMod modEnv
-
--- adds one module into another, basically mappend
-appendModule :: ModName -> Module Id -> Module Id -> Module Id
-appendModule argName argMod@(LitMod argModData) baseMod@(LitMod baseModData) = baseMod'
-  where
-    baseMod' = LitMod modData'
-    deltaId = modFreeId argModData
-    modData' = appendModuleData argModData baseModData
-
-    -- update the expressions ids
-    exprMap' = OrdMap.union (modExprMap argModData) (OrdMap.map updateExprs (modExprMap baseModData))
-    updateExprs (topB, topExpr) = (fmap (+ deltaId) topB, topExpr'')
-      where
-        topExpr'@(AC.TopLet s t b expr) = fmap (+ deltaId) topExpr
-        topExpr'' = AC.TopLet s t b (updateVars expr)
-
-        -- change all refernces from ModVar to LocalVar using the new ids, use the arg Id Bimap to calc
-        -- TODO - use a traversable?
-        argIdMap = modIdMap argModData
-
-        updateVars :: AC.Expr Id -> AC.Expr Id
-        updateVars (AC.Var (AC.ModVar modId id) mRecId)
-            | modId == argName = AC.Var (AC.LocalVar (argIdMap Map.! id)) mRecId
-
-        updateVars (AC.App vId@(AC.ModVar modId id) expr)
-            | modId == argName = AC.App (AC.LocalVar (argIdMap Map.! id)) (updateVars expr)
-        updateVars (AC.App vId expr) = AC.App vId (updateVars expr)
-
-        updateVars (AC.Abs v expr) = AC.Abs v (updateVars expr)
-        updateVars (AC.Let s t b e1 e2) = AC.Let s t b (updateVars e1) (updateVars e2)
-        updateVars (AC.Op op e) = AC.Op op (updateVars e)
-        updateVars (AC.If eIf eT eF) = AC.If (updateVars eIf) (updateVars eT) (updateVars eF)
-        updateVars (AC.Tuple es) = AC.Tuple $ map updateVars es
-        updateVars expr = expr
-
-
--- update mod data - sigMap doesn't change
-appendModuleData :: ModData a -> ModData a -> ModData a
-appendModuleData argModData baseModData = baseModData { modTMap = typeMap', modIdMap = idMap', modFreeId = freeId' }
-  where
-    deltaId = modFreeId argModData
-    freeId' = (modFreeId argModData) + (modFreeId baseModData) -- sum of both numbers
-    typeMap' = Map.union (modTMap argModData) (Map.mapKeys (+ deltaId) (modTMap baseModData)) -- update the base ids and merge
-    idMap' = Map.map (+ deltaId) $ modIdMap baseModData   -- update the base ids only

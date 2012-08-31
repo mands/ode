@@ -24,16 +24,17 @@ module Utils.MonadSupply
      runSupplyT,
      runSupply)
     where
+import Control.Applicative
 import Control.Monad
 import Control.Monad.State
 import Control.Monad.Identity
 import Control.Monad.Error
 
 newtype SupplyT s m a = SupplyT (StateT [s] m a)
-    deriving (Functor, Monad, MonadTrans, MonadIO)
+    deriving (Functor, Applicative, Monad, MonadTrans, MonadIO)
 
 newtype Supply s a = Supply (SupplyT s Identity a)
-    deriving (Functor, Monad, MonadSupply s)
+    deriving (Functor, Applicative, Monad, MonadSupply s)
 
 class Monad m => MonadSupply s m | m -> s where
     supply :: m s

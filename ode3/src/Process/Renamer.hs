@@ -56,10 +56,6 @@ type IdSupply = SupplyT E.Id (StateT BindMap MExcept)
 
 -- data RenData a = RenData (E.Expr a) BindMap UnitMap
 
-instance Applicative IdSupply where
-    pure = return
-    (<*>) = ap
-
 -- | Main rename function, takes a model bound by Ids and returns a single-scoped model bound by unique ints
 rename :: M.Module E.DesId -> MExcept (M.Module E.Id)
 rename (M.LitMod modData) = do

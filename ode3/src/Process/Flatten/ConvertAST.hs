@@ -40,10 +40,6 @@ import Process.Flatten.ConvertTypes(calcTypeExpr)
 type ConvM = SupplyT Id (StateT FlatState MExcept)
 -- type ConvM = Supply Id
 
-instance Applicative ConvM where
-    pure = return
-    (<*>) = ap
-
 data FlatState = FlatState  { curExprs :: ACF.ExprMap, loopExprs :: ACF.ExprMap,  initExprs :: ACF.ExprMap
                             , inInit :: Bool, curTMap :: TypeMap } deriving (Show, Eq, Ord)
 mkFlatState = FlatState OrdMap.empty OrdMap.empty OrdMap.empty False

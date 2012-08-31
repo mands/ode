@@ -15,7 +15,7 @@
 {-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures, FlexibleContexts #-}
 
 module Utils.Utils (
-MExcept, MExceptIO, mkExceptIO, maybeToExcept, maybeToExceptIO,
+MExcept, MExceptIO, mkExceptIO, maybeToExcept, maybeToExcept', maybeToExceptIO,
 mapFst, mapSnd, pairM, notEqual,
 (|>),
 SB(..), trace', errorDump,
@@ -29,11 +29,13 @@ import Control.Monad.Error
 import qualified Data.List as List
 import Debug.Trace
 import qualified System.IO as SIO
-import Data.Bimap
+import qualified Data.Bimap as Bimap
 import Data.Char (toUpper)
 import Data.List (nub)
 import GHC.Base(assert)
 import Text.Show.Pretty(ppShow)
+import Data.Maybe (fromJust)
+
 
 -- Misc Functions ------------------------------------------------------------------------------------------------------
 -- basic piping/chaining of functions
@@ -78,6 +80,9 @@ maybeToExcept m str = case m of
                         Nothing -> throwError str
                         Just x -> return x
 
+-- partial version
+maybeToExcept' :: Maybe a -> MExcept a
+maybeToExcept' = return . fromJust
 
 mExceptToError :: (MonadError String m) => MExcept a -> m a
 mExceptToError (Left err) = throwError err
@@ -107,8 +112,8 @@ trace' vars msg res = trace outStr res
 errorDump vars msg f = (trace' vars ("Internal Compiler Error\n" ++ msg) (f False)) undefined
 
 -- Bimap Ord Instance
-instance (Ord a, Ord b) => Ord (Bimap a b) where
-    compare bx by = compare (toAscList bx) (toAscList by)
+instance (Ord a, Ord b) => Ord (Bimap.Bimap a b) where
+    compare bx by = compare (Bimap.toAscList bx) (Bimap.toAscList by)
 
 
 -- File Piping --------------------------------------------------------------------------------------------------------
