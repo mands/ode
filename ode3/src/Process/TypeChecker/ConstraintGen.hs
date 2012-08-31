@@ -80,7 +80,7 @@ getUnit _ = Nothing
 getUnitFromEnv :: E.VarId E.Id -> TypeEnv -> Maybe U.Unit
 getUnitFromEnv v tEnv = Map.lookup v tEnv >>= getUnit
 
-getVarType :: E.VarId E.Id -> M.GlobalModEnv ->  M.ModData -> Maybe (M.FunArgs) -> TypeConsM E.Type
+getVarType :: E.VarId E.Id -> M.GlobalModEnv ->  M.ModData E.Id -> Maybe (M.FunArgs) -> TypeConsM E.Type
 getVarType lv@(E.LocalVar _) _ _ _ = getLVarType lv
 getVarType mv@(E.ModVar _ _) gModEnv modData mFuncArgs = getMVarType mv gModEnv modData mFuncArgs
 
@@ -97,7 +97,7 @@ getLVarType v = errorDump [MkSB v] "LocalVar expected" assert
 -- if so then check if the type is already created, if not create a newTypeVar that we can constrain later
 -- For in-module import, cheks the moduile has been imported, and then returns the final/fixed type of the reference
 -- TODO - tidy up
-getMVarType :: E.VarId E.Id -> M.GlobalModEnv ->  M.ModData -> Maybe (M.FunArgs) -> TypeConsM E.Type
+getMVarType :: E.VarId E.Id -> M.GlobalModEnv ->  M.ModData E.Id -> Maybe (M.FunArgs) -> TypeConsM E.Type
 getMVarType mv@(E.ModVar m v) gModEnv modData mFuncArgs =
     case mFuncArgs of
         Nothing         -> eLocalModEnv -- is ref to a localEnv module (thru imports/appMod)
@@ -157,7 +157,7 @@ tupleUnpackCons bs t tEnv = do
     DF.foldlM (\tEnv (b, bT) -> return $ Map.insert b bT tEnv) tEnv $ zip (map E.LocalVar bs) bTs
 
 -- | Update the tEnvs for records using the information collected within the RecordRefMap
-recordRefsCons :: M.GlobalModEnv ->  M.ModData -> Maybe (M.FunArgs) -> TypeConsM ()
+recordRefsCons :: M.GlobalModEnv ->  M.ModData E.Id -> Maybe (M.FunArgs) -> TypeConsM ()
 recordRefsCons gModEnv modData mFuncArgs = do
     -- get the data
     recEnv <- recordTypeEnv <$> get
@@ -172,11 +172,11 @@ recordRefsCons gModEnv modData mFuncArgs = do
 
 -- Constraint Generation -----------------------------------------------------------------------------------------------
 
-constrain :: M.GlobalModEnv ->  M.ModData -> Maybe (M.FunArgs) -> M.ExprMap Integer -> MExcept (TypeEnvs, TypeCons)
-constrain gModEnv modData mFuncArgs exprMap = runStateT (evalSupplyT (execStateT consM mkTypeEnvs) [1..]) mkTypeCons
+constrain :: M.GlobalModEnv ->  M.ModData E.Id -> Maybe (M.FunArgs)  -> MExcept (TypeEnvs, TypeCons)
+constrain gModEnv modData mFuncArgs = runStateT (evalSupplyT (execStateT consM mkTypeEnvs) [1..]) mkTypeCons
   where
     consM :: TypeConsM ()
-    consM = DF.mapM_ consTop (OrdMap.elems exprMap) >> recordRefsCons gModEnv modData mFuncArgs
+    consM = DF.mapM_ consTop (OrdMap.elems (M.modExprMap modData)) >> recordRefsCons gModEnv modData mFuncArgs
 
     consTop (E.TopLet s t bs e) = do
         eT <- consExpr e

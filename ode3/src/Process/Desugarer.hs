@@ -68,9 +68,9 @@ data DesugarModData = DesugarModData    { mdE :: M.ExprList, mdQ :: U.Quantities
 desugarOde :: [O.OdeStmt] -> MExcept DesugarModData
 desugarOde elems = do
     modData <- evalSupplyVars $ DF.foldlM desugarOde' (DesugarModData [] [] [] [] []) elems
-    return $ updateModData modData
+    return $ updateDSModData modData
   where
-    updateModData (DesugarModData e q u i c) = DesugarModData (reverse e) (reverse q) (reverse u) (reverse i) (reverse c)
+    updateDSModData (DesugarModData e q u i c) = DesugarModData (reverse e) (reverse q) (reverse u) (reverse i) (reverse c)
 
     -- wrapper around the fold, matches on the top-level stmt type
     desugarOde' :: DesugarModData -> O.OdeStmt -> TmpSupply DesugarModData

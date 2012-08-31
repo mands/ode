@@ -93,8 +93,8 @@ moduleDef modRoot = do
     mod <- modParse modName
     return $ TopModDef modRoot modName mod
   where
-    modParse modName =  FunctorMod <$> (funcArgs <$> paramList singModId) <*> pure OrdMap.empty <*> modData modName
-                <|> LitMod <$> pure OrdMap.empty <*> modData modName
+    modParse modName =  FunctorMod <$> (funcArgs <$> paramList singModId) <*> modData modName
+                <|> LitMod <$> modData modName
                 <?> "module definition"
 
     modData modName = do

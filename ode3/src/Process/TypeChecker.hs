@@ -50,45 +50,32 @@ import Process.TypeChecker.Unification
 
 -- Main Interface ------------------------------------------------------------------------------------------------------
 typeCheck :: M.GlobalModEnv -> M.FileData -> St.UnitsState -> M.Module E.Id -> MExcept (M.Module E.Id)
-typeCheck gModEnv fileData uState mod@(M.LitMod exprMap modData) = do
+typeCheck gModEnv fileData uState mod@(M.LitMod modData) = do
     -- get the contraints
-    ((TypeEnvs tEnv recRefEnv) , tCons) <- constrain gModEnv modData Nothing exprMap
-
+    ((TypeEnvs tEnv recRefEnv), tCons) <- constrain gModEnv modData Nothing
     -- unify the types and get the new typemap
     (tVEnv, uVEnv) <- unify uState tCons
     -- substitute to obtain the new type env
     tEnv' <- subTVars tEnv tVEnv uVEnv False
     -- split the typeEnvs
     let (tMap, _) = splitTypeEnvs tEnv'
-    -- Update the module data with the new typemap
-    let modData' = modData { M.modTMap = tMap }
-
-    let exprMap' = M.addTypesToExpr exprMap tMap
-
-    -- trace ("(TC) " ++ show exprMap) ()
     _ <- trace' [MkSB tEnv'] "Final TypeEnv" $ Right ()
+    -- Update the module data with the new typemap
+    return $ M.LitMod (M.updateModData1 modData tMap)
 
-    return $ M.LitMod exprMap' modData'
-
-typeCheck gModEnv fileData uState mod@(M.FunctorMod args exprMap modData) = do
+typeCheck gModEnv fileData uState mod@(M.FunctorMod args modData) = do
     -- get the contraints
-    ((TypeEnvs tEnv recRefEnv), tCons) <- constrain gModEnv modData (Just args) exprMap
-
+    ((TypeEnvs tEnv recRefEnv), tCons) <- constrain gModEnv modData (Just args)
     -- unify the types and get the new typemap`
     (tVEnv, uVEnv) <- unify uState tCons
     -- substitute to obtain the new type env
     tEnv' <- subTVars tEnv tVEnv uVEnv True
-
     let (tMap, mTEnv) = splitTypeEnvs tEnv'
-    -- Update the module data with the new typemap
-    let modData' = modData { M.modTMap = tMap }
-    let exprMap' = M.addTypesToExpr exprMap tMap
-
     -- functor specific type-checking
     -- mTEnv' <- subTVars mTEnv tVEnv uVEnv True
     let args' = createFunModArgs args mTEnv
-
-    return $ M.FunctorMod args' exprMap' modData'
+    -- Update the module data with the new typemap
+    return $ M.FunctorMod args' (M.updateModData1 modData tMap)
   where
     -- create the public module signatures for Functors
     createFunModArgs :: M.FunArgs -> TypeEnv -> M.FunArgs

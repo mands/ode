@@ -81,7 +81,7 @@ evalModDef fd mod = do
         maybe (return mod) (\modData -> putModData mod <$> processModImports' modData) $ getModData mod
      where
         -- evalImport wrapper for modData
-        processModImports' :: ModData -> St.SysExceptIO ModData
+        processModImports' :: ModData a -> St.SysExceptIO (ModData a)
         processModImports' modData = do
             -- update the local mod env with imports
             lEnv' <- DF.foldlM evalImport (modModEnv modData) (modImportCmds modData)
@@ -126,13 +126,13 @@ evalModDef' gModEnv fileData _ mod@(VarMod modName) = do
 -- where VarMod args are converted to explicit imports, and in-line apps to an internal modEnv (as not used elsewhere)
 evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
     -- lookup all the required modules and dynamically type-check args/sig them
-    (modFullName, (FunctorMod fArgs fExprMap fModData)) <- lookupFunctor
+    (modFullName, (FunctorMod fArgs fModData)) <- lookupFunctor
     lModEnv <- processFArgs fArgs
 
     -- now create a dummy lMod from the fMod that would be created from the application of args to the functor
     -- and type and unit check
-    let lMod = LitMod fExprMap (updateModData lModEnv fModData)
-    (LitMod _ modData') <- typeCheck gModEnv fileData unitsState lMod
+    let lMod = LitMod $ fModData { modModEnv = lModEnv }
+    (LitMod modData') <- typeCheck gModEnv fileData unitsState lMod
 
     -- finally construct a "Closed" RefMod to holds the results, using both the fMod modData and type-checked lMod sig
     let refMod = RefMod modFullName True (calcSigMap modData') lModEnv
@@ -145,7 +145,7 @@ evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
         (modFullName, mod) <- getModuleFile fModId fileData gModEnv
         -- can only apply to a Functor, can't apply to an RefMod->FunctorMod
         case mod of
-            (FunctorMod _ _ _)              -> return (modFullName, mod)
+            (FunctorMod _ _)              -> return (modFullName, mod)
             (RefMod modFullName1 False _ _) -> derefRefMod mod gModEnv >>= (\mod1 -> return (modFullName1, mod1))
             _                               -> throwError $ printf "(MD01) - Module %s is not a functor" (show fModId)
 
@@ -177,9 +177,6 @@ evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
                 then return $ Map.insert argName mod' modEnv
                 else throwError $ printf "(MD02) - Module of invalid type used as argument to functor %s" (show fModId)
 
-    updateModData :: LocalModEnv -> ModData -> ModData
-    updateModData modModEnv modData = modData { modModEnv = modModEnv }
-
 -- handle both litmods and functor mods
 evalModDef' gModEnv fileData unitsState mod = do
     -- reorder - place the expressions from args ahead of thos withing the func module
@@ -196,8 +193,8 @@ evalModDef' gModEnv fileData unitsState mod = do
 -- VarMods not handled, and AppMod handled directy within eval
 mkRefMod :: ModFullName -> Module Id -> Module Id
 mkRefMod modFullName mod = case mod of
-    mod'@(LitMod _ modData)         ->  RefMod modFullName True (calcSigMap modData) Map.empty
-    mod'@(FunctorMod _ _ modData)   ->  RefMod modFullName False Map.empty Map.empty
+    mod'@(LitMod modData)         ->  RefMod modFullName True (calcSigMap modData) Map.empty
+    mod'@(FunctorMod _ modData)   ->  RefMod modFullName False Map.empty Map.empty
     mod'@(RefMod _ _ _ _)           ->  mod' -- just return (a copy) of the same refmod - no need to link the refs
     _ ->  errorDump [MkSB modFullName, MkSB mod] "Can't wrap a RefMod around a module of this type" assert
 
@@ -208,8 +205,8 @@ derefRefMod mod _ = return mod
 
 -- | Check is the module is open or closed only applies to the three base Mod Types, App&Var Mods are only ever tmp
 isClosedMod :: Module Id -> Bool
-isClosedMod (LitMod _ _) = True
-isClosedMod (FunctorMod _ _ _) = False
+isClosedMod (LitMod _) = True
+isClosedMod (FunctorMod _ _) = False
 isClosedMod (RefMod _ isClosed _ _) = isClosed
 
 

@@ -98,22 +98,22 @@ flatten initMod = do
 
 -- actually evaluate the functor applciation, similar to evaluation of function application
 applyFunctor :: Module Id -> LocalModEnv -> Module Id
-applyFunctor fMod@(FunctorMod fArgs fExprMap fModData) modEnv = resMod
+applyFunctor fMod@(FunctorMod fArgs fModData) modEnv = resMod
   where
     -- best way to do this, create an empty lit mod, and add to it all the data by folding over the modEnv
-    baseMod = LitMod fExprMap fModData
+    baseMod = LitMod fModData
     resMod = Map.foldrWithKey appendModule baseMod modEnv
 
 -- adds one module into another, basically mappend
 appendModule :: ModName -> Module Id -> Module Id -> Module Id
-appendModule argName argMod@(LitMod argExprMap argModData) baseMod@(LitMod baseExprMap baseModData) = baseMod'
+appendModule argName argMod@(LitMod argModData) baseMod@(LitMod baseModData) = baseMod'
   where
-    baseMod' = LitMod exprMap' modData'
-    deltaId = fromJust $ (modFreeId argModData)
+    baseMod' = LitMod modData'
+    deltaId = modFreeId argModData
     modData' = appendModuleData argModData baseModData
 
     -- update the expressions ids
-    exprMap' = OrdMap.union argExprMap (OrdMap.map updateExprs baseExprMap)
+    exprMap' = OrdMap.union (modExprMap argModData) (OrdMap.map updateExprs (modExprMap baseModData))
     updateExprs (topB, topExpr) = (fmap (+ deltaId) topB, topExpr'')
       where
         topExpr'@(AC.TopLet s t b expr) = fmap (+ deltaId) topExpr
@@ -140,10 +140,10 @@ appendModule argName argMod@(LitMod argExprMap argModData) baseMod@(LitMod baseE
 
 
 -- update mod data - sigMap doesn't change
-appendModuleData :: ModData -> ModData -> ModData
+appendModuleData :: ModData a -> ModData a -> ModData a
 appendModuleData argModData baseModData = baseModData { modTMap = typeMap', modIdMap = idMap', modFreeId = freeId' }
   where
-    deltaId = fromJust $ (modFreeId argModData)
-    freeId' = liftM2 (+) (modFreeId argModData) (modFreeId baseModData) -- sum of both numbers
+    deltaId = modFreeId argModData
+    freeId' = (modFreeId argModData) + (modFreeId baseModData) -- sum of both numbers
     typeMap' = Map.union (modTMap argModData) (Map.mapKeys (+ deltaId) (modTMap baseModData)) -- update the base ids and merge
     idMap' = Map.map (+ deltaId) $ modIdMap baseModData   -- update the base ids only

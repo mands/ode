@@ -25,19 +25,18 @@ executable ode3
     main-is: Main.hs
     buildable: True
     hs-source-dirs: src
-    other-modules: Process.Flatten.FlattenMod
-                   Process.Flatten.InlineComps Process.Flatten.ConvertTypes
-                   Process.Flatten.ConvertAST Subsystem.ModDriver.ModCmd
-                   Subsystem.ModDriver.ModDef Subsystem.ModDriver Parser.Ode
-                   Parser.Common Parser.Module Parser.Ion Utils.CommonImports
-                   Utils.Utils Utils.ShellHandleBackend Utils.OrdMap Utils.OrdSet
-                   Utils.MonadSupply Utils.Graph Subsystem.ShellUI Subsystem.Units
-                   Subsystem.SysState Subsystem.Units.UnitsDims
-                   Subsystem.Units.Conversion Subsystem.Units.Builtins
-                   Process.TypeChecker Process.Interpreter Process.Desugarer
-                   Process.Validator Process.Flatten Process.Renamer Process.Reorderer
-                   Process.TypeChecker.Unification Process.TypeChecker.ConstraintGen
-                   Process.TypeChecker.Common AST.Core AST.Ode AST.Common AST.Module
-                   AST.Ion AST.CoreFlat
+    other-modules: Process.Flatten.InlineComps
+                   Process.Flatten.ConvertTypes Process.Flatten.ConvertAST
+                   Subsystem.ModDriver.ModCmd Subsystem.ModDriver.ModDef
+                   Subsystem.ModDriver Parser.Ode Parser.Common Parser.Module
+                   Parser.Ion Utils.CommonImports Utils.Utils Utils.ShellHandleBackend
+                   Utils.OrdMap Utils.OrdSet Utils.MonadSupply Utils.Graph
+                   Subsystem.ShellUI Subsystem.Units Subsystem.SysState
+                   Subsystem.Units.UnitsDims Subsystem.Units.Conversion
+                   Subsystem.Units.Builtins Process.TypeChecker Process.Interpreter
+                   Process.Desugarer Process.Validator Process.Flatten Process.Renamer
+                   Process.Reorderer Process.TypeChecker.Unification
+                   Process.TypeChecker.ConstraintGen Process.TypeChecker.Common
+                   AST.Core AST.Ode AST.Common AST.Module AST.Ion AST.CoreFlat
     ghc-options: -w
  

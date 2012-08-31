@@ -53,13 +53,13 @@ mkFlatState = FlatState OrdMap.empty OrdMap.empty OrdMap.empty False
 -- TODO - need to create typedata in ACF.module too
 
 convertAST :: Module Id -> MExcept ACF.Module
-convertAST (LitMod exprMap modData) = do
+convertAST (LitMod modData) = do
     ((_, freeIds'), fSt') <- runStateT (runSupplyT flatExprM [freeId ..]) initFlatState
     return $ ACF.Module (loopExprs fSt') (initExprs fSt') (head freeIds')
   where
-    freeId = maybe 0 id $ modFreeId modData
+    freeId = modFreeId modData
     flatExprM :: ConvM ()
-    flatExprM = foldM_ convertTop () $ OrdMap.toList exprMap
+    flatExprM = foldM_ convertTop () $ OrdMap.toList (modExprMap modData)
     initFlatState = mkFlatState (modTMap modData)
 
 -- convert the toplet - we ensure that only TopLets with a single Id binding will exist at this point

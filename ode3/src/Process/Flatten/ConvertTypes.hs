@@ -56,17 +56,17 @@ instance Applicative UnitConvM where
 type UnitConvState = (UnitsState, TypeMap)
 
 convertTypes :: Module Id -> UnitsState -> MExcept (Module Id)
-convertTypes (LitMod exprMap modData) uState = do
+convertTypes (LitMod modData) uState = do
     ((exprMap', freeIds'), (_, tMap')) <- runStateT (runSupplyT convTypesM [freeId ..]) (uState, (modTMap modData))
     let (tMap'', exprMap'') = dropTCons tMap' exprMap' modData
 
     -- update modData and return new module
-    let modData' = modData { modFreeId = Just (head freeIds'), modTMap = tMap'' }
-    return $ LitMod exprMap'' modData'
+    let modData' = modData { modExprMap = exprMap'', modFreeId = (head freeIds'), modTMap = tMap'' }
+    return $ LitMod modData'
   where
-    freeId = maybe 0 id $ modFreeId modData
+    freeId = modFreeId modData
     convTypesM :: UnitConvM (ExprMap Id)
-    convTypesM = DT.mapM convertTypesTop exprMap
+    convTypesM = DT.mapM convertTypesTop (modExprMap modData)
 
 
 convertTypesTop :: AC.TopLet Id -> UnitConvM (AC.TopLet Id)
@@ -140,7 +140,7 @@ calcTypeExpr tMap (AC.App (AC.LocalVar f) _) | AC.TArr eT toT <- (tMap Map.! f) 
 -- what is the type of the arg? AC.TArr Unit (calcTypeExpr tMap e)
 -- calcTypeExpr tMap (AC.Abs arg e) = undefined -- calcTypeExpr tMap e
 
-calcTypeExpr tMap (AC.Let s t bs e1 e2) = return t -- calcTypeExpr tMap e2
+calcTypeExpr tMap (AC.Let s t bs e1 e2) = calcTypeExpr tMap e2
 
 calcTypeExpr _ (AC.Lit l) = case l of
     AC.Boolean _ -> return AC.TBool

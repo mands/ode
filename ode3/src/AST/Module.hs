@@ -22,7 +22,7 @@ GlobalModEnv, LocalModEnv, FileData(..), mkFileData, replModRoot,
 getModuleMod, getModuleFile, getModuleGlobal,
 
 getFileData, lookupModSig, getVarId, lookupModId, calcSigMap,
-addTypesToExpr, getTypesFromExpr,
+addTypesToExpr, getTypesFromExpr, updateModData1, updateModData2,
 
 ModData(..), mkModData, getModData, putModData, modifyModData,
 SigMap, TypeMap, IdMap
@@ -63,8 +63,8 @@ data OdeTopElem a   = TopModDef ModRoot ModName (Module a)  -- top level module 
 -- | Main executable modules that can be combined at run-time, they represent a form of the simply-typed \-calc that is interpreted at runtime
 -- type-checking occurs in two-stage process, vars and abs are checked during parsing, applications are cehcked from the replicate
 -- var modeules must be closed anfd fully typered, abs/parameterisd modules are open (wrt to parameters) and may be polymorphic
-data Module a = LitMod  (ExprMap a) ModData
-                | FunctorMod FunArgs (ExprMap a) ModData
+data Module a = LitMod (ModData a)
+                | FunctorMod FunArgs (ModData a)
                 | AppMod ModName [Module a]     -- we never have access to the appmodules,
                                                 -- they are always immediatly applied and the resulting ClosedModule is saved under this name
                 | VarMod ModName            -- only used within appmods (and var refs)
@@ -98,48 +98,44 @@ type IdMap = Map.Map SrcId Id
 -- | Typemap is the internal typemap for all vars (top and expr) within a module
 type TypeMap = Map.Map Id E.Type -- maybe switch to IntMap?
 
--- | Metadata regarding a module
-data ModData = ModData  { modIdMap :: IdMap, modTMap :: TypeMap, modFreeId :: Maybe Id
-                        , modFullName :: ModFullName, modModEnv :: LocalModEnv
-                        -- tmp data
-                        , modImportCmds :: [ModImport], modExprList :: ExprList, modExportSet :: Set.Set SrcId
-                        -- units data
-                        , modQuantities :: U.Quantities, modUnits :: [U.UnitDef], modConvs :: [U.ConvDef]
-                        } deriving (Show, Eq, Ord)
+-- | Metadata regarding a lit/func module
+data ModData a = ModData    { modExprMap :: ExprMap a, modIdMap :: IdMap, modTMap :: TypeMap
+                            , modFreeId :: Id, modFullName :: ModFullName, modModEnv :: LocalModEnv
+                            -- tmp data
+                            , modImportCmds :: [ModImport], modExprList :: ExprList, modExportSet :: Set.Set SrcId
+                            -- units data
+                            , modQuantities :: U.Quantities, modUnits :: [U.UnitDef], modConvs :: [U.ConvDef]
+                            } deriving (Show, Eq, Ord)
 
-mkModData = ModData     { modIdMap = Map.empty, modTMap = Map.empty, modFreeId = Nothing
-                        , modFullName = ModFullName (mkModRoot []) (ModName "<empty>"), modModEnv = Map.empty
-                        -- tmp data
-                        , modImportCmds = [], modExprList = [], modExportSet = Set.empty
-                        -- units data
-                        , modQuantities = [], modUnits = [], modConvs = []
-                        }
+mkModData = ModData { modExprMap = OrdMap.empty, modIdMap = Map.empty, modTMap = Map.empty
+                    , modFreeId = 0, modFullName = ModFullName (mkModRoot []) (ModName "<empty>"), modModEnv = Map.empty
+                    -- tmp data
+                    , modImportCmds = [], modExprList = [], modExportSet = Set.empty
+                    -- units data
+                    , modQuantities = [], modUnits = [], modConvs = []
+                    }
 
 -- Module ModData accessors
-getModData :: Module a -> Maybe ModData
-getModData (LitMod _ modData) = Just modData
-getModData (FunctorMod _ _ modData) = Just modData
+getModData :: Module a -> Maybe (ModData a)
+getModData (LitMod modData) = Just modData
+getModData (FunctorMod _ modData) = Just modData
 -- getModData (RefMod _ _ modData) = Just modData
 getModData mod = Nothing
 
-putModData :: Module a -> ModData -> Module a
-putModData (LitMod exprMap _) modData' = LitMod exprMap modData'
-putModData (FunctorMod args exprMap _) modData' = FunctorMod args exprMap modData'
+putModData :: Module a -> ModData a -> Module a
+putModData (LitMod _) modData' = LitMod modData'
+putModData (FunctorMod args _) modData' = FunctorMod args modData'
 -- putModData (RefMod isClosed modFullName _) modData' = RefMod isClosed modFullName modData'
 putModData mod _ = mod
 
-modifyModData :: Module a -> (ModData -> ModData) -> Module a
+modifyModData :: Module a -> (ModData a -> ModData a) -> Module a
 modifyModData m f = maybe m (\md -> putModData m (f md)) $ getModData m
 
 getModExprs :: Module a -> Maybe (ExprMap a)
-getModExprs (LitMod exprMap _) = Just exprMap
-getModExprs (FunctorMod _ exprMap _) = Just exprMap
-getModExprs mod = Nothing
+getModExprs mod = modExprMap <$> getModData mod
 
 putModExprs :: Module a -> ExprMap a -> Module a
-putModExprs (LitMod _ modData) exprMap' = LitMod exprMap' modData
-putModExprs (FunctorMod args _ modData) exprMap' = FunctorMod args exprMap' modData
-putModExprs mod _ = mod
+putModExprs mod exprMap = modifyModData mod (\modData -> modData { modExprMap = exprMap })
 
 modifyModExprs :: Module a -> (ExprMap a -> ExprMap a) -> Module a
 modifyModExprs m f = maybe m (\md -> putModExprs m (f md)) $ getModExprs m
@@ -151,11 +147,11 @@ lookupModSig :: SrcId -> Module Id -> MExcept E.Type
 lookupModSig v mod = do
     sigMap <- case mod of
         (RefMod _ True sigMap _)    -> return sigMap
-        (LitMod _ modData)          -> return (calcSigMap modData)
+        (LitMod modData)          -> return (calcSigMap modData)
         _                           -> throwError "(MD) Module does not contain modData"
     maybeToExcept (Map.lookup v sigMap) $ printf "(MD) Binding %s not found in module" (show v)
 
-calcSigMap :: ModData -> SigMap
+calcSigMap :: ModData a -> SigMap
 calcSigMap modData = Map.map (\id -> (modTMap modData) Map.! id) (modIdMap modData)
 
 lookupModId :: E.SrcId -> Module Id -> MExcept Id
@@ -199,6 +195,14 @@ getTypesFromExpr exprMap = DF.foldl addTypesTop  Map.empty exprMap
         |> (\tMap -> addTypesExpr tMap e1) |> (\tMap -> addTypesExpr tMap e2)
     addTypesExpr tMap e = E.foldExpr addTypesExpr tMap e
 
+-- Need to figure out the correct abstactions here
+-- | Updates the module data using new type infromation, hence updates exprmap info too
+updateModData1 :: ModData E.Id -> TypeMap -> ModData E.Id
+updateModData1 modData tMap = modData { modTMap = tMap, modExprMap = addTypesToExpr (modExprMap modData) tMap }
+
+-- | Updates the module data using new exprMap infromation, hence updates tMap info too
+updateModData2 :: ModData E.Id -> ExprMap E.Id -> ModData E.Id
+updateModData2 modData exprMap = modData { modExprMap = exprMap, modTMap = getTypesFromExpr exprMap }
 
 
 -- Module Environments -------------------------------------------------------------------------------------------------
@@ -221,7 +225,7 @@ replModRoot = mkModRoot ["<console>"]
 -- | Top level function that resolves a module lookup at the module and global level,
 -- (NOTE - this does not look at the file-level, instead assume that all file-level refs,
 -- including within a file, can be resolved using full-name within global env)
-getModuleMod :: ModName -> ModData -> GlobalModEnv -> MExcept (ModFullName, Module Id)
+getModuleMod :: ModName -> ModData a -> GlobalModEnv -> MExcept (ModFullName, Module Id)
 getModuleMod modName modData gModEnv = getModule' modName mModEnv Nothing gModEnv
   where
     mModEnv = modModEnv modData

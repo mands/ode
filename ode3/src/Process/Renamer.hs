@@ -62,19 +62,17 @@ instance Applicative IdSupply where
 
 -- | Main rename function, takes a model bound by Ids and returns a single-scoped model bound by unique ints
 rename :: M.Module E.DesId -> MExcept (M.Module E.Id)
-rename (M.LitMod exprMap modData) = do
-    (exprMap', topBinds, freeId) <-  renTop exprMap
-    let modData' = updateModData modData topBinds freeId
-    return $ M.LitMod exprMap' modData'
+rename (M.LitMod modData) = do
+    (exprMap', topBinds, freeId) <-  renTop (M.modExprMap modData)
+    return $ M.LitMod (updateModData modData exprMap' topBinds freeId)
 
-rename (M.FunctorMod args exprMap modData) = do
-    (exprMap', topBinds, freeId) <-  renTop exprMap
-    let modData' = updateModData modData topBinds freeId
-    return $ M.FunctorMod args exprMap' modData'
+rename (M.FunctorMod args modData) = do
+    (exprMap', topBinds, freeId) <-  renTop (M.modExprMap modData)
+    return $ M.FunctorMod args (updateModData modData exprMap' topBinds freeId)
 
 -- | Update the module data with the next free id and calculate the idMap using the export set (then wipe it)
-updateModData :: M.ModData ->  BindMap -> E.Id -> M.ModData
-updateModData modData bMap freeId = modData { M.modIdMap = idMap, M.modFreeId = Just freeId, M.modExportSet = Set.empty }
+updateModData :: M.ModData E.DesId ->  M.ExprMap E.Id -> BindMap -> E.Id -> M.ModData E.Id
+updateModData modData exprMap bMap freeId = modData { M.modExprMap = exprMap, M.modIdMap = idMap, M.modFreeId = freeId, M.modExportSet = Set.empty }
   where
     idMap = if Set.size (M.modExportSet modData) == 0
         then bMap -- export everything from top-level

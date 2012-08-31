@@ -39,18 +39,18 @@ import qualified AST.Module as M
 
 -- Process Entry -------------------------------------------------------------------------------------------------------
 validate :: M.Module E.DesId -> MExcept (M.Module E.DesId)
-validate mod@(M.LitMod _ modData) = M.LitMod    <$> createTopExprs (M.modExprList modData) (M.modExportSet modData)
-                                                <*> validateModData modData
+validate mod@(M.LitMod modData) = M.LitMod    <$> validateModData modData
 
-validate mod@(M.FunctorMod funArgs _ modData) = M.FunctorMod    <$> funArgs'
-                                                                <*> createTopExprs (M.modExprList modData) (M.modExportSet modData)
-                                                                <*> validateModData modData
+validate mod@(M.FunctorMod funArgs modData) = M.FunctorMod    <$> funArgs'
+                                                              <*> validateModData modData
   where
     funArgs' =  if listUniqs funArgKeys then pure funArgs
                 else throwError ("(VL05) - Functor has arguments with the same name")
     funArgKeys = OrdMap.keys funArgs
 
-validateModData modData = return $ modData { M.modExprList = [] }
+validateModData modData = do
+    exprMap <- createTopExprs (M.modExprList modData) (M.modExportSet modData)
+    return $ modData { M.modExprList = [], M.modExprMap = exprMap }
 
 
 -- Binding datatypes ---------------------------------------------------------------------------------------------------
