@@ -48,42 +48,48 @@ data InlineState = InlineState { stInModMap :: Map.Map ModFullName IdMap, stBase
 mkInlineState = InlineState Map.empty (LitMod mkModData)
 
 -- top-level entry point
-inlineMod :: Module Id -> GlobalModEnv -> MExcept (Module Id)
-inlineMod mod@(LitMod _) gModEnv = do
-    (_ , st') <- runStateT (inlineMod' mod) (mkInlineState gModEnv)
+inlineMod :: GlobalModEnv -> Module Id -> MExcept (Module Id)
+inlineMod gModEnv mod = do
+    (_ , st') <- runStateT (inlineRefMod mod) (mkInlineState gModEnv)
     -- TODO - update the modData
     let (LitMod baseModData) = (stBaseMod st')
     return $ LitMod $ baseModData { modTMap = getTypesFromExpr (modExprMap baseModData) }
 
 
--- actuially handle inlining a module via inlining it's localenv
--- handles lits, functors, ref (which may have been partially-evaluated apps or vars)
--- we recursevly map over localModEnv of RefMods, inlining as required, and obtain a map of idmaps for updating the modvars refs as required
--- mod must be a Lit or Functor
-inlineMod' :: Module Id -> InlineModsM ()
-inlineMod' mod@(LitMod modData) = do
-    -- have to convert to a list to mapM with keys
-    modIdVarMap <- Map.fromList <$> (DT.mapM inlineLocalEnv . Map.toList $ modModEnv modData)
-    -- patch up the refs, relocated and append the new module
-    appendModule modIdVarMap mod
-
-
--- handle inlining a modules stored in localmodenv (i.e. always a refmod)
-inlineLocalEnv :: (ModName, Module Id) -> InlineModsM (ModName, IdMap)
-inlineLocalEnv (localModName, lMod@(RefMod modFullName True _ lModEnv)) | Map.size lModEnv == 0 = do
+-- handle inlining a modules stored in a refmod (i.e. within a localmodenv)
+inlineRefMod :: Module Id -> InlineModsM IdMap
+inlineRefMod lMod@(RefMod modFullName isClosed _ lModEnv) = do
+    unless isClosed $ throwError $ printf "%s is not a closed module, cannot inline" (show modFullName)
+    -- get the inlinedMod state
     inMods <- stInModMap <$> get
     case Map.lookup modFullName inMods of
-        Just idMap  -> return (localModName, idMap)  -- module already loaded/inlined
+        Just idMap  -> return idMap  -- module already loaded/inlined
         Nothing     -> do                            -- module not loaded/inlined
             -- load the module
             gModEnv <- stGModEnv <$> get
             inMod <- lift $ getModuleGlobal modFullName gModEnv
-            -- recursively inline it
-            -- TODO - add functor app code here
-            inlineMod' inMod
+            -- recursively inline it - if we have a functor app, adjust the modEnv as required
+            case Map.null lModEnv of
+                True    -> inlineOrigMod inMod
+                False   -> inlineOrigMod $ modifyModData
+                    (\modData -> modData { modModEnv = (modModEnv modData) `Map.union` lModEnv }) inMod
             -- now get the relocated idMap
             idMap' <- (Map.!) <$> (stInModMap <$> get) <*> pure modFullName
-            return (localModName, idMap')
+            return idMap'
+
+
+-- actually handle inlining a concrete module (Lit or Functor) via inlining it's localenv
+-- handles lits, functors, ref (which may have been partially-evaluated apps or vars)
+-- we recursevly map over localModEnv of RefMods, inlining as required, and obtain a map of idmaps for updating the modvars refs as required
+inlineOrigMod :: Module Id -> InlineModsM ()
+inlineOrigMod mod = do
+    let modData = case getModData mod of
+            Just mD -> mD
+            Nothing -> errorDump [MkSB mod] "Trying to inline a module without modData" assert
+    -- get the mapping from ids to their position within the baseMod have to convert to a list to mapM with keys
+    modIdVarMap <- DT.mapM inlineRefMod $ modModEnv modData
+    -- patch up the refs, relocated and append the new module
+    appendModule modIdVarMap mod
 
 
 -- insert the module to the stateMod, and relocate its vars so all bindings are still valid wrt the stateMod

@@ -130,8 +130,8 @@ evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
     lModEnv <- processFArgs fArgs
 
     -- now create a dummy lMod from the fMod that would be created from the application of args to the functor
-    -- and type and unit check
-    let lMod = LitMod $ fModData { modModEnv = lModEnv }
+    -- and type and unit check - we union to include both standard imports and functor args within localEnv
+    let lMod = LitMod $ fModData { modModEnv = (modModEnv fModData) `Map.union` lModEnv }
     (LitMod modData') <- typeCheck gModEnv fileData unitsState lMod
 
     -- finally construct a "Closed" RefMod to holds the results, using both the fMod modData and type-checked lMod sig

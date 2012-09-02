@@ -2,9 +2,34 @@ module ModFlat1 {
   val x = 1
 }
 
+// normal import
 module ModFlat2 {
   import FlatTests.ModFlat.ModFlat1 as A
   
   val y = 2 + A.x
 }
+
+
+// normal funcor
+module ModFlat3(A) {
+  val y = 2 + A.x
+}
+
+module ModFlat4 = ModFlat3(ModFlat1)
+
+
+// mixed functor and import - with differing modules
+module ModFlat5(A) {
+  import FlatTests.ModFlat.ModFlat1 as B
+  val y = 2 + A.x + B.x
+}
+
+module ModFlat6 {
+  val x = 1
+}
+// mixed functor and import - with same modules - resolves to single inline
+module ModFlat7 = ModFlat5(ModFlat1)
+// mixed functor and import - with differing modules - resolves to multiple inline
+module ModFlat8 = ModFlat5(ModFlat6)
+
 

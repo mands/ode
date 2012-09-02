@@ -8,6 +8,6 @@ import FlatTests.ModFlat.*
 // :show all
 :show modState
 // all done
-:simulate ModFlat2
+:simulate ModFlat8
 :quit
 

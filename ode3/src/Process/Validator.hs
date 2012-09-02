@@ -44,11 +44,17 @@ validate mod@(M.LitMod modData) = M.LitMod    <$> validateModData modData
 validate mod@(M.FunctorMod funArgs modData) = M.FunctorMod    <$> funArgs'
                                                               <*> validateModData modData
   where
-    funArgs' =  if listUniqs funArgKeys then pure funArgs
-                else throwError ("(VL05) - Functor has arguments with the same name")
-    funArgKeys = OrdMap.keys funArgs
+    funArgs' =  do
+        -- check all args are unique
+        unless (listUniqs (OrdMap.keys funArgs)) $ throwError ("(VL05) - Functor has arguments with the same name")
+        -- check all args don't clash with normally imported aliases
+        unless (listUniqs $ (Map.keys $ M.modModEnv modData) ++ (OrdMap.keys funArgs)) $
+            throwError ("(VL08) - Functor has arguments with same name as the alias of an imported module")
+        return funArgs
 
 validateModData modData = do
+    -- check all import aliases are unique - this is actually checked elsewhere within modDef driver when adding a module to the modEnv
+    unless (listUniqs $ (Map.keys $ M.modModEnv modData)) $ throwError ("(VL09) - Module has imports with the same alias")
     exprMap <- createTopExprs (M.modExprList modData) (M.modExportSet modData)
     return $ modData { M.modExprList = [], M.modExprMap = exprMap }
 

@@ -53,19 +53,21 @@ import Process.Flatten.ConvertTypes
 
 
 flatten :: String -> SysExcept ()
-flatten initMod = do
+flatten initModStr = do
     -- lookup the refmod in repl filedata
     replFD <- getSysState vLocalFile
-    mod@(RefMod modFullName True sigMap lModEnv) <- lift $  maybeToExcept (Map.lookup (ModName initMod) (fileModEnv replFD))
-                                                            (printf "Cannot find module %s loaded to simulate" (show initMod))
+    initMod <- lift $  maybeToExcept (Map.lookup (ModName initModStr) (fileModEnv replFD))
+                        (printf "Cannot find module %s loaded to simulate" (show initModStr))
+
+    trace' [MkSB initMod] "InitMod" $ return ()
 
     gModEnv <- getSysState vModEnv
-    tmpMod <- lift $ getModuleGlobal modFullName gModEnv
-    trace' [MkSB tmpMod] "CoreFlat AST input" $ return ()
+--    tmpMod <- lift $ getModuleGlobal modFullName gModEnv
+--    trace' [MkSB tmpMod] "CoreFlat AST input" $ return ()
 
     -- inline mods
-    mod1 <- lift $ inlineMod tmpMod gModEnv
-    trace' [MkSB mod1] "Inline Mods output" $ return ()
+    -- mod1 <- lift $ inlineMod gModEnv initMod
+    -- trace' [MkSB mod1] "Inline Mods output" $ return ()
 
 
     -- flatten all nested lets
