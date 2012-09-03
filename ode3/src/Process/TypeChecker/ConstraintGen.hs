@@ -130,12 +130,14 @@ getMVarType mv@(E.ModVar m v) gModEnv modData mFuncArgs =
 
 processLetBind :: E.BindList Integer -> E.Type -> TypeConsM ()
 processLetBind bs eT = do
+    trace' [MkSB bs, MkSB eT] "let expr" $ return ()
     -- extend tEnv with new env
     tEnvs@(TypeEnvs tEnv _) <- get
     tEnv' <- case eT of
         -- true if tuple on both side of same size, if so unplack and treat as indivudual elems
-        (E.TTuple ts) | (length bs == length ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv $ zip (map E.LocalVar bs) ts
-        (E.TRecord ts) | (length bs == Map.size ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv $ zip (map E.LocalVar bs) (Map.elems ts)
+        -- TODO - check is length > 1 correct for Tuples?
+        (E.TTuple ts) | (length bs > 1) && (length bs == length ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv $ zip (map E.LocalVar bs) ts
+        (E.TRecord ts) | (length bs > 1) && (length bs == Map.size ts) -> return $ foldl (\tEnv (b, t) -> Map.insert b t tEnv) tEnv $ zip (map E.LocalVar bs) (Map.elems ts)
         -- true for individual elems, handle same as tuple above
         t | length bs == 1 -> return $ Map.insert (E.LocalVar . head $ bs) eT tEnv
         -- basic handling, is common case that subsumes special cases above, basically treat both sides as tuples
@@ -163,11 +165,12 @@ recordRefsCons gModEnv modData mFuncArgs = do
     recEnv <- recordTypeEnv <$> get
     mapM_ addRecRefCons $ Map.toAscList recEnv
   where
+    -- add an equality contraint against the var holding the record, and the collection of references to it
     addRecRefCons (v, tInf@(E.TRecord nTs)) = do
         tCur <- getVarType v gModEnv modData mFuncArgs
-        trace' [MkSB tInf, MkSB tCur] "Adding rec refs cons" $ return ()
+        trace' [MkSB v, MkSB tInf, MkSB tCur] "Adding rec refs cons" $ return ()
         -- TODO - could make tInf a subtype here?
-        addConsType $ ConEqual tInf tCur
+        addConsType $ ConRecSubType tInf tCur
 
 
 -- Constraint Generation -----------------------------------------------------------------------------------------------
@@ -269,7 +272,9 @@ constrain gModEnv modData mFuncArgs = runStateT (evalSupplyT (execStateT consM m
         -- NOTE - we don't need to gen a new tvar for toT, as its type is always fixed so will always unify
         return toT
 
-    consExpr (E.If eB eT eF) = do
+    consExpr e@(E.If eB eT eF) = do
+        trace' [MkSB e] "If expr" $ return ()
+
         eBT <- consExpr eB
         addConsType $ ConEqual eBT E.TBool
         eTT <- consExpr eT

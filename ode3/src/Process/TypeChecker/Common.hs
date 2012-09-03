@@ -45,7 +45,7 @@ type RecordRefMap = Map.Map (E.VarId E.Id) E.Type
 -- unit level contraints
 -- true for both types and units ?
 data ConType    = ConEqual E.Type E.Type
-                -- ConRecSubType E.Type E.Type -- record t1 is a subtype of record t2
+                | ConRecSubType E.Type E.Type -- record t1 is a subtype of record t2
                 deriving (Show, Eq, Ord)
 
 data ConUnit    = ConSum U.Unit U.Unit U.Unit   -- floats must be contrained to same unit, can unify Mul&Div into ConsSum (a,b) = c

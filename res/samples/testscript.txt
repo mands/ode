@@ -2,12 +2,12 @@
 :addRepo ../res/samples/repo
 
 // import our modules
-import FlatTests.ModFlat.*
-//import SyntaxTests.Newtypes.*
+//import FlatTests.ModFlat.*
+import SyntaxTests.Records.*
 
 // :show all
 :show modState
 // all done
-:simulate ModFlat8
+//:simulate ModFlat8
 :quit
 

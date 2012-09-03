@@ -72,6 +72,7 @@ updateStack tCons = do
       where
         conTypeS' = Set.map updateConType $ conTypeS tCons
         updateConType (ConEqual a b) = ConEqual (updateTypes a) (updateTypes b)
+        updateConType (ConRecSubType a b) = ConRecSubType (updateTypes a) (updateTypes b)
 
         conUnitS' = Set.map updateConUnit $ conUnitS tCons
         updateConUnit (ConSum a b c) = ConSum (updateUnits a) (updateUnits b) (updateUnits c)
@@ -91,6 +92,7 @@ subEqualS :: E.Type -> E.Type -> ConTypeS -> ConTypeS
 subEqualS t1 t2 = Set.map subEqual
   where
     subEqual (ConEqual a b) = ConEqual (subTTerm t1 t2 a) (subTTerm t1 t2 b)
+    subEqual (ConRecSubType a b) = ConRecSubType (subTTerm t1 t2 a) (subTTerm t1 t2 b)
 
 -- | replace all occurances of u1->u2 in the set of constraints
 subUnitS :: U.Unit -> U.Unit -> ConUnitS -> ConUnitS
@@ -236,8 +238,8 @@ unifyTypes conTypeS = unifyTypesLoop conTypeS
         DF.foldlM (\curS (t1, t2) -> processType (ConEqual t1 t2) curS) curS (Map.intersectionWith (,) t1s t2s)
       where
         -- subtyping equality check for records Ids, t1 < t2
-        recordIdsEq = all (\refId -> Map.member refId t2s) (Map.keys t1s)
-        -- recordIdsEq = (Map.keys t1s == Map.keys t2s) -- full equality check
+        -- recordIdsEq = all (\refId -> Map.member refId t2s) (Map.keys t1s)
+        recordIdsEq = (Map.keys t1s == Map.keys t2s) -- full equality check
 
     -- Composite, Tuple<->Record (should only be used internaly, as drops labels from record)
 --    processType (ConEqual t1@(E.TTuple t1s) (E.TRecord t2s)) curS = processType (ConEqual t1 (E.TTuple $ E.dropLabels t2s)) curS
@@ -263,6 +265,16 @@ unifyTypes conTypeS = unifyTypesLoop conTypeS
 
     -- can't unify types
     processType (ConEqual t1 t2) curS = trace' [MkSB t1, MkSB t2, MkSB curS] "Type Error" $ throwError (printf "(TC01) - cannot unify %s and %s" (show t1) (show t2))
+
+    -- Unification for Record Subtype rule -----------------------------------------------------------------------------
+    processType (ConRecSubType (E.TRecord t1s) (E.TRecord t2s)) curS | recordIdsEq =
+        DF.foldlM (\curS (t1, t2) -> processType (ConEqual t1 t2) curS) curS (Map.intersectionWith (,) t1s t2s)
+      where
+        -- subtyping equality check for records Ids, t1 < t2
+        recordIdsEq = all (\refId -> Map.member refId t2s) (Map.keys t1s)
+
+    -- what if t2 is a TVar?
+    processType (ConRecSubType t1@(E.TRecord t1s) t2) curS = trace' [MkSB t1, MkSB t2, MkSB curS] "Type Error" $ throwError (printf "(TC01) - cannot unify %s and %s" (show t1) (show t2))
 
 
 

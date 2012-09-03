@@ -3,11 +3,14 @@
 ** NOTE
 ******************************************************************************/
 
+/*
 // create a trivial record
 module Record1 {
     // record creation
     val rec = { i : 1 + 1, j : 2, k : 3 }
 }
+*/
+
 
 // record creation and selection
 module Record2a {
@@ -15,9 +18,10 @@ module Record2a {
     val rec = { i : 1 + 1, j : 2, k : 3 }
     
     // record selection
-    val x = rec#i + 2
+    val x = rec#i + rec#j
 }
 
+/*
 // record creation and selection
 module Record2b {
     // record creation
@@ -33,20 +37,24 @@ module Record2c {
     // record creation
     val rec = { i : 1 + 1, j : 2, k : 3 }
 
-    component f x => () where {
+    component f(x) {
       val y = x#i + x#j
+      return None
     }
     
     // ? constrain the poly func    
     val z = f(rec)
 }
+*/
 
-// record unpacking --  error as not a tuple
+/*
+// record unpacking --  error as not in tuple form
 module Record3 {
     val a = { i : 1 {unit : m} + 1 {unit : m} , j : 2, k : 3 }
 
-    component f x => () where {
+    component f(x) {
       val i, j, k = x
+      return None
     }
     
     val b = f(a)
@@ -56,12 +64,22 @@ module Record3 {
 module Record3 {
     val a = { elem1 : 1 + 1, elem2 : 2, elem3 : 3 }
 
-    component f x => () where {
+    component f(x) {
       val i, j, k = x
+      return None
     }
     
     val b = f(a)
 }
+*/
 
-
+/*
+// sub-typing within a piecewise
+module Record4 {
+    // record creation
+    val rec = piecewise { True : {i : 1, j : 2}, default : { i : 2, j:2 } }
+    // record selection
+    val x = rec#i
+}
+*/
 
