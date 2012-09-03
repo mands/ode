@@ -36,14 +36,15 @@ type TopLet = Id
 data ExprData = ExprData Expr Type deriving (Show, Eq, Ord)
 
 -- our minimal type info, held at every let/var binding
-data Type = TFloat | TBool | TUnit deriving (Show, Eq, Ord)
+data Type = TFloat | TBool | TUnit | TTuple [Type] deriving (Show, Eq, Ord)
 
 -- the main type of our simulatable expressions - basically ANF form
 data Expr   = Var Var
             | Op AC.Op [Var]
             | If Var ExprMap ExprMap -- nested envs for each branch
-            -- Tuple [Expr]          -- do we have tuples? NO, unpack all
-            -- Record (Map.Map RecId Expr) -- no records, unpack all
+            | Tuple [Var]          -- yes - have to for MRVs, unpack the rest
+            | TupleRef Var Integer          -- acces the n-th element from a tuple
+            -- Record (Map.Map RecId Expr) -- no records, convert to tuples/unpack
             | Ode Id Var
             -- Rre Id Id Expr     -- add later to separate exprs
             deriving (Show, Eq, Ord)

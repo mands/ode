@@ -32,8 +32,7 @@ import qualified AST.Core as AC
 import qualified AST.CoreFlat as ACF
 import Utils.MonadSupply
 import qualified Subsystem.Units as U
-
-import Process.Flatten.ConvertTypes(calcTypeExpr)
+import qualified Subsystem.Types as T
 
 -- Types ---------------------------------------------------------------------------------------------------------------
 -- Same monad as renamer
@@ -50,29 +49,20 @@ mkFlatState = FlatState OrdMap.empty OrdMap.empty OrdMap.empty False
 
 convertAST :: Module Id -> MExcept ACF.Module
 convertAST (LitMod modData) = do
-    ((_, freeIds'), fSt') <- runStateT (runSupplyT flatExprM [freeId ..]) initFlatState
+    ((_, freeIds'), fSt') <- runStateT (runSupplyT flatExprM [freeId ..]) $ mkFlatState (modTMap modData)
     return $ ACF.Module (loopExprs fSt') (initExprs fSt') (head freeIds')
   where
     freeId = modFreeId modData
     flatExprM :: ConvM ()
     flatExprM = foldM_ convertTop () $ OrdMap.toList (modExprMap modData)
-    initFlatState = mkFlatState (modTMap modData)
 
--- convert the toplet - we ensure that only TopLets with a single Id binding will exist at this point
--- (multiple ids (tuples) and TopType will have been already converted
-
--- can find the type here
+-- convert the toplet - we ensure that only TopLets with exist at this point
 convertTop :: () -> ([Id], AC.TopLet Id) -> ConvM ()
-convertTop _ (id:[], AC.TopLet isInit t (id':[]) cE) = do
-    assert (id == id') $ return ()
-    -- set Init flag
-    lift $ modify (\st -> st { inInit = isInit })
-    fE <- convertExpr cE
-    -- lookupt the type
-    fT <- convertType <$> lookupType id
-    insertExpr id fE fT
+convertTop _ (ids, AC.TopLet isInit t (ids') cE) = do
+    assert (ids == ids') $ return ()
+    convertLet isInit t ids cE
 
-convertTop _ coreExpr = errorDump [MkSB coreExpr] "Cannot convert expression to CoreFlat" assert
+convertTop _ coreExpr = errorDump [MkSB coreExpr] "Cannot convert top expression to CoreFlat" assert
 
 
 -- convert the expression, this is straightforwad for the resticted Core AST we have now anyway
@@ -80,16 +70,8 @@ convertTop _ coreExpr = errorDump [MkSB coreExpr] "Cannot convert expression to 
 convertExpr :: AC.Expr Id -> ConvM ACF.Expr
 convertExpr e@(AC.Var (AC.LocalVar v) Nothing) = return $ ACF.Var (ACF.VarRef v)
 -- directly store the nested let bindings within the flattened exprMap
--- TODO - what about multi-bindings? and state lets
-
-
--- can find the type here
-convertExpr e@(AC.Let isInit t (b:[]) e1 e2) = do
-    lift $ modify (\st -> st { inInit = isInit })
-    fE1 <- convertExpr e1
-    -- insert the binding using the given id as a toplet
-    fT1 <- convertType <$> lookupType b
-    insertExpr b fE1 fT1
+convertExpr e@(AC.Let isInit t bs e1 e2) = do
+    convertLet isInit t bs e1
     convertExpr e2
 
 -- Literals
@@ -127,15 +109,17 @@ convertExpr e@(AC.If eB eT eF) = do
         -- create a dummy value to handle the returned value (as our Lets are top-level, rather than let e1 in e2)
         id <- supply
         st' <- lift $ get
-
-
         -- need to calc and convert the type here
         tMap <- curTMap <$> lift get
-        fT <- convertType <$> (lift . lift $ calcTypeExpr tMap e)
+        fT <- convertType <$> (lift . lift $ T.calcTypeExpr tMap e)
         let es = OrdMap.insert id (ACF.ExprData e' fT) ( curExprs st')
         -- restore the old env
         lift . put $ st' { curExprs = oldCurMap }
         return es
+
+-- Tuple
+convertExpr e@(AC.Tuple es) = ACF.Tuple <$> mapM convertVar es
+
 
 -- Ode
 convertExpr e@(AC.Ode (AC.LocalVar v) e1) = do
@@ -146,6 +130,29 @@ convertExpr e@(AC.Ode (AC.LocalVar v) e1) = do
 convertExpr expr = errorDump [MkSB expr] "Cannot convert expression to CoreFlat" assert
 
 -- Conversion Helper Functions -----------------------------------------------------------------------------------------
+
+-- convert a let-binding (both top and nested) into a global-let, handles unpacking a tuple references,
+convertLet :: Bool -> AC.Type -> AC.BindList Id -> AC.Expr Id -> ConvM ()
+convertLet isInit t ids e1 = do
+    -- set Init flag
+    lift $ modify (\st -> st { inInit = isInit })
+    -- convert the expr and type
+    fE <- convertExpr e1
+    let fT = convertType t
+    -- is it a multi-bind/tuple?
+    case ids of
+        (id:[]) -> insertExpr id fE fT
+        _       -> do
+            let (ACF.TTuple ts) = fT
+            -- create a new var to hold the tuple
+            tupleId <- supply
+            insertExpr tupleId fE fT
+            -- create a set of tupleaccess for expr (can't unpack directly as may be a Var, not direct Tuple)
+            mapM_ (insertTupleRef tupleId) (zip3 ids ts [1..])
+  where
+    insertTupleRef :: Id -> (Id, ACF.Type, Integer) -> ConvM ()
+    insertTupleRef tupleId (id, t, refIdx) = do
+        insertExpr id (ACF.TupleRef (ACF.VarRef tupleId) refIdx) t
 
 -- TODO - is this right?
 -- should either lift/embed a var or convert an expr, create a new binding and return a refvar to it
@@ -159,7 +166,7 @@ convertVar e = do
             e' <- convertExpr e
             -- need to calc and convert the type here
             tMap <- curTMap <$> lift get
-            fT <- convertType <$> (lift . lift $ calcTypeExpr tMap e)
+            fT <- convertType <$> (lift . lift $ T.calcTypeExpr tMap e)
             insertExpr id e' fT
             return $ ACF.VarRef id
 
@@ -190,3 +197,4 @@ convertType :: AC.Type -> ACF.Type
 convertType (AC.TBool)      = ACF.TBool
 convertType (AC.TFloat _)   = ACF.TFloat
 convertType (AC.TUnit)      = ACF.TUnit
+convertType (AC.TTuple ts)  = ACF.TTuple $ map convertType ts

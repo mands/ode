@@ -83,3 +83,24 @@ module Record4 {
 }
 */
 
+
+
+// subtyping on the component boundary - not allowed at present
+module Record5 {
+    // record creation
+    val rec1 = { i : 1, j : 2, k : 3 }
+    val rec2 = { i : 1, j : 2 }
+
+    component f(x) {
+      val y = x#i + x#j
+      return None
+    }
+    
+    // call the func with differing record super-types
+    val _ = f(rec1)
+    // val _ = f(rec2) //not allowed
+    // val _ = f({ i: rec2#i, j : rec2#j, k : 3 }) // can create a dummy record shim to constrain to same super-type
+
+}
+
+

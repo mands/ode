@@ -58,8 +58,9 @@ inlineComps (LitMod modData) = do
     return $ LitMod $ (updateModData2 modData exprMap') { modFreeId = (head freeIds') }
   where
     inlineCompsM :: InlineCompsM (ExprMap Id)
-    inlineCompsM = DT.mapM inlineCompsTop (modExprMap modData)
-
+    inlineCompsM = do
+        exprMap' <- DT.mapM inlineCompsTop (modExprMap modData)
+        return $ (OrdMap.filter filterTopAbs exprMap' |> OrdMap.map filterExpr)
 
 inlineCompsTop :: AC.TopLet Id -> InlineCompsM (AC.TopLet Id)
 -- inlineCompsTop (AC.TopLet isInit bs tE) = AC.TopLet isInit bs <$> AC.mapExprM inlineCconvertTypesExpr tE
@@ -130,4 +131,14 @@ shiftExprIds (AC.Let isSval t (b:[]) e1 e2) = do
 -- anything else, keep going
 shiftExprIds e = AC.mapExprM shiftExprIds e
 
+-- Filter all abs from the expressions ---------------------------------------------------------------------------------
+filterTopAbs :: AC.TopLet Id -> Bool
+filterTopAbs (AC.TopLet _ _ _ absE@(AC.Abs _ _)) = False
+filterTopAbs tl = True
+
+filterExpr (ids, (AC.TopLet isInit t b e)) = (ids, AC.TopLet isInit t b $ filterExprAbs e)
+filterExpr (ids, e) = (ids, e)
+
+filterExprAbs (AC.Let _ _ _ absE@(AC.Abs arg e) e2) = e2
+filterExprAbs e = AC.mapExpr filterExprAbs e
 

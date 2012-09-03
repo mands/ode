@@ -58,37 +58,33 @@ flatten initModStr = do
     replFD <- getSysState vLocalFile
     initMod <- lift $  maybeToExcept (Map.lookup (ModName initModStr) (fileModEnv replFD))
                         (printf "Cannot find module %s loaded to simulate" (show initModStr))
-
-    trace' [MkSB initMod] "InitMod" $ return ()
-
-    gModEnv <- getSysState vModEnv
---    tmpMod <- lift $ getModuleGlobal modFullName gModEnv
---    trace' [MkSB tmpMod] "CoreFlat AST input" $ return ()
+    trace' [MkSB initMod] "CoreFlat AST input" $ return ()
 
     -- inline mods
-    -- mod1 <- lift $ inlineMod gModEnv initMod
-    -- trace' [MkSB mod1] "Inline Mods output" $ return ()
+    gModEnv <- getSysState vModEnv
+    mod1 <- lift $ inlineMod gModEnv initMod
+    trace' [MkSB mod1] "Inline Mods output" $ return ()
 
 
-    -- flatten all nested lets
---    mod1 <- lift $ flattenExprs tmpMod
+    -- flatten all nested lets - NOT IMPLEMENTED
+    --mod1 <- lift $ flattenExprs tmpMod
     --trace' [MkSB mod1] "Flatten exprs output" $ return ()
 
     -- inline components
-    --mod2 <- lift $ inlineComps tmpMod
-    -- trace' [MkSB mod2] "Inline Comps output" $ return ()
+    mod2 <- lift $ inlineComps mod1
+    trace' [MkSB mod2] "Inline Comps output" $ return ()
 
-    -- TODO - expand tuples and recs
+    -- TODO - expand tuples and recs - DONE IN COREFLAT
 
     -- convert units and types
     -- TODO - tmp/dummy module here to fool later stages
---    unitsState <- getSysState lUnitsState
---    mod3 <- lift $ convertTypes mod2 unitsState
---    trace' [MkSB mod3] "Convert units output" $ return ()
+    unitsState <- getSysState lUnitsState
+    mod3 <- lift $ convertTypes mod2 unitsState
+    -- trace' [MkSB mod3] "Convert units output" $ return ()
 
     -- convert to CoreFlat
---    coreFlatMod <- lift $ convertAST mod3
---    trace' [MkSB coreFlatMod] "CoreFlat AST output" $ return ()
+    coreFlatMod <- lift $ convertAST mod3
+    trace' [MkSB coreFlatMod] "CoreFlat AST output" $ return ()
 
 
     return ()

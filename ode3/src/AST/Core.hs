@@ -179,7 +179,7 @@ mapExpr f (Tuple es) = Tuple (map f es)
 mapExpr f (Record es) = Record (Map.map f es)
 mapExpr f (Ode v e1) = Ode v (f e1)
 mapExpr f (TypeCast e1 t) = TypeCast (f e1) t
-mapExpr f e = trace' [MkSB e] "Returing unhandled non-composite e" $ e
+mapExpr f e = e -- trace' [MkSB e] "Returing unhandled non-composite e" $ e
 
 mapExprM :: (Show a, Applicative m, Monad m) => (Expr a -> m (Expr a)) -> Expr a -> m (Expr a)
 mapExprM f (App v e1) = App v <$> f e1
@@ -192,7 +192,7 @@ mapExprM f (Tuple es) = Tuple <$> mapM f es
 mapExprM f (Record es) = Record <$> DT.mapM f es
 mapExprM f (Ode v e1) = Ode v <$> f e1
 mapExprM f (TypeCast e1 t) = TypeCast <$> f e1 <*> pure t
-mapExprM f e = trace' [MkSB e] "Returning unhandled non-composite e" $ return e
+mapExprM f e = return e -- trace' [MkSB e] "Returning unhandled non-composite e" $ return e
 
 -- be carful using these functions, as they handle the continousing fold themeselves
 -- we only use these if we need to capture any agg data within the compoosite datatypes
@@ -206,7 +206,7 @@ foldExpr f st (Tuple es) = foldl f st es
 foldExpr f st (Record es) = Map.foldl f st es
 foldExpr f st (Ode v e1) = f st e1
 foldExpr f st (TypeCast e1 t) = f st e1
-foldExpr f st e = trace' [MkSB e, MkSB st] "Returning unchanged state" st
+foldExpr f st e = st -- trace' [MkSB e, MkSB st] "Returning unchanged state" st
 
 foldExprM :: (Show a, Show b, Applicative m, Monad m) => (b -> Expr a -> m b) -> b -> Expr a -> m b
 foldExprM f st (App v e1) = f st e1
@@ -218,7 +218,7 @@ foldExprM f st (Tuple es) = DF.foldlM f st es
 foldExprM f st (Record es) = DF.foldlM f st es
 foldExprM f st (Ode v e1) = f st e1
 foldExprM f st (TypeCast e1 t) = f st e1
-foldExprM f st e = trace' [MkSB e, MkSB st] "Returning unchanged state" $ return st
+foldExprM f st e = return st -- trace' [MkSB e, MkSB st] "Returning unchanged state" $ return st
 
 
 

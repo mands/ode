@@ -1,0 +1,68 @@
+/*
+module Tuple1 {
+    // tuple creation
+    val tup = (1, 2, True)
+    val i,j,_ = tup
+
+    // tuple selection
+    val x = i + j
+}
+*/
+
+
+module Tuple2 {
+    // tuple creation
+    val tup = (1 + 1, 2, 3)
+
+    component f(i,j,_) {
+      val y = i + j
+      return None
+    }
+    
+    val z = f(tup)
+}
+/*
+// sub-typing within a piecewise
+module Tuple3 {
+    // tuple creation
+    val tup = piecewise { True : (1, 2), default : (3,4) }
+    // tuple selection
+    val (_, x) = tup
+}
+*/
+/*
+// record creation and selection
+module Record1 {
+    // record creation
+    val rec = { i : 1 + 1, j : 2, k : 3 }
+    
+    // record selection
+    val x = rec#i + rec#j
+}
+
+
+module Record2 {
+    // record creation
+    val rec = { i : 1 + 1, j : 2, k : 3 }
+
+    component f(x) {
+      val y = x#i + x#j
+      return None
+    }
+    
+    // ? constrain the poly func    
+    val z = f(rec)
+}
+*/
+
+/*
+// sub-typing within a piecewise
+module Record3 {
+    // record creation
+    val rec = piecewise { True : {i : 1, j : 2}, default : { i : 2, j:2 } }
+    // record selection
+    val x = rec#i
+}
+*/
+
+
