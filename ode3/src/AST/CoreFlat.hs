@@ -41,12 +41,10 @@ data Type = TFloat | TBool | TUnit | TTuple [Type] deriving (Show, Eq, Ord)
 -- the main type of our simulatable expressions - basically ANF form
 data Expr   = Var Var
             | Op AC.Op [Var]
-            | If Var ExprMap ExprMap -- nested envs for each branch
-            | Tuple [Var]          -- yes - have to for MRVs, unpack the rest
-            -- | TupleRef Var Integer          -- acces the n-th element from a tuple
-            -- Record (Map.Map RecId Expr) -- no records, convert to tuples/unpack
+            | If Var ExprMap ExprMap    -- nested envs for each conditional branch
+            | Tuple [Var]               -- needed for MRVs, nested tuples not allowed
             | Ode Id Var
-            -- Rre Id Id Expr     -- add later to separate exprs
+            -- Rre Id Id Expr           -- add later to separate exprs
             deriving (Show, Eq, Ord)
 
 -- | Atomic, core values
@@ -57,3 +55,6 @@ data Var = VarRef Id | TupleRef Id Integer | Num Double | Boolean Bool | Unit
 -- | Used to handle both input and output args to a library/runtime operator
 -- these are handled in an implementation-specific fashion for the given backend
 -- data OpParams = OpParams [Id] deriving (Show, Eq, Ord)
+
+-- Traversal Functions -------------------------------------------------------------------------------------------------
+-- TODO

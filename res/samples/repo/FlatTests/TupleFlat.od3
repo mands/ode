@@ -1,4 +1,4 @@
-/*
+
 module Tuple1 {
     // tuple creation
     val tup = (1, 2, True)
@@ -7,7 +7,7 @@ module Tuple1 {
     // tuple selection
     val x = i + j
 }
-*/
+
 
 /*
 module Tuple2 {
@@ -59,7 +59,7 @@ module Record2 {
 }
 */
 
-
+/*
 // sub-typing within a piecewise
 module Record3 {
     // record creation
@@ -67,6 +67,6 @@ module Record3 {
     // record selection
     val x = rec#i
 }
-
+*/
 
 

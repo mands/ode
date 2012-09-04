@@ -16,7 +16,7 @@
 {-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, OverlappingInstances, FlexibleInstances, FunctionalDependencies  #-}
 
 module Utils.OrdMap (
-OrdMap, (!), lookup, size, member, empty, singleton, insert, delete, update, append, elems, keys, map, foldl, union,
+OrdMap, (!), lookup, size, member, empty, singleton, insert, safeInsert, tailInsert, headInsert, delete, update, append, reverse, elems, keys, map, foldl, union,
 toList, fromList, mapAccum, toMap, filter
 
 ) where
@@ -29,7 +29,7 @@ import qualified Data.Traversable as DT
 import qualified Data.Functor as Functor
 import Control.Applicative (liftA, liftA2, pure, (<$>), (<*>))
 import Data.Maybe (fromJust, isJust)
-import Prelude hiding (foldl, lookup, map, filter)
+import Prelude hiding (foldl, lookup, map, filter, reverse)
 import Utils.Utils
 
 type AssocList k v = [(k, v)]
@@ -71,6 +71,12 @@ insert k v (OrdMapC m) = OrdMapC $ maybe insert' update' mInd
 safeInsert :: (Ord k) => k -> v -> OrdMap k v -> Maybe (OrdMap k v)
 safeInsert k v m = maybe (Just $ insert k v m) (\_ -> Nothing) (lookup k m)
 
+-- insert at the end of the list, a thin wrapper around append
+tailInsert :: (Ord k) => k -> v -> OrdMap k v -> (OrdMap k v)
+tailInsert k v m = append m (OrdMapC [(k, v)])
+
+headInsert :: (Ord k) => k -> v -> OrdMap k v -> (OrdMap k v)
+headInsert k v (OrdMapC m) = OrdMapC $ (k,v):m
 
 delete :: (Ord k) => k -> OrdMap k v -> OrdMap k v
 delete k (OrdMapC m) = OrdMapC $ maybe m delete' mInd
@@ -88,6 +94,8 @@ update f b m = if member b m then update' (f (m!b)) else m
 append :: OrdMap k v -> OrdMap k v -> OrdMap k v
 append (OrdMapC m1) (OrdMapC m2) = OrdMapC $ m1 ++ m2
 
+reverse :: OrdMap k v -> OrdMap k v
+reverse (OrdMapC m) = OrdMapC $ List.reverse m
 
 elems :: OrdMap k v -> [v]
 elems (OrdMapC m) = List.map snd m

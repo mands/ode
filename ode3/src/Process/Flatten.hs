@@ -50,7 +50,7 @@ import Process.Flatten.InlineMods
 import Process.Flatten.InlineComps
 import Process.Flatten.ConvertAST
 import Process.Flatten.ConvertTypes
-
+import Process.Flatten.UnpackTuples
 
 flatten :: String -> SysExcept ()
 flatten initModStr = do
@@ -64,7 +64,6 @@ flatten initModStr = do
     gModEnv <- getSysState vModEnv
     mod1 <- lift $ inlineMod gModEnv initMod
     trace' [MkSB mod1] "Inline Mods output" $ return ()
-
 
     -- flatten all nested lets - NOT IMPLEMENTED
     --mod1 <- lift $ flattenExprs tmpMod
@@ -86,6 +85,9 @@ flatten initModStr = do
     coreFlatMod <- lift $ convertAST mod3
     trace' [MkSB coreFlatMod] "CoreFlat AST output" $ return ()
 
+    -- unpack tuples
+    coreFlatMod' <- lift $ unpackTuples coreFlatMod
+    trace' [MkSB coreFlatMod'] "Unpacked tuples output" $ return ()
 
     return ()
 
