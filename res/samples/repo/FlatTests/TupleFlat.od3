@@ -9,7 +9,7 @@ module Tuple1 {
 }
 */
 
-
+/*
 module Tuple2 {
     // tuple creation
     val tup = (1 + 1, 2, 3)
@@ -21,29 +21,33 @@ module Tuple2 {
     
     val z = f(tup)
 }
+*/
+
 /*
 // sub-typing within a piecewise
 module Tuple3 {
     // tuple creation
     val tup = piecewise { True : (1, 2), default : (3,4) }
     // tuple selection
-    val (_, x) = tup
+    val _, x = tup
 }
 */
+
 /*
 // record creation and selection
 module Record1 {
     // record creation
-    val rec = { i : 1 + 1, j : 2, k : 3 }
+    val rec = { i : 1 + 1, j : True, k : 3 }
     
     // record selection
-    val x = rec#i + rec#j
+    val x = rec#i + rec#k
 }
+*/
 
-
+/*
 module Record2 {
     // record creation
-    val rec = { i : 1 + 1, j : 2, k : 3 }
+    val rec = { i : 1 + 1, j : 2, k : True }
 
     component f(x) {
       val y = x#i + x#j
@@ -55,7 +59,7 @@ module Record2 {
 }
 */
 
-/*
+
 // sub-typing within a piecewise
 module Record3 {
     // record creation
@@ -63,6 +67,6 @@ module Record3 {
     // record selection
     val x = rec#i
 }
-*/
+
 
 

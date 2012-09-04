@@ -27,6 +27,7 @@ import AST.Common
 import AST.Module
 
 import qualified Data.Map as Map
+import qualified Data.List as List
 import qualified Utils.OrdMap as OrdMap
 import qualified AST.Core as AC
 import qualified AST.CoreFlat as ACF
@@ -68,7 +69,11 @@ convertTop _ coreExpr = errorDump [MkSB coreExpr] "Cannot convert top expression
 -- convert the expression, this is straightforwad for the resticted Core AST we have now anyway
 -- puts it into ANF too
 convertExpr :: AC.Expr Id -> ConvM ACF.Expr
+-- Var
 convertExpr e@(AC.Var (AC.LocalVar v) Nothing) = return $ ACF.Var (ACF.VarRef v)
+-- Var with record ref - convert to a tuple ref
+convertExpr e@(AC.Var (AC.LocalVar v) (Just recId)) = ACF.Var <$> convertRecId v recId
+
 -- directly store the nested let bindings within the flattened exprMap
 convertExpr e@(AC.Let isInit t bs e1 e2) = do
     convertLet isInit t bs e1
@@ -119,7 +124,8 @@ convertExpr e@(AC.If eB eT eF) = do
 
 -- Tuple
 convertExpr e@(AC.Tuple es) = ACF.Tuple <$> mapM convertVar es
-
+-- Record - we convert to a tuple
+convertExpr e@(AC.Record nEs) = ACF.Tuple <$> mapM convertVar (AC.dropLabels nEs)
 
 -- Ode
 convertExpr e@(AC.Ode (AC.LocalVar v) e1) = do
@@ -152,13 +158,14 @@ convertLet isInit t ids e1 = do
   where
     insertTupleRef :: Id -> (Id, ACF.Type, Integer) -> ConvM ()
     insertTupleRef tupleId (id, t, refIdx) = do
-        insertExpr id (ACF.TupleRef (ACF.VarRef tupleId) refIdx) t
+        insertExpr id (ACF.Var $ ACF.TupleRef tupleId refIdx) t
 
 -- TODO - is this right?
 -- should either lift/embed a var or convert an expr, create a new binding and return a refvar to it
 convertVar :: AC.Expr Id -> ConvM ACF.Var
 convertVar e = do
-    case liftVarExpr e of
+    mE' <- liftVarExpr e
+    case mE' of
         Just var -> return $ var
         Nothing -> do
             -- convert the expression and return a var pointing to it
@@ -171,12 +178,13 @@ convertVar e = do
             return $ ACF.VarRef id
 
 -- | Performs single look-ahead into the expression and lifts to a Var expr if possible
-liftVarExpr :: AC.Expr Id -> Maybe ACF.Var
-liftVarExpr e@(AC.Lit (AC.Num n U.NoUnit)) = Just $ ACF.Num n
-liftVarExpr e@(AC.Lit (AC.Boolean b)) = Just $ ACF.Boolean b
-liftVarExpr e@(AC.Lit (AC.Unit)) = Just $ ACF.Unit
-liftVarExpr e@(AC.Var (AC.LocalVar v) Nothing) = Just $ (ACF.VarRef v)
-liftVarExpr e = Nothing
+liftVarExpr :: AC.Expr Id -> ConvM (Maybe ACF.Var)
+liftVarExpr e@(AC.Lit (AC.Num n U.NoUnit)) = return $ Just $ ACF.Num n
+liftVarExpr e@(AC.Lit (AC.Boolean b)) = return $ Just $ ACF.Boolean b
+liftVarExpr e@(AC.Lit (AC.Unit)) = return $ Just $ ACF.Unit
+liftVarExpr e@(AC.Var (AC.LocalVar v) Nothing) = return $ Just $ ACF.VarRef v
+liftVarExpr e@(AC.Var (AC.LocalVar v) (Just recId)) = Just <$> convertRecId v recId
+liftVarExpr e = return Nothing
 
 -- | Wrapper function to insert a given expression into the correct exprmap under a given Id
 insertExpr :: Id -> ACF.Expr -> ACF.Type -> ConvM ()
@@ -188,13 +196,25 @@ insertExpr id fE fT = do
         True    -> lift $ modify (\st -> st { initExprs = OrdMap.insert id exprData (initExprs st) })
         False   -> lift $ modify (\st -> st { loopExprs = OrdMap.insert id exprData (loopExprs st) })
 
+-- | Convert a record Id reference to a tuple numerical reference
+convertRecId :: Id -> String -> ConvM ACF.Var
+convertRecId v recId = do
+    -- we use the tMap to figure out the record label positioning as is flat- bit hacky but will work
+    recT@(AC.TRecord nTs) <- lookupType v
+    let tupIdx = toInteger . (+ 1) . fromJust . List.elemIndex recId . Map.keys $ nTs
+    return $ ACF.TupleRef v tupIdx
 
--- | lookups and converts a Core type to a CoreFlat type
+
+
+-- Type Conversion -----------------------------------------------------------------------------------------------------
+-- | lookups a type within the typemap
 lookupType :: Id -> ConvM AC.Type
 lookupType id = (Map.!) <$> (curTMap <$> lift get) <*> pure id
 
+-- | converts a Core type to a CoreFlat type
 convertType :: AC.Type -> ACF.Type
 convertType (AC.TBool)      = ACF.TBool
 convertType (AC.TFloat _)   = ACF.TFloat
 convertType (AC.TUnit)      = ACF.TUnit
 convertType (AC.TTuple ts)  = ACF.TTuple $ map convertType ts
+convertType (AC.TRecord nTs)  = ACF.TTuple $ map convertType (AC.dropLabels nTs)

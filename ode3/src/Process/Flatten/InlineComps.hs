@@ -59,6 +59,7 @@ inlineComps (LitMod modData) = do
   where
     inlineCompsM :: InlineCompsM (ExprMap Id)
     inlineCompsM = do
+        -- inline components, drop top abs, drop nested abs
         exprMap' <- DT.mapM inlineCompsTop (modExprMap modData)
         return $ (OrdMap.filter filterTopAbs exprMap' |> OrdMap.map filterExpr)
 
@@ -98,7 +99,7 @@ inlineCompsExpr e = AC.mapExprM inlineCompsExpr e
 inlineApp f appE = do
     -- get the abs expr and type
     (AC.Abs arg absE) <- (Map.!) <$> (absMap <$> lift get) <*> pure f
-    (AC.TArr _ toT) <- (Map.!) <$> (tMap <$> lift get) <*> pure f
+    (AC.TArr fromT toT) <- (Map.!) <$> (tMap <$> lift get) <*> pure f
     -- check the rebindsMap is empty
     assert <$> (== 0) <$> (Map.size <$> (rebindsMap <$> lift get)) <*> return ()
     -- first rebind the arg
@@ -109,7 +110,9 @@ inlineApp f appE = do
     lift $ modify (\st -> st { rebindsMap = Map.delete arg (rebindsMap st) })
     -- finally create a nested let to hold the inlined expr
     -- TODO - what about sVal?
-    return $ AC.Let False toT [arg'] appE reboundAbsE
+    -- do we use fromT or toT - I think fromT, as that is the type of the arg, the result type is already held
+    -- within the (top-)let
+    return $ AC.Let False fromT [arg'] appE reboundAbsE
 
 
 shiftExprIds :: AC.Expr Id -> InlineCompsM (AC.Expr Id)

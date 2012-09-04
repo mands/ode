@@ -131,6 +131,7 @@ data Expr b = Var (VarId b) (Maybe RecId)             -- a reference to any let-
             | Let Bool Type (BindList b) (Expr b) (Expr b)  -- basic let within sub-expression
                                         -- test to try multi-lets within an expressino - handles unpacking with context
                                          -- can be stateful bindings that are held between time-steps if 1st param=True
+                                         -- Type param holds the type of the bindings created by e1
 
             | Lit Literal               -- basic built-in constant literals
 

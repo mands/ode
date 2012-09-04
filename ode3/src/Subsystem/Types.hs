@@ -45,7 +45,7 @@ calcTypeExpr tMap (AC.App (AC.LocalVar f) _) | AC.TArr eT toT <- (tMap Map.! f) 
 
 -- what is the type of the arg? AC.TArr Unit (calcTypeExpr tMap e)
 -- calcTypeExpr tMap (AC.Abs arg e) = undefined -- calcTypeExpr tMap e
-
+-- the t here holds the type of e1, not e2, hence have to calc e2
 calcTypeExpr tMap (AC.Let s t bs e1 e2) = calcTypeExpr tMap e2
 
 calcTypeExpr _ (AC.Lit l) = case l of

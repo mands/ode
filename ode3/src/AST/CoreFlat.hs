@@ -43,14 +43,14 @@ data Expr   = Var Var
             | Op AC.Op [Var]
             | If Var ExprMap ExprMap -- nested envs for each branch
             | Tuple [Var]          -- yes - have to for MRVs, unpack the rest
-            | TupleRef Var Integer          -- acces the n-th element from a tuple
+            -- | TupleRef Var Integer          -- acces the n-th element from a tuple
             -- Record (Map.Map RecId Expr) -- no records, convert to tuples/unpack
             | Ode Id Var
             -- Rre Id Id Expr     -- add later to separate exprs
             deriving (Show, Eq, Ord)
 
 -- | Atomic, core values
-data Var = VarRef Id | Num Double | Boolean Bool | Unit
+data Var = VarRef Id | TupleRef Id Integer | Num Double | Boolean Bool | Unit
                 deriving (Show, Eq, Ord)
 
 
