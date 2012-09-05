@@ -48,12 +48,13 @@ import Subsystem.SysState
 
 type UnitConvM = SupplyT Id (StateT UnitConvState MExcept)
 
--- data UnitConvState = UnitConvState { uState :: UnitsState, typeMap :: TypeMap } deriving (Show, Eq, Ord)
-type UnitConvState = (UnitsState, TypeMap)
+data UnitConvState = UnitConvState { inInit :: Bool, stUState :: UnitsState, stTMap :: TypeMap } deriving (Show)
+-- type UnitConvState = (UnitsState, TypeMap)
+mkUnitConvState = UnitConvState False
 
 convertTypes :: Module Id -> UnitsState -> MExcept (Module Id)
 convertTypes (LitMod modData) uState = do
-    ((exprMap', freeIds'), (_, tMap')) <- runStateT (runSupplyT convTypesM [freeId ..]) (uState, (modTMap modData))
+    ((exprMap', freeIds'), _) <- runStateT (runSupplyT convTypesM [freeId ..]) $ mkUnitConvState uState (modTMap modData)
     -- update modData and return new module
     let exprMap'' = OrdMap.filter (\topLet -> case topLet of (AC.TopLet _ _ _ _) -> True; (AC.TopType _) -> False) exprMap'
     return $ LitMod $ (updateModData2 modData exprMap'') { modFreeId = (head freeIds') }
@@ -64,10 +65,16 @@ convertTypes (LitMod modData) uState = do
 
 
 convertTypesTop :: AC.TopLet Id -> UnitConvM (AC.TopLet Id)
-convertTypesTop (AC.TopLet isInit t bs tE) = AC.TopLet isInit t bs <$> convertTypesExpr tE
+convertTypesTop (AC.TopLet isInit t bs tE) = do
+    lift $ modify (\st -> st { inInit = isInit } ) -- set Init flag
+    AC.TopLet isInit t bs <$> convertTypesExpr tE
 convertTypesTop tLet = return tLet
 
+
 convertTypesExpr :: AC.Expr Id -> UnitConvM (AC.Expr Id)
+convertTypesExpr (AC.Let isInit t bs e1 e2) = do
+    lift $ modify (\st -> st { inInit = isInit } ) -- set Init flag
+    AC.Let isInit t bs <$> convertTypesExpr e1 <*> convertTypesExpr e2
 -- drop units from lit nums
 convertTypesExpr (AC.Lit (AC.Num n u)) = return $ AC.Lit (AC.Num n U.NoUnit)
 -- drop the new-type wraps
@@ -76,10 +83,11 @@ convertTypesExpr (AC.TypeCast e (AC.UnwrapType _)) = return e
 -- convert the unit, create a new let binding with the conversion
 convertTypesExpr (AC.TypeCast e (AC.UnitCast toU)) = do
     id <- supply
-    (_, tMap) <- lift get
+    tMap <- stTMap <$> lift get
     AC.TFloat fromU <- lift . lift $ T.calcTypeExpr tMap e
     -- TODO - what about the SVal type??
-    AC.Let False (AC.TFloat U.NoUnit) [id] e <$> (convertUnitCast id fromU toU)
+    isInit <- inInit <$> lift get
+    AC.Let isInit (AC.TFloat U.NoUnit) [id] e <$> (convertUnitCast id fromU toU)
 
 -- don't care about the rest, pass on to mapExprM
 convertTypesExpr e = AC.mapExprM convertTypesExpr e
@@ -87,7 +95,7 @@ convertTypesExpr e = AC.mapExprM convertTypesExpr e
 convertUnitCast :: Id -> U.Unit -> U.Unit -> UnitConvM (AC.Expr Id)
 convertUnitCast id u1 u2 = do
     -- need to use the unitstate to calc the correct expression and then convert it
-    (uState, _) <- lift get
+    uState <- stUState <$> lift get
     cExpr <- lift . lift $ U.convertCastUnit u1 u2 (L.get lUnitDimEnv uState) (L.get lConvEnv uState)
     return $ convertUnitExpr id cExpr
 
