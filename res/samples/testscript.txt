@@ -2,12 +2,11 @@
 :addRepo ../res/samples/repo
 
 // import our modules
-import FlatTests.TupleFlat.*
-//import SyntaxTests.Records.*
+import SimTests.BasicCalc.*
 
 // :show all
 :show modState
 // all done
-:simulate Tuple5
+:simulate BasicCalc2
 :quit
 

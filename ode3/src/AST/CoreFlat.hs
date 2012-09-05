@@ -48,7 +48,7 @@ data Expr   = Var Var
             deriving (Show, Eq, Ord)
 
 -- | Atomic, core values
-data Var = VarRef Id | TupleRef Id Integer | Num Double | Boolean Bool | Unit
+data Var = VarRef Id | TupleRef Id Integer | Num Double | Boolean Bool | Unit | Time
                 deriving (Show, Eq, Ord)
 
 

@@ -83,6 +83,7 @@ convertExpr e@(AC.Let isInit t bs e1 e2) = do
 convertExpr e@(AC.Lit (AC.Num n U.NoUnit)) = return $ ACF.Var $ ACF.Num n
 convertExpr e@(AC.Lit (AC.Boolean b)) = return $ ACF.Var $ ACF.Boolean b
 convertExpr e@(AC.Lit (AC.Unit)) = return $ ACF.Var $ ACF.Unit
+convertExpr e@(AC.Lit (AC.Time)) = return $ ACF.Var $ ACF.Time
 
 -- Operators
 -- multi-input op
@@ -184,6 +185,7 @@ liftVarExpr :: AC.Expr Id -> ConvM (Maybe ACF.Var)
 liftVarExpr e@(AC.Lit (AC.Num n U.NoUnit)) = return $ Just $ ACF.Num n
 liftVarExpr e@(AC.Lit (AC.Boolean b)) = return $ Just $ ACF.Boolean b
 liftVarExpr e@(AC.Lit (AC.Unit)) = return $ Just $ ACF.Unit
+liftVarExpr e@(AC.Lit (AC.Time)) = return $ Just $ ACF.Time
 liftVarExpr e@(AC.Var (AC.LocalVar v) Nothing) = return $ Just $ ACF.VarRef v
 liftVarExpr e@(AC.Var (AC.LocalVar v) (Just recId)) = Just <$> convertRecId v recId
 liftVarExpr e = return Nothing
