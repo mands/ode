@@ -55,6 +55,8 @@ import qualified Parser.Module as MP
 import qualified AST.Module as MA
 import qualified Subsystem.ModDriver as MD
 import Process.Flatten (flatten)
+import Subsystem.Simulation.Interpreter
+
 
 shellEntry :: IO ()
 shellEntry = do
@@ -118,27 +120,27 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
     startTimeCmd = cmd "startTime" f "Initial simulation time"
       where
         f :: Float -> Sh SysState ()
-        f x = modifyShellSt $ set (lStartTime . lSimState) x
+        f x = modifyShellSt $ set (lStartTime . lSimParams) x
 
     stopTimeCmd = cmd "endTime" f "Final simulation time"
       where
         f :: Float -> Sh SysState ()
-        f x = modifyShellSt $ set (lEndTime . lSimState) x
+        f x = modifyShellSt $ set (lEndTime . lSimParams) x
 
     simTimestepCmd = cmd "timestep" f "Timestep to use for simulation"
       where
         f :: Float -> Sh SysState ()
-        f x = modifyShellSt $ set (lTimestep . lSimState) x
+        f x = modifyShellSt $ set (lTimestep . lSimParams) x
 
     outPeriodCmd = cmd "period" f "Period iterations to save simulation state to disk"
       where
         f :: Integer -> Sh SysState ()
-        f x = modifyShellSt $ set (lOutputPeriod . lSimState) x
+        f x = modifyShellSt $ set (lOutputPeriod . lSimParams) x
 
     outFilenameCmd = cmd "output" f "Filename to save simulation results"
       where
         f :: File -> Sh SysState ()
-        f (File x) = modifyShellSt $ set (lFilename . lSimState) x
+        f (File x) = modifyShellSt $ set (lFilename . lSimParams) x
 
     simStartCmd = cmd "simulate" f "Start a simulation"
       where
@@ -167,12 +169,12 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
       where
         f :: String -> Sh SysState ()
         f "all" = (ppShow <$> getShellSt) >>= shellPutInfoLn
-        f "debug" = f "simState" >> f "modState"
+        f "debug" = f "simParams" >> f "modState"
 
         -- top level
         f "modState" =  (ppShow <$> get lModState <$> getShellSt) >>= shellPutInfoLn
         f "unitsState" = (ppShow <$> get lUnitsState <$> getShellSt) >>= shellPutInfoLn
-        f "simState" = (ppShow <$> get lSimState <$> getShellSt) >>= shellPutInfoLn
+        f "simParams" = (ppShow <$> get lSimParams <$> getShellSt) >>= shellPutInfoLn
 
         -- indiv useful elems
         f "repos" = (ppShow <$> get vRepos <$> getShellSt) >>= shellPutInfoLn
@@ -224,7 +226,7 @@ shEval str = do
 shSimulate :: String -> Sh SysState ()
 shSimulate initMod = do
     shellPutInfoLn $ printf "Simulation Params"
-    (ppShow <$> get lSimState <$> getShellSt) >>= shellPutInfoLn
+    (ppShow <$> get lSimParams <$> getShellSt) >>= shellPutInfoLn
     shellPutInfoLn $ printf "Starting simulation for module %s" (show initMod)
 
     st <- getShellSt
@@ -243,6 +245,6 @@ shSimulate initMod = do
         flatAST <- mkSysExceptIO $ flatten initMod
         -- optimise flatAST
         -- flatAST' <- optimise flatAST
-        -- _ <- interpret flatAST'
+        interpret flatAST
         -- all done
         return ()

@@ -52,7 +52,7 @@ import Process.Flatten.ConvertAST
 import Process.Flatten.ConvertTypes
 import Process.Flatten.UnpackTuples
 
-flatten :: String -> SysExcept ()
+flatten :: String -> SysExcept ACF.Module
 flatten initModStr = do
     -- lookup the refmod in repl filedata
     replFD <- getSysState vLocalFile
@@ -76,9 +76,4 @@ flatten initModStr = do
     -- unpack tuples (in CoreFlat)
     core2 <- lift $ unpackTuples core1
     trace' [MkSB core2] "Unpacked tuples output" $ return ()
-
-    return ()
-
-
--- Functor Application Helper Funcs ------------------------------------------------------------------------------------
--- TODO - utilise this code later when we unfold all modules into a single block of code
+    return core2

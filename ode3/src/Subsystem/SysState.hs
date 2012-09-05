@@ -72,7 +72,7 @@ liftExSys = lift . mkExceptIO
 
 data SysState = SysState
     { _debug :: Bool                -- do we enable debug mode
-    , _simState :: SimState         -- simulation params
+    , _simParams :: SimParams         -- simulation params
     , _modState :: ModState
     , _unitsState :: UnitsState
     } deriving Show
@@ -80,13 +80,13 @@ data SysState = SysState
 
 defSysState = SysState
     { _debug = False
-    , _simState = defSimState
+    , _simParams = defSimParams
     , _modState = defModState
     , _unitsState = defUnitsState
     }
 
 -- sim data, mod data, units data, other?
-data SimState = SimState
+data SimParams = SimParams
     { _startTime :: Float
     , _endTime :: Float
     , _timestep :: Float            -- simulation timestep
@@ -94,7 +94,7 @@ data SimState = SimState
     , _filename :: FilePath         -- output filename to save data to
     } deriving Show
 
-defSimState = SimState
+defSimParams = SimParams
     { _startTime = 0
     , _endTime = 60
     , _timestep = 0.001         -- 1ms
@@ -136,7 +136,7 @@ defUnitsState = UnitsState
 
 -- TH splice
 -- $(mkLabels [''SysState, ''SimState, ''ModState, ''UnitsState])
-$(mkLabelsWith mkLabelName [''SysState, ''SimState, ''ModState, ''UnitsState])
+$(mkLabelsWith mkLabelName [''SysState, ''SimParams, ''ModState, ''UnitsState])
 -- post TH, all generated defs/labels are in scope
 
 -- a few useful views from top SysState into nested labels
