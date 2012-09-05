@@ -64,7 +64,6 @@ inlineComps (LitMod modData) = do
         return $ (OrdMap.filter filterTopAbs exprMap' |> OrdMap.map filterExpr)
 
 inlineCompsTop :: AC.TopLet Id -> InlineCompsM (AC.TopLet Id)
--- inlineCompsTop (AC.TopLet isInit bs tE) = AC.TopLet isInit bs <$> AC.mapExprM inlineCconvertTypesExpr tE
 inlineCompsTop (AC.TopLet isSval t (b:[]) absE@(AC.Abs arg e)) = do
     -- first inline the abs
     absE' <-  AC.Abs arg <$> inlineCompsExpr e
@@ -72,8 +71,8 @@ inlineCompsTop (AC.TopLet isSval t (b:[]) absE@(AC.Abs arg e)) = do
     lift $ modify (\st -> st { absMap = Map.insert b absE' (absMap st) })
     return (AC.TopLet isSval t (b:[]) absE')
 
--- now inline any applications
-inlineCompsTop (AC.TopLet isSval t (b:[]) appE@(AC.App (AC.LocalVar f) e)) = AC.TopLet isSval t [b] <$> inlineApp f e
+-- inline any applications
+inlineCompsTop (AC.TopLet isSval t bs appE@(AC.App (AC.LocalVar f) e)) = AC.TopLet isSval t bs <$> inlineApp f e
 
 -- anything else, keep going
 inlineCompsTop e = return e
@@ -87,6 +86,7 @@ inlineCompsExpr (AC.Let isSval t (b:[]) absE@(AC.Abs arg e) e2) = do
     e2' <- inlineCompsExpr e
     -- remove the inlied expr here
     lift $ modify (\st -> st { absMap = Map.delete b (absMap st) })
+    -- drop the app and return a new inlined let
     return (AC.Let isSval t (b:[]) absE' e2')
 
 -- now inline any applications
@@ -95,8 +95,10 @@ inlineCompsExpr appE@(AC.App (AC.LocalVar f) e) = inlineApp f e
 inlineCompsExpr e = AC.mapExprM inlineCompsExpr e
 
 
--- actually setup the AST changes to inline the app of the abs
+-- | actually setup the AST changes to inline the app of the abs
+-- replace an app abs e -> let
 inlineApp f appE = do
+    -- trace' [MkSB f, MkSB appE] "inline app" $ return ()
     -- get the abs expr and type
     (AC.Abs arg absE) <- (Map.!) <$> (absMap <$> lift get) <*> pure f
     (AC.TArr fromT toT) <- (Map.!) <$> (tMap <$> lift get) <*> pure f
@@ -108,13 +110,11 @@ inlineApp f appE = do
     -- now rebind the expr
     reboundAbsE <- shiftExprIds absE
     lift $ modify (\st -> st { rebindsMap = Map.delete arg (rebindsMap st) })
-    -- finally create a nested let to hold the inlined expr
     -- TODO - what about sVal?
-    -- do we use fromT or toT - I think fromT, as that is the type of the arg, the result type is already held
-    -- within the (top-)let
+    -- finally create a nested let to hold the inlined expr
     return $ AC.Let False fromT [arg'] appE reboundAbsE
 
-
+-- | shift all variables within a sub-expression, creating new tmp vars to hold lets and rebinding any refs
 shiftExprIds :: AC.Expr Id -> InlineCompsM (AC.Expr Id)
 shiftExprIds (AC.Var (AC.LocalVar v) mRecId) = do
     rbMap <- rebindsMap <$> lift get

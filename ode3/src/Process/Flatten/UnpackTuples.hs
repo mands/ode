@@ -62,63 +62,75 @@ unpackTuples mod = do
 -- manual fold over ExprMap, as we need to control the fold, add expressions, etc.
 unpackTop :: [(Id, ExprData)] -> ExprMap -> UnpackM ExprMap
 
+-- last element is a tuple, we don't do anything in this case
+unpackTop ((i, eD@(ExprData (Tuple vs) (TTuple ts))):[]) exprMap = return $ OrdMap.tailInsert i eD exprMap
+-- last/return is anything else, unpack the expr and stop the loop
+unpackTop ((i, eD):[]) exprMap = unpackExpr (i, eD) exprMap
+-- empty element
+unpackTop [] exprMap = return exprMap
+-- unpack the expr and pass it on
+unpackTop ((i, eD):es) exprMap = unpackTop es =<< unpackExpr (i, eD) exprMap
+
+
+-- Actually unpack an expression
+unpackExpr :: (Id, ExprData) -> ExprMap -> UnpackM ExprMap
 -- tuple creation
-unpackTop ((i, ExprData (Tuple vs) (TTuple ts)):es) exprMap = do
-    -- unpack the tuple into separate vars
-    (exprMap', refMap) <- DF.foldrM createTupleVar (exprMap, Map.empty) $ zip3 [1..] vs ts
-    -- store the refMap,indexed by the tuple var id
+unpackExpr (i, ExprData (Tuple vs) t) exprMap = do
+    vs' <- mapM unpackVar vs
+    -- tuple should already be unpacked, hence just need to build the refmap
+    let refMap = foldl createTupleVar Map.empty $ zip [1..] vs'
+    -- store the refMap, indexed by the tuple var id
     lift $ modify (\st -> st { unpackedIds = Map.insert i refMap (unpackedIds st) })
-    -- now drop the tuple and move on
-    unpackTop es $ exprMap'
+    -- copy the tuple accross
+    return $ OrdMap.tailInsert i (ExprData (Tuple vs') t) exprMap
   where
-    createTupleVar :: (Integer, Var, Type) -> (ExprMap, RefMap) -> UnpackM (ExprMap, RefMap)
-    createTupleVar (tupIdx, v, t) (exprMap, refMap) = do
-        i <- supply
-        let eD = ExprData (Var v) t
-        return $ (OrdMap.headInsert i eD exprMap, Map.insert tupIdx i refMap)
+    createTupleVar :: RefMap -> (Integer, Var) -> RefMap
+    createTupleVar refMap (tupIdx, (VarRef v)) = Map.insert tupIdx v refMap
 
 -- If - has it's own independent exprMaps for each branch
-unpackTop ((i, ExprData (If vB emT emF) t):es) exprMap = do
+unpackExpr (i, ExprData (If vB emT emF) t) exprMap = do
+    vB' <- unpackVar vB
+    -- unpackExpr as it's own independent exprMaps for each branch
     emT' <- unpackTop (OrdMap.toList emT) OrdMap.empty
     emF' <- unpackTop (OrdMap.toList emF) OrdMap.empty
+    -- add back the unpacked exprs
     -- continue the fold
-    unpackTop es $ OrdMap.tailInsert i (ExprData (If vB emT' emF') t) exprMap
-
+    return $ OrdMap.tailInsert i (ExprData (If vB' emT' emF') t) exprMap
 
 -- Var - we check for a ref to an already unpacked tuple
-unpackTop ((i, eD@(ExprData (Var (VarRef vr)) (TTuple ts))):es) exprMap = do
+unpackExpr (i, eD@(ExprData (Var (VarRef vr)) (TTuple ts))) exprMap = do
     -- check if the ref has already been unpacked
     mRefMap <- Map.lookup vr <$> (unpackedIds <$> lift get)
     case mRefMap of
         Just refMap -> do
             -- store the cached refMap, indexed by var id
             lift $ modify (\st -> st { unpackedIds = Map.insert i refMap (unpackedIds st) })
-            -- again drop the var and move on
-            unpackTop es exprMap
-        Nothing     -> unpackTop es $ OrdMap.tailInsert i eD exprMap -- copy the var and move on
+            -- keep the var and move on
+            return $ OrdMap.tailInsert i eD exprMap
+        Nothing     -> return $ OrdMap.tailInsert i eD exprMap -- copy the var and move on
 
+-- Other exprs
+-- Var TupleRefs
+unpackExpr (i, ExprData (Var v) t) exprMap = do
+    v' <- unpackVar v
+    return $ OrdMap.tailInsert i (ExprData (Var v') t) exprMap -- copy the var and move on
 
--- Var TupleRef
-unpackTop ((i, ExprData (Var var) t):es) exprMap = do
-    var' <- unpackVar var
-    unpackTop es $ OrdMap.tailInsert i (ExprData (Var var') t) exprMap -- copy the var and move on
+unpackExpr (i, ExprData (Op op vs) t) exprMap = do
+    vs' <- mapM unpackVar vs
+    return $ OrdMap.tailInsert i (ExprData (Op op vs') t) exprMap -- copy the var and move on
+
+unpackExpr (i, ExprData (Ode id v) t) exprMap = do
+    v' <- unpackVar v
+    return $ OrdMap.tailInsert i (ExprData (Ode id v') t) exprMap -- copy the var and move on
 
 
 -- any other expr we just pass along (as no other nested exprs this should be ok)
-unpackTop ((i, eD):es) exprMap = unpackTop es $ OrdMap.tailInsert i eD exprMap
-
--- last/return element, we don't do anything in this case
-unpackTop ((i, eD):[]) exprMap = return $ OrdMap.tailInsert i eD exprMap
-
--- empty element
-unpackTop [] exprMap = return exprMap
+unpackExpr (i, eD) exprMap = return $ OrdMap.tailInsert i eD exprMap -- copy the expr
 
 
-
--- map over var that converts any tuplerefs to refs
+-- | map over var that converts any tuplerefs to refs
 unpackVar :: Var -> UnpackM Var
 unpackVar var@(TupleRef vId tupIdx) = do
     mRefMap <- Map.lookup vId <$> (unpackedIds <$> lift get)
     return $ maybe var (\refMap -> (VarRef $ refMap Map.! tupIdx)) mRefMap
-
 unpackVar var = return var

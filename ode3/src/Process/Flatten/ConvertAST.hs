@@ -122,10 +122,10 @@ convertExpr e@(AC.If eB eT eF) = do
         lift . put $ st' { curExprs = oldCurMap }
         return es
 
--- Tuple
-convertExpr e@(AC.Tuple es) = ACF.Tuple <$> mapM convertVar es
+-- Tuple - delibeatly lift all refences here rather than try to embed, makes unpacking stage easier
+convertExpr e@(AC.Tuple es) = ACF.Tuple <$> mapM insertTmpVar es
 -- Record - we convert to a tuple
-convertExpr e@(AC.Record nEs) = ACF.Tuple <$> mapM convertVar (AC.dropLabels nEs)
+convertExpr e@(AC.Record nEs) = ACF.Tuple <$> mapM insertTmpVar (AC.dropLabels nEs)
 
 -- Ode
 convertExpr e@(AC.Ode (AC.LocalVar v) e1) = do
@@ -161,21 +161,23 @@ convertLet isInit t ids e1 = do
         insertExpr id (ACF.Var $ ACF.TupleRef tupleId refIdx) t
 
 -- TODO - is this right?
--- should either lift/embed a var or convert an expr, create a new binding and return a refvar to it
+-- should either lift/embed a var
 convertVar :: AC.Expr Id -> ConvM ACF.Var
 convertVar e = do
     mE' <- liftVarExpr e
-    case mE' of
-        Just var -> return $ var
-        Nothing -> do
-            -- convert the expression and return a var pointing to it
-            id <- supply
-            e' <- convertExpr e
-            -- need to calc and convert the type here
-            tMap <- curTMap <$> lift get
-            fT <- convertType <$> (lift . lift $ T.calcTypeExpr tMap e)
-            insertExpr id e' fT
-            return $ ACF.VarRef id
+    maybe (insertTmpVar e) (return) mE'
+
+-- convert an expr, create a new binding and return a refvar to it
+insertTmpVar :: AC.Expr Id -> ConvM ACF.Var
+insertTmpVar e = do
+    -- convert the expression and return a var pointing to it
+    id <- supply
+    e' <- convertExpr e
+    -- need to calc and convert the type here
+    tMap <- curTMap <$> lift get
+    fT <- convertType <$> (lift . lift $ T.calcTypeExpr tMap e)
+    insertExpr id e' fT
+    return $ ACF.VarRef id
 
 -- | Performs single look-ahead into the expression and lifts to a Var expr if possible
 liftVarExpr :: AC.Expr Id -> ConvM (Maybe ACF.Var)

@@ -59,35 +59,23 @@ flatten initModStr = do
     initMod <- lift $  maybeToExcept (Map.lookup (ModName initModStr) (fileModEnv replFD))
                         (printf "Cannot find module %s loaded to simulate" (show initModStr))
     trace' [MkSB initMod] "CoreFlat AST input" $ return ()
-
     -- inline mods
     gModEnv <- getSysState vModEnv
     mod1 <- lift $ inlineMod gModEnv initMod
     trace' [MkSB mod1] "Inline Mods output" $ return ()
-
-    -- flatten all nested lets - NOT IMPLEMENTED
-    --mod1 <- lift $ flattenExprs tmpMod
-    --trace' [MkSB mod1] "Flatten exprs output" $ return ()
-
     -- inline components
     mod2 <- lift $ inlineComps mod1
     trace' [MkSB mod2] "Inline Comps output" $ return ()
-
-    -- TODO - expand tuples and recs - DONE IN COREFLAT
-
     -- convert units and types
-    -- TODO - tmp/dummy module here to fool later stages
     unitsState <- getSysState lUnitsState
     mod3 <- lift $ convertTypes mod2 unitsState
     -- trace' [MkSB mod3] "Convert units output" $ return ()
-
     -- convert to CoreFlat
-    coreFlatMod <- lift $ convertAST mod3
-    trace' [MkSB coreFlatMod] "CoreFlat AST output" $ return ()
-
-    -- unpack tuples
-    coreFlatMod' <- lift $ unpackTuples coreFlatMod
-    trace' [MkSB coreFlatMod'] "Unpacked tuples output" $ return ()
+    core1 <- lift $ convertAST mod3
+    trace' [MkSB core1] "CoreFlat AST output" $ return ()
+    -- unpack tuples (in CoreFlat)
+    core2 <- lift $ unpackTuples core1
+    trace' [MkSB core2] "Unpacked tuples output" $ return ()
 
     return ()
 

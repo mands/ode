@@ -8,6 +8,6 @@ import FlatTests.TupleFlat.*
 // :show all
 :show modState
 // all done
-:simulate Tuple1
+:simulate Tuple5
 :quit
 

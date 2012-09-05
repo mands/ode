@@ -1,4 +1,4 @@
-
+/*
 module Tuple1 {
     // tuple creation
     val tup = (1, 2, True)
@@ -7,7 +7,7 @@ module Tuple1 {
     // tuple selection
     val x = i + j
 }
-
+*/
 
 /*
 module Tuple2 {
@@ -24,7 +24,7 @@ module Tuple2 {
 */
 
 /*
-// sub-typing within a piecewise
+// tuple within a piecewise
 module Tuple3 {
     // tuple creation
     val tup = piecewise { True : (1, 2), default : (3,4) }
@@ -32,6 +32,30 @@ module Tuple3 {
     val _, x = tup
 }
 */
+
+
+/*
+// returning a tuple
+module Tuple4 {
+    component f(i) {
+      val tup = (1, 2, True)
+      val tup1 = tup
+      return tup1
+    }
+    // pass it around and unpack, works fine
+    val x = f(None)
+    val _,_,_ = x
+}
+*/
+
+
+// tuple within a tuple
+module Tuple5 {
+    val a = (1, 2)
+    val b,_ = a
+    val c = (a, True, b)
+    val _ = None
+}
 
 /*
 // record creation and selection
