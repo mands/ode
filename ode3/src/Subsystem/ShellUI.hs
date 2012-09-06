@@ -119,17 +119,17 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
     -- damn record update syntax!
     startTimeCmd = cmd "startTime" f "Initial simulation time"
       where
-        f :: Float -> Sh SysState ()
+        f :: Double -> Sh SysState ()
         f x = modifyShellSt $ set (lStartTime . lSimParams) x
 
     stopTimeCmd = cmd "endTime" f "Final simulation time"
       where
-        f :: Float -> Sh SysState ()
+        f :: Double -> Sh SysState ()
         f x = modifyShellSt $ set (lEndTime . lSimParams) x
 
     simTimestepCmd = cmd "timestep" f "Timestep to use for simulation"
       where
-        f :: Float -> Sh SysState ()
+        f :: Double -> Sh SysState ()
         f x = modifyShellSt $ set (lTimestep . lSimParams) x
 
     outPeriodCmd = cmd "period" f "Period iterations to save simulation state to disk"

@@ -7,6 +7,6 @@ import SimTests.BasicCalc.*
 // :show all
 :show modState
 // all done
-:simulate BasicCalc2
+:simulate BasicCalc1
 :quit
 

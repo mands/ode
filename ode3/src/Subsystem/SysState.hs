@@ -87,9 +87,9 @@ defSysState = SysState
 
 -- sim data, mod data, units data, other?
 data SimParams = SimParams
-    { _startTime :: Float
-    , _endTime :: Float
-    , _timestep :: Float            -- simulation timestep
+    { _startTime :: Double
+    , _endTime :: Double
+    , _timestep :: Double            -- simulation timestep
     , _outputPeriod :: Integer      -- period with which to save simulation state to outfile, wrt timestep
     , _filename :: FilePath         -- output filename to save data to
     } deriving Show
