@@ -16,7 +16,7 @@
 {-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, OverlappingInstances, FlexibleInstances, FunctionalDependencies  #-}
 
 module Utils.OrdMap (
-OrdMap, (!), lookup, size, member, empty, singleton, insert, safeInsert, tailInsert, headInsert, delete, update, append, reverse, elems, keys, map, foldl, union,
+OrdMap, (!), lookup, size, member, empty, singleton, null, insert, safeInsert, tailInsert, headInsert, delete, update, append, reverse, elems, keys, map, foldl, union,
 toList, fromList, mapAccum, toMap, filter
 
 ) where
@@ -29,7 +29,7 @@ import qualified Data.Traversable as DT
 import qualified Data.Functor as Functor
 import Control.Applicative (liftA, liftA2, pure, (<$>), (<*>))
 import Data.Maybe (fromJust, isJust)
-import Prelude hiding (foldl, lookup, map, filter, reverse)
+import Prelude hiding (null, foldl, lookup, map, filter, reverse)
 import Utils.Utils
 
 type AssocList k v = [(k, v)]
@@ -57,6 +57,11 @@ empty = OrdMapC []
 
 singleton :: k -> v -> OrdMap k v
 singleton k v = OrdMapC [(k,v)]
+
+null :: OrdMap k v -> Bool
+null (OrdMapC []) = True
+null (OrdMapC m) = False
+
 
 -- if already exsists use existing insertion order, else add at the tail of list
 insert :: (Ord k) => k -> v -> OrdMap k v -> OrdMap k v

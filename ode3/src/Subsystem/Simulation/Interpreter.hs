@@ -40,7 +40,7 @@ import AST.CoreFlat
 
 type SimM = StateT SimState MExceptIO
 
-data SimState = SimState    { simEnv :: Map.Map Id ExprData, stateEnv :: Map.Map Id Double, curTime :: Double, curPeriod :: Integer, simParams :: Sys.SimParams }
+data SimState = SimState    { simEnv :: Map.Map Id Var, stateEnv :: Map.Map Id Var, curTime :: Double, curPeriod :: Integer, simParams :: Sys.SimParams }
 mkSimState = SimState Map.empty Map.empty 0 0
 
 interpret :: Module -> Sys.SysExceptIO ()
@@ -55,11 +55,15 @@ interpret mod = do
   where
     runSimulation :: SimM ()
     runSimulation = do
-        -- simulate the initial data
-        simulateExprMap (initExprs mod)
-        -- simulate the loop exprs over the time period
+        -- setup time
         p <- simParams <$> get
-        mapM_ simulateLoop [(L.get Sys.lStartTime p),(L.get Sys.lTimestep p)..(L.get Sys.lEndTime p)]
+        modify (\st -> st { curTime = (L.get Sys.lStartTime p) } )
+        -- simulate the initial data
+        _ <- unless (OrdMap.null (initExprs mod)) (simulateExprMap (initExprs mod) >> return ())
+        -- simulate the loop exprs over the time period
+        -- switch the maps
+        modify (\st -> st { stateEnv = simEnv st, simEnv = Map.empty } )
+        unless (OrdMap.null (loopExprs mod)) $ mapM_ simulateLoop [(L.get Sys.lStartTime p) + (L.get Sys.lTimestep p),2 * (L.get Sys.lTimestep p)..(L.get Sys.lEndTime p)]
 
     -- wrapper function to configure the cur time
     simulateLoop :: Double -> SimM ()
@@ -67,49 +71,82 @@ interpret mod = do
         -- set the time
         modify (\st -> st { curTime = t } )
         liftIO $ putStrLn $ printf "In sim loop, time = %.4f" t
+
+        st <- get
+        trace' [MkSB (simEnv st), MkSB (stateEnv st)] "Current sim and state envs" $ return ()
+
         _ <- simulateExprMap (loopExprs mod)
         return ()
 
 
 -- TODO - is this correct?
-simulateExprMap :: ExprMap -> SimM Var
+simulateExprMap :: ExprMap -> SimM Expr
 simulateExprMap exprMap = do
-    vs <- DT.mapM simulateExpr $ OrdMap.toList exprMap
+    _ <- DF.mapM_ simulateExpr' exprBody
     -- need to return the last val
-    return $ last vs
+    retV <- simulateExpr' exprRet
+    return $ retV
+  where
+    exprBody    = if (OrdMap.size exprMap > 1) then init $ OrdMap.toList exprMap else []
+    exprRet     = last $ OrdMap.toList exprMap
 
-simulateExpr :: (Id, ExprData) -> SimM Var
+    simulateExpr' :: (Id, ExprData) -> SimM Expr
+    simulateExpr' (i, eD) = do
+        e' <- simulateExpr eD
+        -- store the val in the map -- which map!?
+        modify (\st -> st { simEnv = Map.insert i (Num 3) (simEnv st) })
+        return e'
 
-simulateExpr (i, (ExprData (Var v) t)) = simulateVar v
+
+simulateExpr :: ExprData -> SimM Expr
+
+simulateExpr (ExprData (Var v) t) = Var <$> simulateVar v
 
 -- process vs, then op
-simulateExpr (i, (ExprData (Op op vs) t)) = do
+simulateExpr (ExprData (Op op vs) t) = do
     vs' <- mapM simulateVar vs
-    return $ simulateOp op vs'
+    return $ Var $ simulateOp op vs'
 
 -- check the boolean and brach, we restart the entire simulateExprMap
-simulateExpr (i, (ExprData (If vB emT emF) t)) = do
+simulateExpr (ExprData (If vB emT emF) t) = do
     (Boolean b) <- simulateVar vB
     if b
         then simulateExprMap emT
         else simulateExprMap emF
 
-simulateExpr (i, (ExprData (Tuple vs) t)) = do
-    vs' <- mapM simulateVar vs
+-- NOT YET IMPLEMENTED
+--simulateExpr (i, (ExprData (Tuple vs) t)) = Tuple <$> mapM simulateVar vs
 
-    -- how do we return this?
-    return Unit
-
-simulateExpr (i, (ExprData (Ode initId v) t)) = undefined
+-- solve using a forward-Euler
+simulateExpr (ExprData (Ode initId v) t) = do
+    d@(Num dN) <- simulateVar v
+    -- lookup initId in map
+    n@(Num initN) <- (Map.!) <$> (stateEnv <$> get) <*> pure initId
+    -- calc the ode
+    p <- simParams <$> get
+    let n' = Num $ initN + dN * (L.get Sys.lTimestep p)
+    -- update the stateEnv
+    modify (\st -> st { stateEnv = Map.insert initId n' (stateEnv st) })
+    -- return the delta V
+    return $ Var d
 
 
 simulateVar :: Var -> SimM Var
 -- lookup in env
-simulateVar (VarRef i) = undefined
-simulateVar (TupleRef i tupIdx) = undefined
-simulateVar v@Time = undefined -- lookup in env
+simulateVar (VarRef i) = lookupId i
+-- simulateVar (TupleRef i tupIdx) = undefined
+-- lookup in env
+simulateVar v@Time = Num <$> (curTime <$> get)
+-- any literals just copy across
 simulateVar v = return v
 
+
+lookupId :: Id -> SimM Var
+lookupId i = do
+    mV <- Map.lookup <$> pure i <*> (simEnv <$> get)
+    case mV of
+        Just v  -> return v
+        Nothing -> (Map.!) <$> (stateEnv <$> get) <*> pure i
 
 
 -- | Takes an already evaulated list of vars and processes the builtin op
@@ -171,7 +208,8 @@ simulateOp (AC.MathOp AC.ATanH) ((Num n1):[])   = Num (atanh n1)
 --simulateOp (AC.MathOp AC.LGamma) ((Num n1):[])   = Num (lgamma n1)
 --simulateOp (AC.MathOp AC.TGamma) ((Num n1):[])   = Num (tgamma n1)
 
-simulateOp op vs = errorDump [MkSB op] "Operator not supported in interpreter" assert
+-- NOT YET IMPLEMENTED
+simulateOp op vs = errorDump [MkSB op, MkSB vs] "Operator not supported in interpreter" assert
 
 
 
