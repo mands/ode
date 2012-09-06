@@ -1,8 +1,11 @@
 syntax: glob
 ode2/dist
 ode3/dist
-res/scratch/unit-typeclass/dist
-res/scratch/shells/dist
+res/scratch
+#res/scratch/unit-typeclass/dist
+#res/scratch/shells/dist
+res/utils/PipeClient/.idea/
+res/utils/Plot/.idea/
 
 *~
 *.o
