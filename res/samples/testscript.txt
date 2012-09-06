@@ -8,10 +8,11 @@ import SimTests.BasicCalc.*
 :show modState
 
 // :set params
+:endTime 10
 :timestep 1.0
 :period 1
 
 // all done
-:simulate BasicCalc1
+:simulate BasicCalc6
 :quit
 

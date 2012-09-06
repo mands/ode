@@ -3,19 +3,42 @@
 // basic ops
 module BasicCalc1 {
     val a = 1
-    val b = a + 2 // upow(2 + a, 2)
-    val c = a * 2 // upow(2 + a, 2)
+    val b = a + 2
+    val c = a * 2
 }
 
 module BasicCalc2 {
-    val a = time // + 1 { unit : s}
-    //val b = upow(2 + a, 2)
+    val a = time
+    val b = a + 1 { unit : s}
 }
 
 // math ops
+module BasicCalc4 {
+    val a = 1
+    val b = sin(1) + a // 1.84
+    val c = sin(1) > 0.5 and cos(1) < 0.5 // 0.54
+}
+
 // piecewise
-// components
+module BasicCalc5 {
+    val a = time
+    val b = piecewise { a > 5 { unit : s} : True, default : False } 
+}
+
 // svals
+module BasicCalc3 {
+    init a = 0
+    val b = a + 1
+}
+
 // odes
+module BasicCalc6 {
+    init x = 0 { unit : m }
+    ode {init: x, delta : dx } = 1 { unit : m.s^-1 } + (x / time)
+}
+
+// tuples
+
+// components
 // etc..
 

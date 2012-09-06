@@ -42,14 +42,17 @@ data Type = TFloat | TBool | TUnit | TTuple [Type] deriving (Show, Eq, Ord)
 data Expr   = Var Var
             | Op AC.Op [Var]
             | If Var ExprMap ExprMap    -- nested envs for each conditional branch
-            | Tuple [Var]               -- needed for MRVs, nested tuples not allowed
             | Ode Id Var
             -- Rre Id Id Expr           -- add later to separate exprs
             deriving (Show, Eq, Ord)
 
 -- | Atomic, core values
-data Var = VarRef Id | TupleRef Id Integer | Num Double | Boolean Bool | Unit | Time
+data Var    = VarRef Id
+            | TupleRef Id Integer
+            | Tuple [Var]               -- needed from MRVs, should never be nested
+            | Num Double | Boolean Bool | Unit | Time
                 deriving (Show, Eq, Ord)
+
 
 
 -- | Used to handle both input and output args to a library/runtime operator

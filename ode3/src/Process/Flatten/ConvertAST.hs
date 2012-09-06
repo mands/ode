@@ -124,9 +124,9 @@ convertExpr e@(AC.If eB eT eF) = do
         return es
 
 -- Tuple - delibeatly lift all refences here rather than try to embed, makes unpacking stage easier
-convertExpr e@(AC.Tuple es) = ACF.Tuple <$> mapM insertTmpVar es
+convertExpr e@(AC.Tuple es) = ACF.Var <$> ACF.Tuple <$> mapM insertTmpVar es
 -- Record - we convert to a tuple
-convertExpr e@(AC.Record nEs) = ACF.Tuple <$> mapM insertTmpVar (AC.dropLabels nEs)
+convertExpr e@(AC.Record nEs) = ACF.Var <$> ACF.Tuple <$> mapM insertTmpVar (AC.dropLabels nEs)
 
 -- Ode
 convertExpr e@(AC.Ode (AC.LocalVar v) e1) = do

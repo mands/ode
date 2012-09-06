@@ -63,7 +63,7 @@ unpackTuples mod = do
 unpackTop :: [(Id, ExprData)] -> ExprMap -> UnpackM ExprMap
 
 -- last element is a tuple, we don't do anything in this case
-unpackTop ((i, eD@(ExprData (Tuple vs) (TTuple ts))):[]) exprMap = return $ OrdMap.tailInsert i eD exprMap
+unpackTop ((i, eD@(ExprData (Var (Tuple vs)) (TTuple ts))):[]) exprMap = return $ OrdMap.tailInsert i eD exprMap
 -- last/return is anything else, unpack the expr and stop the loop
 unpackTop ((i, eD):[]) exprMap = unpackExpr (i, eD) exprMap
 -- empty element
@@ -75,14 +75,14 @@ unpackTop ((i, eD):es) exprMap = unpackTop es =<< unpackExpr (i, eD) exprMap
 -- Actually unpack an expression
 unpackExpr :: (Id, ExprData) -> ExprMap -> UnpackM ExprMap
 -- tuple creation
-unpackExpr (i, ExprData (Tuple vs) t) exprMap = do
+unpackExpr (i, ExprData (Var (Tuple vs)) t) exprMap = do
     vs' <- mapM unpackVar vs
     -- tuple should already be unpacked, hence just need to build the refmap
     let refMap = foldl createTupleVar Map.empty $ zip [1..] vs'
     -- store the refMap, indexed by the tuple var id
     lift $ modify (\st -> st { unpackedIds = Map.insert i refMap (unpackedIds st) })
     -- copy the tuple accross
-    return $ OrdMap.tailInsert i (ExprData (Tuple vs') t) exprMap
+    return $ OrdMap.tailInsert i (ExprData (Var (Tuple vs')) t) exprMap
   where
     createTupleVar :: RefMap -> (Integer, Var) -> RefMap
     createTupleVar refMap (tupIdx, (VarRef v)) = Map.insert tupIdx v refMap
