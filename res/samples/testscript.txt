@@ -6,6 +6,11 @@ import SimTests.BasicCalc.*
 
 // :show all
 :show modState
+
+// :set params
+:timestep 1.0
+:period 1
+
 // all done
 :simulate BasicCalc1
 :quit
