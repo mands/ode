@@ -19,26 +19,27 @@ data-dir: ""
  
 executable ode3
     build-depends: Shellac -any, Shellac-readline -any, base -any,
-                   bimap -any, cond -any, containers -any, directory -any,
+                   bimap -any, binary -any, bytestring -any, cond -any,
+                   containers -any, data-binary-ieee754 -any, directory -any,
                    fclabels -any, fgl -any, filepath -any, hslogger -any, mtl -any,
                    parsec -any, pretty-show -any, split -any, unix -any
     main-is: Main.hs
     buildable: True
     hs-source-dirs: src
-    other-modules: Subsystem.Simulation.Interpreter
-                   Process.Flatten.UnpackTuples Subsystem.Types
-                   Process.Flatten.InlineMods Process.Flatten.InlineComps
-                   Process.Flatten.ConvertTypes Process.Flatten.ConvertAST
-                   Subsystem.ModDriver.ModCmd Subsystem.ModDriver.ModDef
-                   Subsystem.ModDriver Parser.Ode Parser.Common Parser.Module
-                   Parser.Ion Utils.CommonImports Utils.Utils Utils.ShellHandleBackend
-                   Utils.OrdMap Utils.OrdSet Utils.MonadSupply Utils.Graph
-                   Subsystem.ShellUI Subsystem.Units Subsystem.SysState
-                   Subsystem.Units.UnitsDims Subsystem.Units.Conversion
-                   Subsystem.Units.Builtins Process.TypeChecker Process.Desugarer
-                   Process.Validator Process.Flatten Process.Renamer Process.Reorderer
+    other-modules: Parser.Module Parser.Common Parser.Ode Parser.Ion
+                   AST.Module AST.CoreFlat AST.Common AST.Ode AST.Ion AST.Core
+                   Utils.OrdSet Utils.Graph Utils.MonadSupply Utils.CommonImports
+                   Utils.Utils Utils.ShellHandleBackend Utils.OrdMap Subsystem.ShellUI
+                   Subsystem.Units Subsystem.SysState Subsystem.Types
+                   Subsystem.ModDriver Subsystem.Units.UnitsDims
+                   Subsystem.Units.Builtins Subsystem.Units.Conversion
+                   Subsystem.Simulation.Interpreter Subsystem.ModDriver.ModCmd
+                   Subsystem.ModDriver.ModDef Process.Desugarer Process.Flatten
+                   Process.Renamer Process.Reorderer Process.Validator
+                   Process.TypeChecker Process.TypeChecker.Common
                    Process.TypeChecker.Unification Process.TypeChecker.ConstraintGen
-                   Process.TypeChecker.Common AST.Core AST.Ode AST.Common AST.Module
-                   AST.Ion AST.CoreFlat
+                   Process.Flatten.InlineComps Process.Flatten.UnpackTuples
+                   Process.Flatten.ConvertAST Process.Flatten.InlineMods
+                   Process.Flatten.ConvertTypes
     ghc-options: -w
  

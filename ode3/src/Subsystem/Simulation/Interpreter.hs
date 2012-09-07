@@ -16,12 +16,16 @@ module Subsystem.Simulation.Interpreter (
 interpret
 ) where
 
-
-
-
+-- Labels
 import Control.Category
 import qualified Data.Label as L
 import Prelude hiding ((.), id)
+
+-- File Output
+import qualified Data.ByteString.Lazy as BL
+import Data.Binary.Put
+import Data.Binary.IEEE754
+import System.IO
 
 import qualified Data.Foldable as DF
 import qualified Data.Traversable as DT
@@ -40,16 +44,26 @@ import AST.CoreFlat
 
 type SimM = StateT SimState MExceptIO
 
-data SimState = SimState    { simEnv :: Map.Map Id Var, stateEnv :: Map.Map Id Var, curTime :: Double, curPeriod :: Integer, simParams :: Sys.SimParams }
+data SimState = SimState    { simEnv :: Map.Map Id Var, stateEnv :: Map.Map Id Var
+                            , curTime :: Double, curPeriod :: Integer, outputHandle :: Handle
+                            , simParams :: Sys.SimParams
+                            }
+
 mkSimState = SimState Map.empty Map.empty 0 0
 
 interpret :: Module -> Sys.SysExceptIO ()
 interpret mod = do
-
     -- setup the default simulation state
     p <- Sys.getSysState Sys.lSimParams
     liftIO $ debugM "ode3.sim" $ "Starting Simulation"
-    lift $ runStateT runSimulation $ mkSimState p
+    -- create the output file handle
+    outHandle <- liftIO $ openBinaryFile (L.get Sys.lFilename p) WriteMode
+    -- write file header
+    liftIO $ writeColumnHeader (OrdMap.size $ initExprs mod) [] outHandle
+    -- run the simulation
+    lift $ runStateT runSimulation $ mkSimState outHandle p
+    -- close the output file
+    liftIO $ hClose outHandle
     liftIO $ debugM "ode3.sim" $ "Simulation Complete"
     return ()
   where
@@ -73,6 +87,8 @@ interpret mod = do
         _ <- simExprMap eM
         st <- get
         trace' [MkSB t, MkSB (simEnv st), MkSB (stateEnv st)] "Current sim and state envs" $ return ()
+        -- write cur init state
+        liftIO $ writeRow (Map.elems $ stateEnv st) (outputHandle st)
         return ()
 
 -- | Simulate an expression map using data in state monad
@@ -217,3 +233,23 @@ simOp (AC.MathOp AC.ATanH) ((Num n1):[])   = Num (atanh n1)
 -- NOT YET IMPLEMENTED
 simOp op vs = errorDump [MkSB op, MkSB vs] "Operator not supported in interpreter" assert
 
+
+-- File Output ---------------------------------------------------------------------------------------------------------
+
+writeColumnHeader :: Int -> [String] -> Handle -> IO ()
+writeColumnHeader n _ handle = do
+    -- write Int/Word32 to BS
+    let outBS = runPut $ putWord32host $ fromIntegral n
+    -- TODO - write Column Headers to BS
+    -- write BS to handle
+    BL.hPut handle outBS
+
+writeRow :: [Var] -> Handle -> IO ()
+writeRow vs handle = do
+    -- convert Vars to Doubles
+    let ns = filter (\v -> case v of Num n -> True; otherwise -> False) vs |> map (\(Num n) -> n)
+    -- convert Doubles to Word64s and write to BS
+    let outBS  = runPut $ mapM_ putFloat64le ns
+    -- write BS to handle
+    BL.hPut handle outBS
+    return ()
