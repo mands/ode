@@ -1,4 +1,5 @@
-#  
+#!/usr/bin/env python
+#
 #  main.py
 #  
 #  Author:
@@ -21,7 +22,7 @@
 
 """
     anaylse program that takes a results files of binary numbers, and plots it using scipy
-    NOTE - this should only work on amd64 systems as uses hardcoded element sizes and endineness
+    NOTE - this should only work on amd64 systems as uses hardcoded element sizes and (little-)endineness
 """
 
 import os
@@ -37,7 +38,7 @@ def plot(data, cols, title = 'graph', save = False):
         pylab.plot(data[:,0], data[:,col])
 
     pylab.xlabel("Time (s)")
-    pylab.ylabel("Populations")
+    pylab.ylabel("Value")
     pylab.title(title)
     pylab.grid(True)
     if save:
@@ -72,6 +73,5 @@ if __name__ == '__main__':
         # skip to the data
         a = sp.fromfile(f, dtype='f8', count=-1)
         a = sp.reshape(a, (-1, cols))
-
     plot(a, cols, title, save=False)
     logging.debug("Done")

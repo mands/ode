@@ -71,24 +71,32 @@ interpret mod = do
     runSimulation = do
         p <- simParams <$> get
         -- simulate the initial data
-        _ <- unless (OrdMap.null (initExprs mod)) (runSingleIteration (initExprs mod) (L.get Sys.lStartTime p))
-        -- switch the maps
-        modify (\st -> st { stateEnv = simEnv st, simEnv = Map.empty } )
+        unless (OrdMap.null (initExprs mod)) $ runIter (initExprs mod) True (L.get Sys.lStartTime p)
         -- simulate the loop exprs over the time period
-        unless (OrdMap.null (loopExprs mod)) $ mapM_ (runSingleIteration (loopExprs mod)) [(L.get Sys.lStartTime p) + (L.get Sys.lTimestep p)
-                                                                        ,2 * (L.get Sys.lTimestep p)
-                                                                                  ..(L.get Sys.lEndTime p)]
+        unless (OrdMap.null (loopExprs mod))
+            $ forM_ [(L.get Sys.lStartTime p) + (L.get Sys.lTimestep p), 2 * (L.get Sys.lTimestep p)..(L.get Sys.lEndTime p)]
+                (runIter (loopExprs mod) False)
 
     -- wrapper function to configure the cur time
-    runSingleIteration :: ExprMap -> Double -> SimM ()
-    runSingleIteration eM t = do
+    runIter :: ExprMap -> Bool -> Double -> SimM ()
+    runIter exprMap isInit t = do
         -- set the time
         modify (\st -> st { curTime = t, simEnv = Map.empty } )
-        _ <- simExprMap eM
+        -- simulate the expr
+        _ <- simExprMap exprMap
+
         st <- get
         trace' [MkSB t, MkSB (simEnv st), MkSB (stateEnv st)] "Current sim and state envs" $ return ()
-        -- write cur init state
-        liftIO $ writeRow (Map.elems $ stateEnv st) (outputHandle st)
+
+        if isInit
+            then do
+                -- write cur init state
+                liftIO $ writeRow t (Map.elems $ simEnv st) (outputHandle st)
+                -- switch the maps from sim to state
+                modify (\st -> st { stateEnv = simEnv st, simEnv = Map.empty } )
+            else do
+                -- write cur init state
+                liftIO $ writeRow t (Map.elems $ stateEnv st) (outputHandle st)
         return ()
 
 -- | Simulate an expression map using data in state monad
@@ -239,17 +247,21 @@ simOp op vs = errorDump [MkSB op, MkSB vs] "Operator not supported in interprete
 writeColumnHeader :: Int -> [String] -> Handle -> IO ()
 writeColumnHeader n _ handle = do
     -- write Int/Word32 to BS
-    let outBS = runPut $ putWord32host $ fromIntegral n
+    let outBS = runPut $ putWord32le $ fromIntegral (n + 1) -- include time col
     -- TODO - write Column Headers to BS
     -- write BS to handle
     BL.hPut handle outBS
 
-writeRow :: [Var] -> Handle -> IO ()
-writeRow vs handle = do
-    -- convert Vars to Doubles
-    let ns = filter (\v -> case v of Num n -> True; otherwise -> False) vs |> map (\(Num n) -> n)
+writeRow :: Double -> [Var] -> Handle -> IO ()
+writeRow t vs handle = do
+    trace' [MkSB t, MkSB vs] "writeRow" $ return ()
+    -- convert Vars to Doubles and add time
+    let ns = t : (filter (\v -> case v of Num n -> True; otherwise -> False) vs |> map (\(Num n) -> n))
     -- convert Doubles to Word64s and write to BS
     let outBS  = runPut $ mapM_ putFloat64le ns
     -- write BS to handle
     BL.hPut handle outBS
+    hFlush handle
     return ()
+
+

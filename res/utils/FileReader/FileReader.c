@@ -38,17 +38,12 @@ int main(int argc, char** argv) {
 	double row[columns];
 	int i;
 	while (!feof(file)) {
-		if (fread(&row, sizeof(double), columns, file) == columns) {
-			// TODO - this print output should be optimised
+		if (fread(&row, sizeof(double), columns, file) != 0) {
 			for(i = 0; i < (columns); i++) {
 				printf("%8.5g,\t", row[i]);
 			}
 			printf("\n");
-		} else {
-			fprintf(stderr, "Error reading %d columns from file %s\n", columns, filename);
-			exit(EXIT_FAILURE);		
-		}		
-		
+		}
 	}
 
 	fclose(file);
