@@ -49,10 +49,10 @@ import Process.TypeChecker.ConstraintGen
 import Process.TypeChecker.Unification
 
 -- Main Interface ------------------------------------------------------------------------------------------------------
-typeCheck :: M.GlobalModEnv -> M.FileData -> St.UnitsState -> M.Module E.Id -> MExcept (M.Module E.Id)
-typeCheck gModEnv fileData uState mod@(M.LitMod modData) = do
+typeCheck :: M.GlobalModEnv -> M.FileData -> St.UnitsState -> Bool -> M.Module E.Id -> MExcept (M.Module E.Id)
+typeCheck gModEnv fileData uState disUnits mod@(M.LitMod modData) = do
     -- get the contraints
-    ((TypeEnvs tEnv recRefEnv), tCons) <- constrain gModEnv modData Nothing
+    ((TypeEnvs tEnv recRefEnv _), tCons) <- constrain gModEnv modData Nothing disUnits
     -- unify the types and get the new typemap
     (tVEnv, uVEnv) <- unify uState tCons
     -- substitute to obtain the new type env
@@ -63,9 +63,9 @@ typeCheck gModEnv fileData uState mod@(M.LitMod modData) = do
     -- Update the module data with the new typemap
     return $ M.LitMod (M.updateModData1 modData tMap)
 
-typeCheck gModEnv fileData uState mod@(M.FunctorMod args modData) = do
+typeCheck gModEnv fileData uState disUnits mod@(M.FunctorMod args modData) = do
     -- get the contraints
-    ((TypeEnvs tEnv recRefEnv), tCons) <- constrain gModEnv modData (Just args)
+    ((TypeEnvs tEnv recRefEnv _), tCons) <- constrain gModEnv modData (Just args) disUnits
     -- unify the types and get the new typemap`
     (tVEnv, uVEnv) <- unify uState tCons
     -- substitute to obtain the new type env

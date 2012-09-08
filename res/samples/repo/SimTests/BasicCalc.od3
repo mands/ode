@@ -31,12 +31,6 @@ module BasicCalc3 {
     val b = a + 1
 }
 
-// odes
-module BasicCalc6 {
-    init x = 0 { unit : m }
-    ode {init: x, delta : dx } = 1 { unit : m.s^-1 } + (x / time)
-}
-
 // tuples
 
 // components

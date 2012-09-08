@@ -73,7 +73,8 @@ evalModDef fd mod = do
     -- actually eval the module
     modEnv <- St.getSysState St.vModEnv
     unitsState <- St.getSysState St.lUnitsState
-    St.liftExSys $ evalModDef' modEnv fd unitsState mod'
+    disUnits <- St.getSysState St.lDisableUnits
+    St.liftExSys $ evalModDef' modEnv fd unitsState disUnits mod'
   where
     -- use [importCmds] to process imports for the module and create an import map, can then validate/typecheck/etc. against it
     processModImports :: Module DesId -> St.SysExceptIO (Module DesId)
@@ -110,13 +111,13 @@ evalModDef fd mod = do
 
 
 -- a basic interpreter over the set of module types, interpres the modules with regards to the moduleenv
-evalModDef' :: GlobalModEnv -> FileData -> St.UnitsState -> Module DesId -> MExcept (Module Id)
+evalModDef' :: GlobalModEnv -> FileData -> St.UnitsState -> Bool -> Module DesId -> MExcept (Module Id)
 
 -- simply looks up the id within both the file and then global env and return the module if found
-evalModDef' gModEnv fileData _ mod@(RefMod _ _ _ _) = errorDump [MkSB mod] "Trying to eval a ref module" assert
+evalModDef' gModEnv fileData _ _ mod@(RefMod _ _ _ _) = errorDump [MkSB mod] "Trying to eval a ref module" assert
 
 -- simply looks up the id within both the file and then global env and return the module if found
-evalModDef' gModEnv fileData _ mod@(VarMod modName) = do
+evalModDef' gModEnv fileData _ _ mod@(VarMod modName) = do
     (modFullName, mod) <- getModuleFile modName fileData gModEnv -- should this be getRealModuleFile ??
     return $ mkRefMod modFullName mod
 
@@ -124,7 +125,7 @@ evalModDef' gModEnv fileData _ mod@(VarMod modName) = do
 -- TODO - how do we merge expected and actual module interfaces??
 -- we use an App to convert a Functor Mod eith programmable imports into an Evaled mod
 -- where VarMod args are converted to explicit imports, and in-line apps to an internal modEnv (as not used elsewhere)
-evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
+evalModDef' gModEnv fileData unitsState disUnits mod@(AppMod fModId modArgs) = do
     -- lookup all the required modules and dynamically type-check args/sig them
     (modFullName, (FunctorMod fArgs fModData)) <- lookupFunctor
     lModEnv <- processFArgs fArgs
@@ -132,7 +133,7 @@ evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
     -- now create a dummy lMod from the fMod that would be created from the application of args to the functor
     -- and type and unit check - we union to include both standard imports and functor args within localEnv
     let lMod = LitMod $ fModData { modModEnv = (modModEnv fModData) `Map.union` lModEnv }
-    (LitMod modData') <- typeCheck gModEnv fileData unitsState lMod
+    (LitMod modData') <- typeCheck gModEnv fileData unitsState disUnits lMod
 
     -- finally construct a "Closed" RefMod to holds the results, using both the fMod modData and type-checked lMod sig
     let refMod = RefMod modFullName True (calcSigMap modData') lModEnv
@@ -167,8 +168,8 @@ evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
         interpretArgs modEnv (argName, mod) = do
             -- eval the VarMod/AppMod -> RefMod
             mod' <- case mod of
-                (VarMod _) -> evalModDef' gModEnv fileData unitsState mod
-                (AppMod _ _) -> evalModDef' gModEnv fileData unitsState mod
+                (VarMod _) -> evalModDef' gModEnv fileData unitsState disUnits mod
+                (AppMod _ _) -> evalModDef' gModEnv fileData unitsState disUnits mod
                 -- bomb out, should never happen as args can only ever be Var & App
                 _  -> errorDump [MkSB argName, MkSB mod] "Incorrect mod type found as functor arg" assert
             -- now check refMod is closed (thus either a LitMod or a prev. applied FuncMod)
@@ -178,11 +179,11 @@ evalModDef' gModEnv fileData unitsState mod@(AppMod fModId modArgs) = do
                 else throwError $ printf "(MD02) - Module of invalid type used as argument to functor %s" (show fModId)
 
 -- handle both litmods and functor mods
-evalModDef' gModEnv fileData unitsState mod = do
+evalModDef' gModEnv fileData unitsState disUnits mod = do
     -- reorder - place the expressions from args ahead of thos withing the func module
     -- renaming, use the free vars to deteermine a safe renaimg scheme
     -- typecheck, check the args are valid, then typecheck the signatures, using the same alogirthm as typechecking an app
-    mod' <- validate mod >>= rename >>= typeCheck gModEnv fileData unitsState
+    mod' <- validate mod >>= rename >>= typeCheck gModEnv fileData unitsState disUnits
     return mod'
 
 -- Ref Mod Helper Funcs ------------------------------------------------------------------------------------------------

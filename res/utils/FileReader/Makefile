@@ -1,7 +1,8 @@
 # Simple makefile for ode_file_reader
 #ROOT_DIR = ../..
 #include $(ROOT_DIR)/Makefile.inc
-CFLAGS        = -std=c11 -O3 -pedantic -Wall -Wextra
+CC            = clang
+CFLAGS        = -std=c99 -O3 -pedantic -Wall -Wextra
 
 TARGET = FileReader
 

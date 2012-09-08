@@ -1,0 +1,51 @@
+
+// odes
+module Ode1 {
+    init x = 0 { unit : m }
+    ode {init: x, delta : dx } = 1 { unit : m.s^-1 } + (x / time)
+}
+
+// from Ode1 (lang)
+/*
+module Ode2 {
+    init y = 2 { unit : s }
+    ode {init: y, delta : dy } = y - time
+}
+*/
+
+
+module PopGrowthUnits {
+    init eta = 1 { unit : pop }
+    init y = eta
+    val k = 1 { unit : pop^-1.s^-1}
+    val mu = 20
+
+    ode { init : y, delta : dy } = k * ((1 { unit : pop }) - y / mu ) * y
+}
+
+// no units varient
+module PopGrowthNoUnits {
+    init eta = 1
+    init y = eta
+    val k = 1
+    val mu = 20
+
+    ode { init : y, delta : dy } = k * (1 - y / mu ) * y
+}
+
+
+// unpacked
+module PredPreyNoUnits {
+    val mu1 = 300
+    val mu2 = 200
+
+    init y1 = 400
+    init y2 = 100
+
+    ode { init : y1, delta : dy1 } = (1 - y2/mu2) * y1
+    ode { init : y2, delta : dy2 } = -(1 - y1/mu1) * y2
+}
+
+
+// TODO - packed
+

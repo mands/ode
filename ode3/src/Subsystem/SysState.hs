@@ -72,6 +72,7 @@ liftExSys = lift . mkExceptIO
 
 data SysState = SysState
     { _debug :: Bool                -- do we enable debug mode
+    , _disableUnits :: Bool         -- disable type-checker units?
     , _simParams :: SimParams         -- simulation params
     , _modState :: ModState
     , _unitsState :: UnitsState
@@ -80,6 +81,7 @@ data SysState = SysState
 
 defSysState = SysState
     { _debug = False
+    , _disableUnits = False
     , _simParams = defSimParams
     , _modState = defModState
     , _unitsState = defUnitsState

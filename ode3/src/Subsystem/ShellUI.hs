@@ -103,7 +103,7 @@ initShellDesc = desc'
 -- | Default commands used by the system, both toggles and cmd funcs
 -- we use commands to setup and control simulation
 defaultCmds :: [ShellCommand SysState]
-defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
+defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnitsCmd
                 , simStartCmd
                 , startTimeCmd, stopTimeCmd, simTimestepCmd
                 , outPeriodCmd, outFilenameCmd
@@ -114,6 +114,8 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd
   where
     -- debug toggle, need to update the logger too
     debugCmd = toggle "debug" "Toggle Debug Mode" (get lDebug) (set lDebug)
+
+    disableUnitsCmd = toggle "disableUnits" "Toggle Debug Mode" (get lDisableUnits) (set lDisableUnits)
 
     -- basic cmds
     -- damn record update syntax!

@@ -47,8 +47,8 @@ import Process.TypeChecker.Common
 -- Contraint Helpers Functions -----------------------------------------------------------------------------------------
 
 -- constraint monad, generates type/unit vars within the constraint set
-data TypeEnvs = TypeEnvs { typeEnv :: TypeEnv, recordTypeEnv :: RecordRefMap } deriving (Show, Eq, Ord)
-mkTypeEnvs = TypeEnvs { typeEnv = Map.empty, recordTypeEnv = Map.empty }
+data TypeEnvs = TypeEnvs { typeEnv :: TypeEnv, recordTypeEnv :: RecordRefMap, disableUnits :: Bool } deriving (Show, Eq, Ord)
+mkTypeEnvs b = TypeEnvs { typeEnv = Map.empty, recordTypeEnv = Map.empty, disableUnits = b }
 
 type TypeConsM  = StateT TypeEnvs (SupplyT Integer (StateT TypeCons MExcept))
 
@@ -120,7 +120,7 @@ getMVarType mv@(E.ModVar m v) gModEnv modData mFuncArgs =
                 Nothing -> Nothing
                 Just _ -> Just $ do
                     -- if so, then if v already exists get the type, else create a newtvar and add to the mTEnv
-                    tEnvs@(TypeEnvs tEnv _) <- get
+                    tEnvs@(TypeEnvs tEnv _ _) <- get
                     eT <- if (Map.member mv tEnv) then return (tEnv Map.! mv) else newTypevar
                     put $ tEnvs { typeEnv = Map.insert mv eT tEnv }
                     return eT
@@ -132,7 +132,7 @@ processLetBind :: E.BindList Integer -> E.Type -> TypeConsM ()
 processLetBind bs eT = do
     trace' [MkSB bs, MkSB eT] "let expr" $ return ()
     -- extend tEnv with new env
-    tEnvs@(TypeEnvs tEnv _) <- get
+    tEnvs@(TypeEnvs tEnv _ _) <- get
     tEnv' <- case eT of
         -- true if tuple on both side of same size, if so unplack and treat as indivudual elems
         -- TODO - check is length > 1 correct for Tuples?
@@ -175,8 +175,8 @@ recordRefsCons gModEnv modData mFuncArgs = do
 
 -- Constraint Generation -----------------------------------------------------------------------------------------------
 
-constrain :: M.GlobalModEnv ->  M.ModData E.Id -> Maybe (M.FunArgs)  -> MExcept (TypeEnvs, TypeCons)
-constrain gModEnv modData mFuncArgs = runStateT (evalSupplyT (execStateT consM mkTypeEnvs) [1..]) mkTypeCons
+constrain :: M.GlobalModEnv ->  M.ModData E.Id -> Maybe (M.FunArgs) -> Bool -> MExcept (TypeEnvs, TypeCons)
+constrain gModEnv modData mFuncArgs disUnits = runStateT (evalSupplyT (execStateT consM $ mkTypeEnvs disUnits) [1..]) mkTypeCons
   where
     consM :: TypeConsM ()
     consM = DF.mapM_ consTop (OrdMap.elems (M.modExprMap modData)) >> recordRefsCons gModEnv modData mFuncArgs
@@ -253,10 +253,11 @@ constrain gModEnv modData mFuncArgs = runStateT (evalSupplyT (execStateT consM m
         E.Boolean _ -> return E.TBool
         -- should this be of unit NoUnit or UnitVar ??
         -- E.Num _ -> uFloat
-        E.Num _ u -> return $ E.TFloat u
-        E.NumSeq _ u -> return $ E.TFloat  u
-        E.Time -> return $ E.TFloat U.uSeconds -- should this be uFloat ??
-        E.Unit -> return E.TUnit
+        -- process differently depending if units are enabled
+        E.Num _ u       -> return $ if disUnits then E.TFloat U.NoUnit else E.TFloat u
+        E.NumSeq _ u    -> return $ if disUnits then E.TFloat U.NoUnit else E.TFloat u
+        E.Time          -> return $ if disUnits then E.TFloat U.NoUnit else E.TFloat U.uSeconds -- should this be uFloat ??
+        E.Unit          -> return E.TUnit
 
     -- test add, same code for most ops (not mul/div)
     consExpr (E.Op op e) = do
@@ -298,9 +299,9 @@ constrain gModEnv modData mFuncArgs = runStateT (evalSupplyT (execStateT consM m
         uV2 <- newUnitVar
         addConsType $ ConEqual eDT (E.TFloat uV2)
 
+        -- process differently depending if units are enabled
         -- TODO - contrain both types wrt Time -- is this right?
-        addConsUnit $ ConSum uV2 U.uSeconds uV1
-
+        unless disUnits (addConsUnit $ ConSum uV2 U.uSeconds uV1)
         -- TODO - return the type of the dExpr
         return eDT
 
@@ -319,10 +320,14 @@ constrain gModEnv modData mFuncArgs = runStateT (evalSupplyT (execStateT consM m
         -- create unit for e
         uV1 <- newUnitVar
         addConsType $ ConEqual eT (E.TFloat uV1)
-        -- constrain them both to be of the same dimension
-        addConsUnit $ ConSameDim uV1 u
-        -- return the new "casted" type
-        return $ E.TFloat u
+        -- process differently depending if units are enabled
+        if disUnits
+            then do
+                -- constrain them both units to be of the same dimension
+                addConsUnit $ ConSameDim uV1 u
+                -- return the new "casted" unit
+                return $ E.TFloat u
+            else return eT
 
     -- TODO - doesn't work for types exported in functors!!
     consExpr (E.TypeCast e (E.WrapType tName)) = do
@@ -371,7 +376,7 @@ getOpType :: Op -> TypeConsM E.Type
 getOpType op = case op of
     -- Basic Ops
     BasicOp x | x `elem` [Add, Sub]                 -> typeFFtoF_USame   -- (f u1, f u1) -> f u1
-    BasicOp x | x `elem` [Mul, Div]            -> typeFFtoF_UAdd         -- (f u1, f u2) -> f u3
+    BasicOp x | x `elem` [Mul, Div]                 -> typeFFtoF_UAdd    -- (f u1, f u2) -> f u3
     BasicOp x | x `elem` [AC.LT, LE, AC.GT, GE, AC.EQ, NEQ]  -> typeFFtoB_USame     -- (f u1, f u1) -> b
     BasicOp x | x `elem` [And, Or]                  -> typeBBtoB         -- (b, b) -> b
     BasicOp Not                                     -> typeBtoB          -- b -> b
