@@ -1,38 +1,85 @@
 // a couple of basic models
 
-// basic ops
+// basic ops - OK
 module BasicCalc1 {
     val a = 1
     val b = a + 2
     val c = a * 2
 }
 
+// accessing time - OK
 module BasicCalc2 {
     val a = time
     val b = a + 1 { unit : s}
 }
 
-// math ops
-module BasicCalc4 {
+// math ops - OK
+module BasicCalc3 {
     val a = 1
     val b = sin(1) + a // 1.84
     val c = sin(1) > 0.5 and cos(1) < 0.5 // 0.54
 }
 
-// piecewise
-module BasicCalc5 {
+// piecewise - OK
+module BasicCalc4 {
     val a = time
     val b = piecewise { a > 5 { unit : s} : True, default : False } 
 }
 
-// svals
-module BasicCalc3 {
+// svals - OK
+module BasicCalc5 {
     init a = 0
     val b = a + 1
 }
 
-// tuples
+// basic ode - OK
+module BasicCalc6 {
+    init x = 0 { unit : m }
+    ode {init: x, delta : dx } = 5 { unit : m.s^-1 }
+}
+
+
+// tuples - OK
+module BasicCalc7 {
+    init x = 0
+    val b = (1, x)
+
+    val c,d = b
+    ode {init: x, delta : dx } = c
+}
+
+// records - OK
+module BasicCalc8 {
+    init x = 0
+    val b = { rec1: 1, rec2 : x }
+    ode {init: x, delta : dx } = b#rec1
+}
 
 // components
+// const
+module BasicCalc9 {
+    init x = 0
+    component comp(x) {
+        return (x+1)
+    }
+    ode {init: x, delta : dx } = comp(4)
+}
+// stateful
+module BasicCalc10 {
+    component mkOde(i) {
+        init x = 0
+        ode {init: x, delta : dx } = i
+        return dx
+    }
+
+    val _ = mkOde(5)
+    val _ = mkOde(10)
+
+}
+
+// module import
+
+
+// module functor
 // etc..
 

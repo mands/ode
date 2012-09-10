@@ -49,7 +49,7 @@ data SimState = SimState    { _simEnv :: Map.Map Id Var, _stateEnv :: Map.Map Id
                             , _simParams :: Sys.SimParams
                             }
 
-mkSimState = SimState Map.empty Map.empty 0 0
+mkSimState = SimState Map.empty Map.empty 0
 
 interpret :: Module -> Sys.SysExceptIO ()
 interpret mod = do
@@ -57,11 +57,11 @@ interpret mod = do
     p <- Sys.getSysState Sys.lSimParams
     liftIO $ debugM "ode3.sim" $ "Starting Simulation"
     -- create the output file handle
-    outHandle <- liftIO $ openBinaryFile (L.get Sys.lFilename p) WriteMode
+    outHandle <- liftIO $ openBinaryFile (Sys._filename p) WriteMode
     -- write file header
     liftIO $ writeColumnHeader (OrdMap.size $ _initExprs mod) [] outHandle
     -- run the simulation
-    lift $ runStateT runSimulation $ mkSimState outHandle p
+    lift $ runStateT runSimulation $ mkSimState (Sys._outputPeriod p) outHandle p
     -- close the output file
     liftIO $ hClose outHandle
     liftIO $ debugM "ode3.sim" $ "Simulation Complete"
@@ -95,9 +95,15 @@ interpret mod = do
                 -- reset sim envs
                 modify (\st -> st { _simEnv = Map.empty })
 
-        -- write state env to disk
         st <- get
-        liftIO $ writeRow t (Map.elems $ _stateEnv st) (_outputHandle st)
+        -- handle output period
+        if ((_curPeriod st) == (Sys._outputPeriod $ _simParams st))
+            then do
+                -- write state env to disk
+                liftIO $ writeRow t (Map.elems $ _stateEnv st) (_outputHandle st)
+                modify (\st -> st { _curPeriod = 1 } )
+            else
+                modify (\st -> st { _curPeriod = inc $ _curPeriod st } )
         --trace' [MkSB t, MkSB (_simEnv st), MkSB (_stateEnv st)] "Current sim and state envs" $ return ()
 
 -- | Simulate an expression map using data in state monad
@@ -147,9 +153,9 @@ simExpr (ExprData (If vB emT emF) t) = do
 -- | Interpret a Simulation Operation - these are all stateful
 -- solve an Ode using a forward-Euler
 simSimOp ((Ode initId v)) = do
-    trace' [] "entering solve ode" $ return ()
+    -- trace' [] "entering solve ode" $ return ()
     st <- get
-    trace' [MkSB $ _simEnv st, MkSB $ _stateEnv st] "envs" $ return ()
+    -- trace' [MkSB $ _simEnv st, MkSB $ _stateEnv st] "envs" $ return ()
 
     (Num dN) <- simVar v
     -- lookup initId in cur state map
@@ -159,7 +165,7 @@ simSimOp ((Ode initId v)) = do
 
     -- update the stateEnv -- we can do this destructively as the delta vars have already been calculated within the exprMap
     modify (\st -> st { _stateEnv = Map.insert initId n' (_stateEnv st) })
-    trace' [MkSB initId, MkSB dN, MkSB curN, MkSB n'] "finished solved ode" $ return ()
+    -- trace' [MkSB initId, MkSB dN, MkSB curN, MkSB n'] "finished solved ode" $ return ()
 -- simSimOp ((Sde initId v)) = do
 -- simSimOp ((Rre initId v)) = do
 

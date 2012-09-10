@@ -73,9 +73,10 @@ inlineCompsTop (AC.TopLet isInit t (b:[]) absE@(AC.Abs arg e)) = do
     return (AC.TopLet isInit t (b:[]) absE')
 
 -- inline any applications
-inlineCompsTop (AC.TopLet isInit t bs appE@(AC.App (AC.LocalVar f) e)) = do
+inlineCompsTop (AC.TopLet isInit t bs e) = do
     lift $ modify (\st -> st { inInit = isInit } ) -- set Init flag
-    AC.TopLet isInit t bs <$> inlineApp f e
+    AC.TopLet isInit t bs <$> inlineCompsExpr e
+
 
 -- anything else, keep going
 inlineCompsTop e = return e
@@ -124,11 +125,11 @@ inlineApp f appE = do
 
 -- | shift all variables within a sub-expression, creating new tmp vars to hold lets and rebinding any refs
 shiftExprIds :: AC.Expr Id -> InlineCompsM (AC.Expr Id)
-shiftExprIds (AC.Var (AC.LocalVar v) mRecId) = do
-    rbMap <- rebindsMap <$> lift get
-    -- if the var has been rebound then replace it
-    let v' = maybe v id $ Map.lookup v rbMap
-    return $ AC.Var (AC.LocalVar v') mRecId
+shiftExprIds (AC.Var v mRecId) = AC.Var <$> calcReboundVar v <*> pure mRecId
+
+shiftExprIds (AC.Ode v e) = AC.Ode <$> calcReboundVar v <*> shiftExprIds e
+
+shiftExprIds (AC.Rre v1 v2 rate) = AC.Rre <$> calcReboundVar v1 <*> calcReboundVar v2 <*> pure rate
 
 shiftExprIds (AC.Let isInit t (b:[]) e1 e2) = do
     e1' <- shiftExprIds e1
@@ -141,6 +142,14 @@ shiftExprIds (AC.Let isInit t (b:[]) e1 e2) = do
 
 -- anything else, keep going
 shiftExprIds e = AC.mapExprM shiftExprIds e
+
+calcReboundVar :: AC.VarId Id -> InlineCompsM (AC.VarId Id)
+calcReboundVar (AC.LocalVar v) = do
+    rbMap <- rebindsMap <$> lift get
+    -- if the var has been rebound then replace it
+    let v' = maybe v id $ Map.lookup v rbMap
+    return $ AC.LocalVar v'
+
 
 -- Filter all abs from the expressions ---------------------------------------------------------------------------------
 filterTopAbs :: AC.TopLet Id -> Bool

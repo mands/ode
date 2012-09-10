@@ -5,7 +5,8 @@
 :addRepo ../res/samples/repo
 
 // import our modules
-import SimTests.Odes.*
+import SimTests.BasicCalc.*
+//import FlatTests.TupleFlat.*
 
 // :show all
 :show modState
@@ -13,11 +14,12 @@ import SimTests.Odes.*
 // :set params
 :startTime 0
 :endTime 10
-:timestep 0.5
+:timestep 1
 :period 1
 :output "../res/samples/output/basic.bin"
 
 // all done
-:simulate Ode1
+:simulate BasicCalc10
+//:simulate Tuple6
 :quit
 

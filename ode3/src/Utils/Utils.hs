@@ -16,7 +16,7 @@
 
 module Utils.Utils (
 MExcept, MExceptIO, mkExceptIO, maybeToExcept, maybeToExcept', maybeToExceptIO,
-mapFst, mapSnd, pairM, notEqual,
+mapFst, mapSnd, pairM, notEqual, inc, dec,
 (|>),
 SB(..), trace', errorDump,
 openPipe, closePipe, readLoop,
@@ -64,6 +64,9 @@ splitList p xs = h : t'
                    [] -> []
 
 a `notEqual` b = not (a == b)
+
+inc = (+) 1
+dec = (-) 1
 
 -- Monadic Error Handling ----------------------------------------------------------------------------------------------
 -- Switch to errors package

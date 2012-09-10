@@ -48,7 +48,7 @@ module Tuple4 {
 }
 */
 
-
+/*
 // tuple within a tuple
 module Tuple5 {
     val a = (1, 2)
@@ -56,6 +56,18 @@ module Tuple5 {
     val c = (a, True, b)
     val _ = None
 }
+*/
+
+
+// tuple copies
+module Tuple6 {
+    val b = (1, 2)
+    val c = b
+    val d = c
+    val e,f = d
+    val _ = e + f
+}
+
 
 /*
 // record creation and selection

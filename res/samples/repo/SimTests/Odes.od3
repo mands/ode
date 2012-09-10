@@ -1,5 +1,6 @@
 
 // odes
+// Basic tests that everything is working
 module Ode1 {
     init x = 0 { unit : m }
     ode {init: x, delta : dx } = 5 { unit : m.s^-1 }
