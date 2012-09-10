@@ -2,6 +2,11 @@
 // odes
 module Ode1 {
     init x = 0 { unit : m }
+    ode {init: x, delta : dx } = 5 { unit : m.s^-1 }
+}
+
+module Ode2 {
+    init x = 0 { unit : m }
     ode {init: x, delta : dx } = 1 { unit : m.s^-1 } + (x / time)
 }
 

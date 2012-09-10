@@ -13,7 +13,7 @@
 -----------------------------------------------------------------------------
 
 module AST.CoreFlat (
-Module(..), ExprMap, TopLet, Expr(..), Var(..), ExprData(..), Type(..)
+Module(..), ExprMap, TopLet, Expr(..), Var(..), ExprData(..), Type(..), SimOps(..)
 ) where
 
 -- import Data.IntMap as IM
@@ -21,12 +21,14 @@ import qualified Utils.OrdMap as OrdMap
 import AST.Common as AC
 
 -- not really a module, but datatype to hold both the exeutable simulation expressions and related metadata
-data Module = Module { loopExprs :: ExprMap,  initExprs :: ExprMap, freeId :: Id }
+data Module = Module    { _loopExprs :: ExprMap,  _initExprs :: ExprMap, _simOps :: [SimOps]
+                        , _freeId :: Id
+                        }
             deriving (Show, Eq, Ord)
 
 -- this becomes our 'let' now - both toplevel and 'nested', creates a new binding for the expression
 -- ordering is maintained as ids are ascending -- TODO, check??
--- is essentiallaly a list of variable bindings within a program
+-- is essentiallaly a list of const-val bindings within a program
 type ExprMap = OrdMap.OrdMap TopLet ExprData
 
 -- we can change this later to handle both single and multibind variables
@@ -42,8 +44,6 @@ data Type = TFloat | TBool | TUnit | TTuple [Type] deriving (Show, Eq, Ord)
 data Expr   = Var Var
             | Op AC.Op [Var]
             | If Var ExprMap ExprMap    -- nested envs for each conditional branch
-            | Ode Id Var
-            -- Rre Id Id Expr           -- add later to separate exprs
             deriving (Show, Eq, Ord)
 
 -- | Atomic, core values
@@ -51,9 +51,14 @@ data Var    = VarRef Id
             | TupleRef Id Integer
             | Tuple [Var]               -- needed from MRVs, should never be nested
             | Num Double | Boolean Bool | Unit | Time
-                deriving (Show, Eq, Ord)
+            deriving (Show, Eq, Ord)
 
-
+-- | Main simulation opersions
+data SimOps = Ode Id Var
+            -- TODO
+            --Sde Id Var
+            --Rre Id Id Var
+            deriving (Show, Eq, Ord)
 
 -- | Used to handle both input and output args to a library/runtime operator
 -- these are handled in an implementation-specific fashion for the given backend

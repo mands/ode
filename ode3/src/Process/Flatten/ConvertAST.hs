@@ -40,9 +40,9 @@ import qualified Subsystem.Types as T
 type ConvM = SupplyT Id (StateT FlatState MExcept)
 -- type ConvM = Supply Id
 
-data FlatState = FlatState  { curExprs :: ACF.ExprMap, loopExprs :: ACF.ExprMap,  initExprs :: ACF.ExprMap
-                            , inInit :: Bool, curTMap :: TypeMap } deriving (Show, Eq, Ord)
-mkFlatState = FlatState OrdMap.empty OrdMap.empty OrdMap.empty False
+data FlatState = FlatState  { _curExprs :: ACF.ExprMap, _loopExprs :: ACF.ExprMap, _initExprs :: ACF.ExprMap
+                            , _simOps :: [ACF.SimOps] , _inInit :: Bool, _curTMap :: TypeMap } deriving (Show, Eq, Ord)
+mkFlatState = FlatState OrdMap.empty OrdMap.empty OrdMap.empty [] False
 
 -- Process Entry -------------------------------------------------------------------------------------------------------
 
@@ -51,7 +51,7 @@ mkFlatState = FlatState OrdMap.empty OrdMap.empty OrdMap.empty False
 convertAST :: Module Id -> MExcept ACF.Module
 convertAST (LitMod modData) = do
     ((_, freeIds'), fSt') <- runStateT (runSupplyT flatExprM [freeId ..]) $ mkFlatState (modTMap modData)
-    return $ ACF.Module (loopExprs fSt') (initExprs fSt') (head freeIds')
+    return $ ACF.Module (_loopExprs fSt') (_initExprs fSt') (reverse $ _simOps fSt') (head freeIds')
   where
     freeId = modFreeId modData
     flatExprM :: ConvM ()
@@ -108,19 +108,19 @@ convertExpr e@(AC.If eB eT eF) = do
         -- fucking record updates inside a state monad - so verbose!
         -- save the old env
         st <- lift $ get
-        let oldCurMap = curExprs st
-        lift . put $ st { curExprs = OrdMap.empty }
+        let oldCurMap = _curExprs st
+        lift . put $ st { _curExprs = OrdMap.empty }
         -- actuall convert the expression - returns the ret val
         e' <- convertExpr e
         -- create a dummy value to handle the returned value (as our Lets are top-level, rather than let e1 in e2)
         id <- supply
         st' <- lift $ get
         -- need to calc and convert the type here
-        tMap <- curTMap <$> lift get
+        tMap <- _curTMap <$> lift get
         fT <- convertType <$> (lift . lift $ T.calcTypeExpr tMap e)
-        let es = OrdMap.insert id (ACF.ExprData e' fT) ( curExprs st')
+        let es = OrdMap.insert id (ACF.ExprData e' fT) ( _curExprs st')
         -- restore the old env
-        lift . put $ st' { curExprs = oldCurMap }
+        lift . put $ st' { _curExprs = oldCurMap }
         return es
 
 -- Tuple - delibeatly lift all refences here rather than try to embed, makes unpacking stage easier
@@ -130,8 +130,13 @@ convertExpr e@(AC.Record nEs) = ACF.Var <$> ACF.Tuple <$> mapM insertTmpVar (AC.
 
 -- Ode
 convertExpr e@(AC.Ode (AC.LocalVar v) e1) = do
-    v1 <- convertVar e1
-    return $ ACF.Ode v v1
+    -- convert the delta expr - insert in as an tmp binding
+    vRef <- insertTmpVar e1
+    -- add the Ode to SimOps
+    lift $ modify (\st -> st { _simOps = (ACF.Ode v vRef) : (_simOps st) })
+    -- add the vRef to the delta Expr to the cur exprMap
+    return $ ACF.Var vRef
+
 
 -- anything else,
 convertExpr expr = errorDump [MkSB expr] "Cannot convert expression to CoreFlat" assert
@@ -142,7 +147,7 @@ convertExpr expr = errorDump [MkSB expr] "Cannot convert expression to CoreFlat"
 convertLet :: Bool -> AC.Type -> AC.BindList Id -> AC.Expr Id -> ConvM ()
 convertLet isInit t ids e1 = do
     -- set Init flag
-    lift $ modify (\st -> st { inInit = isInit })
+    lift $ modify (\st -> st { _inInit = isInit })
     -- convert the expr and type
     fE <- convertExpr e1
     let fT = convertType t
@@ -175,7 +180,7 @@ insertTmpVar e = do
     id <- supply
     e' <- convertExpr e
     -- need to calc and convert the type here
-    tMap <- curTMap <$> lift get
+    tMap <- _curTMap <$> lift get
     fT <- convertType <$> (lift . lift $ T.calcTypeExpr tMap e)
     insertExpr id e' fT
     return $ ACF.VarRef id
@@ -194,11 +199,11 @@ liftVarExpr e = return Nothing
 insertExpr :: Id -> ACF.Expr -> ACF.Type -> ConvM ()
 insertExpr id fE fT = do
     -- id <- maybe supply return mId
-    isInit <- inInit <$> lift get
+    isInit <- _inInit <$> lift get
     let exprData = ACF.ExprData fE fT
     case isInit of
-        True    -> lift $ modify (\st -> st { initExprs = OrdMap.insert id exprData (initExprs st) })
-        False   -> lift $ modify (\st -> st { loopExprs = OrdMap.insert id exprData (loopExprs st) })
+        True    -> lift $ modify (\st -> st { _initExprs = OrdMap.insert id exprData (_initExprs st) })
+        False   -> lift $ modify (\st -> st { _loopExprs = OrdMap.insert id exprData (_loopExprs st) })
 
 -- | Convert a record Id reference to a tuple numerical reference
 convertRecId :: Id -> String -> ConvM ACF.Var
@@ -213,7 +218,7 @@ convertRecId v recId = do
 -- Type Conversion -----------------------------------------------------------------------------------------------------
 -- | lookups a type within the typemap
 lookupType :: Id -> ConvM AC.Type
-lookupType id = (Map.!) <$> (curTMap <$> lift get) <*> pure id
+lookupType id = (Map.!) <$> (_curTMap <$> lift get) <*> pure id
 
 -- | converts a Core type to a CoreFlat type
 convertType :: AC.Type -> ACF.Type

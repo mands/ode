@@ -50,10 +50,10 @@ mkUnpackState = UnpackState Map.empty -- Map.empty
 unpackTuples :: Module -> MExcept Module
 unpackTuples mod = do
     -- run over both the init and loop exprs, using the same state
-    ((initEs', freeIds), st')   <- runStateT (runSupplyT (unpackM $ initExprs mod) [(freeId mod)..]) $ mkUnpackState
-    ((loopEs', freeIds'), _)    <- runStateT (runSupplyT (unpackM $ loopExprs mod) freeIds) $ st'
+    ((initEs', freeIds), st')   <- runStateT (runSupplyT (unpackM $ _initExprs mod) [(_freeId mod)..]) $ mkUnpackState
+    ((loopEs', freeIds'), _)    <- runStateT (runSupplyT (unpackM $ _loopExprs mod) freeIds) $ st'
 
-    return $ Module loopEs' initEs' (head freeIds')
+    return $ Module loopEs' initEs' (_simOps mod) (head freeIds')
   where
     unpackM :: ExprMap -> UnpackM ExprMap
     unpackM exprMap = unpackTop (OrdMap.toList exprMap) OrdMap.empty
@@ -118,10 +118,6 @@ unpackExpr (i, ExprData (Var v) t) exprMap = do
 unpackExpr (i, ExprData (Op op vs) t) exprMap = do
     vs' <- mapM unpackVar vs
     return $ OrdMap.tailInsert i (ExprData (Op op vs') t) exprMap -- copy the var and move on
-
-unpackExpr (i, ExprData (Ode id v) t) exprMap = do
-    v' <- unpackVar v
-    return $ OrdMap.tailInsert i (ExprData (Ode id v') t) exprMap -- copy the var and move on
 
 
 -- any other expr we just pass along (as no other nested exprs this should be ok)

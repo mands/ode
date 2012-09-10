@@ -44,9 +44,9 @@ import AST.CoreFlat
 
 type SimM = StateT SimState MExceptIO
 
-data SimState = SimState    { simEnv :: Map.Map Id Var, stateEnv :: Map.Map Id Var
-                            , curTime :: Double, curPeriod :: Integer, outputHandle :: Handle
-                            , simParams :: Sys.SimParams
+data SimState = SimState    { _simEnv :: Map.Map Id Var, _stateEnv :: Map.Map Id Var
+                            , _curTime :: Double, _curPeriod :: Integer, _outputHandle :: Handle
+                            , _simParams :: Sys.SimParams
                             }
 
 mkSimState = SimState Map.empty Map.empty 0 0
@@ -59,7 +59,7 @@ interpret mod = do
     -- create the output file handle
     outHandle <- liftIO $ openBinaryFile (L.get Sys.lFilename p) WriteMode
     -- write file header
-    liftIO $ writeColumnHeader (OrdMap.size $ initExprs mod) [] outHandle
+    liftIO $ writeColumnHeader (OrdMap.size $ _initExprs mod) [] outHandle
     -- run the simulation
     lift $ runStateT runSimulation $ mkSimState outHandle p
     -- close the output file
@@ -69,35 +69,36 @@ interpret mod = do
   where
     runSimulation :: SimM ()
     runSimulation = do
-        p <- simParams <$> get
+        p <- _simParams <$> get
         -- simulate the initial data
-        unless (OrdMap.null (initExprs mod)) $ runIter (initExprs mod) True (L.get Sys.lStartTime p)
+        unless (OrdMap.null (_initExprs mod)) $ runIter (_initExprs mod) True (Sys._startTime p)
         -- simulate the loop exprs over the time period
-        unless (OrdMap.null (loopExprs mod))
-            $ forM_ [(L.get Sys.lStartTime p) + (L.get Sys.lTimestep p), 2 * (L.get Sys.lTimestep p)..(L.get Sys.lEndTime p)]
-                (runIter (loopExprs mod) False)
+        unless (OrdMap.null (_loopExprs mod))
+            $ forM_ [(Sys._startTime p) + (Sys._timestep p), 2 * (Sys._timestep p)..(Sys._endTime p)]
+                (runIter (_loopExprs mod) False)
 
     -- wrapper function to configure the cur time
     runIter :: ExprMap -> Bool -> Double -> SimM ()
     runIter exprMap isInit t = do
         -- set the time
-        modify (\st -> st { curTime = t, simEnv = Map.empty } )
+        modify (\st -> st { _curTime = t } )
         -- simulate the expr
         _ <- simExprMap exprMap
 
-        st <- get
-        trace' [MkSB t, MkSB (simEnv st), MkSB (stateEnv st)] "Current sim and state envs" $ return ()
-
         if isInit
             then do
-                -- write cur init state
-                liftIO $ writeRow t (Map.elems $ simEnv st) (outputHandle st)
-                -- switch the maps from sim to state
-                modify (\st -> st { stateEnv = simEnv st, simEnv = Map.empty } )
+                -- reset the sim envs, switch the maps from sim to state
+                modify (\st -> st { _stateEnv = _simEnv st, _simEnv = Map.empty } )
             else do
-                -- write cur init state
-                liftIO $ writeRow t (Map.elems $ stateEnv st) (outputHandle st)
-        return ()
+                -- run the sim ops
+                mapM_ simSimOp $ _simOps mod
+                -- reset sim envs
+                modify (\st -> st { _simEnv = Map.empty })
+
+        -- write state env to disk
+        st <- get
+        liftIO $ writeRow t (Map.elems $ _stateEnv st) (_outputHandle st)
+        --trace' [MkSB t, MkSB (_simEnv st), MkSB (_stateEnv st)] "Current sim and state envs" $ return ()
 
 -- | Simulate an expression map using data in state monad
 simExprMap :: ExprMap -> SimM Var
@@ -116,7 +117,7 @@ simExprMap exprMap = do
     simTopLet (i, eD) = do
         v' <- simExpr eD
         -- store the val in the map -- which map!?
-        modify (\st -> st { simEnv = Map.insert i v' (simEnv st) })
+        modify (\st -> st { _simEnv = Map.insert i v' (_simEnv st) })
         return v'
 
 
@@ -136,26 +137,34 @@ simExpr (ExprData (If vB emT emF) t) = do
   where
     simBranch eM = do
         -- save the cur simEnv
-        env <- simEnv <$> get
+        env <- _simEnv <$> get
         v' <- simExprMap eM
         -- put the env back
-        modify (\st -> st { simEnv = env } )
+        modify (\st -> st { _simEnv = env } )
         return v'
 
--- solve using a forward-Euler
-simExpr (ExprData (Ode initId v) t) = do
-    d@(Num dN) <- simVar v
-    -- lookup initId in map
-    n@(Num initN) <- (Map.!) <$> (stateEnv <$> get) <*> pure initId
+
+-- | Interpret a Simulation Operation - these are all stateful
+-- solve an Ode using a forward-Euler
+simSimOp ((Ode initId v)) = do
+    trace' [] "entering solve ode" $ return ()
+    st <- get
+    trace' [MkSB $ _simEnv st, MkSB $ _stateEnv st] "envs" $ return ()
+
+    (Num dN) <- simVar v
+    -- lookup initId in cur state map
+    let (Num curN) = (_stateEnv st) Map.! initId
     -- calc the ode
-    p <- simParams <$> get
-    let n' = Num $ initN + dN * (L.get Sys.lTimestep p)
-    -- update the stateEnv
-    modify (\st -> st { stateEnv = Map.insert initId n' (stateEnv st) })
-    -- return the delta V
-    return $ d
+    let n' = Num $ curN + dN * (Sys._timestep $ _simParams st)
+
+    -- update the stateEnv -- we can do this destructively as the delta vars have already been calculated within the exprMap
+    modify (\st -> st { _stateEnv = Map.insert initId n' (_stateEnv st) })
+    trace' [MkSB initId, MkSB dN, MkSB curN, MkSB n'] "finished solved ode" $ return ()
+-- simSimOp ((Sde initId v)) = do
+-- simSimOp ((Rre initId v)) = do
 
 
+-- | Interpret a var operation
 simVar :: Var -> SimM Var
 -- refs lookup in env
 simVar (VarRef i) = lookupId i
@@ -165,17 +174,17 @@ simVar (TupleRef i tupIdx) = do
 -- simple map over the vars
 simVar (Tuple vs) = Tuple <$> mapM simVar vs
 -- lookup in env
-simVar v@Time = Num <$> (curTime <$> get)
+simVar v@Time = Num <$> (_curTime <$> get)
 -- any other vars (will be literals) are just copied across
 simVar v = return v
 
 lookupId :: Id -> SimM Var
 lookupId i = do
     st <- get
-    -- trace' [MkSB i, MkSB $ simEnv st, MkSB $ stateEnv st] "lookup id" $ return ()
-    case Map.lookup i $ simEnv st of
+    --trace' [MkSB i, MkSB $ _simEnv st, MkSB $ _stateEnv st] "lookup id" $ return ()
+    case Map.lookup i $ _simEnv st of
         Just v  -> return v
-        Nothing -> return $ stateEnv st Map.! i
+        Nothing -> return $ _stateEnv st Map.! i
 
 
 -- | Takes an already evaulated list of vars and processes the builtin op
@@ -254,7 +263,7 @@ writeColumnHeader n _ handle = do
 
 writeRow :: Double -> [Var] -> Handle -> IO ()
 writeRow t vs handle = do
-    trace' [MkSB t, MkSB vs] "writeRow" $ return ()
+    -- trace' [MkSB t, MkSB vs] "writeRow" $ return ()
     -- convert Vars to Doubles and add time
     let ns = t : (filter (\v -> case v of Num n -> True; otherwise -> False) vs |> map (\(Num n) -> n))
     -- convert Doubles to Word64s and write to BS
