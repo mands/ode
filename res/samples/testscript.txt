@@ -1,5 +1,5 @@
 // disable unit checking
-:disableUnits
+//:disableUnits
 
 // setup the repo
 :addRepo ../res/samples/repo
@@ -19,7 +19,7 @@ import SimTests.BasicCalc.*
 :output "../res/samples/output/basic.bin"
 
 // all done
-:simulate BasicCalc10
+:simulate BasicCalc11d
 //:simulate Tuple6
 :quit
 

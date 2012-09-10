@@ -38,7 +38,6 @@ module BasicCalc6 {
     ode {init: x, delta : dx } = 5 { unit : m.s^-1 }
 }
 
-
 // tuples - OK
 module BasicCalc7 {
     init x = 0
@@ -71,15 +70,28 @@ module BasicCalc10 {
         ode {init: x, delta : dx } = i
         return dx
     }
-
     val _ = mkOde(5)
     val _ = mkOde(10)
-
 }
 
-// module import
 
+// modules import
+module BasicCalc11a {
+    val a = 5 { unit : m.s^-1 }
+}
+
+module BasicCalc11b {
+    import SimTests.BasicCalc.BasicCalc11a as A
+    init x = 0 { unit : m }
+    ode {init: x, delta : dx } = A.a
+}
 
 // module functor
+module BasicCalc11c(A) {
+    init x = 0 { unit : m }
+    ode {init: x, delta : dx } = A.a
+}
+
+module BasicCalc11d = BasicCalc11c(BasicCalc11a)
 // etc..
 
