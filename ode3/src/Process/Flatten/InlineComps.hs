@@ -112,15 +112,6 @@ inlineCompsExpr appE@(AC.App (AC.LocalVar f) e) = inlineApp f e
 -- anything else, keep going
 inlineCompsExpr e = AC.mapExprM inlineCompsExpr e
 
-modInit :: Bool -> InlineCompsM Bool
-modInit isInit = do
-    oldInit <- lift $ inInit <$> get
-    lift $ modify (\st -> st { inInit = isInit || (inInit st) } ) -- set Init flag
-    return oldInit
-
-setInit :: Bool -> InlineCompsM ()
-setInit isInit = lift $ modify (\st -> st { inInit = isInit } ) -- set Init flag
-
 -- | actually setup the AST changes to inline the app of the abs
 -- replace an app abs e -> let
 inlineApp f appE = do
@@ -137,7 +128,7 @@ inlineApp f appE = do
     lift $ modify (\st -> st { rebindsMap = Map.delete arg (rebindsMap st) })
     -- finally create a nested let to hold the inlined expr
     isInit <- inInit <$> lift get
-    return $ AC.Let isInit fromT [arg'] appE reboundAbsE
+    return $ AC.Let False fromT [arg'] appE reboundAbsE
 
 -- | shift all variables within a sub-expression, creating new tmp vars to hold lets and rebinding any refs
 shiftExprIds :: AC.Expr Id -> InlineCompsM (AC.Expr Id)
@@ -147,15 +138,15 @@ shiftExprIds (AC.Ode v e) = AC.Ode <$> calcReboundVar v <*> shiftExprIds e
 
 shiftExprIds (AC.Rre v1 v2 rate) = AC.Rre <$> calcReboundVar v1 <*> calcReboundVar v2 <*> pure rate
 
-shiftExprIds (AC.Let _ t (b:[]) e1 e2) = do
+shiftExprIds (AC.Let isInit t (b:[]) e1 e2) = do
     e1' <- shiftExprIds e1
     -- get a new binding, store and keep going
     b' <- supply
     lift $ modify (\st -> st { rebindsMap = Map.insert b b' (rebindsMap st) })
     e2' <- shiftExprIds e2
     lift $ modify (\st -> st { rebindsMap = Map.delete b (rebindsMap st) })
-    isInit' <- inInit <$> lift get -- we get the init state, rather the use the existing value
-    return $ AC.Let isInit' t [b'] e1' e2'
+    -- isInit' <- inInit <$> lift get -- we get the init state, rather the use the existing value
+    return $ AC.Let isInit t [b'] e1' e2'
 
 -- anything else, keep going
 shiftExprIds e = AC.mapExprM shiftExprIds e
@@ -167,3 +158,12 @@ calcReboundVar (AC.LocalVar v) = do
     let v' = maybe v id $ Map.lookup v rbMap
     return $ AC.LocalVar v'
 
+
+modInit :: Bool -> InlineCompsM Bool
+modInit isInit = do
+    oldInit <- lift $ inInit <$> get
+    lift $ modify (\st -> st { inInit = isInit || (inInit st) } ) -- set Init flag
+    return oldInit
+
+setInit :: Bool -> InlineCompsM ()
+setInit isInit = lift $ modify (\st -> st { inInit = isInit } ) -- set Init flag

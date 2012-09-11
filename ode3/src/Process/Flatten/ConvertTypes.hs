@@ -19,7 +19,6 @@ convertTypes
 ) where
 
 
-
 import Control.Category
 import qualified Data.Label as L
 import Prelude hiding ((.), id)
@@ -44,13 +43,24 @@ import qualified Subsystem.Types as T
 import Subsystem.SysState
 
 
--- Unit Conversion -----------------------------------------------------------------------------------------------------
+-- Monad and Helper Funcs -----------------------------------------------------------------------------------------------------
 
 type UnitConvM = SupplyT Id (StateT UnitConvState MExcept)
 
 data UnitConvState = UnitConvState { inInit :: Bool, stUState :: UnitsState, stTMap :: TypeMap } deriving (Show)
 -- type UnitConvState = (UnitsState, TypeMap)
 mkUnitConvState = UnitConvState False
+
+modInit :: Bool -> UnitConvM Bool
+modInit isInit = do
+    oldInit <- lift $ inInit <$> get
+    lift $ modify (\st -> st { inInit = isInit || (inInit st) } ) -- set Init flag
+    return oldInit
+
+setInit :: Bool -> UnitConvM ()
+setInit isInit = lift $ modify (\st -> st { inInit = isInit } ) -- set Init flag
+
+-- Entry Point ---------------------------------------------------------------------------------------------------------
 
 convertTypes :: Module Id -> UnitsState -> MExcept (Module Id)
 convertTypes (LitMod modData) uState = do
@@ -66,15 +76,19 @@ convertTypes (LitMod modData) uState = do
 
 convertTypesTop :: AC.TopLet Id -> UnitConvM (AC.TopLet Id)
 convertTypesTop (AC.TopLet isInit t bs tE) = do
-    lift $ modify (\st -> st { inInit = isInit } ) -- set Init flag
+    setInit isInit
     AC.TopLet isInit t bs <$> convertTypesExpr tE
 convertTypesTop tLet = return tLet
 
 
 convertTypesExpr :: AC.Expr Id -> UnitConvM (AC.Expr Id)
 convertTypesExpr (AC.Let isInit t bs e1 e2) = do
-    lift $ modify (\st -> st { inInit = isInit } ) -- set Init flag
-    AC.Let isInit t bs <$> convertTypesExpr e1 <*> convertTypesExpr e2
+    oldInit <- modInit isInit
+    e1' <- convertTypesExpr e1
+    setInit oldInit
+    e2' <- convertTypesExpr e2
+    return $ AC.Let isInit t bs e1' e2'
+
 -- drop units from lit nums
 convertTypesExpr (AC.Lit (AC.Num n u)) = return $ AC.Lit (AC.Num n U.NoUnit)
 -- drop the new-type wraps
@@ -85,9 +99,8 @@ convertTypesExpr (AC.TypeCast e (AC.UnitCast toU)) = do
     id <- supply
     tMap <- stTMap <$> lift get
     AC.TFloat fromU <- lift . lift $ T.calcTypeExpr tMap e
-    -- TODO - what about the SVal type??
     isInit <- inInit <$> lift get
-    AC.Let isInit (AC.TFloat U.NoUnit) [id] e <$> (convertUnitCast id fromU toU)
+    AC.Let False (AC.TFloat U.NoUnit) [id] e <$> (convertUnitCast id fromU toU)
 
 -- don't care about the rest, pass on to mapExprM
 convertTypesExpr e = AC.mapExprM convertTypesExpr e

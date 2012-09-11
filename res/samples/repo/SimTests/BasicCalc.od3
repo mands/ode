@@ -107,7 +107,29 @@ module BasicCalc12 {
     init a = f(1)
 }
 
+// init and non-init
+module BasicCalc13 {
+    // val a = 2
+    component f(x) {
+        return (x+1)
+    }
+    init b = 1 + f(1)
+}
 
+module BasicCalc13a {
+    // val a = 2
+    component f(x) {
+        return (x+1)
+    }
+ 
+    component o(y) {
+        init x = 2 + f(1)
+        ode {init: x, delta : dx } = 1 + f(y)
+        return (x+3)
+    }
+
+    val _ = o(1)
+}
 
 
 

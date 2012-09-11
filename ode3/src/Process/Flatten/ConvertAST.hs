@@ -19,6 +19,7 @@ convertAST
 ) where
 
 import Control.Monad.State
+import Control.Conditional
 
 import Utils.CommonImports
 import Subsystem.SysState
@@ -44,6 +45,16 @@ data FlatState = FlatState  { _curExprs :: ACF.ExprMap, _loopExprs :: ACF.ExprMa
                             , _simOps :: [ACF.SimOps] , _inInit :: Bool, _curTMap :: TypeMap } deriving (Show, Eq, Ord)
 mkFlatState = FlatState OrdMap.empty OrdMap.empty OrdMap.empty [] False
 
+modInit :: Bool -> ConvM Bool
+modInit isInit = do
+    oldInit <- lift $ _inInit <$> get
+    lift $ modify (\st -> st { _inInit = isInit || (_inInit st) } ) -- set Init flag
+    return oldInit
+
+setInit :: Bool -> ConvM ()
+setInit isInit = lift $ modify (\st -> st { _inInit = isInit } ) -- set Init flag
+
+
 -- Process Entry -------------------------------------------------------------------------------------------------------
 
 -- TODO - need to create typedata in ACF.module too
@@ -61,7 +72,8 @@ convertAST (LitMod modData) = do
 convertTop :: () -> ([Id], AC.TopLet Id) -> ConvM ()
 convertTop _ (ids, AC.TopLet isInit t (ids') cE) = do
     assert (ids == ids') $ return ()
-    convertLet isInit t ids cE
+    setInit isInit
+    convertLet t ids cE
 
 convertTop _ coreExpr = errorDump [MkSB coreExpr] "Cannot convert top expression to CoreFlat" assert
 
@@ -76,7 +88,9 @@ convertExpr e@(AC.Var (AC.LocalVar v) (Just recId)) = ACF.Var <$> convertRecId v
 
 -- directly store the nested let bindings within the flattened exprMap
 convertExpr e@(AC.Let isInit t bs e1 e2) = do
-    convertLet isInit t bs e1
+    oldInit <- modInit isInit
+    convertLet t bs e1
+    setInit oldInit
     convertExpr e2
 
 -- Literals
@@ -144,10 +158,8 @@ convertExpr expr = errorDump [MkSB expr] "Cannot convert expression to CoreFlat"
 -- Conversion Helper Functions -----------------------------------------------------------------------------------------
 
 -- convert a let-binding (both top and nested) into a global-let, handles unpacking a tuple references,
-convertLet :: Bool -> AC.Type -> AC.BindList Id -> AC.Expr Id -> ConvM ()
-convertLet isInit t ids e1 = do
-    -- set Init flag
-    lift $ modify (\st -> st { _inInit = isInit })
+convertLet :: AC.Type -> AC.BindList Id -> AC.Expr Id -> ConvM ()
+convertLet t ids e1 = do
     -- convert the expr and type
     fE <- convertExpr e1
     let fT = convertType t
@@ -198,12 +210,10 @@ liftVarExpr e = return Nothing
 -- | Wrapper function to insert a given expression into the correct exprmap under a given Id
 insertExpr :: Id -> ACF.Expr -> ACF.Type -> ConvM ()
 insertExpr id fE fT = do
-    -- id <- maybe supply return mId
-    isInit <- _inInit <$> lift get
     let exprData = ACF.ExprData fE fT
-    case isInit of
-        True    -> lift $ modify (\st -> st { _initExprs = OrdMap.insert id exprData (_initExprs st) })
-        False   -> lift $ modify (\st -> st { _loopExprs = OrdMap.insert id exprData (_loopExprs st) })
+    ifM (_inInit <$> lift get)
+        (lift $ modify (\st -> st { _initExprs = OrdMap.insert id exprData (_initExprs st) }))
+        (lift $ modify (\st -> st { _loopExprs = OrdMap.insert id exprData (_loopExprs st) }))
 
 -- | Convert a record Id reference to a tuple numerical reference
 convertRecId :: Id -> String -> ConvM ACF.Var
