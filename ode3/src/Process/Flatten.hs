@@ -62,18 +62,18 @@ flatten initModStr = do
     -- inline mods
     gModEnv <- getSysState vModEnv
     mod1 <- lift $ inlineMod gModEnv initMod
-    trace' [MkSB mod1] "Inline Mods output" $ return ()
+    --trace' [MkSB mod1] "Inline Mods output" $ return ()
     -- inline components
     mod2 <- lift $ inlineComps mod1
-    trace' [MkSB mod2] "Inline Comps output" $ return ()
+    --trace' [MkSB mod2] "Inline Comps output" $ return ()
     -- convert units and types
     unitsState <- getSysState lUnitsState
     mod3 <- lift $ convertTypes mod2 unitsState
     -- trace' [MkSB mod3] "Convert units output" $ return ()
     -- convert to CoreFlat
     core1 <- lift $ convertAST mod3
-    trace' [MkSB core1] "CoreFlat AST output" $ return ()
+    --trace' [MkSB core1] "CoreFlat AST output" $ return ()
     -- unpack tuples (in CoreFlat)
     core2 <- lift $ unpackTuples core1
-    trace' [MkSB core2] "Unpacked tuples output" $ return ()
+    trace' [MkSB core2] "(Unpacked) CoreFlat AST output" $ return ()
     return core2

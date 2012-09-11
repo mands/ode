@@ -59,7 +59,7 @@ typeCheck gModEnv fileData uState disUnits mod@(M.LitMod modData) = do
     tEnv' <- subTVars tEnv tVEnv uVEnv False
     -- split the typeEnvs
     let (tMap, _) = splitTypeEnvs tEnv'
-    _ <- trace' [MkSB tEnv'] "Final TypeEnv" $ Right ()
+    -- _ <- trace' [MkSB tEnv'] "Final TypeEnv" $ Right ()
     -- Update the module data with the new typemap
     return $ M.LitMod (M.updateModData1 modData tMap)
 

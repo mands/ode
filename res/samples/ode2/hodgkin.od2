@@ -56,13 +56,13 @@ component potassium_channel_n_gate(t, V) {
   return (n)
 }
 
-component sodium_channel(t, V, E_R) {
-  (m) = sodium_channel_m_gate(t, V);
-  (h) = sodium_channel_h_gate(t, V);
-  g_Na = 120;
-  E_Na = E_R + 115;
-  i_Na = g_Na * pow(m, 3) * h * (V - E_Na);
-  return (i_Na)
+component sodium_channel(V, E_R) {
+    val m = sodium_channel_m_gate(V)
+    val h = sodium_channel_h_gate(V)
+    val g_Na = 120
+    val E_Na = E_R + 115
+    val i_Na = g_Na * pow(m, 3) * h * (V - E_Na)
+    return (i_Na)
 }
 
 component sodium_channel_m_gate(t, V) { 

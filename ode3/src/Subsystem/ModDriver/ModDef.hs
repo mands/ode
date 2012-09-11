@@ -137,8 +137,8 @@ evalModDef' gModEnv fileData unitsState disUnits mod@(AppMod fModId modArgs) = d
 
     -- finally construct a "Closed" RefMod to holds the results, using both the fMod modData and type-checked lMod sig
     let refMod = RefMod modFullName True (calcSigMap modData') lModEnv
-    trace' [MkSB (refMod :: Module Id)] "App -> RefMod" $ return refMod
-    -- return refMod
+    -- trace' [MkSB (refMod :: Module Id)] "App -> RefMod" $ return refMod
+    return refMod
   where
     -- lookup/evaluate the functor and params, dynamically type-check
     lookupFunctor :: MExcept (ModFullName, Module Id)

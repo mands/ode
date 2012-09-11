@@ -1,25 +1,23 @@
 // disable unit checking
-//:disableUnits
+:disableUnits
 
 // setup the repo
 :addRepo ../res/samples/repo
 
 // import our modules
-import SimTests.BasicCalc.*
-//import FlatTests.TupleFlat.*
+import SimTests.HodHux.*
 
 // :show all
 :show modState
 
 // :set params
 :startTime 0
-:endTime 10
-:timestep 1
-:period 1
-:output "../res/samples/output/basic.bin"
+:endTime 50
+:timestep 0.001
+:period 100
+:output "../res/samples/output/hodhux.bin"
 
 // all done
-:simulate BasicCalc11d
-//:simulate Tuple6
+:simulate HodHux
 :quit
 

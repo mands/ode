@@ -130,7 +130,8 @@ addImportsToEnv mEnv (ModImport modRoot mMods) = do
                     else do
                         -- create a RefMod here to stand in for the import
                         let refMod = mkRefMod (ModFullName modRoot modName) mod
-                        trace' [MkSB refMod] "addImports" $ return $ Map.insert impModName refMod mEnv
+                        -- trace' [MkSB refMod] "addImports" $ return ()
+                        return $ Map.insert impModName refMod mEnv
             Nothing -> throwError $ printf "Imported module %s not found in %s" (show modName) (show modRoot)
 
 -- | High level fuction to load a module specified by ModRoot and process it according to the Glboal state

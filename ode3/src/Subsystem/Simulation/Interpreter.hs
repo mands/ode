@@ -73,9 +73,14 @@ interpret mod = do
         -- simulate the initial data
         unless (OrdMap.null (_initExprs mod)) $ runIter (_initExprs mod) True (Sys._startTime p)
         -- simulate the loop exprs over the time period
-        unless (OrdMap.null (_loopExprs mod))
-            $ forM_ [(Sys._startTime p) + (Sys._timestep p), 2 * (Sys._timestep p)..(Sys._endTime p)]
-                (runIter (_loopExprs mod) False)
+        unless (OrdMap.null (_loopExprs mod)) $ runLoop 1 (_loopExprs mod) p
+
+    runLoop :: Integer -> ExprMap -> Sys.SimParams -> SimM ()
+    runLoop curLoop eM p = do
+        runIter eM False time -- run an iteration
+        if time < (Sys._endTime p) then runLoop (inc curLoop) eM p else return () -- only loop again is time is less than endtime, break if equal/greater
+      where
+        time = (Sys._startTime p) + (fromInteger curLoop) * (Sys._timestep p)
 
     -- wrapper function to configure the cur time
     runIter :: ExprMap -> Bool -> Double -> SimM ()

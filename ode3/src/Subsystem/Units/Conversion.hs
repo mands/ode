@@ -176,11 +176,11 @@ convertCastUnit fromUnitC@(UnitC fromUnit) toUnitC@(UnitC toUnit) uEnv cEnv = do
     convertUnitsInDim lhsSUMap rhsSUMap dim cExpr = do
         -- first rearrange
         let (lhsUs, rhsUs) = rearrangeUnits lhsSUMap rhsSUMap
-        trace' [MkSB lhsUs, MkSB rhsUs] "rearranged units" $ return ()
+        -- trace' [MkSB lhsUs, MkSB rhsUs] "rearranged units" $ return ()
 
         -- then cancel
         let (lhsUs', rhsUs') = cancelUnits lhsUs rhsUs
-        trace' [MkSB lhsUs', MkSB rhsUs'] "after cancelling units" $ return ()
+        -- trace' [MkSB lhsUs', MkSB rhsUs'] "after cancelling units" $ return ()
 
         -- now convert the remaining, one-by-one from the lhs
         (rhsUs'', cExpr') <- DF.foldlM convertSingleUnit (rhsUs', cExpr) $ Map.toAscList lhsUs'
@@ -210,7 +210,7 @@ convertCastUnit fromUnitC@(UnitC fromUnit) toUnitC@(UnitC toUnit) uEnv cEnv = do
             convertSingleUnit' = do
                 -- get a base unit from rhs
                 let ((rhsUnit, rIdx), rhsUs') = case Map.minViewWithKey rhsUs of
-                                                    Just x  -> trace' [MkSB x] "rhs selected unit" $ x
+                                                    Just x  -> x -- trace' [MkSB x] "rhs selected unit" $ x
                                                     Nothing -> errorDump [MkSB rhsUs] "(UC) Cannot find anymore rhs units" assert
 
                 cExpr' <- convertBaseUnit lhsUnit rhsUnit (getConvGraph dim cEnv)

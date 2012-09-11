@@ -130,7 +130,7 @@ getMVarType mv@(E.ModVar m v) gModEnv modData mFuncArgs =
 
 processLetBind :: E.BindList Integer -> E.Type -> TypeConsM ()
 processLetBind bs eT = do
-    trace' [MkSB bs, MkSB eT] "let expr" $ return ()
+    -- trace' [MkSB bs, MkSB eT] "let expr" $ return ()
     -- extend tEnv with new env
     tEnvs@(TypeEnvs tEnv _ _) <- get
     tEnv' <- case eT of
@@ -168,7 +168,7 @@ recordRefsCons gModEnv modData mFuncArgs = do
     -- add an equality contraint against the var holding the record, and the collection of references to it
     addRecRefCons (v, tInf@(E.TRecord nTs)) = do
         tCur <- getVarType v gModEnv modData mFuncArgs
-        trace' [MkSB v, MkSB tInf, MkSB tCur] "Adding rec refs cons" $ return ()
+        -- trace' [MkSB v, MkSB tInf, MkSB tCur] "Adding rec refs cons" $ return ()
         -- TODO - could make tInf a subtype here?
         addConsType $ ConRecSubType tInf tCur
 
@@ -274,8 +274,6 @@ constrain gModEnv modData mFuncArgs disUnits = runStateT (evalSupplyT (execState
         return toT
 
     consExpr e@(E.If eB eT eF) = do
-        trace' [MkSB e] "If expr" $ return ()
-
         eBT <- consExpr eB
         addConsType $ ConEqual eBT E.TBool
         eTT <- consExpr eT

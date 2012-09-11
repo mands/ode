@@ -73,7 +73,8 @@ reorder' exprMap = do
     (topGraph', topMap') <- procDepGraphs topGraph topMap topBindMap
     -- now we need to sort the graphs and reconstruct the expressions
     exprMap' <- sortGraphs topGraph' topMap'
-    return $ trace ("(RO) " ++ (show exprMap')) exprMap'
+    -- return $ trace ("(RO) " ++ (show exprMap')) exprMap'
+    return exprMap'
   where
     topGraph = createTopGraph exprMap topMap
     topMap = createTopMap exprMap

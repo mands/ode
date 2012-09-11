@@ -40,7 +40,8 @@ int main(int argc, char** argv) {
 	while (!feof(file)) {
 		if (fread(&row, sizeof(double), columns, file) != 0) {
 			for(i = 0; i < (columns); i++) {
-				printf("%8.5g,\t", row[i]);
+				//printf("%8.5g,\t", row[i]);
+                printf("%.16g,\t", row[i]);
 			}
 			printf("\n");
 		}

@@ -17,6 +17,7 @@ res/utils/Plot/.idea/
 *.ll
 *.bc
 *.s
+*.pyc 
 
 # IDE files
 *.lkshf
