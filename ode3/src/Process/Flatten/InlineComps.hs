@@ -59,13 +59,18 @@ inlineComps (LitMod modData) = do
   where
     inlineCompsM :: InlineCompsM (ExprMap Id)
     inlineCompsM = do
-        -- inline components, drop top abs, drop nested abs
+        -- inline components, drop top abs
         exprMap' <- DT.mapM inlineCompsTop (modExprMap modData)
-        return $ (OrdMap.filter filterTopAbs exprMap' |> OrdMap.map filterExpr)
+        return $ OrdMap.filter filterTopAbs exprMap'
+
+    filterTopAbs :: AC.TopLet Id -> Bool
+    filterTopAbs (AC.TopLet _ _ _ absE@(AC.Abs _ _)) = False
+    filterTopAbs tl = True
+
 
 inlineCompsTop :: AC.TopLet Id -> InlineCompsM (AC.TopLet Id)
 inlineCompsTop (AC.TopLet isInit t (b:[]) absE@(AC.Abs arg e)) = do
-    lift $ modify (\st -> st { inInit = isInit } ) -- set Init flag
+    setInit isInit
     -- first inline the abs
     absE' <-  AC.Abs arg <$> inlineCompsExpr e
     -- now store the inlined expr
@@ -74,42 +79,53 @@ inlineCompsTop (AC.TopLet isInit t (b:[]) absE@(AC.Abs arg e)) = do
 
 -- inline any applications
 inlineCompsTop (AC.TopLet isInit t bs e) = do
-    lift $ modify (\st -> st { inInit = isInit } ) -- set Init flag
+    setInit isInit
     AC.TopLet isInit t bs <$> inlineCompsExpr e
 
-
--- anything else, keep going
+-- anything else, i.e TopType, keep going
 inlineCompsTop e = return e
 
+
 inlineCompsExpr :: AC.Expr Id -> InlineCompsM (AC.Expr Id)
-inlineCompsExpr (AC.Let isInit t (b:[]) absE@(AC.Abs arg e) e2) = do
-    lift $ modify (\st -> st { inInit = isInit } ) -- set Init flag
+inlineCompsExpr abs@(AC.Let isInit t (b:[]) absE@(AC.Abs arg e) e2) = do
+    oldInit <- modInit isInit
     -- first inline the abs
     absE' <-  AC.Abs arg <$> inlineCompsExpr e
     -- now store the inlined expr
     lift $ modify (\st -> st { absMap = Map.insert b absE' (absMap st) })
-    e2' <- inlineCompsExpr e
+    setInit oldInit
+    e2' <- inlineCompsExpr e2
     -- remove the inlied expr here
     lift $ modify (\st -> st { absMap = Map.delete b (absMap st) })
-    -- drop the app and return a new inlined let
-    return (AC.Let isInit t (b:[]) absE' e2')
-
+    -- drop the abs (as we've already saved it), and return the rest of the let expr
+    return e2' -- (AC.Let isInit t (b:[]) absE' e2')
 
 inlineCompsExpr (AC.Let isInit t bs e1 e2) = do
-    lift $ modify (\st -> st { inInit = isInit } ) -- set Init flag
-    AC.Let isInit t bs <$> inlineCompsExpr e1 <*> inlineCompsExpr e2
+    oldInit <- modInit isInit
+    e1' <- inlineCompsExpr e1
+    setInit oldInit
+    e2' <- inlineCompsExpr e2
+    return $ AC.Let isInit t bs e1' e2'
 
 -- now inline any applications
 inlineCompsExpr appE@(AC.App (AC.LocalVar f) e) = inlineApp f e
 -- anything else, keep going
 inlineCompsExpr e = AC.mapExprM inlineCompsExpr e
 
+modInit :: Bool -> InlineCompsM Bool
+modInit isInit = do
+    oldInit <- lift $ inInit <$> get
+    lift $ modify (\st -> st { inInit = isInit || (inInit st) } ) -- set Init flag
+    return oldInit
+
+setInit :: Bool -> InlineCompsM ()
+setInit isInit = lift $ modify (\st -> st { inInit = isInit } ) -- set Init flag
 
 -- | actually setup the AST changes to inline the app of the abs
 -- replace an app abs e -> let
 inlineApp f appE = do
     -- get the abs expr and type
-    (AC.Abs arg absE) <- (Map.!) <$> (absMap <$> lift get) <*> pure f
+    abs@(AC.Abs arg absE) <- (Map.!) <$> (absMap <$> lift get) <*> pure f
     (AC.TArr fromT toT) <- (Map.!) <$> (tMap <$> lift get) <*> pure f
     -- check the rebindsMap is empty
     assert <$> (== 0) <$> (Map.size <$> (rebindsMap <$> lift get)) <*> return ()
@@ -131,14 +147,15 @@ shiftExprIds (AC.Ode v e) = AC.Ode <$> calcReboundVar v <*> shiftExprIds e
 
 shiftExprIds (AC.Rre v1 v2 rate) = AC.Rre <$> calcReboundVar v1 <*> calcReboundVar v2 <*> pure rate
 
-shiftExprIds (AC.Let isInit t (b:[]) e1 e2) = do
+shiftExprIds (AC.Let _ t (b:[]) e1 e2) = do
     e1' <- shiftExprIds e1
     -- get a new binding, store and keep going
     b' <- supply
     lift $ modify (\st -> st { rebindsMap = Map.insert b b' (rebindsMap st) })
     e2' <- shiftExprIds e2
     lift $ modify (\st -> st { rebindsMap = Map.delete b (rebindsMap st) })
-    return $ AC.Let isInit t [b'] e1' e2'
+    isInit' <- inInit <$> lift get -- we get the init state, rather the use the existing value
+    return $ AC.Let isInit' t [b'] e1' e2'
 
 -- anything else, keep going
 shiftExprIds e = AC.mapExprM shiftExprIds e
@@ -149,16 +166,4 @@ calcReboundVar (AC.LocalVar v) = do
     -- if the var has been rebound then replace it
     let v' = maybe v id $ Map.lookup v rbMap
     return $ AC.LocalVar v'
-
-
--- Filter all abs from the expressions ---------------------------------------------------------------------------------
-filterTopAbs :: AC.TopLet Id -> Bool
-filterTopAbs (AC.TopLet _ _ _ absE@(AC.Abs _ _)) = False
-filterTopAbs tl = True
-
-filterExpr (ids, (AC.TopLet isInit t b e)) = (ids, AC.TopLet isInit t b $ filterExprAbs e)
-filterExpr (ids, e) = (ids, e)
-
-filterExprAbs (AC.Let _ _ _ absE@(AC.Abs arg e) e2) = e2
-filterExprAbs e = AC.mapExpr filterExprAbs e
 

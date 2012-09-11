@@ -5,19 +5,21 @@
 :addRepo ../res/samples/repo
 
 // import our modules
-import SimTests.HodHux.*
+//import SimTests.HodHux1.*
+import SimTests.BasicCalc.*
 
 // :show all
 :show modState
 
 // :set params
 :startTime 0
-:endTime 50
-:timestep 0.001
-:period 100
-:output "../res/samples/output/hodhux.bin"
+:endTime 10
+:timestep 1
+:period 1
+:output "../res/samples/output/basic.bin"
 
 // all done
-:simulate HodHux
+//:simulate HodHux
+:simulate BasicCalc12
 :quit
 

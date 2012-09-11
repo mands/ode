@@ -95,3 +95,31 @@ module BasicCalc11c(A) {
 module BasicCalc11d = BasicCalc11c(BasicCalc11a)
 // etc..
 
+// nested comps
+module BasicCalc12 {
+    component f (x) {
+        component g (y) {
+            return (y + 1)
+        }
+        return g(x)
+    }
+
+    init a = f(1)
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
