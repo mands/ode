@@ -47,6 +47,18 @@ module BasicCalc7 {
     ode {init: x, delta : dx } = c
 }
 
+// tuples - returing and passing around - OK and optimised
+module BasicCalc7a {
+    component f (x) {
+        return (x+1, x-1)
+    }
+
+    val a = f(1)
+    val b,c = a
+}
+
+
+
 // records - OK
 module BasicCalc8 {
     init x = 0
@@ -81,7 +93,7 @@ module BasicCalc11a {
 }
 
 module BasicCalc11b {
-    import SimTests.BasicCalc.BasicCalc11a as A
+    import SimTests.BasicCalcNoUnits.BasicCalc11a as A
     init x = 0 { unit : m }
     ode {init: x, delta : dx } = A.a
 }
@@ -107,7 +119,7 @@ module BasicCalc12 {
     init a = f(1)
 }
 
-// init and non-init
+// init and non-init values
 module BasicCalc13 {
     // val a = 2
     component f(x) {
@@ -130,7 +142,6 @@ module BasicCalc13a {
 
     val _ = o(1)
 }
-
 
 
 
