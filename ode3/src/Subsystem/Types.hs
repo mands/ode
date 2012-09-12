@@ -35,8 +35,9 @@ import qualified Subsystem.Units as U
 -- TODO - should this be moved??
 
 -- calculates the type of any abritary expression via recusrive descent and tMap lookup
--- assumes both that type-checking hsa completed (hence valid typemap is present) and modules are inlined/not presesent
 -- we need this as we only store types on at (top-)let points
+-- assumes both that type-checking hsa completed (hence non-poly typemap is present) and modules are inlined/not presesent
+-- also assumes that types within let-bound expressions are newer/take prcedence over tMap
 calcTypeExpr :: TypeMap -> AC.Expr Id -> MExcept AC.Type
 calcTypeExpr tMap (AC.Var (AC.LocalVar v) Nothing) = return $ tMap Map.! v
 calcTypeExpr tMap (AC.Var (AC.LocalVar v) (Just recId)) | (AC.TRecord ts) <- tMap Map.! v = return $ ts Map.! recId
@@ -45,8 +46,12 @@ calcTypeExpr tMap (AC.App (AC.LocalVar f) _) | AC.TArr eT toT <- (tMap Map.! f) 
 
 -- what is the type of the arg? AC.TArr Unit (calcTypeExpr tMap e)
 -- calcTypeExpr tMap (AC.Abs arg e) = undefined -- calcTypeExpr tMap e
+
 -- the t here holds the type of e1, not e2, hence have to calc e2
-calcTypeExpr tMap (AC.Let s t bs e1 e2) = calcTypeExpr tMap e2
+calcTypeExpr tMap (AC.Let s t (b:[]) e1 e2) = calcTypeExpr (Map.insert b t tMap) e2
+calcTypeExpr tMap (AC.Let s (AC.TTuple ts) bs e1 e2) = calcTypeExpr tMap' e2
+  where
+    tMap' = foldl (\tMap (b,t) -> Map.insert b t tMap) tMap $ zip bs ts
 
 calcTypeExpr _ (AC.Lit l) = case l of
     AC.Boolean _ -> return AC.TBool

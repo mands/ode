@@ -1,25 +1,26 @@
 // disable unit checking
-:disableUnits
+//:disableUnits
 
 // setup the repo
 :addRepo ../res/samples/repo
 
 // import our modules
-//import SimTests.HodHux.*
-import SimTests.BasicCalc.*
+//import SimTests.HodHux2.*
+//import SimTests.BasicCalcUnits.*
+import UnitsTests.DimsTest.*
 
 // :show all
 :show modState
 
 // :set params
 :startTime 0
-:endTime 50
-:timestep 0.001
-:period 100
+:endTime 10
+:timestep 1
+:period 1
 :output "../res/samples/output/basic.bin"
 
 // all done
-//:simulate HodHux
-:simulate BasicCalc13a
+//:simulate HodHuxModelLit
+:simulate Dim7
 :quit
 

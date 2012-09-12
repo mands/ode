@@ -79,10 +79,9 @@ updateStack tCons = do
         updateConUnit (ConSameDim a b) = ConSameDim (updateUnits  a) (updateUnits b)
         updateConUnit (ConMul e a b) = ConMul e (updateUnits  a) (updateUnits b)
 
-        updateTypes = E.mapType (\t -> case t of
-            t'@(E.TVar tV) -> Map.findWithDefault t' tV tVEnv
-            t'@(E.TFloat (U.UnitVar uV)) -> maybe t' (E.TFloat) $ Map.lookup uV uVEnv
-            _ -> t)
+        updateTypes t'@(E.TVar tV) = Map.findWithDefault t' tV tVEnv
+        updateTypes t'@(E.TFloat (U.UnitVar uV)) = maybe t' (E.TFloat) $ Map.lookup uV uVEnv
+        updateTypes t = E.mapType updateTypes t
 
         updateUnits u@(U.UnitVar uV) = Map.findWithDefault u uV uVEnv
         updateUnits u = u

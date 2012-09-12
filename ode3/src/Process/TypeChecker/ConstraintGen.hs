@@ -320,12 +320,13 @@ constrain gModEnv modData mFuncArgs disUnits = runStateT (evalSupplyT (execState
         addConsType $ ConEqual eT (E.TFloat uV1)
         -- process differently depending if units are enabled
         if disUnits
-            then do
+            then return eT
+            else do
                 -- constrain them both units to be of the same dimension
                 addConsUnit $ ConSameDim uV1 u
                 -- return the new "casted" unit
                 return $ E.TFloat u
-            else return eT
+
 
     -- TODO - doesn't work for types exported in functors!!
     consExpr (E.TypeCast e (E.WrapType tName)) = do
@@ -357,8 +358,6 @@ constrain gModEnv modData mFuncArgs disUnits = runStateT (evalSupplyT (execState
                 -- return unwrapped type
                 return tT
             _ -> liftMExcept . throwError $ printf "(TC) Var %s is not a type constructor" (show tName)
-
-
 
     -- other exprs - not needed as match all
     consExpr e = errorDump [MkSB e] "(TC02) Unknown expr" assert

@@ -97,13 +97,13 @@ splitTypeEnvs tEnv = Map.foldrWithKey splitType (Map.empty, Map.empty) tEnv
 -- | use the TVar map to undate a type enviroment (including both local and mod-refs) and substitute all TVars
 -- Bool argument determinst wheter the checking should allow polymophism and not fully-unify
 subTVars :: TypeEnv -> TypeVarEnv -> UnitVarEnv -> Bool -> MExcept TypeEnv
-subTVars tEnv tVEnv uVEnv allowPoly = DT.mapM (E.mapTypeM updateType) tEnv
+subTVars tEnv tVEnv uVEnv allowPoly = DT.mapM updateType tEnv
   where
     -- try to substitute a tvar if it exists - this will behave differently depending on closed/open modules
     updateType :: E.Type -> MExcept E.Type
     updateType t@(E.TVar i) = processType t $ Map.lookup i tVEnv
     updateType t@(E.TFloat (U.UnitVar uV)) = processType t $ E.TFloat <$> Map.lookup uV uVEnv
-    updateType t = return t
+    updateType t = E.mapTypeM updateType t
 
     processType :: E.Type -> Maybe E.Type -> MExcept E.Type
     processType t (Just t')   = return t'

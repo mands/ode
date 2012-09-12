@@ -70,18 +70,18 @@ data Type :: * where
 -- Helper functions
 -- is this some type of type-class? Functor? but it's non-parametric, makes it a problem, must do manually
 mapType :: (Type -> Type) -> Type -> Type
-mapType f (TArr t1 t2) = TArr (mapType f t1) (mapType f t2)
-mapType f (TTypeCons tName t) = TTypeCons tName (mapType f t)
-mapType f (TTuple ts) = TTuple $ map (mapType f) ts
-mapType f (TRecord nTs) = TRecord $ Map.map (mapType f) nTs
-mapType f t = f t
+mapType f (TArr t1 t2) = TArr (f t1) (f t2)
+mapType f (TTypeCons tName t) = TTypeCons tName (f t)
+mapType f (TTuple ts) = TTuple $ map f ts
+mapType f (TRecord nTs) = TRecord $ Map.map f nTs
+mapType f t = t
 
-mapTypeM :: (Monad m) => (Type -> m Type) -> Type -> m Type
-mapTypeM f (TArr fromT toT) = liftM2 TArr (mapTypeM f fromT) (mapTypeM f toT)
-mapTypeM f (TTypeCons tName t) = liftM (TTypeCons tName) (mapTypeM f t)
-mapTypeM f (TTuple ts) = liftM TTuple $ mapM (mapTypeM f) ts
-mapTypeM f (TRecord nTs) = liftM TRecord $ DT.mapM (mapTypeM f) nTs
-mapTypeM f t = f t
+mapTypeM :: (Functor m, Applicative m, Monad m) => (Type -> m Type) -> Type -> m Type
+mapTypeM f (TArr fromT toT) = TArr <$> f fromT <*> f toT
+mapTypeM f (TTypeCons tName t) = TTypeCons tName <$> f t
+mapTypeM f (TTuple ts) = TTuple <$> mapM f ts
+mapTypeM f (TRecord nTs) = TRecord <$> DT.mapM f nTs
+mapTypeM f t = return t
 
 -- utils for converting between tuples and records
 dropLabels :: Map.Map String a -> [a]

@@ -14,7 +14,7 @@ module UnitsCastExpr {
     //val time1 = (2 + 3) { unit : s }
 
     // allowed, we cast as required
-    //val time2 = (2 { unit : s } + 3 { unit : hr } { unit : s} ) { unit : min }
+    val time2 = (2 { unit : s } + 3 { unit : hr } { unit : s} ) { unit : min }
 
     // re-dimensionalise a previously cancelled value - not allowed
     //val time3 = (1 { unit : s } / 2 { unit : s }) { unit : min }

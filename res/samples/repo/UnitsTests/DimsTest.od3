@@ -3,7 +3,7 @@
 ** NOTE
 ** - Unit Aliases not implemented
 ******************************************************************************/
-
+/*
 // create some quantities in terms of a dimension
 module Dim1 {
     quantity mass = dim M^1
@@ -21,7 +21,6 @@ module Dim2 {
     val area = 1 { unit : m^2 }
     val height = vol / area
 }
-
 
 // mult base units per dimenstion with conversion func
 module Dim3 {
@@ -46,7 +45,6 @@ module Dim3 {
     val w = x { unit : m }
 }
 
-
 // conversion to incorrect dimensions
 module Dim4 {
     // base unit - by default are non-SI
@@ -54,14 +52,15 @@ module Dim4 {
     unit mg { dim : M, SI : False }
 
     // invalid conversion func
-    // conversion { from : m, to : mg, factor : x * 1000 }
+    //conversion { from : m, to : mg, factor : x * 1000 }
 
     // invalid cast
     val x = 1 { unit : m }
     val y = x { unit : mg }
 }
 
-
+*/
+/*
 // dervied units, casting, and operations
 module Dim5 {
     quantity length = dim L
@@ -77,18 +76,42 @@ module Dim5 {
     // convert an area from mm2 to m2
     val area = (1e6 { unit : mm^2 }) {unit : m^2}
 
-    // more complicated ops
-    val height = area / ((1 { unit : m^2 }) {unit : mm^2})
+    // more complicated ops -- unit resolved to m2/mm, otherwise would be ambigous
+    val length = area / ((1 { unit : m }) {unit : mm})
+    // have to cast it to the desired result unit - results in 1m as required
+    val length1 = length { unit : m }
+}
+
+// funky/nounit/non-dimensionalised casting
+module Dim6 {
+    quantity length = dim L
+
+    // base units
+    unit m { dim : L, SI : False }
+    unit mm { dim : L, SI : False }
+
+    // conversion func
+    conversion { from : m, to : mm, factor : x * 1000 }
+    conversion { from : mm, to : m, factor : x / 1000 }
+
+    // convert an area from mm2 to m2
+    val area = (1e6 { unit : mm^2 }) {unit : m^2}
+
+    // more complicated ops -- type m^2/mm^2, have to non-dimensionalise it
+    val nounit = area / ((1 { unit : m^2 }) {unit : mm^2})
+    val nounit1 = nounit * (1 / nounit) + 1 // should be 2
 
 }
 
+*/
+
+
 // test auto-SI creation
-module Dim6 {
+module Dim7 {
     // base unit
     unit m { dim : L, SI : True }
 
     // need test conversion funcs here too
     val height = (1 { unit : km^3 } / 1 { unit : mm^2 }) { unit : m }
 }
-
 

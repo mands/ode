@@ -1,0 +1,100 @@
+// multi-module
+module HodHuxLeakage {
+    component leakage_current(V, E_R) {
+        val g_L = 0.3
+        val E_L = E_R + 10.613
+        val i_L = g_L * (V - E_L)
+        return (i_L)
+    }
+}
+
+module HodHuxPotassium {
+    component potassium_channel_n_gate(V) {
+        val alpha_n = (-0.01 * (V + 65)) / (exp((-1 * (V + 65)) / 10) - 1)
+        val beta_n = 0.125 * exp((V + 75) / 80)
+        init n = 0.325        
+        ode {init: n, delta: dn } = alpha_n*(1 - n) - beta_n*n
+        return (n)
+    }
+
+    component potassium_channel(V, E_R) {
+        val n = potassium_channel_n_gate(V)
+        val g_K = 36
+        val E_K = E_R - 12
+        val i_K = g_K * pow(n, 4) * (V - E_K)
+        return (i_K)
+    }
+}
+
+
+module HodHuxSodium {
+    component sodium_channel_m_gate(V) { 
+        val alpha_m = -0.1 * (V + 50) / (exp((-1 * (V + 50)) / 10) - 1)
+        val beta_m = 4 * exp((-1 * (V + 75)) / 18)
+        init m = 0.05
+        ode {init: m, delta : dm } = alpha_m*(1 - m) - beta_m*m
+        return (m)
+    }
+
+    component sodium_channel_h_gate(V) {
+        val alpha_h = 0.07 * exp((-1 * (V + 75)) / 20)
+        val beta_h = 1 / (exp((-1 * (V + 45)) / 10) + 1)
+        init h = 0.6
+        ode {init: h, delta: dh } = alpha_h*(1 - h) - beta_h * h
+        return (h)
+    }
+
+    component sodium_channel(V, E_R) {
+        val m = sodium_channel_m_gate(V)
+        val h = sodium_channel_h_gate(V)
+        val g_Na = 120
+        val E_Na = E_R + 115
+        val i_Na = g_Na * pow(m, 3) * h * (V - E_Na)
+        return (i_Na)
+    }
+}
+
+
+module HodHuxModelLit {
+    import SimTests.HodHux2.HodHuxLeakage as L
+    import SimTests.HodHux2.HodHuxPotassium as K
+    import SimTests.HodHux2.HodHuxSodium as Na
+
+    val Cm = 1
+    val E_R = -75
+
+
+    val i_Stim = piecewise {
+        time >= 10 and time <= 10.5 : 20,
+        default: 0
+    }
+
+    init V = -75
+    val i_K = K.potassium_channel(V, E_R)
+    val i_Na = Na.sodium_channel(V, E_R)
+    val i_L = L.leakage_current(V, E_R)
+    ode { init : V, delta : dV } = (-1 * (-1 * i_Stim + i_Na + i_K + i_L)) / Cm
+
+}
+
+
+module HodHuxModelFunc(L, K, Na) {
+    val Cm = 1
+    val E_R = -75
+
+
+    val i_Stim = piecewise {
+        time >= 10 and time <= 10.5 : 20,
+        default: 0
+    }
+
+    init V = -75
+    val i_K = K.potassium_channel(V, E_R)
+    val i_Na = Na.sodium_channel(V, E_R)
+    val i_L = L.leakage_current(V, E_R)
+    ode { init : V, delta : dV } = (-1 * (-1 * i_Stim + i_Na + i_K + i_L)) / Cm
+
+}
+
+module HodHuxModelFuncApp = HodHuxModelFunc(HodHuxLeakage, HodHuxPotassium, HodHuxSodium)
+
