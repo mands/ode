@@ -6,8 +6,7 @@
 
 // import our modules
 //import SimTests.HodHux2.*
-//import SimTests.BasicCalcUnits.*
-import UnitsTests.DimsTest.*
+import SimTests.BasicCalcUnits.*
 
 // :show all
 :show modState
@@ -21,6 +20,6 @@ import UnitsTests.DimsTest.*
 
 // all done
 //:simulate HodHuxModelLit
-:simulate Dim7
+:simulate BasicCalcUnits4
 :quit
 

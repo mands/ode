@@ -1,4 +1,4 @@
-// a couple of basic models
+// A collection of no-unit models
 
 // basic ops - OK
 module BasicCalc1 {

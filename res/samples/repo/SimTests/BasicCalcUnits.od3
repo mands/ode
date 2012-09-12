@@ -1,0 +1,38 @@
+// A collection of unit-containing models
+
+// basic ode - OK
+module BasicCalcUnits1 {
+    init x = 0 { unit : m }
+    ode {init: x, delta : dx } = 5 { unit : m.s^-1 }
+}
+
+
+// units conv
+module BasicCalcUnits2 {
+    init x = 0 { unit : m }
+    
+    unit m { dim : L, SI : True }
+
+    val speed = 300 { unit : m.min^-1 }
+    ode { init : x, delta : dx } = speed { unit : m.s^-1}
+}
+
+// units conv 2
+module BasicCalcUnits3 {
+    init x = 0 { unit : m }
+    
+    val speed = 18 { unit : km.hr^-1 }
+    ode { init : x, delta : dx } = speed { unit : m.s^-1}
+}
+
+// units conv 3 - in init
+module BasicCalcUnits4 {
+    init z = 1000 { unit : mm }    
+    init y = 0.001 { unit : km }
+    init x = 1 { unit : m } + y { unit : m } + z { unit : m }
+    init w = 18 { unit : km.hr^-1 }
+
+    ode { init : x, delta : dx } = 5 { unit : m.s^-1} + w { unit : m.s^-1 } // speed = 10m.s^-1
+}
+
+

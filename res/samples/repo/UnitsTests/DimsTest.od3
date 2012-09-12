@@ -3,7 +3,7 @@
 ** NOTE
 ** - Unit Aliases not implemented
 ******************************************************************************/
-/*
+
 // create some quantities in terms of a dimension
 module Dim1 {
     quantity mass = dim M^1
@@ -59,8 +59,6 @@ module Dim4 {
     val y = x { unit : mg }
 }
 
-*/
-/*
 // dervied units, casting, and operations
 module Dim5 {
     quantity length = dim L
@@ -102,8 +100,6 @@ module Dim6 {
     val nounit1 = nounit * (1 / nounit) + 1 // should be 2
 
 }
-
-*/
 
 
 // test auto-SI creation
