@@ -12,6 +12,8 @@ res/utils/Plot/.idea/
 *.hi
 *.log
 *.bin
+*.a
+*.so.*
 
 # LLVM bitcode
 *.ll

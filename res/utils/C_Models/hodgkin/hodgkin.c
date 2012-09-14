@@ -15,7 +15,7 @@ void simulate(double start, double stop, double step, double sample, const char*
 
 int main(void) {
     double start = 0; 
-    double stop = 50;
+    double stop = 50000;
     double step = 0.001; 
     uint32_t sample = 100;
     const char* filename = "output.bin";
