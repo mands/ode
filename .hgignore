@@ -16,7 +16,6 @@ res/utils/Plot/.idea/
 *.so.*
 
 # LLVM bitcode
-*.ll
 *.bc
 *.s
 *.pyc 
