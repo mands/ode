@@ -6,7 +6,7 @@ class MathLib:
 
 # basic functions of type f->f
 # TODO - 'invsqrt', 'invcbrt',
-funcsFtoF = {'sin', 'cos', 'tan'                        # trig funs
+funcsFtoF = { 'sin', 'cos', 'tan'                        # trig funs
             , 'asin', 'acos', 'atan'
             , 'sinh', 'cosh', 'tanh'
             , 'asinh', 'acosh', 'atanh'
@@ -44,9 +44,9 @@ def getCallName(funcName, vecSize, mathLib):
             return "__svml_{0}{1}".format(funcName, vecSize)
     elif mathLib == MathLib.AMD:
         if vecSize == 1:
-            return funcName
+            return "amd_{0}".format(funcName)
         else:
-            return "__vrd{1}_{0}".format(funcName, vecSize)
+            return "amd_vrd{1}_{0}".format(funcName, vecSize)
     else: # mathLib == MathLib.GNU:
         return "__{0}_finite".format(funcName)
 
@@ -56,11 +56,15 @@ def _checkVecSize(vecSize):
     else:
         raise ValueError('vecSize not a valid number')
 
-def genProto(protoName, vecSize):
+def genProto(protoName, vecSize, inArgs=1, outArgs=1):
     _checkVecSize(vecSize)
     llvmType = _getLLVMType(vecSize)
-    cog.outl("declare {0} @{1}({0} %ins) nounwind readnone".format(llvmType, protoName))
-
+    if inArgs==1 and outArgs ==1:
+        cog.outl("declare {0} @{1}({0} %ins) nounwind readnone".format(llvmType, protoName))
+    elif inArgs==2 and outArgs ==1:
+        cog.outl("declare {0} @{1}({0} %ins, {0} %ins2) nounwind readnone".format(llvmType, protoName))
+    else:
+        raise ValueError("Invalid in or out-args size")
 
 
 # a wrapper to call the correct genThunk based on the input params
@@ -179,3 +183,14 @@ def _getThunk_4to2_1in_1out(vecMathName, callName):
     cog.outl("}")
     cog.outl("")
 
+
+def _getThunk_0_2in_1out(vecMathName, callName, vecSize):
+    """calls a packed func directly"""
+    llvmType = _getLLVMType(vecSize)
+    ## output the func definition
+    cog.outl("define {0} @{1}({0} %ins, {0} %ins2) nounwind alwaysinline readnone {{".format(llvmType, vecMathName))
+    cog.outl("entry:")
+    cog.outl("  %ret0 = tail call {0} @{1}({0} %ins, {0} %ins2) nounwind readnone".format(llvmType, callName))
+    cog.outl("  ret {0} %ret0".format(llvmType))
+    cog.outl("}")
+    cog.outl("")

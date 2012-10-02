@@ -1,38 +1,69 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; VecMath Wrapper onto AMD LibM library
+;; VecMath Wrapper onto AMD libM library (this applies partial (2xDouble) vectorisation)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; scalars - 1xf64 (libm SSE2/x87)
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;;; thunking functions
-define double @vecmath_exp_f64(double %in) nounwind alwaysinline readnone {
-entry:
-  %call = tail call double @amd_exp(double %in) nounwind readnone
-  ret double %call
-}
-
-;;; declarations
-declare double @amd_exp(double) nounwind readnone
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; vectors - 2xf64 (SSE2)
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;;; thunking functions
-define <2 x double> @vecmath_exp_v2f64(<2 x double> %ins) nounwind alwaysinline readnone {
-entry:
-  %call = tail call <2 x double> @amd_vrd2_exp(<2 x double> %ins) nounwind readnone
-  ret <2 x double> %call
-}
-
-;;; declarations
-declare <2 x double> @amd_vrd2_exp(<2 x double>) nounwind readnone
+;; generate prototypes
+;;[[[cog 
+;;  import cog
+;;  import VecMathCog as C
+;;  # amd libM supported vector functions
+;;  # also 'sincos', 'pow'
+;;  amdFuncsFtoF =  { 'exp', 'exp2', 'exp10', 'expm1'
+;;                  , 'log', 'log2', 'log10', 'log1p'
+;;                  , 'cosh', 'cos', 'sin', 'tan'
+;;                  , 'cbrt'
+;;                  }
+;;
+;;  # scalar prototypes
+;;  vecSize = 1
+;;  for f in C.funcsFtoF:
+;;    protoName = C.getCallName(f, vecSize, C.MathLib.AMD)
+;;    C.genProto(protoName, vecSize)
+;;  # AMD only supports vecx2
+;;  vecSize = 2
+;;  for f in amdFuncsFtoF:
+;;    protoName = C.getCallName(f, vecSize, C.MathLib.AMD)
+;;    C.genProto(protoName, vecSize)
+;;]]]
+;;[[[end]]]
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; vectors - 4xf64 (AVX)
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;[[[cog 
+;;  # scalar thunks
+;;  vecSize = 1 # = callVecSize
+;;  for f in C.funcsFtoF:
+;;    callName = C.getCallName(f, vecSize, C.MathLib.AMD)
+;;    C.genThunk(f, callName, vecSize, vecSize)
+;;]]]
+;;[[[end]]]
+
+
+;;[[[cog 
+;;  # vec2 thunks
+;;  vecSize = 2 # = callVecSize
+;;  for f in amdFuncsFtoF:
+;;    callName = C.getCallName(f, vecSize, C.MathLib.AMD)
+;;    C.genThunk(f, callName, vecSize, vecSize)
+;;  # have to unpack the remaining funcs
+;;  callVecSize = 1
+;;  for f in (C.funcsFtoF - amdFuncsFtoF):
+;;    callName = C.getCallName(f, callVecSize, C.MathLib.AMD)
+;;    C.genThunk(f, callName, vecSize, callVecSize)
+;;]]]
+;;[[[end]]]
+
+;;[[[cog 
+;;  # vec4 thunks
+;;  vecSize = 4
+;;  callVecSize = 2
+;;  for f in amdFuncsFtoF:
+;;    callName = C.getCallName(f, callVecSize, C.MathLib.AMD)
+;;    C.genThunk(f, callName, vecSize, callVecSize)
+;;  # have to unpack the remaining funcs
+;;  callVecSize = 1
+;;  for f in (C.funcsFtoF - amdFuncsFtoF):
+;;    callName = C.getCallName(f, callVecSize, C.MathLib.AMD)
+;;    C.genThunk(f, callName, vecSize, callVecSize)
+;;]]]
+;;[[[end]]]
 

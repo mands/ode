@@ -1,47 +1,47 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; VecMath Wrapper onto libm - this will be slower than calling funcs directly
-; due to packing/unpacking
-; Intel SVML or AMD libM is recommended
+;; VecMath Wrapper onto GNU libM library (this doesnt apply any vectorisation)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; scalars - 1xf64 (libm SSE2/x87)
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;;; thunking functions
-define double @vecmath_exp_f64(double %in) nounwind alwaysinline readnone {
-entry:
-  %call = tail call double @__exp_finite(double %in) nounwind readnone
-  ret double %call
-}
-
-;;; declarations
-declare double @__exp_finite(double) nounwind readnone
+;; generate prototypes
+;;[[[cog 
+;;  import cog
+;;  import VecMathCog as C
+;;  # scalar prototypes only
+;;  vecSize = 1
+;;  for f in C.funcsFtoF:
+;;    protoName = C.getCallName(f, vecSize, C.MathLib.GNU)
+;;    C.genProto(protoName, vecSize)
+;;]]]
+;;[[[end]]]
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; vectors - 2xf64 (SSE2)
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;[[[cog 
+;;  # scalar thunks
+;;  vecSize = 1 # = callVecSize
+;;  for f in C.funcsFtoF:
+;;    callName = C.getCallName(f, vecSize, C.MathLib.GNU)
+;;    C.genThunk(f, callName, vecSize, 1)
+;;]]]
+;;[[[end]]]
 
-;;; thunking functions
-define <2 x double> @vecmath_exp_v2f64(<2 x double> %ins) nounwind alwaysinline readnone {
-entry:
-  ; extract the elems and call the func
-  %in1 = extractelement <2 x double> %ins, i32 0
-  %call1 = tail call double @__exp_finite(double %in1) nounwind readnone
 
-  ; extract the elems and call the func
-  %in2 = extractelement <2 x double> %ins, i32 1
-  %call2 = tail call double @__exp_finite(double %in2) nounwind readnone
+;;[[[cog 
+;;  # vec2 thunks
+;;  vecSize = 2
+;;  callVecSize = 1
+;;  for f in C.funcsFtoF:
+;;    callName = C.getCallName(f, callVecSize, C.MathLib.GNU)
+;;    C.genThunk(f, callName, vecSize, callVecSize)
+;;]]]
+;;[[[end]]]
 
-  ; populate the ret vec
-  %retvec.0 = insertelement <2 x double> undef, double %call1, i32 0
-  %retvec.1 = insertelement <2 x double> %retvec.0, double %call2, i32 1
-
-  ret <2 x double> %retvec.1
-}
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; vectors - 4xf64 (AVX)
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;[[[cog 
+;;  # vec4 thunks
+;;  vecSize = 4
+;;  callVecSize = 1
+;;  for f in C.funcsFtoF:
+;;    callName = C.getCallName(f, callVecSize, C.MathLib.GNU)
+;;    C.genThunk(f, callName, vecSize, callVecSize)
+;;]]]
+;;[[[end]]]
 
