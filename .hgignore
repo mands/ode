@@ -24,6 +24,7 @@ res/utils/Plot/.idea/
 *.lkshf
 *.lkshs
 *.lkshw
+.idea
 
 syntax: regexp
 .*\#.*\#$
