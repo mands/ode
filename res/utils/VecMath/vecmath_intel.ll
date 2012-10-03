@@ -6,51 +6,62 @@
 ;;[[[cog 
 ;;  import cog
 ;;  import VecMathCog as C
+;;
+;;  # get the correct lib call name
+;;  def getCallName(funcName, vecSize=1):
+;;      return funcName if vecSize == 1 else "__svml_{0}{1}".format(funcName, vecSize)
+;;
 ;;  # scalar prototypes
-;;  vecSize = 1
+;;  callVecSize = 1
 ;;  for f in C.funcsFtoF:
-;;    protoName = C.getCallName(f, vecSize, C.MathLib.Intel)
-;;    C.genProto(protoName, vecSize) 
+;;      C.genProto(getCallName(f), callVecSize) 
+;;  for f in C.funcsFFtoF:
+;;      C.genProto(getCallName(f), callVecSize, 2)
 ;;  # svml prototypes
-;;  vecSize = 2
+;;  callVecSize = 2
 ;;  for f in C.funcsFtoF:
-;;    protoName = C.getCallName(f, vecSize, C.MathLib.Intel)
-;;    C.genProto(protoName, vecSize)
+;;      C.genProto(getCallName(f, callVecSize), callVecSize)
+;;  for f in C.funcsFFtoF:
+;;      C.genProto(getCallName(f, callVecSize), callVecSize, 2)
 ;;  # svml prototypes
-;;  vecSize = 4
+;;  callVecSize = 4
 ;;  for f in C.funcsFtoF:
-;;    protoName = C.getCallName(f, vecSize, C.MathLib.Intel)
-;;    C.genProto(protoName, vecSize)
-;;  
+;;      C.genProto(getCallName(f, callVecSize), callVecSize)
+;;  for f in C.funcsFFtoF:
+;;      C.genProto(getCallName(f, callVecSize), callVecSize, 2)
+;;
 ;;]]]
 ;;[[[end]]]
 
 
 ;;[[[cog 
 ;;  # scalar thunks
-;;  vecSize = 1 # = callVecSize
+;;  inVecSize = callVecSize = 1
 ;;  for f in C.funcsFtoF:
-;;    callName = C.getCallName(f, vecSize, C.MathLib.Intel)
-;;    C.genThunk(f, callName, vecSize, vecSize)
+;;      C.genThunk(f, getCallName(f), inVecSize, callVecSize)
+;;  for f in C.funcsFFtoF:
+;;      C.genThunk(f, getCallName(f), inVecSize, callVecSize, 2)
 ;;]]]
 ;;[[[end]]]
 
 
 ;;[[[cog 
 ;;  # svml thunks
-;;  vecSize = 2 # = callVecSize
+;;  inVecSize = callVecSize = 2
 ;;  for f in C.funcsFtoF:
-;;    callName = C.getCallName(f, vecSize, C.MathLib.Intel)
-;;    C.genThunk(f, callName, vecSize, vecSize)
+;;      C.genThunk(f, getCallName(f, callVecSize), inVecSize, callVecSize)
+;;  for f in C.funcsFFtoF:
+;;      C.genThunk(f, getCallName(f, callVecSize), inVecSize, callVecSize, 2)
 ;;]]]
 ;;[[[end]]]
 
 ;;[[[cog 
 ;;  # svml thunks
-;;  vecSize = 4 # = callVecSize
+;;  inVecSize = callVecSize = 4
 ;;  for f in C.funcsFtoF:
-;;    callName = C.getCallName(f, vecSize, C.MathLib.Intel)
-;;    C.genThunk(f, callName, vecSize, vecSize)
+;;      C.genThunk(f, getCallName(f, callVecSize), inVecSize, callVecSize)
+;;  for f in C.funcsFFtoF:
+;;      C.genThunk(f, getCallName(f, callVecSize), inVecSize, callVecSize, 2)
 ;;]]]
 ;;[[[end]]]
 

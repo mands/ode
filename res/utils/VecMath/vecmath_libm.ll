@@ -1,47 +1,52 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; VecMath Wrapper onto GNU libM library (this doesnt apply any vectorisation)
+;; VecMath Wrapper onto GNU libM library
+;; - (this doesnt apply any vectorisation)
+;; - only valid for vecsize = {1,2}
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; generate prototypes
 ;;[[[cog 
 ;;  import cog
 ;;  import VecMathCog as C
+;;  # libm funcs with finiste wrappers
+;;  libmFinites =   { 'acos', 'acosh', 'asin', 'atan2', 'atanh', 'cosh', 'sinh'
+;;                  , 'exp10', 'exp2', 'exp', 'log10', 'log2', 'log'
+;;                  , 'fmod', 'hypot', 'pow', 'sqrt'
+;;                  }
+;;
+;;  # get the correct lib call name
+;;  def getCallName(funcName, vecSize=1):
+;;      return "__{0}_finite".format(funcName) if funcName in libmFinites else funcName
+;;
 ;;  # scalar prototypes only
-;;  vecSize = 1
+;;  callVecSize = 1
 ;;  for f in C.funcsFtoF:
-;;    protoName = C.getCallName(f, vecSize, C.MathLib.GNU)
-;;    C.genProto(protoName, vecSize)
+;;    C.genProto(getCallName(f), callVecSize)
+;;  for f in C.funcsFFtoF:
+;;    C.genProto(getCallName(f), callVecSize, 2)
 ;;]]]
 ;;[[[end]]]
 
 
 ;;[[[cog 
 ;;  # scalar thunks
-;;  vecSize = 1 # = callVecSize
+;;  inVecSize = callVecSize = 1
 ;;  for f in C.funcsFtoF:
-;;    callName = C.getCallName(f, vecSize, C.MathLib.GNU)
-;;    C.genThunk(f, callName, vecSize, 1)
+;;    C.genThunk(f, getCallName(f), inVecSize, callVecSize)
+;;  for f in C.funcsFFtoF:
+;;    C.genThunk(f, getCallName(f), inVecSize, callVecSize, 2)
 ;;]]]
 ;;[[[end]]]
 
 
 ;;[[[cog 
 ;;  # vec2 thunks
-;;  vecSize = 2
+;;  inVecSize = 2
 ;;  callVecSize = 1
 ;;  for f in C.funcsFtoF:
-;;    callName = C.getCallName(f, callVecSize, C.MathLib.GNU)
-;;    C.genThunk(f, callName, vecSize, callVecSize)
-;;]]]
-;;[[[end]]]
-
-;;[[[cog 
-;;  # vec4 thunks
-;;  vecSize = 4
-;;  callVecSize = 1
-;;  for f in C.funcsFtoF:
-;;    callName = C.getCallName(f, callVecSize, C.MathLib.GNU)
-;;    C.genThunk(f, callName, vecSize, callVecSize)
+;;    C.genThunk(f, getCallName(f, callVecSize), inVecSize, callVecSize)
+;;  for f in C.funcsFFtoF:
+;;    C.genThunk(f, getCallName(f, callVecSize), inVecSize, callVecSize, 2)
 ;;]]]
 ;;[[[end]]]
 
