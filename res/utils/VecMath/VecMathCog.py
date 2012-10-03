@@ -1,9 +1,5 @@
 import cog
 
-class MathLib:
-    """Enumeration of possible content types"""
-    (Intel, AMD, GNU) = range(3)
-
 ## All functions implemented by VecMath
 # basic functions of type f->f
 # TODO - 'invsqrt', 'invcbrt',
@@ -82,7 +78,7 @@ def _getThunk_0_1in_1out(vecMathName, callName, vecSize):
     ## output the func definition
     cog.outl("define {0} @{1}({0} %ins0) nounwind alwaysinline readnone {{".format(llvmType, vecMathName))
     cog.outl("entry:")
-    cog.outl("  %rets0 = tail call {0} @{1}({0} %ins0) nounwind readnone".format(llvmType, callName))
+    cog.outl("  %rets0 = tail call fastcc {0} @{1}({0} %ins0) nounwind readnone".format(llvmType, callName))
     cog.outl("  ret {0} %rets0".format(llvmType))
     cog.outl("}")
     cog.outl("")
@@ -94,7 +90,7 @@ def _getThunk_0_2in_1out(vecMathName, callName, vecSize):
     ## output the func definition
     cog.outl("define {0} @{1}({0} %ins0, {0} %ins1) nounwind alwaysinline readnone {{".format(llvmType, vecMathName))
     cog.outl("entry:")
-    cog.outl("  %rets0 = tail call {0} @{1}({0} %ins0, {0} %ins1) nounwind readnone".format(llvmType, callName))
+    cog.outl("  %rets0 = tail call fastcc {0} @{1}({0} %ins0, {0} %ins1) nounwind readnone".format(llvmType, callName))
     cog.outl("  ret {0} %rets0".format(llvmType))
     cog.outl("}")
     cog.outl("")
@@ -109,9 +105,9 @@ def _getThunk_2to1_1in_1out(vecMathName, callName):
     cog.outl("entry:")
     # unpack the ins and call
     cog.outl("  %ins0.0 = extractelement {0} %ins0, i32 0".format(inType))
-    cog.outl("  %ret0 = tail call {0} @{1}({0} %ins0.0) nounwind readnone".format(callType, callName))
+    cog.outl("  %ret0 = tail call fastcc {0} @{1}({0} %ins0.0) nounwind readnone".format(callType, callName))
     cog.outl("  %ins0.1 = extractelement {0} %ins0, i32 1".format(inType))
-    cog.outl("  %ret1 = tail call {0} @{1}({0} %ins0.1) nounwind readnone".format(callType, callName))
+    cog.outl("  %ret1 = tail call fastcc {0} @{1}({0} %ins0.1) nounwind readnone".format(callType, callName))
     # repack, and return
     cog.outl("  %rets0.0 = insertelement {0} undef, {1} %ret0, i32 0".format(inType, baseType))
     cog.outl("  %rets0.1 = insertelement {0} %rets0.0, {1} %ret1, i32 1".format(inType, baseType))
@@ -130,10 +126,10 @@ def _getThunk_2to1_2in_1out(vecMathName, callName):
     # unpack the ins and call
     cog.outl("  %ins0.0 = extractelement {0} %ins0, i32 0".format(inType))
     cog.outl("  %ins1.0 = extractelement {0} %ins1, i32 0".format(inType))
-    cog.outl("  %ret0 = tail call {0} @{1}({0} %ins0.0, {0} %ins1.0) nounwind readnone".format(callType, callName))
+    cog.outl("  %ret0 = tail call fastcc {0} @{1}({0} %ins0.0, {0} %ins1.0) nounwind readnone".format(callType, callName))
     cog.outl("  %ins0.1 = extractelement {0} %ins0, i32 1".format(inType))
     cog.outl("  %ins1.1 = extractelement {0} %ins1, i32 1".format(inType))
-    cog.outl("  %ret1 = tail call {0} @{1}({0} %ins0.1, {0} %ins1.1) nounwind readnone".format(callType, callName))
+    cog.outl("  %ret1 = tail call fastcc {0} @{1}({0} %ins0.1, {0} %ins1.1) nounwind readnone".format(callType, callName))
     # repack, and return
     cog.outl("  %rets0.0 = insertelement {0} undef, {1} %ret0, i32 0".format(inType, baseType))
     cog.outl("  %rets0.1 = insertelement {0} %rets0.0, {1} %ret1, i32 1".format(inType, baseType))
