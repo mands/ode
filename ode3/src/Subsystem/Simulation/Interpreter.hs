@@ -8,7 +8,7 @@
 -- Stability   :  alpha
 -- Portability :
 --
--- | Not implemented - should take a CoreFlat AST and simulate it
+-- | Takes a CoreFlat AST and simulate is using an intenral interpreters with a Forward Euler
 --
 -----------------------------------------------------------------------------
 
@@ -83,6 +83,7 @@ interpret mod = do
         time = (Sys._startTime p) + (fromInteger curLoop) * (Sys._timestep p)
 
     -- wrapper function to configure the cur time
+    -- (equiv to simulate func in jitcompile/odelibrary)
     runIter :: ExprMap -> Bool -> Double -> SimM ()
     runIter exprMap isInit t = do
         -- set the time

@@ -12,7 +12,7 @@
 -- We use fclabels to allow easy nested record access
 -----------------------------------------------------------------------------
 
-{-# LANGUAGE TemplateHaskell, TypeOperators, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TypeOperators, GeneralizedNewtypeDeriving #-}
 
 module Subsystem.SysState where
 --
@@ -138,8 +138,37 @@ defUnitsState = UnitsState
 
 -- TH splice
 -- $(mkLabels [''SysState, ''SimState, ''ModState, ''UnitsState])
-$(mkLabelsWith mkLabelName [''SysState, ''SimParams, ''ModState, ''UnitsState])
+-- $(mkLabelsWith mkLabelName [''SysState, ''SimParams, ''ModState, ''UnitsState])
 -- post TH, all generated defs/labels are in scope
+
+-- We can't use TH splice above, as TH invokes ghci which results in undefined symbols for LLVM bindings
+-- (main issue is ghci custom RTS linker is browkn r.e. weak symbols & C++ constructors/destructors
+--   instead wait for ghci dynamic version that will use system linker & dlopen - GHC bug #3658)
+-- Alt. manual splices (TODO - use cog??)
+-- SysState
+lDebug = lens (_debug) (\x rec -> rec { _debug = x })
+lDisableUnits = lens (_disableUnits) (\x rec -> rec { _disableUnits = x })
+lSimParams = lens (_simParams) (\x rec -> rec { _simParams = x })
+lModState = lens (_modState) (\x rec -> rec { _modState = x })
+lUnitsState = lens (_unitsState) (\x rec -> rec { _unitsState = x })
+
+-- SimParams
+lStartTime = lens (_startTime) (\x rec -> rec { _startTime = x })
+lEndTime = lens (_endTime) (\x rec -> rec { _endTime = x })
+lTimestep = lens (_timestep) (\x rec -> rec { _timestep = x })
+lOutputPeriod = lens (_outputPeriod) (\x rec -> rec { _outputPeriod = x })
+lFilename = lens (_filename) (\x rec -> rec { _filename = x })
+
+-- ModState
+lRepos = lens (_repos) (\x rec -> rec { _repos = x })
+lModEnv = lens (_modEnv) (\x rec -> rec { _modEnv = x })
+lParsedFiles = lens (_parsedFiles) (\x rec -> rec { _parsedFiles = x })
+lReplFile = lens (_replFile) (\x rec -> rec { _replFile = x })
+
+-- UnitsState
+lQuantities = lens (_quantities) (\x rec -> rec { _quantities = x })
+lUnitDimEnv = lens (_unitDimEnv) (\x rec -> rec { _unitDimEnv = x })
+lConvEnv = lens (_convEnv) (\x rec -> rec { _convEnv = x })
 
 -- a few useful views from top SysState into nested labels
 vModEnv :: SysState :-> MA.GlobalModEnv

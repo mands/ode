@@ -56,6 +56,7 @@ import qualified AST.Module as MA
 import qualified Subsystem.ModDriver as MD
 import Process.Flatten (flatten)
 import Subsystem.Simulation.Interpreter
+import Subsystem.Simulation.JITCompiler
 
 
 shellEntry :: IO ()
