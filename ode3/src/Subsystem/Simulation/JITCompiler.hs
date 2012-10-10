@@ -22,9 +22,9 @@ import qualified Data.Label as L
 import Prelude hiding ((.), id)
 
 -- LLVM code
--- import LLVM.Core
--- import LLVM.ExecutionEngine
--- import LLVM.Util.Optimize
+import LLVM.Core
+import LLVM.ExecutionEngine
+import LLVM.Util.Optimize
 import Data.Int
 import Data.Word
 
@@ -54,8 +54,7 @@ data SimState = SimState { unused :: Bool }
 
 compile :: CF.Module -> Sys.SysExceptIO ()
 compile mod = do
-    undefined
-{--
+
     -- setup the default simulation state
     p <- Sys.getSysState Sys.lSimParams
     liftIO $ debugM "ode3.sim" $ "Compiling Simulation"
@@ -104,4 +103,3 @@ genModelLoop :: CF.Module -> CodeGenModule (Function (Int64 -> Int64 -> IO Int64
 genModelLoop mod = createFunction ExternalLinkage $ \ x y ->
     do  t <- add x y
         ret t
---}

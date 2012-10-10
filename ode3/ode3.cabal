@@ -21,10 +21,16 @@ executable ode3
     build-depends: Shellac -any, Shellac-readline -any, base -any,
                    bimap -any, binary -any, bytestring -any, cond -any,
                    containers -any, data-binary-ieee754 -any, directory -any,
-                   fclabels -any, fgl -any, filepath -any, hslogger -any, mtl -any,
-                   parsec -any, pretty-show -any, split -any, unix -any
+                   fclabels -any, fgl -any, filepath -any, hslogger -any, llvm -any,
+                   llvm-base -any, llvm-wrapper -any, mtl -any, parsec -any,
+                   pretty-show -any, split -any, unix -any
     main-is: Main.hs
     buildable: True
+    extensions: MultiParamTypeClasses EmptyDataDecls KindSignatures
+                BangPatterns NamedFieldPuns GeneralizedNewtypeDeriving
+                RecordWildCards RecordPuns DisambiguateRecordFields
+                OverloadedStrings GADTs GADTSyntax DeriveFunctor DeriveTraversable
+                DeriveFoldable
     hs-source-dirs: src
     other-modules: Parser.Ode Parser.Common Parser.Module Parser.Ion
                    Utils.CommonImports Utils.Utils Utils.ShellHandleBackend

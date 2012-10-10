@@ -144,31 +144,44 @@ defUnitsState = UnitsState
 -- We can't use TH splice above, as TH invokes ghci which results in undefined symbols for LLVM bindings
 -- (main issue is ghci custom RTS linker is browkn r.e. weak symbols & C++ constructors/destructors
 --   instead wait for ghci dynamic version that will use system linker & dlopen - GHC bug #3658)
--- Alt. manual splices (TODO - use cog??)
+-- Alt. generated splices (using Cog pre-processor)
+{--[[[cog
+import cog
+# gen the lens with correct label
+def genLens(recName, fields):
+  cog.outl("-- {0}".format(recName))
+  for field in fields:
+    lName = "l" + field[1].upper() + field[2:]
+    cog.outl("{0} = lens ({1}) (\\x rec -> rec {{ {1} = x }})".format(lName, field))
+
+genLens("SysState", ['_debug', '_disableUnits', '_simParams', '_modState', '_unitsState'])
+genLens("SimParams", ['_startTime', '_endTime', '_timestep', '_outputPeriod', '_filename'])
+genLens("ModState", ['_repos', '_modEnv', '_parsedFiles', '_replFile'])
+genLens("UnitsState", ['_quantities', '_unitDimEnv', '_convEnv'])
+
+]]]--}
 -- SysState
 lDebug = lens (_debug) (\x rec -> rec { _debug = x })
 lDisableUnits = lens (_disableUnits) (\x rec -> rec { _disableUnits = x })
 lSimParams = lens (_simParams) (\x rec -> rec { _simParams = x })
 lModState = lens (_modState) (\x rec -> rec { _modState = x })
 lUnitsState = lens (_unitsState) (\x rec -> rec { _unitsState = x })
-
 -- SimParams
 lStartTime = lens (_startTime) (\x rec -> rec { _startTime = x })
 lEndTime = lens (_endTime) (\x rec -> rec { _endTime = x })
 lTimestep = lens (_timestep) (\x rec -> rec { _timestep = x })
 lOutputPeriod = lens (_outputPeriod) (\x rec -> rec { _outputPeriod = x })
 lFilename = lens (_filename) (\x rec -> rec { _filename = x })
-
 -- ModState
 lRepos = lens (_repos) (\x rec -> rec { _repos = x })
 lModEnv = lens (_modEnv) (\x rec -> rec { _modEnv = x })
 lParsedFiles = lens (_parsedFiles) (\x rec -> rec { _parsedFiles = x })
 lReplFile = lens (_replFile) (\x rec -> rec { _replFile = x })
-
 -- UnitsState
 lQuantities = lens (_quantities) (\x rec -> rec { _quantities = x })
 lUnitDimEnv = lens (_unitDimEnv) (\x rec -> rec { _unitDimEnv = x })
 lConvEnv = lens (_convEnv) (\x rec -> rec { _convEnv = x })
+--[[[end]]] (checksum: 08fe8e2ef54b338f68891e8b316d5a1c)
 
 -- a few useful views from top SysState into nested labels
 vModEnv :: SysState :-> MA.GlobalModEnv
