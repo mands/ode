@@ -33,7 +33,7 @@ import Data.Char (toLower)
 
 -- fclabels stuff
 import Control.Category
-import Data.Label
+import Data.Label as L
 import Prelude hiding ((.), id)
 
 import Text.Show.Pretty
@@ -137,17 +137,19 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnits
         f :: Double -> Sh SysState ()
         f x = modifyShellSt $ set (lTimestep . lSimParams) x
 
-    simSolverCmd = cmd "solver" f "ODE Solver to use for simulation (euler or rk4)"
+    simSolverCmd = cmd "solver" f "ODE Solver to use for simulation <euler, rk4>"
       where
         f :: String -> Sh SysState ()
         f str | map toLower str == "euler"   = modifyShellSt $ set (lSolver . lSimParams) FEuler
         f str | map toLower str == "rk4"     = modifyShellSt $ set (lSolver . lSimParams) RK4
+        f _ = shellPutInfoLn "Possible options <euler, rk4>"
 
-    simBackendCmd = cmd "backend" f "Simulation backend to use (interpreter or jitcompiler)"
+    simBackendCmd = cmd "backend" f "Simulation backend to use <interpreter, jitcompiler>"
       where
         f :: String -> Sh SysState ()
         f str | map toLower str == "interpreter"     = modifyShellSt $ set (lBackend . lSimParams) Interpreter
         f str | map toLower str == "jitcompiler"     = modifyShellSt $ set (lBackend . lSimParams) JITCompiler
+        f _ = shellPutInfoLn "Possible options <interpreter, jitcompiler>"
 
     outPeriodCmd = cmd "period" f "Period iterations to save simulation state to disk"
       where
@@ -270,6 +272,11 @@ shSimulate initMod = do
         flatAST <- mkSysExceptIO $ flatten initMod
         -- optimise flatAST
         -- flatAST' <- optimise flatAST
-        interpret flatAST
+
+        -- choose the correct backend
+        backend <- L.get (lBackend . lSimParams) <$> S.get
+        case backend of
+            Interpreter -> interpret flatAST
+            JITCompiler -> compile flatAST
         -- all done
         return ()
