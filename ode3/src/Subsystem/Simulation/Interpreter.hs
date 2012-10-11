@@ -112,6 +112,9 @@ interpret mod = do
                 modify (\st -> st { _curPeriod = inc $ _curPeriod st } )
         --trace' [MkSB t, MkSB (_simEnv st), MkSB (_stateEnv st)] "Current sim and state envs" $ return ()
 
+
+-- Interpreter ---------------------------------------------------------------------------------------------------------
+
 -- | Simulate an expression map using data in state monad
 simExprMap :: ExprMap -> SimM Var
 simExprMap exprMap = do

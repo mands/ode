@@ -61,9 +61,13 @@ compile mod = do
 
     -- configure LLVM
     liftIO $ initializeNativeTarget
+
     -- compile the module
+    liftIO $ createJITModule mod
 
     -- run the simulation
+    liftIO $ runSimulation
+
 
     -- close any output files? (handle within LLVM code)
     liftIO $ debugM "ode3.sim" $ "Simulation Complete"
@@ -72,34 +76,40 @@ compile mod = do
 
 
 
----- genrates the initial function that setups the state vals
---genInitFunc :: CF.Module -> CodeGenModule (Function (Int64 -> Int64 -> IO Int64))
---genInitFunc mod = createFunction ExternalLinkage $ \ x y ->
---    do  t <- add x y
---        ret t
---
---genShutdownFunc :: CF.Module -> CodeGenModule (Function (Int64 -> Int64 -> IO Int64))
---genShutdownFunc mod = createFunction ExternalLinkage $ \ x y ->
---    do  t <- add x y
---        ret t
+-- JIT Setup -----------------------------------------------------------------------------------------------------------
 
--- simulation function - runs the ODEs/updates state
--- can we put this as precompiled bitcode?
-genSimulateFunc :: CF.Module -> CodeGenModule (Function (Int64 -> Int64 -> IO Int64))
-genSimulateFunc mod = createFunction ExternalLinkage $ \ x y ->
-    do  t <- add x y
-        ret t
 
--- simulation function - runs the ODEs
--- can we put this as precompiled bitcode?
-genModelInit :: CF.Module -> CodeGenModule (Function (Int64 -> Int64 -> IO Int64))
-genModelInit mod = createFunction ExternalLinkage $ \ x y ->
-    do  t <- add x y
-        ret t
+runSimulation :: IO ()
+runSimulation = return ()
 
--- simulation function - runs the ODEs
--- can we put this as precompiled bitcode?
-genModelLoop :: CF.Module -> CodeGenModule (Function (Int64 -> Int64 -> IO Int64))
-genModelLoop mod = createFunction ExternalLinkage $ \ x y ->
-    do  t <- add x y
-        ret t
+createJITModule :: CF.Module -> IO ()
+createJITModule mod = do
+    -- gen the JIT funcs
+
+    -- save the module to disk
+    mMod <- newNamedModule "Model"
+    defineModule mMod $ genModelInitials mod
+    defineModule mMod $ genModelDeltas mod
+    writeBitcodeToFile "Model.bc" mMod
+
+    -- run our external script - this runs our optimisations and links to the Ode run-time library
+
+    -- return the update module
+    return ()
+
+
+-- Code Generation -----------------------------------------------------------------------------------------------------
+-- We only codegen the initial val and delta fucntion calculation, other funcs provided within the std. library for now
+-- this includes init/startup and shutdown funcs, and the solvers (for now a forward Euler and RK4)
+
+-- simulation function - calcs the initial values for the state vals (y = g(t))
+genModelInitials :: CF.Module -> CodeGenModule (Function (Double -> Ptr Double -> IO ()))
+genModelInitials mod = createFunction ExternalLinkage $ \ time outStates ->
+    do  t <- add time time
+        ret ()
+
+-- simulation function - calcs the delta funcs for the state vals (dy = f(t, y))
+genModelDeltas :: CF.Module -> CodeGenModule (Function (Double -> Ptr Double -> Ptr Double -> IO ()))
+genModelDeltas mod = createFunction ExternalLinkage $ \ time inStates outDeltas ->
+    do  t <- add time time
+        ret ()

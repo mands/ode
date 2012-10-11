@@ -29,6 +29,8 @@ import qualified Data.Set as Set
 import qualified System.FilePath as FP
 import qualified System.Directory as Dir
 
+import Data.Char (toLower)
+
 -- fclabels stuff
 import Control.Category
 import Data.Label
@@ -106,7 +108,7 @@ initShellDesc = desc'
 defaultCmds :: [ShellCommand SysState]
 defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnitsCmd
                 , simStartCmd
-                , startTimeCmd, stopTimeCmd, simTimestepCmd
+                , startTimeCmd, stopTimeCmd, simTimestepCmd, simSolverCmd, simBackendCmd
                 , outPeriodCmd, outFilenameCmd
                 , repoAddCmd, repoDelCmd
                 , typeCmd
@@ -135,6 +137,18 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnits
         f :: Double -> Sh SysState ()
         f x = modifyShellSt $ set (lTimestep . lSimParams) x
 
+    simSolverCmd = cmd "solver" f "ODE Solver to use for simulation (euler or rk4)"
+      where
+        f :: String -> Sh SysState ()
+        f str | map toLower str == "euler"   = modifyShellSt $ set (lSolver . lSimParams) FEuler
+        f str | map toLower str == "rk4"     = modifyShellSt $ set (lSolver . lSimParams) RK4
+
+    simBackendCmd = cmd "backend" f "Simulation backend to use (interpreter or jitcompiler)"
+      where
+        f :: String -> Sh SysState ()
+        f str | map toLower str == "interpreter"     = modifyShellSt $ set (lBackend . lSimParams) Interpreter
+        f str | map toLower str == "jitcompiler"     = modifyShellSt $ set (lBackend . lSimParams) JITCompiler
+
     outPeriodCmd = cmd "period" f "Period iterations to save simulation state to disk"
       where
         f :: Integer -> Sh SysState ()
@@ -150,10 +164,14 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnits
         f :: String -> Sh SysState ()
         f initMod = shSimulate initMod
 
-    repoAddCmd = cmd "addRepo" f "Add a directory path to the module repository"
+-- Repo Management -----------------------------------------------------------------------------------------------------
+
+
+    repoAddCmd = cmd "addRepo" f "Add a directory path to the module repository (note - this clears all loaded modules)"
       where
         f :: File -> Sh SysState ()
         f (File repoPath) = do
+            modifyShellSt clearModState
             st <- getShellSt
             dirEx <- liftIO $ Dir.doesDirectoryExist repoPath
             if dirEx
@@ -162,10 +180,12 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnits
                     shellPutInfoLn $ "Added " ++ repoPath ++ " to set of module repositories"
                 else shellPutInfoLn $ "Module repository dir " ++ repoPath ++ " not found"
 
-    repoDelCmd = cmd "delRepo" f "Delete a directory path from the module repository"
+    repoDelCmd = cmd "delRepo" f "Delete a directory path from the module repository (note - this clears all loaded modules)"
       where
         f :: File -> Sh SysState ()
-        f (File repoPath) = modifyShellSt $ modify vRepos (OrdSet.delete repoPath)
+        f (File repoPath) = modifyShellSt $ (\st -> clearModState st |> modify vRepos (OrdSet.delete repoPath))
+
+-- REPL Management -----------------------------------------------------------------------------------------------------
 
     -- show takes second string parameter
     showCmd = cmd "show" f "Pass <all, repos, modules> to display current state"
@@ -194,6 +214,8 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnits
         -- TODO - need to actually unload data from system
         f :: Sh SysState ()
         f = liftIO mkDefSysState >>= putShellSt
+
+
 
 -- | Main shell eval function, takes the input string and passes to the parsec parser responsible for
 -- we use eval function for the run-time language, i.e. loading, applying and creating models for simulation

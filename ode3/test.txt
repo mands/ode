@@ -1,5 +1,0 @@
-:help
-:debug
-:show repos
-:quit
-

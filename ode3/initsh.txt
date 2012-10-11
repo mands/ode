@@ -1,4 +1,0 @@
-:addRepo "../res/samples/repo"
-import RepoTest.A
-:show all
-
