@@ -60,6 +60,24 @@ module BasicCalc6 {
 }
 
 // tuples - OK
+// gen a tuple ref inst
+module BasicCalc7d {
+    val b = piecewise { time > 5 : (True, 1), default : (False, 1) }
+    val c,d = b
+    val e = d + 1
+}
+
+// tuples - OK
+module BasicCalc7c {
+    val a = time
+    val b = (True, a)
+
+    val c,d = b
+    val e = d * time
+}
+
+
+// tuples - OK
 module BasicCalc7 {
     init x = 0
     val b = (1, x)

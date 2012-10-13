@@ -253,24 +253,37 @@ genExpr i (ExprData (If vB emT emF) t) = do
 
 -- | Gen a var operation
 genVar :: Var -> GenM LLVM.Value
+-- Complex vars
 -- refs lookup in env
 genVar (VarRef i) = lookupId i
 
--- TODO - tuples require LLVM structs
---genVar (TupleRef i tupIdx) = do
---    Tuple vs <- lookupId i
---    return $ vs !! (fromInteger $ tupIdx - 1)
--- simple map over the vars
--- simVar (Tuple vs) = Tuple <$> mapM simVar vs
+-- tuples require LLVM structs
+-- TODO - should create the builder func with the toplet name
+genVar (TupleRef i tupIdx) = do
+    trace' [MkSB i, MkSB tupIdx] "Lookup in a const tuple" $ return ()
+    llTupleV <- lookupId i
+    GenState {builder} <- get
+    liftIO $ FFI.withCString "" $ \str ->
+        LFFI.buildExtractValue builder llTupleV (fromIntegral $ tupIdx - 1) str
 
+
+-- simple map over the vars
+-- can use const structs as only have pure values - no need to alloca the struct on the stack and store/load
+genVar (Tuple vs) = do
+    trace' [MkSB vs] "Building a const tuple" $ return ()
+    llVs <- mapM genVar vs
+    liftIO $ FFI.withArrayLen llVs $ \len ptr ->
+        return $ LFFI.constStruct ptr (fromIntegral len) False
+
+
+-- Basic vars
+genVar (Num n) = return $ constReal doubleType (FFI.CDouble n)
+genVar (Boolean b) = return $ constInt int1Type (FFI.fromBool b) False
+genVar Unit = return $ constInt int1Type 0 False
 genVar Time = do
     GenState {llvmMod, builder} <- get
     timeVal <- liftIO $ fromJust <$> getNamedGlobal llvmMod "_simTime"
     liftIO $ buildLoad builder timeVal ""
-
-genVar (Num n) = return $ constReal doubleType (FFI.CDouble n)
-genVar (Boolean b) = return $ constInt int1Type (FFI.fromBool b) False
-genVar Unit = return $ constNull voidType
 genVar v = errorDump [] "NYI" assert
 
 
@@ -304,10 +317,11 @@ lookupId :: Id -> GenM LLVM.Value
 lookupId i = do
     -- first look in local env
     GenState {localMap, llvmMod} <- get
+    trace' [MkSB localMap] "Localmap of vals" $ return ()
     case Map.lookup i localMap of
         Just v -> return v
         -- use fromJust as this can't fail
-        Nothing -> errorDump [MkSB i, MkSB localMap] "can't find localval in map" assert -- liftIO $ fromJust <$> getNamedGlobal llvmMod valName
+        Nothing -> liftIO $ fromJust <$> getNamedGlobal llvmMod (getValidIdName i) -- errorDump [MkSB i, MkSB localMap] "can't find localval in map" assert --
 
 
 getValidIdName :: Id -> String
@@ -316,8 +330,8 @@ getValidIdName i = "odeVal" ++ (show i)
 convertType :: CF.Type -> LLVM.Type
 convertType (CF.TFloat) = doubleType
 convertType (CF.TBool) = int1Type
-convertType (CF.TUnit) = voidType
-convertType (CF.TTuple ts) = errorDump [] "NYI" assert
+convertType (CF.TUnit) = int1Type
+convertType (CF.TTuple ts) = structType (map convertType ts) False
 
 
 -- | Define the basic math operations required by the code-generator
