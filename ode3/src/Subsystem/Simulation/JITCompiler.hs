@@ -63,12 +63,13 @@ data GenState = GenState    { stateMap :: Map.Map Id String     -- a mapping fro
                             , extOps :: ExtOps -- a mapping to all externally defined funcs
                             , builder :: LLVM.Builder           -- the current inst. builder
                             , llvmMod :: LLVM.Module
+                            , curFunc :: LLVM.Value
                             , simParams :: Sys.SimParams
                             } deriving (Show)
 
 
 -- this is a bit hacky as we use a null pointer to represent the initial builder
-mkGenState = GenState Map.empty Map.empty Map.empty FFI.nullPtr FFI.nullPtr
+mkGenState = GenState Map.empty Map.empty Map.empty FFI.nullPtr FFI.nullPtr FFI.nullPtr
 
 -- Entry ---------------------------------------------------------------------------------------------------------------
 
@@ -116,13 +117,14 @@ createJITModule odeMod = do
     extOps <- liftIO $ defineMathOps llvmMod
     modify (\st -> st { llvmMod, extOps })
 
-    -- insert the global vals - both states and deltas
-    _ <- liftIO $ addGlobal llvmMod (doubleType) "testVal"
-    _ <- liftIO $ addGlobal llvmMod (doubleType) "delta_testVal"
+    -- insert global vals - sim vals, states and deltas
+    gSimTime <- liftIO $ addGlobal llvmMod (doubleType) "_simTime"
+    liftIO $ LFFI.setInitializer gSimTime $ constReal doubleType (FFI.CDouble 0.03)
+
 
     -- insert the funcs into the module
-    _ <- genModelInitials llvmMod odeMod
-    _ <- genModelLoop llvmMod odeMod
+    _ <- genModelInitials odeMod
+    _ <- genModelLoop odeMod
 
     -- we hand-generate the solver here - could
     -- _ <- genModelSolver mMod
@@ -142,32 +144,34 @@ createJITModule odeMod = do
 -- We only codegen the initial val and delta fucntion calculation, other funcs provided within the std. library for now
 -- this includes init/startup and shutdown funcs, and the solvers (for now a forward Euler and RK4)
 
-genModelInitials :: LLVM.Module -> CF.Module -> GenM ()
-genModelInitials llvmMod odeMod = do
+genModelInitials :: CF.Module -> GenM ()
+genModelInitials odeMod = do
     -- define the func
-    f <- liftIO $ addFunction llvmMod "modelInitials" (functionType voidType [] False)
+    GenState {llvmMod} <- get
+    curFunc <- liftIO $ addFunction llvmMod "modelInitials" (functionType voidType [] False)
     builder <- liftIO $ createBuilder
     -- create the entry block & pos the builder
-    entryBB <- liftIO $ appendBasicBlock f "entry"
+    entryBB <- liftIO $ appendBasicBlock curFunc "entry"
     liftIO $ positionAtEnd builder entryBB
     -- store the builder
-    modify (\st -> st { builder })
+    modify (\st -> st { builder, curFunc })
     -- add the insts (if exprMap not empty)
     unless (OrdMap.null (_initExprs odeMod)) (void $ genExprMap (_initExprs odeMod))
     -- return void
     r <- liftIO $ buildRetVoid builder
     liftIO $ disposeBuilder builder
 
-genModelLoop :: LLVM.Module -> CF.Module -> GenM ()
-genModelLoop llvmMod odeMod = do
+genModelLoop :: CF.Module -> GenM ()
+genModelLoop odeMod = do
     -- define the func
-    f <- liftIO $ addFunction llvmMod "modelLoop" (functionType voidType [] False)
+    GenState {llvmMod} <- get
+    curFunc <- liftIO $ addFunction llvmMod "modelLoop" (functionType voidType [] False)
     -- create the entry block & pos the builder
-    entryBB <- liftIO $ appendBasicBlock f "entry"
+    entryBB <- liftIO $ appendBasicBlock curFunc "entry"
     builder <- liftIO $ createBuilder
     liftIO $ positionAtEnd builder entryBB
     -- store the builder
-    modify (\st -> st { builder })
+    modify (\st -> st { builder, curFunc })
     -- add the insts (if exprMap not empty)
     unless (OrdMap.null (_loopExprs odeMod)) (void $ genExprMap (_loopExprs odeMod))
     -- return void
@@ -194,14 +198,8 @@ genExprMap exprMap = do
     genTopLet :: (Id, ExprData) -> GenM LLVM.Value
     genTopLet (i, eD) = do
         llV <- genExpr i eD
-        -- GenState { builder } <- get
-        -- create a local val using an alloca
-        -- valV <- liftIO $ FFI.withCString (getValidIdName i) (LFFI.buildAlloca builder exprT)
-        -- store the val in the alloca
-        -- storeV <- liftIO $ buildStore builder exprV valV
         -- add the value to the scope map
-        -- modify (\(GenState {..}) -> GenState {localMap = Map.insert i valV localMap, .. })
-        -- modify (\st@(GenState {localMap}) -> st {localMap = Map.insert i valV localMap })
+        modify (\st@(GenState {localMap}) -> st {localMap = Map.insert i llV localMap })
         return llV
 
 -- | Generate a single expression
@@ -210,19 +208,7 @@ genExpr :: Id -> ExprData -> GenM (LLVM.Value)
 genExpr i (ExprData (Var v) t) = do
     -- need to allocate an expr, depends on the type and value generated
     llV <- genVar v
-    -- add the value to the scope map
-    modify (\st@(GenState {localMap}) -> st {localMap = Map.insert i llV localMap })
     trace' [MkSB i, MkSB v] "Adding var to localmap" $ return ()
-    -- isCon <- liftIO $ LLVM_FFI.isConstant v'
---    if isCon
---        then do
---            -- create a static call
---            return ()
---        else do
---            -- create an alloca
---            return ()
-
-    -- should be an alloca
     return llV
 
 -- process vs, then op
@@ -232,18 +218,38 @@ genExpr i (ExprData (Op op vs) t) = do
     -- call the build op func
     GenState { builder, extOps } <- get
     llV <- liftIO $ buildOpF builder extOps (getValidIdName i)
-    -- store the builder?
-    -- modify (\st -> st { builder })
-
-    -- add the value to the scope map
-    modify (\st@(GenState {localMap}) -> st {localMap = Map.insert i llV localMap })
-
     trace' [MkSB i, MkSB op] "Created op func" $ return ()
     return llV
 
--- TODO - need to do some funky phi ops for Ifs
-genExpr i (ExprData (If vB emT emF) t) = undefined
+-- process the cond, then BBs for each branch and a phi to connect them
+genExpr i (ExprData (If vB emT emF) t) = do
+    -- gen the if test
+    llVB <- genVar vB
 
+    -- gen the bbs
+    GenState { builder, curFunc } <- get
+    trueBB <- liftIO $ appendBasicBlock curFunc "if_true"
+    falseBB <- liftIO $ appendBasicBlock curFunc "if_false"
+    endBB <- liftIO $ appendBasicBlock curFunc "if_end"
+
+    -- gen the cond branch
+    liftIO $ buildCondBr builder llVB trueBB falseBB
+
+    -- create a bb for true
+    liftIO $ positionAtEnd builder trueBB
+    llTrueV <- genExprMap emT
+    liftIO $ buildBr builder endBB
+
+    -- create a bb for false
+    liftIO $ positionAtEnd builder falseBB
+    llFalseV <- genExprMap emF
+    liftIO $ buildBr builder endBB
+
+    -- use a phi to join them
+    liftIO $ positionAtEnd builder endBB
+    llPhi <- liftIO $ buildPhi builder (convertType t) (getValidIdName i)
+    liftIO $ addIncoming llPhi [ (llTrueV, trueBB), (llFalseV, falseBB) ]
+    return llPhi
 
 -- | Gen a var operation
 genVar :: Var -> GenM LLVM.Value
@@ -257,28 +263,15 @@ genVar (VarRef i) = lookupId i
 -- simple map over the vars
 -- simVar (Tuple vs) = Tuple <$> mapM simVar vs
 
--- lookup in env
--- genVar v@Time = Num <$> (_curTime <$> get)
--- any other vars (will be literals) are just copied across
--- genVar v = return v
+genVar Time = do
+    GenState {llvmMod, builder} <- get
+    timeVal <- liftIO $ fromJust <$> getNamedGlobal llvmMod "_simTime"
+    liftIO $ buildLoad builder timeVal ""
 
 genVar (Num n) = return $ constReal doubleType (FFI.CDouble n)
 genVar (Boolean b) = return $ constInt int1Type (FFI.fromBool b) False
--- TODO - how do we pass unit values across? as nullptr/0/false?
-genVar Unit = errorDump [] "NYI" assert
-
+genVar Unit = return $ constNull voidType
 genVar v = errorDump [] "NYI" assert
-
-lookupId :: Id -> GenM LLVM.Value
-lookupId i = do
-    -- first look in local env
-    GenState {localMap, llvmMod} <- get
-    case Map.lookup i localMap of
-        Just v -> return v
-        -- use fromJust as this can't fail
-        Nothing -> errorDump [MkSB i, MkSB localMap] "can't find localval in map" assert -- liftIO $ fromJust <$> getNamedGlobal llvmMod valName
-  where
-    valName = getValidIdName i
 
 
 -- | Takes an already evaulated list of vars and processes the builtin op
@@ -300,17 +293,22 @@ genOp (AC.BasicOp AC.NEQ)   (v1:v2:[])  = (\b _ s -> buildFCmp b LFFI.FPONE v1 v
 genOp (AC.BasicOp AC.And)   (v1:v2:[])  = (\b _ s -> buildAnd b v1 v2 s)
 genOp (AC.BasicOp AC.Or)    (v1:v2:[])  = (\b _ s -> buildOr b v1 v2 s)
 genOp (AC.BasicOp AC.Not)   (v1:[])     = (\b _ s -> buildNot b v1 s)
-
--- Math Ops
+-- Math Ops - re-route to pre-defined LLVM func calls
 genOp (AC.MathOp mOp)   vs = (\b opMap s -> buildCall b (opMap Map.! mOp) vs s)
-
 genOp op vs = errorDump [MkSB op, MkSB vs] "Not implemented" assert
---    v <- liftIO $ buildAdd builder (constInt int64Type 1 False) (constInt int64Type 2 False) "tmp"
---    liftIO $ buildRet builder v
-
 
 
 -- Helper Funcs --------------------------------------------------------------------------------------------------------
+
+lookupId :: Id -> GenM LLVM.Value
+lookupId i = do
+    -- first look in local env
+    GenState {localMap, llvmMod} <- get
+    case Map.lookup i localMap of
+        Just v -> return v
+        -- use fromJust as this can't fail
+        Nothing -> errorDump [MkSB i, MkSB localMap] "can't find localval in map" assert -- liftIO $ fromJust <$> getNamedGlobal llvmMod valName
+
 
 getValidIdName :: Id -> String
 getValidIdName i = "odeVal" ++ (show i)
@@ -318,9 +316,12 @@ getValidIdName i = "odeVal" ++ (show i)
 convertType :: CF.Type -> LLVM.Type
 convertType (CF.TFloat) = doubleType
 convertType (CF.TBool) = int1Type
-convertType (CF.TUnit) = errorDump [] "NYI" assert
+convertType (CF.TUnit) = voidType
 convertType (CF.TTuple ts) = errorDump [] "NYI" assert
 
+
+-- | Define the basic math operations required by the code-generator
+-- TODO - set the func attribs and calling convs
 defineMathOps :: LLVM.Module ->  IO ExtOps
 defineMathOps llvmMod = do
     ops <- mapM seqMathOps mathOps
@@ -330,8 +331,29 @@ defineMathOps llvmMod = do
 
     mathOps :: [(AC.MathOp, IO LLVM.Value)]
     mathOps =
-        [ (AC.Sin, addFunction llvmMod "sin" (functionType doubleType [doubleType] False))
-        , (AC.Cos, addFunction llvmMod "cos" (functionType doubleType [doubleType] False))
+        -- trig funcs
+        [ (AC.Sin,      addFunction llvmMod "sin" (functionType doubleType [doubleType] False))
+        , (AC.Cos,      addFunction llvmMod "cos" (functionType doubleType [doubleType] False))
+        , (AC.Tan,      addFunction llvmMod "tan" (functionType doubleType [doubleType] False))
+        , (AC.ASin,     addFunction llvmMod "asin" (functionType doubleType [doubleType] False))
+        , (AC.ACos,     addFunction llvmMod "acos" (functionType doubleType [doubleType] False))
+        , (AC.ATan,     addFunction llvmMod "atan" (functionType doubleType [doubleType] False))
+        , (AC.ATan2,    addFunction llvmMod "atan2" (functionType doubleType [doubleType, doubleType] False))
+        -- hyperbolics
+        , (AC.SinH,     addFunction llvmMod "sinh" (functionType doubleType [doubleType] False))
+        , (AC.CosH,     addFunction llvmMod "cosh" (functionType doubleType [doubleType] False))
+        , (AC.TanH,     addFunction llvmMod "tanh" (functionType doubleType [doubleType] False))
+        , (AC.ASinH,    addFunction llvmMod "asinh" (functionType doubleType [doubleType] False))
+        , (AC.ACosH,    addFunction llvmMod "acosh" (functionType doubleType [doubleType] False))
+        , (AC.ATanH,    addFunction llvmMod "atanh" (functionType doubleType [doubleType] False))
+        -- logs/exps
+        , (AC.Exp,      addFunction llvmMod "exp" (functionType doubleType [doubleType] False))
+        , (AC.Log,      addFunction llvmMod "log" (functionType doubleType [doubleType] False))
+        -- powers
+        , (AC.Pow,      addFunction llvmMod "pow" (functionType doubleType [doubleType, doubleType] False))
+        , (AC.Sqrt,     addFunction llvmMod "sqrt" (functionType doubleType [doubleType] False))
+        , (AC.Cbrt,     addFunction llvmMod "cbrt" (functionType doubleType [doubleType] False))
+        , (AC.Hypot,    addFunction llvmMod "hypot" (functionType doubleType [doubleType, doubleType] False))
         ]
 
 
