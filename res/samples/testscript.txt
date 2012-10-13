@@ -5,24 +5,25 @@
 :addRepo ../res/samples/repo
 
 // import our modules
-import SimTests.HodHux.HodHux
-//import SimTests.BasicCalcNoUnits.*
+//import SimTests.HodHux.HodHux
+import SimTests.BasicCalcNoUnits.*
 
 // :show all
 //:show modState
 
 // :set params
 :startTime 0
-:endTime 60
-:timestep 0.01
-:period 10
-:output "../res/samples/output/hodhux.bin"
+:endTime 10
+:timestep 1
+:period 1
+:output "../res/samples/output/basic.bin"
 
 :solver "euler"
 :backend "jitcompiler"
+//:backend "interpreter"
 
 // all done
-:simulate HodHux
-//:simulate BasicCalc7a
+//:simulate HodHux
+:simulate BasicCalc3
 :quit
 

@@ -155,7 +155,6 @@ defUnitsState = UnitsState
 -- Alt. generated splices (using Cog pre-processor)
 {--[[[cog
 import cog
-# gen the lens with correct label
 def genLens(recName, fields):
   cog.outl("\n-- {0}".format(recName))
   for field in fields:

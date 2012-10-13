@@ -1,5 +1,13 @@
 // A collection of no-unit models
 
+module BasicCalc1a {
+    val a = 1
+}
+
+module BasicCalc1b {
+    val a = 1 + 2
+}
+
 // basic ops - OK
 module BasicCalc1 {
     val a = 1
@@ -142,16 +150,5 @@ module BasicCalc13a {
 
     val _ = o(1)
 }
-
-
-
-
-
-
-
-
-
-
-
 
 

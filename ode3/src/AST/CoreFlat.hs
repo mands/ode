@@ -43,7 +43,7 @@ data Type = TFloat | TBool | TUnit | TTuple [Type] deriving (Show, Eq, Ord)
 -- the main type of our simulatable expressions - basically ANF form
 data Expr   = Var Var
             | Op AC.Op [Var]
-            | If Var ExprMap ExprMap    -- nested envs for each conditional branch
+            | If Var ExprMap ExprMap    -- nested envs for each conditional branch (i.e. BasicBlocks)
             deriving (Show, Eq, Ord)
 
 -- | Atomic, core values
