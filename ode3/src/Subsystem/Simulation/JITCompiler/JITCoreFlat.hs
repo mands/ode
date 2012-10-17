@@ -13,7 +13,7 @@
 -----------------------------------------------------------------------------
 
 module Subsystem.Simulation.JITCompiler.JITCoreFlat (
-genExprMap, genExpr, genVar, defineMathOps
+genExprMap, genExpr, genVar
 ) where
 
 -- Labels
@@ -84,8 +84,8 @@ genExpr i (ExprData (Op op vs) t) = do
     vs' <- mapM genVar vs
     let buildOpF = genOp op vs'
     -- call the build op func
-    GenState { builder, extOps } <- get
-    llV <- liftIO $ buildOpF builder extOps (getValidIdName i)
+    GenState { builder, mathOps } <- get
+    llV <- liftIO $ buildOpF builder mathOps (getValidIdName i)
     trace' [MkSB i, MkSB op] "Created op func" $ return ()
     return llV
 
@@ -131,8 +131,7 @@ genVar (TupleRef i tupIdx) = do
     trace' [MkSB i, MkSB tupIdx] "Lookup in a const tuple" $ return ()
     llTupleV <- lookupId i
     GenState {builder} <- get
-    liftIO $ FFI.withCString "" $ \str ->
-        LFFI.buildExtractValue builder llTupleV (fromIntegral $ tupIdx - 1) str
+    liftIO $ buildExtractValue builder llTupleV (fromIntegral $ tupIdx - 1) ""
 
 
 -- simple map over the vars
@@ -140,8 +139,7 @@ genVar (TupleRef i tupIdx) = do
 genVar (Tuple vs) = do
     trace' [MkSB vs] "Building a const tuple" $ return ()
     llVs <- mapM genVar vs
-    liftIO $ FFI.withArrayLen llVs $ \len ptr ->
-        return $ LFFI.constStruct ptr (fromIntegral len) False
+    liftIO $ constStruct llVs False
 
 
 -- Basic vars
@@ -157,7 +155,7 @@ genVar v = errorDump [] "NYI" assert
 
 -- | Takes an already evaulated list of vars and processes the builtin op
 -- can pattern match these directly as we know the types are all correct
-genOp :: AC.Op -> [LLVM.Value] -> (LLVM.Builder -> ExtOps -> String -> IO LLVM.Value)
+genOp :: AC.Op -> [LLVM.Value] -> (LLVM.Builder -> MathOps -> String -> IO LLVM.Value)
 -- Basic Ops
 genOp (AC.BasicOp AC.Add)   (v1:v2:[])  = (\b _ s -> buildFAdd b v1 v2 s)
 genOp (AC.BasicOp AC.Sub)   (v1:v2:[])  = (\b _ s -> buildFSub b v1 v2 s)
@@ -180,44 +178,3 @@ genOp op vs = errorDump [MkSB op, MkSB vs] "Not implemented" assert
 
 
 -- Helper Funcs --------------------------------------------------------------------------------------------------------
-
--- | Define the basic math operations required by the code-generator
--- TODO - set the func attribs and calling convs
-defineMathOps :: LLVM.Module ->  IO ExtOps
-defineMathOps llvmMod = do
-    ops <- mapM seqMathOps mathOps
-    return $ Map.fromList ops
-  where
-    seqMathOps = (\(a, b) -> b >>= (\b -> return (a, b)))
-
-    mathOps :: [(AC.MathOp, IO LLVM.Value)]
-    mathOps =
-        -- trig funcs
-        [ (AC.Sin,      addFunction llvmMod "sin" (functionType doubleType [doubleType] False))
-        , (AC.Cos,      addFunction llvmMod "cos" (functionType doubleType [doubleType] False))
-        , (AC.Tan,      addFunction llvmMod "tan" (functionType doubleType [doubleType] False))
-        , (AC.ASin,     addFunction llvmMod "asin" (functionType doubleType [doubleType] False))
-        , (AC.ACos,     addFunction llvmMod "acos" (functionType doubleType [doubleType] False))
-        , (AC.ATan,     addFunction llvmMod "atan" (functionType doubleType [doubleType] False))
-        , (AC.ATan2,    addFunction llvmMod "atan2" (functionType doubleType [doubleType, doubleType] False))
-        -- hyperbolics
-        , (AC.SinH,     addFunction llvmMod "sinh" (functionType doubleType [doubleType] False))
-        , (AC.CosH,     addFunction llvmMod "cosh" (functionType doubleType [doubleType] False))
-        , (AC.TanH,     addFunction llvmMod "tanh" (functionType doubleType [doubleType] False))
-        , (AC.ASinH,    addFunction llvmMod "asinh" (functionType doubleType [doubleType] False))
-        , (AC.ACosH,    addFunction llvmMod "acosh" (functionType doubleType [doubleType] False))
-        , (AC.ATanH,    addFunction llvmMod "atanh" (functionType doubleType [doubleType] False))
-        -- logs/exps
-        , (AC.Exp,      addFunction llvmMod "exp" (functionType doubleType [doubleType] False))
-        , (AC.Log,      addFunction llvmMod "log" (functionType doubleType [doubleType] False))
-        -- powers
-        , (AC.Pow,      addFunction llvmMod "pow" (functionType doubleType [doubleType, doubleType] False))
-        , (AC.Sqrt,     addFunction llvmMod "sqrt" (functionType doubleType [doubleType] False))
-        , (AC.Cbrt,     addFunction llvmMod "cbrt" (functionType doubleType [doubleType] False))
-        , (AC.Hypot,    addFunction llvmMod "hypot" (functionType doubleType [doubleType, doubleType] False))
-        ]
-
-
-
-
-
