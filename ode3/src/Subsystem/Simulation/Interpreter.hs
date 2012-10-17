@@ -52,14 +52,14 @@ data SimState = SimState    { _simEnv :: Map.Map Id Var, _stateEnv :: Map.Map Id
 mkSimState = SimState Map.empty Map.empty 0
 
 interpret :: Module -> Sys.SysExceptIO ()
-interpret mod = do
+interpret Module{..} = do
     -- setup the default simulation state
     p <- Sys.getSysState Sys.lSimParams
     liftIO $ debugM "ode3.sim" $ "Starting Simulation"
     -- create the output file handle
     outHandle <- liftIO $ openBinaryFile (Sys._filename p) WriteMode
     -- write file header
-    liftIO $ writeColumnHeader (OrdMap.size $ _initExprs mod) [] outHandle
+    liftIO $ writeColumnHeader (OrdMap.size $ initExprs) [] outHandle
     -- run the simulation
     lift $ runStateT runSimulation $ mkSimState (Sys._outputPeriod p) outHandle p
     -- close the output file
@@ -71,9 +71,9 @@ interpret mod = do
     runSimulation = do
         p <- _simParams <$> get
         -- simulate the initial data
-        unless (OrdMap.null (_initExprs mod)) $ runIter (_initExprs mod) True (Sys._startTime p)
+        unless (OrdMap.null initExprs) $ runIter initExprs True (Sys._startTime p)
         -- simulate the loop exprs over the time period
-        unless (OrdMap.null (_loopExprs mod)) $ runLoop 1 (_loopExprs mod) p
+        unless (OrdMap.null loopExprs) $ runLoop 1 loopExprs p
 
     runLoop :: Integer -> ExprMap -> Sys.SimParams -> SimM ()
     runLoop curLoop eM p = do
@@ -97,7 +97,7 @@ interpret mod = do
                 modify (\st -> st { _stateEnv = _simEnv st, _simEnv = Map.empty } )
             else do
                 -- run the sim ops
-                mapM_ simSimOp $ _simOps mod
+                mapM_ simSimOp simOps
                 -- reset sim envs
                 modify (\st -> st { _simEnv = Map.empty })
 
@@ -159,24 +159,6 @@ simExpr (ExprData (If vB emT emF) t) = do
         return v'
 
 
--- | Interpret a Simulation Operation - these are all stateful
--- solve an Ode using a forward-Euler
-simSimOp ((Ode initId v)) = do
-    -- trace' [] "entering solve ode" $ return ()
-    st <- get
-    -- trace' [MkSB $ _simEnv st, MkSB $ _stateEnv st] "envs" $ return ()
-
-    (Num dN) <- simVar v
-    -- lookup initId in cur state map
-    let (Num curN) = (_stateEnv st) Map.! initId
-    -- calc the ode
-    let n' = Num $ curN + dN * (Sys._timestep $ _simParams st)
-
-    -- update the stateEnv -- we can do this destructively as the delta vars have already been calculated within the exprMap
-    modify (\st -> st { _stateEnv = Map.insert initId n' (_stateEnv st) })
-    -- trace' [MkSB initId, MkSB dN, MkSB curN, MkSB n'] "finished solved ode" $ return ()
--- simSimOp ((Sde initId v)) = do
--- simSimOp ((Rre initId v)) = do
 
 
 -- | Interpret a var operation
@@ -264,6 +246,25 @@ simOp (AC.MathOp AC.ATanH) ((Num n1):[])   = Num (atanh n1)
 
 -- NOT YET IMPLEMENTED
 simOp op vs = errorDump [MkSB op, MkSB vs] "Operator not supported in interpreter" assert
+
+-- | Interpret a Simulation Operation - these are all stateful
+-- solve an Ode using a forward-Euler
+simSimOp ((Ode initId v)) = do
+    -- trace' [] "entering solve ode" $ return ()
+    st <- get
+    -- trace' [MkSB $ _simEnv st, MkSB $ _stateEnv st] "envs" $ return ()
+    -- pickup the delta via a VarRef into the loop state
+    (Num dN) <- simVar v
+    -- lookup initId in cur state map
+    let (Num curN) = (_stateEnv st) Map.! initId
+    -- calc the ode
+    let n' = Num $ curN + dN * (Sys._timestep $ _simParams st)
+
+    -- update the stateEnv -- we can do this destructively as the delta vars have already been calculated within the exprMap
+    modify (\st -> st { _stateEnv = Map.insert initId n' (_stateEnv st) })
+    -- trace' [MkSB initId, MkSB dN, MkSB curN, MkSB n'] "finished solved ode" $ return ()
+-- simSimOp ((Sde initId v)) = do
+-- simSimOp ((Rre initId v)) = do
 
 
 -- File Output ---------------------------------------------------------------------------------------------------------

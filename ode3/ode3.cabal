@@ -32,16 +32,19 @@ executable ode3
                 OverloadedStrings GADTs GADTSyntax DeriveFunctor DeriveTraversable
                 DeriveFoldable
     hs-source-dirs: src
-    other-modules: Parser.Ode Parser.Common Parser.Module Parser.Ion
-                   Utils.CommonImports Utils.Utils Utils.ShellHandleBackend
-                   Utils.OrdMap Utils.OrdSet Utils.MonadSupply Utils.Graph
-                   Subsystem.ShellUI Subsystem.Types Subsystem.ModDriver
-                   Subsystem.Units Subsystem.SysState Subsystem.Units.UnitsDims
-                   Subsystem.Units.Conversion Subsystem.Units.Builtins
-                   Subsystem.ModDriver.ModCmd Subsystem.ModDriver.ModDef
-                   Subsystem.Simulation.Interpreter Subsystem.Simulation.JITCompiler
-                   Subsystem.Simulation.Common Process.TypeChecker Process.Desugarer
-                   Process.Validator Process.Flatten Process.Renamer Process.Reorderer
+    other-modules: Subsystem.Simulation.JITCompiler.JITCommon
+                   Subsystem.Simulation.JITCompiler.JITCoreFlat
+                   Subsystem.Simulation.JITCompiler.JITMain Parser.Ode Parser.Common
+                   Parser.Module Parser.Ion Utils.CommonImports Utils.Utils
+                   Utils.ShellHandleBackend Utils.OrdMap Utils.OrdSet
+                   Utils.MonadSupply Utils.Graph Subsystem.ShellUI Subsystem.Types
+                   Subsystem.ModDriver Subsystem.Units Subsystem.SysState
+                   Subsystem.Units.UnitsDims Subsystem.Units.Conversion
+                   Subsystem.Units.Builtins Subsystem.ModDriver.ModCmd
+                   Subsystem.ModDriver.ModDef Subsystem.Simulation.Interpreter
+                   Subsystem.Simulation.JITCompiler Subsystem.Simulation.Common
+                   Process.TypeChecker Process.Desugarer Process.Validator
+                   Process.Flatten Process.Renamer Process.Reorderer
                    Process.TypeChecker.Unification Process.TypeChecker.ConstraintGen
                    Process.TypeChecker.Common Process.Flatten.ConvertAST
                    Process.Flatten.UnpackTuples Process.Flatten.ConvertTypes

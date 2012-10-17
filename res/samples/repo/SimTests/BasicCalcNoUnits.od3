@@ -48,6 +48,10 @@ module BasicCalc4b {
 }
 
 // svals - OK
+module BasicCalc5a {
+    init a = 0.1 + 1
+}
+
 module BasicCalc5 {
     init a = 0
     val b = a + 1

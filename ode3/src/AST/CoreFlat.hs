@@ -21,8 +21,8 @@ import qualified Utils.OrdMap as OrdMap
 import AST.Common as AC
 
 -- not really a module, but datatype to hold both the exeutable simulation expressions and related metadata
-data Module = Module    { _loopExprs :: ExprMap,  _initExprs :: ExprMap, _simOps :: [SimOps]
-                        , _freeId :: Id
+data Module = Module    { loopExprs :: ExprMap,  initExprs :: ExprMap, simOps :: [SimOps]
+                        , freeId :: Id
                         }
             deriving (Show, Eq, Ord)
 
@@ -54,7 +54,8 @@ data Var    = VarRef Id
             deriving (Show, Eq, Ord)
 
 -- | Main simulation opersions
-data SimOps = Ode Id Var
+data SimOps = Ode Id Var    -- indicates the state val and a ref to an id holding the delta val
+                            -- TODO - convert to an Id instead of Var
             -- TODO
             --Sde Id Var
             --Rre Id Id Var

@@ -48,12 +48,12 @@ mkUnpackState = UnpackState Map.empty -- Map.empty
 -- Process Entry -------------------------------------------------------------------------------------------------------
 
 unpackTuples :: Module -> MExcept Module
-unpackTuples mod = do
+unpackTuples Module{..} = do
     -- run over both the init and loop exprs, using the same state
-    ((initEs', freeIds), st')   <- runStateT (runSupplyT (unpackM $ _initExprs mod) [(_freeId mod)..]) $ mkUnpackState
-    ((loopEs', freeIds'), _)    <- runStateT (runSupplyT (unpackM $ _loopExprs mod) freeIds) $ st'
+    ((initExprs', freeIds), st')   <- runStateT (runSupplyT (unpackM initExprs) [freeId..]) $ mkUnpackState
+    ((loopExprs', freeIds'), _)    <- runStateT (runSupplyT (unpackM loopExprs) freeIds) $ st'
 
-    return $ Module loopEs' initEs' (_simOps mod) (head freeIds')
+    return $ Module loopExprs' initExprs' (simOps) (head freeIds')
   where
     unpackM :: ExprMap -> UnpackM ExprMap
     unpackM exprMap = unpackTop (OrdMap.toList exprMap) OrdMap.empty
