@@ -93,31 +93,15 @@ genExpr i (ExprData (Op op vs) t) = do
 genExpr i (ExprData (If vB emT emF) t) = do
     -- gen the if test
     llVB <- genVar vB
-
-    -- gen the bbs
     GenState { builder, curFunc } <- get
-    trueBB <- liftIO $ appendBasicBlock curFunc "if_true"
-    falseBB <- liftIO $ appendBasicBlock curFunc "if_false"
-    endBB <- liftIO $ appendBasicBlock curFunc "if_end"
 
-    -- gen the cond branch
-    liftIO $ buildCondBr builder llVB trueBB falseBB
-
-    -- create a bb for true
-    liftIO $ positionAtEnd builder trueBB
-    llTrueV <- genExprMap emT
-    liftIO $ buildBr builder endBB
-
-    -- create a bb for false
-    liftIO $ positionAtEnd builder falseBB
-    llFalseV <- genExprMap emF
-    liftIO $ buildBr builder endBB
-
-    -- use a phi to join them
-    liftIO $ positionAtEnd builder endBB
-    llPhi <- liftIO $ buildPhi builder (convertType t) (getValidIdName i)
-    liftIO $ addIncoming llPhi [ (llTrueV, trueBB), (llFalseV, falseBB) ]
-    return llPhi
+    ifStmt builder curFunc llVB
+        (\builder -> genExprMap emT)
+        (\builder -> genExprMap emF)
+        (\builder phis -> do
+            llPhi <- liftIO $ buildPhi builder (convertType t) (getValidIdName i)
+            liftIO $ addIncoming llPhi phis
+            return llPhi)
 
 -- | Gen a var operation
 genVar :: Var -> GenM LLVM.Value

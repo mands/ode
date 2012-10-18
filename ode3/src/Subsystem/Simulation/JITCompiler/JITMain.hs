@@ -12,6 +12,8 @@
 --
 -----------------------------------------------------------------------------
 
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Subsystem.Simulation.JITCompiler.JITMain (
 runSimulation, createJITModule
 ) where
@@ -183,14 +185,25 @@ genModelSolver CF.Module{..} initsF loopF = do
     deltaValMap <- createVals (OrdMap.keys initExprs) True
 
     -- create variable sim params (static sim params embeedded as constants)
-    (simCurPeriod, simCurLoop, simCurTime, simOutData) <- createSimParams
+    simParamVs@(simCurPeriod, simCurLoop, simCurTime, simOutData) <- createSimParams
     writeOutData simOutData $ OrdMap.elems stateValMap
 
     -- call the init funcs
     _ <- liftIO $ buildCall builder initsF (OrdMap.elems stateValMap) ""
 
     -- create the main solver loop
-    _ <- createSolverLoop stateValMap deltaValMap
+
+    -- create do-loop start bb
+    loopStartBB <- liftIO $ appendBasicBlock curFunc "loopStart"
+    loopEndBB <- liftIO $ appendBasicBlock curFunc "loopEnd"
+    liftIO $ positionAtEnd builder loopStartBB
+    _ <- createSolverLoopBody stateValMap deltaValMap simParamVs
+    -- while loop test
+    bWhileTime <- liftIO $ withPtrVal builder simCurTime $ \curTime -> do
+        buildFCmp builder FPOLT curTime (constDouble $ L.get Sys.lEndTime simParams) "bWhileTime"
+    liftIO $ buildCondBr builder bWhileTime loopStartBB loopEndBB
+    -- leave loop
+    liftIO $ positionAtEnd builder loopEndBB
 
     -- end sim
     _ <- liftIO $ buildCall builder (libOps Map.! "end_sim") [] ""
@@ -211,6 +224,7 @@ genModelSolver CF.Module{..} initsF loopF = do
             return $ OrdMap.insert i llV idMap
         getName i = if isDelta then (getValidIdName i) ++ "delta" else (getValidIdName i)
 
+    -- create most (mutable) sim params
     createSimParams :: GenM (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value)
     createSimParams = do
         GenState {builder, simParams} <- get
@@ -239,13 +253,47 @@ genModelSolver CF.Module{..} initsF loopF = do
         _ <- liftIO $ buildCall builder (libOps Map.! "write_dbls_arr") [constInt32' $ OrdMap.size initExprs, simOutDataPtr] ""
         return ()
 
-    createSolverLoop :: ParamMap -> ParamMap -> GenM ()
-    createSolverLoop stateValMap deltaValMap = do
-        GenState {builder} <- get
+    createSolverLoopBody  :: ParamMap -> ParamMap -> (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value) -> GenM ()
+    createSolverLoopBody  stateValMap deltaValMap (simCurPeriod, simCurLoop, simCurTime, simOutData) = do
+        GenState {builder, curFunc, simParams} <- get
+
+        -- inc loop counter & calc the time
+        liftIO $ updatePtrVal builder simCurLoop (\curLoop -> buildAdd builder curLoop (constInt' 1) "incCurLoop")
+        liftIO $ withPtrVal builder simCurLoop $ \ curLoop -> do
+            curLoop' <- buildUIToFP builder curLoop doubleType "convDouble"
+            timeDelta <- buildFMul builder curLoop' (constDouble $ L.get Sys.lTimestep simParams) "timeDelta"
+            curTime <- buildFAdd builder timeDelta (constDouble $ L.get Sys.lStartTime simParams) "curTime"
+            buildStore builder curTime simCurTime
+
         -- call the modelLoop func
         stateVals <- mapM (\v -> liftIO $ buildLoad builder v "") $ OrdMap.elems stateValMap
         _ <- liftIO $ buildCall builder loopF (stateVals  ++ OrdMap.elems deltaValMap) ""
+
+        -- update the states/run the forward euler
+        liftIO $ mapM_ (updateState builder simParams) simOps
+
+        bWriteOut <- liftIO $ withPtrVal builder simCurPeriod $ \curPeriod -> do
+            buildICmp builder IntEQ curPeriod (constInt' $ L.get Sys.lOutputPeriod simParams) "bWriteOut"
+
+        -- check period and writeOutData if needed
+        _ <- ifStmt builder curFunc bWriteOut
+            (\builder -> do
+                _ <- writeOutData simOutData $ OrdMap.elems stateValMap
+                liftIO $ buildStore builder (constInt' 1) simCurPeriod)
+            (\builder -> do
+                liftIO $ updatePtrVal builder simCurPeriod $ \curPeriod -> buildAdd builder curPeriod (constInt' 1) "incCurPeriod"
+                liftIO $ buildNoOp builder)
+            (\builder _ -> liftIO $ buildNoOp builder)
+
         return ()
+      where
+        updateState :: Builder -> Sys.SimParams -> SimOps -> IO ()
+        updateState builder simParams (Ode i dV) = do
+            -- get state val
+            updatePtrVal builder (stateValMap OrdMap.! i) $ \stateVal -> do
+                withPtrVal builder (deltaValMap OrdMap.! i) $ \dVal -> do
+                    dValTime <- buildFMul builder dVal (constDouble $ L.get Sys.lTimestep simParams) "deltaTime"
+                    buildFAdd builder stateVal dValTime "newState"
 
 
 

@@ -167,6 +167,7 @@ buildAlloca builder lType str = FFI.withCString str $ \cStr ->
 buildAllocaWithInit builder initV lType str = do
     allocaV <- buildAlloca builder lType str
     buildStore builder initV allocaV
+    return allocaV
 
 constDouble d = constReal doubleType (FFI.CDouble d)
 constInt' i = constInt int64Type (fromIntegral i) False
@@ -174,11 +175,50 @@ constInt' i = constInt int64Type (fromIntegral i) False
 constInt32' :: Integral a => a -> LLVM.Value
 constInt32' i = constInt int32Type (fromIntegral i) False
 
+buildNoOp :: Builder -> IO LLVM.Value
+buildNoOp builder = buildBitCast builder (constInt' 0) int64Type "noop"
+
 addGlobalWithInit :: LLVM.Module -> LLVM.Value -> LLVM.Type -> String -> IO LLVM.Value
 addGlobalWithInit mod initVal typ name = do
     gVal <- addGlobal mod typ name
     LFFI.setInitializer gVal initVal
     return gVal
+
+updatePtrVal :: Builder -> LLVM.Value -> (LLVM.Value -> IO LLVM.Value) -> IO ()
+updatePtrVal builder ptrVal updateFunc = do
+    val' <- withPtrVal builder ptrVal updateFunc
+    _ <- buildStore builder val' ptrVal
+    return ()
+
+withPtrVal :: Builder -> LLVM.Value -> (LLVM.Value -> IO a) -> IO a
+withPtrVal builder ptrVal runFunc = buildLoad builder ptrVal "derefVal" >>= (\val -> runFunc val)
+
+-- very loose wrapper around an if-stmt
+ifStmt :: (MonadIO m) => Builder -> LLVM.Value -> LLVM.Value -> (Builder -> m LLVM.Value) -> (Builder -> m LLVM.Value)
+    -> (Builder -> [(LLVM.Value, BasicBlock)] -> m LLVM.Value) -> m LLVM.Value
+ifStmt builder curFunc condVal trueF falseF endF = do
+    -- build the BBs
+    trueBB  <- liftIO $ appendBasicBlock curFunc "if_true"
+    falseBB <- liftIO $ appendBasicBlock curFunc "if_false"
+    endBB   <- liftIO $ appendBasicBlock curFunc "if_end"
+
+    -- gen the cond branch
+    liftIO $ buildCondBr builder condVal trueBB falseBB
+
+    -- create a bb for true
+    liftIO $ positionAtEnd builder trueBB
+    trueV <- trueF builder
+    liftIO $ buildBr builder endBB
+
+    -- create a bb for false
+    liftIO $ positionAtEnd builder falseBB
+    falseV <- falseF builder
+    liftIO $ buildBr builder endBB
+
+    -- create a bb for the end of the if
+    liftIO $ positionAtEnd builder endBB
+    endF builder [(trueV, trueBB), (falseV, falseBB)]
+
 
 -- We create const strings as consts global w/ internal linkage
 -- TODO - check this is correct
