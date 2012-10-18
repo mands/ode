@@ -94,14 +94,13 @@ genExpr i (ExprData (If vB emT emF) t) = do
     -- gen the if test
     llVB <- genVar vB
     GenState { builder, curFunc } <- get
+    phis <- ifStmt builder curFunc llVB (\builder -> genExprMap emT) (\builder -> genExprMap emF)
 
-    ifStmt builder curFunc llVB
-        (\builder -> genExprMap emT)
-        (\builder -> genExprMap emF)
-        (\builder phis -> do
-            llPhi <- liftIO $ buildPhi builder (convertType t) (getValidIdName i)
-            liftIO $ addIncoming llPhi phis
-            return llPhi)
+    -- handle phis from both if branches
+    llPhi <- liftIO $ buildPhi builder (convertType t) (getValidIdName i)
+    liftIO $ addIncoming llPhi phis
+    return llPhi
+
 
 -- | Gen a var operation
 genVar :: Var -> GenM LLVM.Value

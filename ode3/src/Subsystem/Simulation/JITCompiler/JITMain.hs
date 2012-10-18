@@ -276,7 +276,6 @@ genModelSolver CF.Module{..} initsF loopF = do
             (\builder -> do
                 liftIO $ updatePtrVal builder simCurPeriod $ \curPeriod -> buildAdd builder curPeriod (constInt' 1) "incCurPeriod"
                 liftIO $ buildNoOp builder)
-            (\builder _ -> liftIO $ buildNoOp builder)
 
         return ()
       where

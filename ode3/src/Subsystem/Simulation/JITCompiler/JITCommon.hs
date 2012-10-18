@@ -193,11 +193,10 @@ updatePtrVal builder ptrVal updateFunc = do
 withPtrVal :: Builder -> LLVM.Value -> (LLVM.Value -> IO a) -> IO a
 withPtrVal builder ptrVal runFunc = buildLoad builder ptrVal "derefVal" >>= (\val -> runFunc val)
 
--- LLVM Higher-Level Control Structures --------------------------------------------------------------------------------
--- very loose wrapper around an if-stmt
+-- LLVM Higher-Level Control Structures (limited power) ----------------------------------------------------------------
 ifStmt :: (MonadIO m) => Builder -> LLVM.Value -> LLVM.Value -> (Builder -> m LLVM.Value) -> (Builder -> m LLVM.Value)
-    -> (Builder -> [(LLVM.Value, BasicBlock)] -> m LLVM.Value) -> m LLVM.Value
-ifStmt builder curFunc condVal trueF falseF endF = do
+    -> m [(LLVM.Value, LLVM.BasicBlock)]
+ifStmt builder curFunc condVal trueF falseF = do
     -- build the BBs
     trueBB  <- liftIO $ appendBasicBlock curFunc "if_true"
     falseBB <- liftIO $ appendBasicBlock curFunc "if_false"
@@ -218,15 +217,16 @@ ifStmt builder curFunc condVal trueF falseF endF = do
 
     -- create a bb for the end of the if
     liftIO $ positionAtEnd builder endBB
-    endF builder [(trueV, trueBB), (falseV, falseBB)]
+    return [(trueV, trueBB), (falseV, falseBB)]
 
 -- TODO - are phis correct for loopStart
 doWhileStmt :: (MonadIO m) => Builder -> LLVM.Value -> (Builder -> m LLVM.Value) -> (Builder -> LLVM.Value -> m LLVM.Value) -> m ()
 doWhileStmt builder curFunc loopBody condF = do
     -- create do-loop bb's
-    loopStartBB <- liftIO $ appendBasicBlock curFunc "loopStart"
-    loopEndBB <- liftIO $ appendBasicBlock curFunc "loopEnd"
-    -- create loop body
+    loopStartBB <- liftIO $ appendBasicBlock curFunc "doWhileLoopStart"
+    loopEndBB <- liftIO $ appendBasicBlock curFunc "doWhileLoopEnd"
+    -- create and br to loop body
+    liftIO $ buildBr builder loopStartBB
     liftIO $ positionAtEnd builder loopStartBB
     bodyV <- loopBody builder
     -- while loop test
