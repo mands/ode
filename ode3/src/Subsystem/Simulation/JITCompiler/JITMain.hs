@@ -15,7 +15,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Subsystem.Simulation.JITCompiler.JITMain (
-runSimulation, createJITModule
+createJITModule
 ) where
 
 
@@ -57,9 +57,6 @@ import Subsystem.Simulation.JITCompiler.JITCoreFlat
 -- JIT Setup -----------------------------------------------------------------------------------------------------------
 
 
-runSimulation :: IO ()
-runSimulation = return ()
-
 createJITModule :: CF.Module -> GenM ()
 createJITModule odeMod = do
     -- gen the JIT funcs
@@ -86,6 +83,7 @@ createJITModule odeMod = do
 
     -- return the update module
     return ()
+
 
 
 -- Code Generation -----------------------------------------------------------------------------------------------------
@@ -183,13 +181,13 @@ genModelSolver CF.Module{..} initsF loopF = do
     -- create the vals
     stateValMap <- createVals (OrdMap.keys initExprs) False
     deltaValMap <- createVals (OrdMap.keys initExprs) True
-
     -- create variable sim params (static sim params embeedded as constants)
     simParamVs@(simCurPeriod, simCurLoop, simCurTime, simOutData) <- createSimParams
-    writeOutData simOutData $ OrdMap.elems stateValMap
 
     -- call the init funcs
     _ <- liftIO $ buildCall builder initsF (OrdMap.elems stateValMap) ""
+    -- write initial data
+    writeOutData simOutData $ OrdMap.elems stateValMap
 
     -- create the main solver loop
     doWhileStmt builder curFunc
@@ -201,7 +199,6 @@ genModelSolver CF.Module{..} initsF loopF = do
     -- end sim
     _ <- liftIO $ buildCall builder (libOps Map.! "end_sim") [] ""
     _ <- liftIO $ buildCall builder (libOps Map.! "shutdown") [] ""
-
     -- return void
     r <- liftIO $ buildRetVoid builder
     liftIO $ disposeBuilder builder

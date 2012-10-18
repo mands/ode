@@ -6,6 +6,8 @@ res/scratch
 #res/scratch/shells/dist
 res/utils/PipeClient/.idea/
 res/utils/Plot/.idea/
+ode3/.shelly
+res/samples/output
 
 *~
 *.o
@@ -19,6 +21,7 @@ res/utils/Plot/.idea/
 *.bc
 *.s
 *.pyc 
+*.ll
 
 # IDE files
 *.lkshf

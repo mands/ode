@@ -1,4 +1,0 @@
-vecmath_amd.ll -r -c -e
-vecmath_intel.ll -r -c -e
-vecmath_libm.ll -r -c -e
-

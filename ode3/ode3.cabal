@@ -23,7 +23,7 @@ executable ode3
                    containers -any, data-binary-ieee754 -any, directory -any,
                    fclabels -any, fgl -any, filepath -any, hslogger -any, llvm -any,
                    llvm-base -any, llvm-wrapper -any, mtl -any, parsec -any,
-                   pretty-show -any, split -any, unix -any
+                   pretty-show -any, shelly -any, split -any, text -any, unix -any
     main-is: Main.hs
     buildable: True
     extensions: MultiParamTypeClasses EmptyDataDecls KindSignatures
@@ -32,23 +32,25 @@ executable ode3
                 OverloadedStrings GADTs GADTSyntax DeriveFunctor DeriveTraversable
                 DeriveFoldable
     hs-source-dirs: src
-    other-modules: Subsystem.Simulation.JITCompiler.JITCommon
+    other-modules: Parser.Ode Parser.Common Parser.Module Parser.Ion
+                   Utils.CommonImports Utils.Utils Utils.ShellHandleBackend
+                   Utils.OrdMap Utils.OrdSet Utils.MonadSupply Utils.Graph
+                   Subsystem.ShellUI Subsystem.Types Subsystem.ModDriver
+                   Subsystem.Units Subsystem.SysState Subsystem.Units.UnitsDims
+                   Subsystem.Units.Conversion Subsystem.Units.Builtins
+                   Subsystem.ModDriver.ModCmd Subsystem.ModDriver.ModDef
+                   Subsystem.Simulation.Interpreter Subsystem.Simulation.JITCompiler
+                   Subsystem.Simulation.Common
+                   Subsystem.Simulation.JITCompiler.JITLink
+                   Subsystem.Simulation.JITCompiler.JITMain
                    Subsystem.Simulation.JITCompiler.JITCoreFlat
-                   Subsystem.Simulation.JITCompiler.JITMain Parser.Ode Parser.Common
-                   Parser.Module Parser.Ion Utils.CommonImports Utils.Utils
-                   Utils.ShellHandleBackend Utils.OrdMap Utils.OrdSet
-                   Utils.MonadSupply Utils.Graph Subsystem.ShellUI Subsystem.Types
-                   Subsystem.ModDriver Subsystem.Units Subsystem.SysState
-                   Subsystem.Units.UnitsDims Subsystem.Units.Conversion
-                   Subsystem.Units.Builtins Subsystem.ModDriver.ModCmd
-                   Subsystem.ModDriver.ModDef Subsystem.Simulation.Interpreter
-                   Subsystem.Simulation.JITCompiler Subsystem.Simulation.Common
-                   Process.TypeChecker Process.Desugarer Process.Validator
-                   Process.Flatten Process.Renamer Process.Reorderer
-                   Process.TypeChecker.Unification Process.TypeChecker.ConstraintGen
-                   Process.TypeChecker.Common Process.Flatten.ConvertAST
-                   Process.Flatten.UnpackTuples Process.Flatten.ConvertTypes
-                   Process.Flatten.InlineComps Process.Flatten.InlineMods AST.Core
-                   AST.Ode AST.Common AST.Module AST.Ion AST.CoreFlat
+                   Subsystem.Simulation.JITCompiler.JITCommon Process.TypeChecker
+                   Process.Desugarer Process.Validator Process.Flatten Process.Renamer
+                   Process.Reorderer Process.TypeChecker.Unification
+                   Process.TypeChecker.ConstraintGen Process.TypeChecker.Common
+                   Process.Flatten.ConvertAST Process.Flatten.UnpackTuples
+                   Process.Flatten.ConvertTypes Process.Flatten.InlineComps
+                   Process.Flatten.InlineMods AST.Core AST.Ode AST.Common AST.Module
+                   AST.Ion AST.CoreFlat
     ghc-options: -w
  

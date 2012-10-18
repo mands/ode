@@ -61,3 +61,10 @@ void write_dbls(const uint32_t n_args, const double *dbls) {
   fwrite(dbls, sizeof(double), n_args, out_file);  
 }
 
+
+void modelSolver();
+
+int main() {
+    modelSolver();
+    exit(0);
+}

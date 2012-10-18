@@ -23,14 +23,17 @@ import Prelude hiding ((.), id)
 
 -- LLVM code
 import LLVM.Wrapper.Core as LLVM
-import LLVM.Wrapper.BitWriter as LLVM
+import qualified LLVM.Wrapper.BitWriter as LLVM
+import qualified LLVM.Wrapper.ExecutionEngine as LLVM
 import qualified LLVM.FFI.Core as LFFI
+import qualified LLVM.FFI.BitReader as LFFI
+import qualified LLVM.FFI.ExecutionEngine as LFFI
 
 
 import Data.Int
 import Data.Word
-import qualified Foreign as FFI
-import qualified Foreign.C as FFI
+import Foreign
+import Foreign.C
 
 import qualified Data.Foldable as DF
 import qualified Data.Traversable as DT
@@ -68,7 +71,7 @@ data GenState = GenState    { stateMap :: Map.Map Id String     -- a mapping fro
 
 
 -- this is a bit hacky as we use a null pointer to represent the initial builder
-mkGenState = GenState Map.empty Map.empty Map.empty Map.empty FFI.nullPtr FFI.nullPtr FFI.nullPtr
+mkGenState = GenState Map.empty Map.empty Map.empty Map.empty nullPtr nullPtr nullPtr
 
 
 -- Helper Funcs --------------------------------------------------------------------------------------------------------
@@ -77,7 +80,7 @@ lookupId :: Id -> GenM LLVM.Value
 lookupId i = do
     -- first look in local env
     GenState {localMap, llvmMod} <- get
-    trace' [MkSB localMap] "Localmap of vals" $ return ()
+    -- trace' [MkSB localMap] "Localmap of vals" $ return ()
     case Map.lookup i localMap of
         Just v -> return v
         -- use fromJust as this can't fail
@@ -92,8 +95,6 @@ convertType (CF.TFloat) = doubleType
 convertType (CF.TBool) = int1Type
 convertType (CF.TUnit) = int1Type
 convertType (CF.TTuple ts) = structType (map convertType ts) False
-
-
 
 -- | Define the basic math operations required by the code-generator
 -- TODO - set the func attribs and calling convs
@@ -146,22 +147,22 @@ defineExtOps llvmMod = do
 
 -- LLVM Funcs ----------------------------------------------------------------------------------------------------------
 -- TODO - move these into LLVM.Wrapper at some point
-buildExtractValue builder val idx str = FFI.withCString str $ \cStr ->
+buildExtractValue builder val idx str = withCString str $ \cStr ->
     LFFI.buildExtractValue builder val idx cStr
 
 constStruct :: [LLVM.Value] -> Bool -> IO LLVM.Value
-constStruct llVs b = FFI.withArrayLen llVs $ \len ptr ->
+constStruct llVs b = withArrayLen llVs $ \len ptr ->
     return $ LFFI.constStruct ptr (fromIntegral len) b
 
 constInBoundsGEP :: LLVM.Value -> [LLVM.Value] -> IO LLVM.Value
-constInBoundsGEP v llVs = FFI.withArrayLen llVs $ \len ptr ->
+constInBoundsGEP v llVs = withArrayLen llVs $ \len ptr ->
     LFFI.constInBoundsGEP v ptr (fromIntegral len)
 
 constGEP :: LLVM.Value -> [LLVM.Value] -> IO LLVM.Value
-constGEP v llVs = FFI.withArrayLen llVs $ \len ptr ->
+constGEP v llVs = withArrayLen llVs $ \len ptr ->
     return $ LFFI.constGEP v ptr (fromIntegral len)
 
-buildAlloca builder lType str = FFI.withCString str $ \cStr ->
+buildAlloca builder lType str = withCString str $ \cStr ->
     LFFI.buildAlloca builder lType cStr
 
 buildAllocaWithInit builder initV lType str = do
@@ -169,7 +170,7 @@ buildAllocaWithInit builder initV lType str = do
     buildStore builder initV allocaV
     return allocaV
 
-constDouble d = constReal doubleType (FFI.CDouble d)
+constDouble d = constReal doubleType (CDouble d)
 constInt' i = constInt int64Type (fromIntegral i) False
 
 constInt32' :: Integral a => a -> LLVM.Value
@@ -192,6 +193,36 @@ updatePtrVal builder ptrVal updateFunc = do
 
 withPtrVal :: Builder -> LLVM.Value -> (LLVM.Value -> IO a) -> IO a
 withPtrVal builder ptrVal runFunc = buildLoad builder ptrVal "derefVal" >>= (\val -> runFunc val)
+
+
+--runFunction' :: LLVM.ExecutionEngine -> LLVM.Value -> [LFFI.GenericValue] -> IO LFFI.GenericValue
+--runFunction' ee f args
+--    = withArrayLen args $ \numArgs ptr -> LFFI.runFunction ee f numArgs ptr
+
+
+-- |Read a module from a file (taken from LLVM High-level bindings)
+readBitcodeFromFile :: String -> IO LLVM.Module
+readBitcodeFromFile name =
+    withCString name $ \ namePtr ->
+      alloca $ \ bufPtr ->
+      alloca $ \ modPtr ->
+      alloca $ \ errStr -> do
+        rrc <- LFFI.createMemoryBufferWithContentsOfFile namePtr bufPtr errStr
+        if rrc /= False then do
+            msg <- peek errStr >>= peekCString
+            ioError $ userError $ "readBitcodeFromFile: read return code " ++ show rrc ++ ", " ++ msg
+         else do
+            buf <- peek bufPtr
+            prc <- LFFI.parseBitcode buf modPtr errStr
+            if prc /= False then do
+                msg <- peek errStr >>= peekCString
+                ioError $ userError $ "readBitcodeFromFile: parse return code " ++ show prc ++ ", " ++ msg
+             else do
+                ptr <- peek modPtr
+                return $ ptr -- Module ptr
+
+
+
 
 -- LLVM Higher-Level Control Structures (limited power) ----------------------------------------------------------------
 ifStmt :: (MonadIO m) => Builder -> LLVM.Value -> LLVM.Value -> (Builder -> m LLVM.Value) -> (Builder -> m LLVM.Value)
@@ -223,8 +254,8 @@ ifStmt builder curFunc condVal trueF falseF = do
 doWhileStmt :: (MonadIO m) => Builder -> LLVM.Value -> (Builder -> m LLVM.Value) -> (Builder -> LLVM.Value -> m LLVM.Value) -> m ()
 doWhileStmt builder curFunc loopBody condF = do
     -- create do-loop bb's
-    loopStartBB <- liftIO $ appendBasicBlock curFunc "doWhile.Start"
-    loopEndBB <- liftIO $ appendBasicBlock curFunc "doWhile.End"
+    loopStartBB <- liftIO $ appendBasicBlock curFunc "doWhile.start"
+    loopEndBB <- liftIO $ appendBasicBlock curFunc "doWhile.end"
     -- create and br to loop body
     liftIO $ buildBr builder loopStartBB
     liftIO $ positionAtEnd builder loopStartBB
@@ -240,8 +271,7 @@ doWhileStmt builder curFunc loopBody condF = do
 -- TODO - check this is correct
 createConstString :: LLVM.Module -> String -> IO LLVM.Value
 createConstString mod str = do
-    strVal <- addGlobalWithInit mod (constString str True) (arrayType int8Type (fromIntegral $ length str)) "localStr"
-    LFFI.setInitializer strVal $ constString str True
+    strVal <- addGlobalWithInit mod (constString str False) (arrayType int8Type (fromIntegral $ length str + 1)) "localStr"
     setLinkage strVal LFFI.InternalLinkage
     LFFI.setGlobalConstant strVal True
     return strVal

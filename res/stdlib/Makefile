@@ -16,6 +16,11 @@ odelibrary.bc: odelibrary.c odelibrary.h
 	$(CC) $(CFLAGS) -O0 -emit-llvm -c -o $@ $<
 	llvm-dis $@
 
+vecmath: VecMathCog.py
+	cog.py vecmath_amd.ll -r -c -e
+	cog.py vecmath_intel.ll -r -c -e
+	cog.py vecmath_libm.ll -r -c -e
+
 clean:
 	rm -f *.bc *.ll *~
 

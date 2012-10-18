@@ -27,8 +27,9 @@ import Prelude hiding ((.), id)
 -- LLVM code
 import LLVM.Wrapper.Core as LLVM
 import LLVM.Wrapper.BitWriter as LLVM
+import LLVM.Wrapper.ExecutionEngine as LLVM
 import qualified LLVM.FFI.Core as LFFI
-
+import qualified LLVM.Target.Native as LFFI
 
 import Data.Int
 import Data.Word
@@ -51,6 +52,7 @@ import AST.CoreFlat as CF
 
 import Subsystem.Simulation.JITCompiler.JITCommon
 import Subsystem.Simulation.JITCompiler.JITMain
+import Subsystem.Simulation.JITCompiler.JITLink
 
 
 -- Entry ---------------------------------------------------------------------------------------------------------------
@@ -80,5 +82,25 @@ compile mod = do
     codeGen :: GenM ()
     codeGen = do
         createJITModule mod
+        linkModule
+
+
+-- | Load our compiled module and run a simulation
+runSimulation :: IO ()
+runSimulation = do
+    -- load the linked/optimised module
+    simMod <- readBitcodeFromFile "./sim.bc"
+
+    -- setup the jitter
+    LFFI.initializeNativeTarget
+    ee <- createJITCompilerForModule simMod (fromIntegral 3)
+
+    -- get and call the entry func
+    modelSolverFunc <- fromJust <$> findFunction ee "modelSolver"
+    _ <- runFunction ee modelSolverFunc (fromIntegral 0) []
+
+    -- destroy Module
+    disposeModule simMod
+    return ()
 
 
