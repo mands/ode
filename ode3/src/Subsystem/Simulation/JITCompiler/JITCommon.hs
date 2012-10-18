@@ -193,6 +193,7 @@ updatePtrVal builder ptrVal updateFunc = do
 withPtrVal :: Builder -> LLVM.Value -> (LLVM.Value -> IO a) -> IO a
 withPtrVal builder ptrVal runFunc = buildLoad builder ptrVal "derefVal" >>= (\val -> runFunc val)
 
+-- LLVM Higher-Level Control Structures --------------------------------------------------------------------------------
 -- very loose wrapper around an if-stmt
 ifStmt :: (MonadIO m) => Builder -> LLVM.Value -> LLVM.Value -> (Builder -> m LLVM.Value) -> (Builder -> m LLVM.Value)
     -> (Builder -> [(LLVM.Value, BasicBlock)] -> m LLVM.Value) -> m LLVM.Value
@@ -218,6 +219,21 @@ ifStmt builder curFunc condVal trueF falseF endF = do
     -- create a bb for the end of the if
     liftIO $ positionAtEnd builder endBB
     endF builder [(trueV, trueBB), (falseV, falseBB)]
+
+-- TODO - are phis correct for loopStart
+doWhileStmt :: (MonadIO m) => Builder -> LLVM.Value -> (Builder -> m LLVM.Value) -> (Builder -> LLVM.Value -> m LLVM.Value) -> m ()
+doWhileStmt builder curFunc loopBody condF = do
+    -- create do-loop bb's
+    loopStartBB <- liftIO $ appendBasicBlock curFunc "loopStart"
+    loopEndBB <- liftIO $ appendBasicBlock curFunc "loopEnd"
+    -- create loop body
+    liftIO $ positionAtEnd builder loopStartBB
+    bodyV <- loopBody builder
+    -- while loop test
+    condV <- condF builder bodyV
+    liftIO $ buildCondBr builder condV loopStartBB loopEndBB
+    -- leave loop
+    liftIO $ positionAtEnd builder loopEndBB
 
 
 -- We create const strings as consts global w/ internal linkage

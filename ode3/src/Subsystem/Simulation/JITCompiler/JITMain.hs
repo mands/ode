@@ -192,18 +192,11 @@ genModelSolver CF.Module{..} initsF loopF = do
     _ <- liftIO $ buildCall builder initsF (OrdMap.elems stateValMap) ""
 
     -- create the main solver loop
-
-    -- create do-loop start bb
-    loopStartBB <- liftIO $ appendBasicBlock curFunc "loopStart"
-    loopEndBB <- liftIO $ appendBasicBlock curFunc "loopEnd"
-    liftIO $ positionAtEnd builder loopStartBB
-    _ <- createSolverLoopBody stateValMap deltaValMap simParamVs
-    -- while loop test
-    bWhileTime <- liftIO $ withPtrVal builder simCurTime $ \curTime -> do
-        buildFCmp builder FPOLT curTime (constDouble $ L.get Sys.lEndTime simParams) "bWhileTime"
-    liftIO $ buildCondBr builder bWhileTime loopStartBB loopEndBB
-    -- leave loop
-    liftIO $ positionAtEnd builder loopEndBB
+    doWhileStmt builder curFunc
+        (\builder ->  createSolverLoopBody stateValMap deltaValMap simParamVs >> (liftIO $ buildNoOp builder))
+        (\builder _ ->  do
+            liftIO $ withPtrVal builder simCurTime $ \curTime -> do
+                liftIO $ buildFCmp builder FPOLT curTime (constDouble $ L.get Sys.lEndTime simParams) "bWhileTime")
 
     -- end sim
     _ <- liftIO $ buildCall builder (libOps Map.! "end_sim") [] ""
