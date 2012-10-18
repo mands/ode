@@ -139,7 +139,7 @@ defineExtOps llvmMod = do
         , ("shutdown",   addFunction llvmMod "shutdown" (functionType voidType [] False))
         , ("start_sim",   addFunction llvmMod "start_sim" (functionType voidType [pointerType int8Type 0] False))
         , ("end_sim",   addFunction llvmMod "end_sim" (functionType voidType [] False))
-        , ("write_dbls_arr", addFunction llvmMod "write_dbls_arr" (functionType voidType
+        , ("write_dbls", addFunction llvmMod "write_dbls" (functionType voidType
             [int32Type, pointerType doubleType 0] False))
         ]
 
@@ -198,9 +198,9 @@ ifStmt :: (MonadIO m) => Builder -> LLVM.Value -> LLVM.Value -> (Builder -> m LL
     -> m [(LLVM.Value, LLVM.BasicBlock)]
 ifStmt builder curFunc condVal trueF falseF = do
     -- build the BBs
-    trueBB  <- liftIO $ appendBasicBlock curFunc "if_true"
-    falseBB <- liftIO $ appendBasicBlock curFunc "if_false"
-    endBB   <- liftIO $ appendBasicBlock curFunc "if_end"
+    trueBB  <- liftIO $ appendBasicBlock curFunc "if.true"
+    falseBB <- liftIO $ appendBasicBlock curFunc "if.false"
+    endBB   <- liftIO $ appendBasicBlock curFunc "if.end"
 
     -- gen the cond branch
     liftIO $ buildCondBr builder condVal trueBB falseBB
@@ -223,8 +223,8 @@ ifStmt builder curFunc condVal trueF falseF = do
 doWhileStmt :: (MonadIO m) => Builder -> LLVM.Value -> (Builder -> m LLVM.Value) -> (Builder -> LLVM.Value -> m LLVM.Value) -> m ()
 doWhileStmt builder curFunc loopBody condF = do
     -- create do-loop bb's
-    loopStartBB <- liftIO $ appendBasicBlock curFunc "doWhileLoopStart"
-    loopEndBB <- liftIO $ appendBasicBlock curFunc "doWhileLoopEnd"
+    loopStartBB <- liftIO $ appendBasicBlock curFunc "doWhile.Start"
+    loopEndBB <- liftIO $ appendBasicBlock curFunc "doWhile.End"
     -- create and br to loop body
     liftIO $ buildBr builder loopStartBB
     liftIO $ positionAtEnd builder loopStartBB

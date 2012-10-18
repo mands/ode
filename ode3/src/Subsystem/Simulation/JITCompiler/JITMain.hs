@@ -243,7 +243,7 @@ genModelSolver CF.Module{..} initsF loopF = do
             return ()
         -- write to output func
         simOutDataPtr <- liftIO $ buildInBoundsGEP builder simOutData [constInt32' 0, constInt32' 0] $ "storeOutPtr"
-        _ <- liftIO $ buildCall builder (libOps Map.! "write_dbls_arr") [constInt32' $ OrdMap.size initExprs, simOutDataPtr] ""
+        _ <- liftIO $ buildCall builder (libOps Map.! "write_dbls") [constInt32' $ OrdMap.size initExprs, simOutDataPtr] ""
         return ()
 
     createSolverLoopBody  :: ParamMap -> ParamMap -> (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value) -> GenM ()

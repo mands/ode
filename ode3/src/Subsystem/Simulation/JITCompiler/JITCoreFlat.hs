@@ -101,7 +101,6 @@ genExpr i (ExprData (If vB emT emF) t) = do
     liftIO $ addIncoming llPhi phis
     return llPhi
 
-
 -- | Gen a var operation
 genVar :: Var -> GenM LLVM.Value
 -- Complex vars
