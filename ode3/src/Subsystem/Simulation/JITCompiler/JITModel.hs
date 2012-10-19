@@ -12,7 +12,7 @@
 -- Much of this code is a similar to the interpreter code, generating LLVM values rather than actualling simulating the model
 -----------------------------------------------------------------------------
 
-module Subsystem.Simulation.JITCompiler.JITCoreFlat (
+module Subsystem.Simulation.JITCompiler.JITModel (
 genExprMap, genExpr, genVar
 ) where
 
@@ -25,7 +25,6 @@ import Prelude hiding ((.), id)
 import LLVM.Wrapper.Core as LLVM
 import LLVM.Wrapper.BitWriter as LLVM
 import qualified LLVM.FFI.Core as LFFI
-
 
 import Data.Int
 import Data.Word
@@ -129,9 +128,11 @@ genVar (Num n) = return $ constReal doubleType (FFI.CDouble n)
 genVar (Boolean b) = return $ constInt int1Type (FFI.fromBool b) False
 genVar Unit = return $ constInt int1Type 0 False
 genVar Time = do
-    GenState {llvmMod, builder} <- get
-    timeVal <- liftIO $ fromJust <$> getNamedGlobal llvmMod "_simTime"
-    liftIO $ buildLoad builder timeVal ""
+    undefined
+    GenState {builder, curTimeRef} <- get
+    liftIO $ buildLoad builder curTimeRef "timeVal"
+
+
 genVar v = errorDump [] "NYI" assert
 
 

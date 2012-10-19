@@ -15,32 +15,23 @@
 {-# LANGUAGE OverloadedStrings, ExtendedDefaultRules #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
-module Subsystem.Simulation.JITCompiler.JITLink (
-linkModule
+module Subsystem.Simulation.JITCompiler.JITShell (
+linkScript, runStaticScript
 ) where
 
 import Shelly
 import Data.Text.Lazy as LT
 
+import Utils.CommonImports
 import Subsystem.Simulation.Common
 import Subsystem.Simulation.JITCompiler.JITCommon
-import Subsystem.Simulation.JITCompiler.JITCoreFlat
+import Subsystem.Simulation.JITCompiler.JITModel
 default (LT.Text)
-
-
--- | Calls out to our link script
--- TODO - shoule replace Bash script with direct haskell code
-linkModule :: GenM ()
-linkModule = do
-    shelly . verbosely $ linkScript
-    return ()
 
 
 linkScript :: Sh ()
 linkScript = do
-    echo "----------------------------------------------"
-    echo "Starting Linker Process"
-    echo "----------------------------------------------"
+    liftIO $ debugM "ode3.sim" $ "Starting LLVM Linker Script"
 
     --res <- errExit False $ run "opt" ["--version"]
     --echo =<< (toTextIgnore <$> canonic (fromText "./model.bc"))
@@ -55,7 +46,6 @@ linkScript = do
     -- perfrom LTO
     run "opt" ["-o", simPath, "-std-link-opts", simPath]
 
-
     return ()
   where
     -- TODO - fix these paths
@@ -65,3 +55,24 @@ linkScript = do
     libPath     = libDir </> "odelibrary.bc"
 
 
+-- | Embedded script to executre a static simulation, utilising static linking to all libs
+-- and no call-back to Ode run-time (requires use of Clang and system linker)
+runStaticScript :: Sh ()
+runStaticScript = do
+    liftIO $ debugM "ode3.sim" $ "Starting Run Static Script"
+
+    -- delete the old sim file
+    rm_f output
+
+    -- use clang to statically link our llvm-linked sim module to the system
+    run "clang" $ ["-static", "-o", toTextIgnore output, "-O3", simPath] ++ libDir ++ libs
+
+    -- execute the file
+    run output []
+
+    return ()
+  where
+    output      = "./sim.exe"
+    simPath     = "./sim.bc"
+    libs        = ["-lm"]
+    libDir      = []

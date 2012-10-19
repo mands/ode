@@ -41,6 +41,8 @@ import qualified Data.Traversable as DT
 import qualified Data.Map as Map
 import qualified Utils.OrdMap as OrdMap
 
+import qualified Shelly as Sh
+
 import Control.Monad.State
 import Utils.MonadSupply
 
@@ -51,8 +53,8 @@ import AST.Common as AC
 import AST.CoreFlat as CF
 
 import Subsystem.Simulation.JITCompiler.JITCommon
-import Subsystem.Simulation.JITCompiler.JITMain
-import Subsystem.Simulation.JITCompiler.JITLink
+import Subsystem.Simulation.JITCompiler.JITSolver
+import Subsystem.Simulation.JITCompiler.JITShell
 
 
 -- Entry ---------------------------------------------------------------------------------------------------------------
@@ -72,7 +74,8 @@ compile mod = do
 
     liftIO $ debugM "ode3.sim" $ "Starting JIT Simulation"
     -- run the simulation
-    liftIO $ runSimulation
+    -- liftIO $ runDynSimulation
+    liftIO $ runStaticSimulation
 
     -- close any output files? (handle within LLVM code)
     liftIO $ debugM "ode3.sim" $ "JIT Simulation Complete"
@@ -81,13 +84,41 @@ compile mod = do
     -- all code that runs in the SimM monad
     codeGen :: GenM ()
     codeGen = do
-        createJITModule mod
+        createModule mod
         linkModule
 
-
+-- JIT Interface -------------------------------------------------------------------------------------------------------
 -- | Load our compiled module and run a simulation
-runSimulation :: IO ()
-runSimulation = do
+-- TODO - need to handle dynamic/static linking and JIT/AOT compilation
+
+createModule :: CF.Module -> GenM ()
+createModule odeMod = do
+    -- create the module
+    llvmMod <- liftIO $ moduleCreateWithName "model"
+    -- insert the math ops and lib ops
+    (mathOps, libOps) <- liftIO $ defineExtOps llvmMod
+    modify (\st -> st { llvmMod, mathOps, libOps })
+
+    -- generate & insert the funcs into the module
+    initsF <-   genModelInitials odeMod
+    loopF <-    genModelLoop odeMod
+    simF <-     genModelSolver odeMod initsF loopF
+
+    -- save the module to disk
+    liftIO $ printModuleToFile llvmMod "model.ll"
+    liftIO $ writeBitcodeToFile llvmMod "model.bc"
+    return ()
+
+-- | Calls out to our link script
+linkModule :: GenM ()
+linkModule = do
+    Sh.shelly . Sh.verbosely $ linkScript
+    return ()
+
+
+
+runDynSimulation :: IO ()
+runDynSimulation = do
     -- load the linked/optimised module
     simMod <- readBitcodeFromFile "./sim.bc"
 
@@ -104,3 +135,8 @@ runSimulation = do
     return ()
 
 
+-- | Calls out to our runStatic script
+runStaticSimulation :: IO ()
+runStaticSimulation = do
+    Sh.shelly . Sh.verbosely $ runStaticScript
+    return ()

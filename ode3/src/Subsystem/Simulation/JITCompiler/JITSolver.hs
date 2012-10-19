@@ -14,8 +14,8 @@
 
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Subsystem.Simulation.JITCompiler.JITMain (
-createJITModule
+module Subsystem.Simulation.JITCompiler.JITSolver (
+genModelInitials, genModelLoop, genModelSolver
 ) where
 
 
@@ -51,40 +51,10 @@ import AST.CoreFlat as CF
 
 import Subsystem.Simulation.Common
 import Subsystem.Simulation.JITCompiler.JITCommon
-import Subsystem.Simulation.JITCompiler.JITCoreFlat
+import Subsystem.Simulation.JITCompiler.JITModel
 
 
 -- JIT Setup -----------------------------------------------------------------------------------------------------------
-
-
-createJITModule :: CF.Module -> GenM ()
-createJITModule odeMod = do
-    -- gen the JIT funcs
-
-    -- create the module to disk
-    llvmMod <- liftIO $ moduleCreateWithName "model"
-    -- insert the math ops and lib ops
-    (mathOps, libOps) <- liftIO $ defineExtOps llvmMod
-    modify (\st -> st { llvmMod, mathOps, libOps })
-
-    -- insert global vals - sim vals, states and deltas
-    gSimTime <- liftIO $ addGlobal llvmMod (doubleType) "_simTime"
-    liftIO $ LFFI.setInitializer gSimTime $ constReal doubleType (FFI.CDouble 0.03)
-
-    -- generate & insert the funcs into the module
-    initsF <-   genModelInitials odeMod
-    loopF <-    genModelLoop odeMod
-    simF <-     genModelSolver odeMod initsF loopF
-
-    -- save the module to disk
-    liftIO $ printModuleToFile llvmMod "model.ll"
-    liftIO $ writeBitcodeToFile llvmMod "model.bc"
-    -- run our external script - this runs our optimisations and links to the Ode run-time library
-
-    -- return the update module
-    return ()
-
-
 
 -- Code Generation -----------------------------------------------------------------------------------------------------
 -- We only codegen the initial val and delta fucntion calculation, other funcs provided within the std. library for now
@@ -118,12 +88,12 @@ genModelInitials CF.Module{..} = do
     return curFunc
   where
     -- create the input args
-    createArgsList = map (\(_, (ExprData _ t)) -> pointerType (convertType t) 0)
-       (OrdMap.toList $ initExprs)
+    createArgsList = doubleType : (OrdMap.elems . fmap (\(ExprData _ t) -> pointerType (convertType t) 0) $ initExprs)
 
     -- setup the store commands for the outputs
     storeOutputs curFunc builder = do
-        params <- liftIO $ LLVM.getParams curFunc
+        (curTimeRef : params) <- liftIO $ LLVM.getParams curFunc
+        modify (\st -> st { curTimeRef })
         -- zip the ids (from toplets) with the params (the ordering will be the same)
         let outVals = zip (map fst (OrdMap.toList initExprs)) params
         -- for each val, gen the store thru the pointer
@@ -145,18 +115,19 @@ genModelLoop CF.Module{..} = do
     liftIO $ disposeBuilder builder
     return curFunc
   where
-    createArgsList =    (OrdMap.elems . fmap (\(ExprData _ t) -> convertType t) $ initExprs) ++
+    createArgsList =    doubleType : (OrdMap.elems . fmap (\(ExprData _ t) -> convertType t) $ initExprs) ++
                         (OrdMap.elems . fmap (\(ExprData _ t) -> pointerType (convertType t) 0) $ initExprs)
 
     createLocalMap curFunc = do
-        params <- liftIO $ LLVM.getParams curFunc
+        (curTimeRef : params) <- liftIO $ LLVM.getParams curFunc
+        modify (\st -> st { curTimeRef })
         let inParams = take (length params `div` 2) params
         let localMap = Map.fromList $ zip (OrdMap.keys initExprs) inParams
         modify (\st -> st { localMap })
 
     -- need map over simops
     storeOutputs curFunc builder = do
-        params <- liftIO $ LLVM.getParams curFunc
+        (_ : params) <- liftIO $ LLVM.getParams curFunc
         let outParams = drop (length params `div` 2) params
         let outMap = Map.fromList $ zip (OrdMap.keys initExprs) outParams
         -- map over simops
@@ -179,21 +150,22 @@ genModelSolver CF.Module{..} initsF loopF = do
     _ <- liftIO $ buildCall builder (libOps Map.! "start_sim") [fileStrPtr] ""
 
     -- create the vals
-    stateValMap <- createVals (OrdMap.keys initExprs) False
-    deltaValMap <- createVals (OrdMap.keys initExprs) True
+    stateValRefMap <- createVals (OrdMap.keys initExprs) False
+    deltaValRefMap <- createVals (OrdMap.keys initExprs) True
     -- create variable sim params (static sim params embeedded as constants)
-    simParamVs@(simCurPeriod, simCurLoop, simCurTime, simOutData) <- createSimParams
+    simParamVs@(curPeriodRef, curLoopRef, curTimeRef, outDataRef) <- createSimParams
 
     -- call the init funcs
-    _ <- liftIO $ buildCall builder initsF (OrdMap.elems stateValMap) ""
+    _ <- liftIO $ withPtrVal builder curTimeRef $ \curTime -> do
+        buildCall builder initsF (curTime : OrdMap.elems stateValRefMap) ""
     -- write initial data
-    writeOutData simOutData $ OrdMap.elems stateValMap
+    writeOutData outDataRef curTimeRef $ OrdMap.elems stateValRefMap
 
     -- create the main solver loop
     doWhileStmt builder curFunc
-        (\builder ->  createSolverLoopBody stateValMap deltaValMap simParamVs >> (liftIO $ buildNoOp builder))
+        (\builder ->  createSolverLoopBody stateValRefMap deltaValRefMap simParamVs >> (liftIO $ buildNoOp builder))
         (\builder _ ->  do
-            liftIO $ withPtrVal builder simCurTime $ \curTime -> do
+            liftIO $ withPtrVal builder curTimeRef $ \curTime -> do
                 liftIO $ buildFCmp builder FPOLT curTime (constDouble $ L.get Sys.lEndTime simParams) "bWhileTime")
 
     -- end sim
@@ -218,60 +190,60 @@ genModelSolver CF.Module{..} initsF loopF = do
     createSimParams :: GenM (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value)
     createSimParams = do
         GenState {builder, simParams} <- get
-        simCurPeriod <- liftIO $ buildAllocaWithInit builder (constInt' 1) int64Type "simCurPeriod"
-        simCurLoop <- liftIO $ buildAllocaWithInit builder (constInt' 0) int64Type "simCurLoop"
+        curPeriodRef <- liftIO $ buildAllocaWithInit builder (constInt' 1) int64Type "simCurPeriod"
+        curLoopRef <- liftIO $ buildAllocaWithInit builder (constInt' 0) int64Type "simCurLoop"
 
         -- set inital time
-        simCurTime <- liftIO $ buildAllocaWithInit builder (constDouble $ L.get Sys.lStartTime simParams)
+        curTimeRef <- liftIO $ buildAllocaWithInit builder (constDouble $ L.get Sys.lStartTime simParams)
             doubleType "simCurTime"
 
         -- set output vector
-        simOutData <- liftIO $ buildAlloca builder (LFFI.arrayType doubleType (fromIntegral $ OrdMap.size initExprs)) "simOutData"
+        outDataRef <- liftIO $ buildAlloca builder (LFFI.arrayType doubleType (fromIntegral $ OrdMap.size initExprs + 1)) "simOutData"
+        return (curPeriodRef, curLoopRef, curTimeRef, outDataRef)
 
-        return (simCurPeriod, simCurLoop, simCurTime, simOutData)
-
-    writeOutData :: LLVM.Value -> [LLVM.Value] -> GenM ()
-    writeOutData simOutData stateVals = do
+    writeOutData :: LLVM.Value -> LLVM.Value -> [LLVM.Value] -> GenM ()
+    writeOutData simOutData curTimeRef stateValRefs = do
         GenState {builder, libOps} <- get
-        forM_ (zip [0..] stateVals) $ \(i, stateVal) -> do
-            loadV <- liftIO $ buildLoad builder stateVal $ "loadState" ++ (show i)
+        -- fill the output array (inc curTime)
+        forM_ (zip [0..] (curTimeRef:stateValRefs)) $ \(i, ptrVal) -> do
             outV <- liftIO $ buildInBoundsGEP builder simOutData [constInt32' 0, constInt32' i] $ "storeOutPtr" ++ (show i)
-            _ <- liftIO $ buildStore builder loadV outV
+            liftIO $ withPtrVal builder ptrVal $ \loadV -> liftIO $ buildStore builder loadV outV
             return ()
         -- write to output func
         simOutDataPtr <- liftIO $ buildInBoundsGEP builder simOutData [constInt32' 0, constInt32' 0] $ "storeOutPtr"
-        _ <- liftIO $ buildCall builder (libOps Map.! "write_dbls") [constInt32' $ OrdMap.size initExprs, simOutDataPtr] ""
+        _ <- liftIO $ buildCall builder (libOps Map.! "write_dbls") [constInt32' $ OrdMap.size initExprs + 1, simOutDataPtr] ""
         return ()
 
     createSolverLoopBody  :: ParamMap -> ParamMap -> (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value) -> GenM ()
-    createSolverLoopBody  stateValMap deltaValMap (simCurPeriod, simCurLoop, simCurTime, simOutData) = do
+    createSolverLoopBody  stateValRefMap deltaValRefMap (curPeriodRef, curLoopRef, curTimeRef, outDataRef) = do
         GenState {builder, curFunc, simParams} <- get
 
         -- inc loop counter & calc the time
-        liftIO $ updatePtrVal builder simCurLoop (\curLoop -> buildAdd builder curLoop (constInt' 1) "incCurLoop")
-        liftIO $ withPtrVal builder simCurLoop $ \ curLoop -> do
+        liftIO $ updatePtrVal builder curLoopRef (\curLoop -> buildAdd builder curLoop (constInt' 1) "incCurLoop")
+        liftIO $ withPtrVal builder curLoopRef $ \ curLoop -> do
             curLoop' <- buildUIToFP builder curLoop doubleType "convDouble"
             timeDelta <- buildFMul builder curLoop' (constDouble $ L.get Sys.lTimestep simParams) "timeDelta"
             curTime <- buildFAdd builder timeDelta (constDouble $ L.get Sys.lStartTime simParams) "curTime"
-            buildStore builder curTime simCurTime
+            buildStore builder curTime curTimeRef
 
         -- call the modelLoop func
-        stateVals <- mapM (\v -> liftIO $ buildLoad builder v "") $ OrdMap.elems stateValMap
-        _ <- liftIO $ buildCall builder loopF (stateVals  ++ OrdMap.elems deltaValMap) ""
+        stateVals <- mapM (\v -> liftIO $ buildLoad builder v "") $ OrdMap.elems stateValRefMap
+        _ <- liftIO $ withPtrVal builder curTimeRef $ \curTime -> do
+            buildCall builder loopF (curTime : stateVals  ++ OrdMap.elems deltaValRefMap) ""
 
         -- update the states/run the forward euler
         liftIO $ mapM_ (updateState builder simParams) simOps
 
-        bWriteOut <- liftIO $ withPtrVal builder simCurPeriod $ \curPeriod -> do
+        bWriteOut <- liftIO $ withPtrVal builder curPeriodRef $ \curPeriod -> do
             buildICmp builder IntEQ curPeriod (constInt' $ L.get Sys.lOutputPeriod simParams) "bWriteOut"
 
         -- check period and writeOutData if needed
         _ <- ifStmt builder curFunc bWriteOut
             (\builder -> do
-                _ <- writeOutData simOutData $ OrdMap.elems stateValMap
-                liftIO $ buildStore builder (constInt' 1) simCurPeriod)
+                _ <- writeOutData outDataRef curTimeRef $ OrdMap.elems stateValRefMap
+                liftIO $ buildStore builder (constInt' 1) curPeriodRef)
             (\builder -> do
-                liftIO $ updatePtrVal builder simCurPeriod $ \curPeriod -> buildAdd builder curPeriod (constInt' 1) "incCurPeriod"
+                liftIO $ updatePtrVal builder curPeriodRef $ \curPeriod -> buildAdd builder curPeriod (constInt' 1) "incCurPeriod"
                 liftIO $ buildNoOp builder)
 
         return ()
@@ -279,8 +251,8 @@ genModelSolver CF.Module{..} initsF loopF = do
         updateState :: Builder -> Sys.SimParams -> SimOps -> IO ()
         updateState builder simParams (Ode i dV) = do
             -- get state val
-            updatePtrVal builder (stateValMap OrdMap.! i) $ \stateVal -> do
-                withPtrVal builder (deltaValMap OrdMap.! i) $ \dVal -> do
+            updatePtrVal builder (stateValRefMap OrdMap.! i) $ \stateVal -> do
+                withPtrVal builder (deltaValRefMap OrdMap.! i) $ \dVal -> do
                     dValTime <- buildFMul builder dVal (constDouble $ L.get Sys.lTimestep simParams) "deltaTime"
                     buildFAdd builder stateVal dValTime "newState"
 

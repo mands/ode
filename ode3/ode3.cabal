@@ -41,9 +41,9 @@ executable ode3
                    Subsystem.ModDriver.ModCmd Subsystem.ModDriver.ModDef
                    Subsystem.Simulation.Interpreter Subsystem.Simulation.JITCompiler
                    Subsystem.Simulation.Common
-                   Subsystem.Simulation.JITCompiler.JITLink
-                   Subsystem.Simulation.JITCompiler.JITMain
-                   Subsystem.Simulation.JITCompiler.JITCoreFlat
+                   Subsystem.Simulation.JITCompiler.JITShell
+                   Subsystem.Simulation.JITCompiler.JITSolver
+                   Subsystem.Simulation.JITCompiler.JITModel
                    Subsystem.Simulation.JITCompiler.JITCommon Process.TypeChecker
                    Process.Desugarer Process.Validator Process.Flatten Process.Renamer
                    Process.Reorderer Process.TypeChecker.Unification

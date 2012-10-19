@@ -59,19 +59,20 @@ type ParamMap = OrdMap.OrdMap Id LLVM.Value
 newtype GenM a = GenM { runGenM :: (StateT GenState (MExceptIO)) a }
     deriving (Monad, MonadError String, MonadIO, MonadState GenState, Functor) -- , MonadTrans)
 
-data GenState = GenState    { stateMap :: Map.Map Id String     -- a mapping from (state) ids to global vals in bitcode
-                            , localMap :: Map.Map Id LLVM.Value -- a mapping from local-def'd ids to their LLVM vals
+data GenState = GenState    { -- stateMap :: Map.Map Id String     -- a mapping from (state) ids to global vals in bitcode
+                            localMap :: Map.Map Id LLVM.Value -- a mapping from local-def'd ids to their LLVM vals
                             , mathOps :: MathOps -- a mapping to all externally defined funcs
                             , libOps :: LibOps -- a mapping to all externally defined funcs
                             , builder :: LLVM.Builder           -- the current inst. builder
                             , llvmMod :: LLVM.Module
                             , curFunc :: LLVM.Value
+                            , curTimeRef :: LLVM.Value
                             , simParams :: Sys.SimParams
                             } deriving (Show)
 
 
 -- this is a bit hacky as we use a null pointer to represent the initial builder
-mkGenState = GenState Map.empty Map.empty Map.empty Map.empty nullPtr nullPtr nullPtr
+mkGenState = GenState Map.empty Map.empty Map.empty nullPtr nullPtr nullPtr nullPtr
 
 
 -- Helper Funcs --------------------------------------------------------------------------------------------------------
@@ -140,8 +141,7 @@ defineExtOps llvmMod = do
         , ("shutdown",   addFunction llvmMod "shutdown" (functionType voidType [] False))
         , ("start_sim",   addFunction llvmMod "start_sim" (functionType voidType [pointerType int8Type 0] False))
         , ("end_sim",   addFunction llvmMod "end_sim" (functionType voidType [] False))
-        , ("write_dbls", addFunction llvmMod "write_dbls" (functionType voidType
-            [int32Type, pointerType doubleType 0] False))
+        , ("write_dbls", addFunction llvmMod "write_dbls" (functionType voidType [int32Type, pointerType doubleType 0] False))
         ]
 
 
@@ -199,7 +199,6 @@ withPtrVal builder ptrVal runFunc = buildLoad builder ptrVal "derefVal" >>= (\va
 --runFunction' ee f args
 --    = withArrayLen args $ \numArgs ptr -> LFFI.runFunction ee f numArgs ptr
 
-
 -- |Read a module from a file (taken from LLVM High-level bindings)
 readBitcodeFromFile :: String -> IO LLVM.Module
 readBitcodeFromFile name =
@@ -217,11 +216,7 @@ readBitcodeFromFile name =
             if prc /= False then do
                 msg <- peek errStr >>= peekCString
                 ioError $ userError $ "readBitcodeFromFile: parse return code " ++ show prc ++ ", " ++ msg
-             else do
-                ptr <- peek modPtr
-                return $ ptr -- Module ptr
-
-
+             else peek modPtr
 
 
 -- LLVM Higher-Level Control Structures (limited power) ----------------------------------------------------------------
