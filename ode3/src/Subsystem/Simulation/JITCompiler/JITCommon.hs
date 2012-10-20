@@ -266,7 +266,7 @@ doWhileStmt builder curFunc loopBody condF = do
 -- TODO - check this is correct
 createConstString :: LLVM.Module -> String -> IO LLVM.Value
 createConstString mod str = do
-    strVal <- addGlobalWithInit mod (constString str False) (arrayType int8Type (fromIntegral $ length str + 1)) "localStr"
+    strVal <- addGlobalWithInit mod (constString str False) (arrayType int8Type (fromIntegral $ length str + 1)) "localConstStr"
     setLinkage strVal LFFI.InternalLinkage
     LFFI.setGlobalConstant strVal True
     return strVal

@@ -55,7 +55,7 @@ interpret :: Module -> Sys.SysExceptIO ()
 interpret Module{..} = do
     -- setup the default simulation state
     p <- Sys.getSysState Sys.lSimParams
-    liftIO $ debugM "ode3.sim" $ "Starting Simulation"
+    liftIO $ debugM "ode3.sim" $ "Starting (Interpreted) Simulation"
     -- create the output file handle
     outHandle <- liftIO $ openBinaryFile (Sys._filename p) WriteMode
     -- write file header
@@ -64,7 +64,7 @@ interpret Module{..} = do
     lift $ runStateT runSimulation $ mkSimState (Sys._outputPeriod p) outHandle p
     -- close the output file
     liftIO $ hClose outHandle
-    liftIO $ debugM "ode3.sim" $ "Simulation Complete"
+    liftIO $ debugM "ode3.sim" $ "(Interpreted) Simulation Complete"
     return ()
   where
     runSimulation :: SimM ()

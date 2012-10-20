@@ -16,8 +16,14 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Subsystem.Simulation.JITCompiler.JITShell (
-linkScript, runStaticScript
+llvmLinkScript, llvmAOTScript
 ) where
+
+-- Labels
+import Control.Category
+import qualified Data.Label as L
+import Prelude hiding ((.), id)
+
 
 import Shelly
 import Data.Text.Lazy as LT
@@ -26,11 +32,13 @@ import Utils.CommonImports
 import Subsystem.Simulation.Common
 import Subsystem.Simulation.JITCompiler.JITCommon
 import Subsystem.Simulation.JITCompiler.JITModel
+import qualified Subsystem.SysState as Sys
+
 default (LT.Text)
 
 
-linkScript :: Sh ()
-linkScript = do
+llvmLinkScript :: Sh ()
+llvmLinkScript = do
     liftIO $ debugM "ode3.sim" $ "Starting LLVM Linker Script"
 
     --res <- errExit False $ run "opt" ["--version"]
@@ -43,6 +51,8 @@ linkScript = do
     run "opt" ["-o", modelPath, "-std-compile-opts", modelPath]
     -- link the model to stdlib
     run "llvm-link" ["-o", simPath, modelPath, toTextIgnore libPath]
+    -- DEBUG - disassm sim.bcc
+    run "llvm-dis" [simPath]
     -- perfrom LTO
     run "opt" ["-o", simPath, "-std-link-opts", simPath]
 
@@ -57,19 +67,21 @@ linkScript = do
 
 -- | Embedded script to executre a static simulation, utilising static linking to all libs
 -- and no call-back to Ode run-time (requires use of Clang and system linker)
-runStaticScript :: Sh ()
-runStaticScript = do
-    liftIO $ debugM "ode3.sim" $ "Starting Run Static Script"
+llvmAOTScript :: Sys.SimParams -> Sh ()
+llvmAOTScript p = do
+    liftIO $ debugM "ode3.sim" $ "Starting AOT Script"
 
     -- delete the old sim file
     rm_f output
 
-    -- use clang to statically link our llvm-linked sim module to the system
-    run "clang" $ ["-static", "-o", toTextIgnore output, "-O3", simPath] ++ libDir ++ libs
+    -- check dyn/static linking
+    case (L.get Sys.lLinker p) of
+        -- use clang to link our llvm-linked sim module to the system
+        Sys.StaticLink -> run "clang" $ ["-static", "-o", toTextIgnore output, "-O3", simPath] ++ libDir ++ libs
+        Sys.DynamicLink -> run "clang" $ ["-o", toTextIgnore output, "-O3", simPath] ++ libDir ++ libs
 
-    -- execute the file
-    run output []
-
+    -- execute (as ext. process) if specified
+    if (L.get Sys.lExecute p) then run output [] >> return () else return ()
     return ()
   where
     output      = "./sim.exe"

@@ -108,7 +108,7 @@ initShellDesc = desc'
 defaultCmds :: [ShellCommand SysState]
 defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnitsCmd
                 , simStartCmd
-                , startTimeCmd, stopTimeCmd, simTimestepCmd, simSolverCmd, simBackendCmd
+                , startTimeCmd, stopTimeCmd, simTimestepCmd, simSolverCmd, simBackendCmd, simLinkerCmd, simExecuteCmd
                 , outPeriodCmd, outFilenameCmd
                 , repoAddCmd, repoDelCmd
                 , typeCmd
@@ -144,12 +144,22 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnits
         f str | map toLower str == "rk4"     = modifyShellSt $ set (lSolver . lSimParams) RK4
         f _ = shellPutInfoLn "Possible options <euler, rk4>"
 
-    simBackendCmd = cmd "backend" f "Simulation backend to use <interpreter, jitcompiler>"
+    simBackendCmd = cmd "backend" f "Simulation backend to use <interpreter, jitcompiler, aotcompiler>"
       where
         f :: String -> Sh SysState ()
         f str | map toLower str == "interpreter"     = modifyShellSt $ set (lBackend . lSimParams) Interpreter
         f str | map toLower str == "jitcompiler"     = modifyShellSt $ set (lBackend . lSimParams) JITCompiler
-        f _ = shellPutInfoLn "Possible options <interpreter, jitcompiler>"
+        f str | map toLower str == "aotcompiler"     = modifyShellSt $ set (lBackend . lSimParams) AOTCompiler
+        f _ = shellPutInfoLn "Possible options <interpreter, jitcompiler, aotcompiler>"
+
+    simLinkerCmd = cmd "linker" f "System linker to use when compiling <dynamic, static>"
+      where
+        f :: String -> Sh SysState ()
+        f str | map toLower str == "static"     = modifyShellSt $ set (lLinker . lSimParams) StaticLink
+        f str | map toLower str == "dynamic"     = modifyShellSt $ set (lLinker . lSimParams) DynamicLink
+        f _ = shellPutInfoLn "Possible options <dynamic, static>"
+
+    simExecuteCmd = toggle "execute" "Toggle Execution of Simulations" (get $ lExecute . lSimParams) (set $ lExecute . lSimParams)
 
     outPeriodCmd = cmd "period" f "Period iterations to save simulation state to disk"
       where
@@ -277,6 +287,6 @@ shSimulate initMod = do
         backend <- L.get (lBackend . lSimParams) <$> S.get
         case backend of
             Interpreter -> interpret flatAST
-            JITCompiler -> compile flatAST
+            _ -> compileAndSimulate flatAST
         -- all done
         return ()

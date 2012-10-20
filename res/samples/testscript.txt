@@ -20,6 +20,8 @@ import SimTests.BasicCalcNoUnits.*
 
 :solver "euler"
 :backend "jitcompiler"
+:linker "dynamic"
+//:execute
 //:backend "interpreter"
 
 // all done

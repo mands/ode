@@ -89,8 +89,11 @@ defSysState = SysState
 
 
 -- Simulation Datatypes
-data OdeSolver = FEuler | RK4 deriving (Show, Eq)
-data OdeBackend = Interpreter | JITCompiler deriving (Show, Eq)
+data OdeSolver  = FEuler | RK4 deriving (Show, Eq)
+data OdeBackend = Interpreter | JITCompiler | AOTCompiler deriving (Show, Eq)
+data OdeLinker  = StaticLink | DynamicLink deriving (Show, Eq)
+type OdeExecute = Bool
+
 
 data SimParams = SimParams
     { _startTime :: Double
@@ -100,16 +103,20 @@ data SimParams = SimParams
     , _filename :: FilePath             -- output filename to save data to
     , _solver :: OdeSolver
     , _backend :: OdeBackend
+    , _linker :: OdeLinker
+    , _execute :: OdeExecute
     } deriving Show
 
 defSimParams = SimParams
-    { _startTime = 0
-    , _endTime = 60
-    , _timestep = 0.001                 -- 1ms
+    { _startTime    = 0
+    , _endTime      = 60
+    , _timestep     = 0.001             -- 1ms
     , _outputPeriod = 500               -- 0.5s
-    , _filename = "output.bin"          -- default output file
-    , _solver = FEuler                  -- default solver
-    , _backend = Interpreter            -- default backend
+    , _filename     = "output.bin"      -- default output file
+    , _solver       = FEuler            -- default solver
+    , _backend      = Interpreter       -- default backend
+    , _linker       = DynamicLink       -- always dyn link (not used for Interpreter & JIT)
+    , _execute      = True              -- always execute (not used for Interpreter & JIT)
     }
 
 -- | Holds the ordered set of enabled repositories
@@ -162,7 +169,7 @@ def genLens(recName, fields):
     cog.outl("{0} = lens ({1}) (\\x rec -> rec {{ {1} = x }})".format(lName, field))
 
 genLens("SysState", ['_debug', '_disableUnits', '_simParams', '_modState', '_unitsState'])
-genLens("SimParams", ['_startTime', '_endTime', '_timestep', '_outputPeriod', '_filename', '_solver', '_backend'])
+genLens("SimParams", ['_startTime', '_endTime', '_timestep', '_outputPeriod', '_filename', '_solver', '_backend', '_linker', '_execute'])
 genLens("ModState", ['_repos', '_modEnv', '_parsedFiles', '_replFile'])
 genLens("UnitsState", ['_quantities', '_unitDimEnv', '_convEnv'])
 
@@ -183,6 +190,8 @@ lOutputPeriod = lens (_outputPeriod) (\x rec -> rec { _outputPeriod = x })
 lFilename = lens (_filename) (\x rec -> rec { _filename = x })
 lSolver = lens (_solver) (\x rec -> rec { _solver = x })
 lBackend = lens (_backend) (\x rec -> rec { _backend = x })
+lLinker = lens (_linker) (\x rec -> rec { _linker = x })
+lExecute = lens (_execute) (\x rec -> rec { _execute = x })
 
 -- ModState
 lRepos = lens (_repos) (\x rec -> rec { _repos = x })
@@ -194,7 +203,7 @@ lReplFile = lens (_replFile) (\x rec -> rec { _replFile = x })
 lQuantities = lens (_quantities) (\x rec -> rec { _quantities = x })
 lUnitDimEnv = lens (_unitDimEnv) (\x rec -> rec { _unitDimEnv = x })
 lConvEnv = lens (_convEnv) (\x rec -> rec { _convEnv = x })
---[[[end]]] (checksum: 90c3e38b15e686fc6d9b39e59b7cb6cf)
+--[[[end]]] (checksum: a02296e0832265d8490e941a346f3f9b)
 
 -- a few useful views from top SysState into nested labels
 vModEnv :: SysState :-> MA.GlobalModEnv

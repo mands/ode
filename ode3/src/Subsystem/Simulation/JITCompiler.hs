@@ -16,7 +16,7 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, UndecidableInstances #-}
 
 module Subsystem.Simulation.JITCompiler (
-compile
+compileAndSimulate
 ) where
 
 -- Labels
@@ -59,40 +59,32 @@ import Subsystem.Simulation.JITCompiler.JITShell
 
 -- Entry ---------------------------------------------------------------------------------------------------------------
 
-compile :: CF.Module -> Sys.SysExceptIO ()
-compile mod = do
-
+compileAndSimulate :: CF.Module -> Sys.SysExceptIO ()
+compileAndSimulate mod = do
     -- setup the default simulation state
     p <- Sys.getSysState Sys.lSimParams
-    liftIO $ debugM "ode3.sim" $ "JIT Compiling Model"
+    liftIO $ debugM "ode3.sim" $ "Compiling and linking Model and Sim code"
+    -- all code that runs in the GenM monad
+    lift $ runStateT (runGenM $ genLLVMModule mod >> linkLLVMModule) $ mkGenState p
 
-
-    -- configure LLVM
-    -- liftIO $ initializeNativeTarget
-    lift $ runStateT (runGenM codeGen) $ mkGenState p
-
-
-    liftIO $ debugM "ode3.sim" $ "Starting JIT Simulation"
-    -- run the simulation
-    -- liftIO $ runDynSimulation
-    liftIO $ runStaticSimulation
+    -- assumes presence of a sim.bc file
+    liftIO $ debugM "ode3.sim" $ "Starting (Compiled) Simulation"
+    p <- Sys.getSysState Sys.lSimParams
+    -- determine the correct compile/simulate options
+    case (L.get Sys.lBackend p) of
+        -- only dynamic-linking, w/execution allowed in JITCompiler
+        Sys.JITCompiler -> liftIO $ runJITSimulation p
+        Sys.AOTCompiler -> liftIO $ runAOTScript p
 
     -- close any output files? (handle within LLVM code)
-    liftIO $ debugM "ode3.sim" $ "JIT Simulation Complete"
-    return ()
-  where
-    -- all code that runs in the SimM monad
-    codeGen :: GenM ()
-    codeGen = do
-        createModule mod
-        linkModule
+    liftIO $ debugM "ode3.sim" $ "(Compiled) Simulation Complete"
 
 -- JIT Interface -------------------------------------------------------------------------------------------------------
 -- | Load our compiled module and run a simulation
 -- TODO - need to handle dynamic/static linking and JIT/AOT compilation
 
-createModule :: CF.Module -> GenM ()
-createModule odeMod = do
+genLLVMModule :: CF.Module -> GenM ()
+genLLVMModule odeMod = do
     -- create the module
     llvmMod <- liftIO $ moduleCreateWithName "model"
     -- insert the math ops and lib ops
@@ -109,16 +101,12 @@ createModule odeMod = do
     liftIO $ writeBitcodeToFile llvmMod "model.bc"
     return ()
 
--- | Calls out to our link script
-linkModule :: GenM ()
-linkModule = do
-    Sh.shelly . Sh.verbosely $ linkScript
-    return ()
+-- | Calls out to our linker script
+linkLLVMModule :: GenM ()
+linkLLVMModule = Sh.shelly . Sh.verbosely $ llvmLinkScript
 
-
-
-runDynSimulation :: IO ()
-runDynSimulation = do
+runJITSimulation :: Sys.SimParams -> IO ()
+runJITSimulation p = do
     -- load the linked/optimised module
     simMod <- readBitcodeFromFile "./sim.bc"
 
@@ -132,11 +120,13 @@ runDynSimulation = do
 
     -- destroy Module
     disposeModule simMod
+
+    -- DEBUG - also write the dyn exe to disk
+    liftIO $ debugM "ode3.sim" $ "Writing executable to disk"
+    runAOTScript $ p { Sys._linker = Sys.DynamicLink, Sys._execute = False }
     return ()
 
+-- | Calls out to our AOT script
+runAOTScript :: Sys.SimParams -> IO ()
+runAOTScript p = Sh.shelly . Sh.verbosely $ llvmAOTScript p
 
--- | Calls out to our runStatic script
-runStaticSimulation :: IO ()
-runStaticSimulation = do
-    Sh.shelly . Sh.verbosely $ runStaticScript
-    return ()
