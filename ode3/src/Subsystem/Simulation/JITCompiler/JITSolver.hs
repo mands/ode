@@ -92,8 +92,8 @@ genModelInitials CF.Module{..} = do
 
     -- setup the store commands for the outputs
     storeOutputs curFunc builder = do
-        (curTimeRef : params) <- liftIO $ LLVM.getParams curFunc
-        modify (\st -> st { curTimeRef })
+        (curTimeVal : params) <- liftIO $ LLVM.getParams curFunc
+        modify (\st -> st { curTimeVal })
         -- zip the ids (from toplets) with the params (the ordering will be the same)
         let outVals = zip (map fst (OrdMap.toList initExprs)) params
         -- for each val, gen the store thru the pointer
@@ -119,8 +119,8 @@ genModelLoop CF.Module{..} = do
                         (OrdMap.elems . fmap (\(ExprData _ t) -> pointerType (convertType t) 0) $ initExprs)
 
     createLocalMap curFunc = do
-        (curTimeRef : params) <- liftIO $ LLVM.getParams curFunc
-        modify (\st -> st { curTimeRef })
+        (curTimeVal : params) <- liftIO $ LLVM.getParams curFunc
+        modify (\st -> st { curTimeVal })
         let inParams = take (length params `div` 2) params
         let localMap = Map.fromList $ zip (OrdMap.keys initExprs) inParams
         modify (\st -> st { localMap })
@@ -150,8 +150,8 @@ genModelSolver CF.Module{..} initsF loopF = do
     _ <- liftIO $ buildCall builder (libOps Map.! "start_sim") [fileStrPtr] ""
 
     -- create the vals
-    stateValRefMap <- createVals (OrdMap.keys initExprs) False
-    deltaValRefMap <- createVals (OrdMap.keys initExprs) True
+    stateValRefMap <- createVals (OrdMap.keys initExprs) "StateRef"
+    deltaValRefMap <- createVals (OrdMap.keys initExprs) "DeltaRef"
     -- create variable sim params (static sim params embeedded as constants)
     simParamVs@(curPeriodRef, curLoopRef, curTimeRef, outDataRef) <- createSimParams
 
@@ -177,14 +177,14 @@ genModelSolver CF.Module{..} initsF loopF = do
     return curFunc
   where
     -- create the main state and delta variables
-    createVals :: [Id] -> Bool -> GenM (OrdMap.OrdMap Id LLVM.Value)
-    createVals ids isDelta = foldM createVal OrdMap.empty ids
+    createVals :: [Id] -> String -> GenM (OrdMap.OrdMap Id LLVM.Value)
+    createVals ids suffix = foldM createVal OrdMap.empty ids
       where
         createVal idMap i = do
             GenState {builder} <- get
             llV <- liftIO $ buildAlloca builder doubleType (getName i)
             return $ OrdMap.insert i llV idMap
-        getName i = if isDelta then (getValidIdName i) ++ "delta" else (getValidIdName i)
+        getName i = (getValidIdName i) ++ suffix
 
     -- create most (mutable) sim params
     createSimParams :: GenM (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value)
@@ -227,7 +227,7 @@ genModelSolver CF.Module{..} initsF loopF = do
             buildStore builder curTime curTimeRef
 
         -- call the modelLoop func
-        stateVals <- mapM (\v -> liftIO $ buildLoad builder v "") $ OrdMap.elems stateValRefMap
+        stateVals <- mapM (\v -> liftIO $ buildLoad builder v "odeValx") $ OrdMap.elems stateValRefMap
         _ <- liftIO $ withPtrVal builder curTimeRef $ \curTime -> do
             buildCall builder loopF (curTime : stateVals  ++ OrdMap.elems deltaValRefMap) ""
 

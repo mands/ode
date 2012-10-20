@@ -36,7 +36,6 @@ import qualified Subsystem.SysState as Sys
 
 default (LT.Text)
 
-
 llvmLinkScript :: Sh ()
 llvmLinkScript = do
     liftIO $ debugM "ode3.sim" $ "Starting LLVM Linker Script"

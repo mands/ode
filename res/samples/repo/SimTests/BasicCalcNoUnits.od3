@@ -118,10 +118,11 @@ module BasicCalc9 {
     }
     ode {init: x, delta : dx } = comp(4)
 }
+
 // stateful
 module BasicCalc10 {
     component mkOde(i) {
-        init x = 0
+        init x = 1
         ode {init: x, delta : dx } = i
         return dx
     }

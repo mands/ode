@@ -61,13 +61,13 @@ import Subsystem.Simulation.JITCompiler.JITShell
 
 compileAndSimulate :: CF.Module -> Sys.SysExceptIO ()
 compileAndSimulate mod = do
-    -- setup the default simulation state
+    -- Compiler stage
     p <- Sys.getSysState Sys.lSimParams
     liftIO $ debugM "ode3.sim" $ "Compiling and linking Model and Sim code"
     -- all code that runs in the GenM monad
     lift $ runStateT (runGenM $ genLLVMModule mod >> linkLLVMModule) $ mkGenState p
 
-    -- assumes presence of a sim.bc file
+    -- Simulate stage - assumes presence of a sim.bc file
     liftIO $ debugM "ode3.sim" $ "Starting (Compiled) Simulation"
     p <- Sys.getSysState Sys.lSimParams
     -- determine the correct compile/simulate options
@@ -80,9 +80,8 @@ compileAndSimulate mod = do
     liftIO $ debugM "ode3.sim" $ "(Compiled) Simulation Complete"
 
 -- JIT Interface -------------------------------------------------------------------------------------------------------
--- | Load our compiled module and run a simulation
--- TODO - need to handle dynamic/static linking and JIT/AOT compilation
 
+-- | Compile a CoreFlat Ode module into a LLVM model
 genLLVMModule :: CF.Module -> GenM ()
 genLLVMModule odeMod = do
     -- create the module
@@ -105,6 +104,7 @@ genLLVMModule odeMod = do
 linkLLVMModule :: GenM ()
 linkLLVMModule = Sh.shelly . Sh.verbosely $ llvmLinkScript
 
+-- | Load our compiled module and run a simulation
 runJITSimulation :: Sys.SimParams -> IO ()
 runJITSimulation p = do
     -- load the linked/optimised module

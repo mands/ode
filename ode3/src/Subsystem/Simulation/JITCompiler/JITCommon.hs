@@ -66,7 +66,7 @@ data GenState = GenState    { -- stateMap :: Map.Map Id String     -- a mapping 
                             , builder :: LLVM.Builder           -- the current inst. builder
                             , llvmMod :: LLVM.Module
                             , curFunc :: LLVM.Value
-                            , curTimeRef :: LLVM.Value
+                            , curTimeVal :: LLVM.Value
                             , simParams :: Sys.SimParams
                             } deriving (Show)
 

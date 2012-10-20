@@ -114,7 +114,6 @@ genVar (TupleRef i tupIdx) = do
     GenState {builder} <- get
     liftIO $ buildExtractValue builder llTupleV (fromIntegral $ tupIdx - 1) ""
 
-
 -- simple map over the vars
 -- can use const structs as only have pure values - no need to alloca the struct on the stack and store/load
 genVar (Tuple vs) = do
@@ -122,16 +121,13 @@ genVar (Tuple vs) = do
     llVs <- mapM genVar vs
     liftIO $ constStruct llVs False
 
-
 -- Basic vars
 genVar (Num n) = return $ constReal doubleType (FFI.CDouble n)
 genVar (Boolean b) = return $ constInt int1Type (FFI.fromBool b) False
 genVar Unit = return $ constInt int1Type 0 False
-genVar Time = do
-    undefined
-    GenState {builder, curTimeRef} <- get
-    liftIO $ buildLoad builder curTimeRef "timeVal"
-
+genVar Time = curTimeVal <$>   get
+    -- liftIO $ buildLoad builder curTimeRef "timeVal"
+    -- return curTime
 
 genVar v = errorDump [] "NYI" assert
 
