@@ -40,9 +40,6 @@ llvmLinkScript :: Sys.SimParams -> Sh ()
 llvmLinkScript p = do
     liftIO $ debugM "ode3.sim" $ "Starting LLVM Linker Script"
 
-    --res <- errExit False $ run "opt" ["--version"]
-    --echo =<< (toTextIgnore <$> canonic (fromText "./model.bc"))
-
     -- delete the old sim file
     rm_f "./sim.bc"
 
@@ -52,7 +49,7 @@ llvmLinkScript p = do
         else return ()
     -- link the model to stdlib
     run "llvm-link" ["-o", simPath, modelPath, toTextIgnore libPath]
-    -- DEBUG - disassm sim.bcc
+    -- DEBUG - dis-assemble sim.bc
     run "llvm-dis" [simPath]
     -- perfrom LTO
     if (L.get Sys.lOptimise p)

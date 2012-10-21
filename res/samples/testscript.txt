@@ -25,8 +25,8 @@ import SimTests.HodHux.HodHux
 :disableExecute
 // disable opts
 //:disableOptimise
-:backend "aotcompiler"
-//:backend "interpreter"
+//:backend "aotcompiler"
+:backend "interpreter"
 
 // all done
 :simulate HodHux
