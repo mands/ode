@@ -72,7 +72,7 @@ liftExSys = lift . mkExceptIO
 
 data SysState = SysState
     { _debug :: Bool                -- do we enable debug mode
-    , _disableUnits :: Bool         -- disable type-checker units?
+    , _unitsCheck :: Bool         -- disable type-checker units?
     , _simParams :: SimParams         -- simulation params
     , _modState :: ModState
     , _unitsState :: UnitsState
@@ -81,7 +81,7 @@ data SysState = SysState
 
 defSysState = SysState
     { _debug = False
-    , _disableUnits = False
+    , _unitsCheck = True
     , _simParams = defSimParams
     , _modState = defModState
     , _unitsState = defUnitsState
@@ -92,8 +92,6 @@ defSysState = SysState
 data OdeSolver  = FEuler | RK4 deriving (Show, Eq)
 data OdeBackend = Interpreter | JITCompiler | AOTCompiler deriving (Show, Eq)
 data OdeLinker  = StaticLink | DynamicLink deriving (Show, Eq)
-type OdeExecute = Bool
-
 
 data SimParams = SimParams
     { _startTime :: Double
@@ -104,7 +102,8 @@ data SimParams = SimParams
     , _solver :: OdeSolver
     , _backend :: OdeBackend
     , _linker :: OdeLinker
-    , _execute :: OdeExecute
+    , _execute :: Bool
+    , _optimise :: Bool
     } deriving Show
 
 defSimParams = SimParams
@@ -117,6 +116,7 @@ defSimParams = SimParams
     , _backend      = Interpreter       -- default backend
     , _linker       = DynamicLink       -- always dyn link (not used for Interpreter & JIT)
     , _execute      = True              -- always execute (not used for Interpreter & JIT)
+    , _optimise     = True              -- always optimise
     }
 
 -- | Holds the ordered set of enabled repositories
@@ -168,8 +168,8 @@ def genLens(recName, fields):
     lName = "l" + field[1].upper() + field[2:]
     cog.outl("{0} = lens ({1}) (\\x rec -> rec {{ {1} = x }})".format(lName, field))
 
-genLens("SysState", ['_debug', '_disableUnits', '_simParams', '_modState', '_unitsState'])
-genLens("SimParams", ['_startTime', '_endTime', '_timestep', '_outputPeriod', '_filename', '_solver', '_backend', '_linker', '_execute'])
+genLens("SysState", ['_debug', '_unitsCheck', '_simParams', '_modState', '_unitsState'])
+genLens("SimParams", ['_startTime', '_endTime', '_timestep', '_outputPeriod', '_filename', '_solver', '_backend', '_linker', '_execute', '_optimise'])
 genLens("ModState", ['_repos', '_modEnv', '_parsedFiles', '_replFile'])
 genLens("UnitsState", ['_quantities', '_unitDimEnv', '_convEnv'])
 
@@ -177,7 +177,7 @@ genLens("UnitsState", ['_quantities', '_unitDimEnv', '_convEnv'])
 
 -- SysState
 lDebug = lens (_debug) (\x rec -> rec { _debug = x })
-lDisableUnits = lens (_disableUnits) (\x rec -> rec { _disableUnits = x })
+lUnitsCheck = lens (_unitsCheck) (\x rec -> rec { _unitsCheck = x })
 lSimParams = lens (_simParams) (\x rec -> rec { _simParams = x })
 lModState = lens (_modState) (\x rec -> rec { _modState = x })
 lUnitsState = lens (_unitsState) (\x rec -> rec { _unitsState = x })
@@ -192,6 +192,7 @@ lSolver = lens (_solver) (\x rec -> rec { _solver = x })
 lBackend = lens (_backend) (\x rec -> rec { _backend = x })
 lLinker = lens (_linker) (\x rec -> rec { _linker = x })
 lExecute = lens (_execute) (\x rec -> rec { _execute = x })
+lOptimise = lens (_optimise) (\x rec -> rec { _optimise = x })
 
 -- ModState
 lRepos = lens (_repos) (\x rec -> rec { _repos = x })
@@ -203,7 +204,7 @@ lReplFile = lens (_replFile) (\x rec -> rec { _replFile = x })
 lQuantities = lens (_quantities) (\x rec -> rec { _quantities = x })
 lUnitDimEnv = lens (_unitDimEnv) (\x rec -> rec { _unitDimEnv = x })
 lConvEnv = lens (_convEnv) (\x rec -> rec { _convEnv = x })
---[[[end]]] (checksum: a02296e0832265d8490e941a346f3f9b)
+--[[[end]]] (checksum: e432e6d7ba0c601201ffd101846459a5)
 
 -- a few useful views from top SysState into nested labels
 vModEnv :: SysState :-> MA.GlobalModEnv

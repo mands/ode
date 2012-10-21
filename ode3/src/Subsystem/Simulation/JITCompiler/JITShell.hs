@@ -36,8 +36,8 @@ import qualified Subsystem.SysState as Sys
 
 default (LT.Text)
 
-llvmLinkScript :: Sh ()
-llvmLinkScript = do
+llvmLinkScript :: Sys.SimParams -> Sh ()
+llvmLinkScript p = do
     liftIO $ debugM "ode3.sim" $ "Starting LLVM Linker Script"
 
     --res <- errExit False $ run "opt" ["--version"]
@@ -47,13 +47,17 @@ llvmLinkScript = do
     rm_f "./sim.bc"
 
     -- optimise the model
-    run "opt" ["-o", modelPath, "-std-compile-opts", modelPath]
+    if (L.get Sys.lOptimise p)
+        then run "opt" ["-o", modelPath, modelOpts, modelPath] >> return ()
+        else return ()
     -- link the model to stdlib
     run "llvm-link" ["-o", simPath, modelPath, toTextIgnore libPath]
     -- DEBUG - disassm sim.bcc
     run "llvm-dis" [simPath]
     -- perfrom LTO
-    run "opt" ["-o", simPath, "-std-link-opts", simPath]
+    if (L.get Sys.lOptimise p)
+        then run "opt" ["-o", simPath, linkOpts, simPath] >> return ()
+        else return ()
 
     return ()
   where
@@ -62,6 +66,8 @@ llvmLinkScript = do
     simPath     = "./sim.bc"
     libDir      = "../res/stdlib"
     libPath     = libDir </> "odelibrary.bc"
+    modelOpts   = if (L.get Sys.lOptimise p) then "-std-compile-opts" else ""
+    linkOpts     = if (L.get Sys.lOptimise p) then "-std-link-opts -std-compile-opts" else ""
 
 
 -- | Embedded script to executre a static simulation, utilising static linking to all libs
@@ -76,8 +82,8 @@ llvmAOTScript p = do
     -- check dyn/static linking
     case (L.get Sys.lLinker p) of
         -- use clang to link our llvm-linked sim module to the system
-        Sys.StaticLink -> run "clang" $ ["-static", "-o", toTextIgnore output, "-O3", simPath] ++ libDir ++ libs
-        Sys.DynamicLink -> run "clang" $ ["-o", toTextIgnore output, "-O3", simPath] ++ libDir ++ libs
+        Sys.StaticLink -> run "clang" $ ["-static", "-o", toTextIgnore output, optLevel, simPath] ++ libDir ++ libs
+        Sys.DynamicLink -> run "clang" $ ["-o", toTextIgnore output, optLevel, simPath] ++ libDir ++ libs
 
     -- execute (as ext. process) if specified
     if (L.get Sys.lExecute p) then run output [] >> return () else return ()
@@ -87,3 +93,4 @@ llvmAOTScript p = do
     simPath     = "./sim.bc"
     libs        = ["-lm"]
     libDir      = []
+    optLevel = if (L.get Sys.lOptimise p) then "-O3" else "-O0"

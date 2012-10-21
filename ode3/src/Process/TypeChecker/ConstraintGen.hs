@@ -176,7 +176,7 @@ recordRefsCons gModEnv modData mFuncArgs = do
 -- Constraint Generation -----------------------------------------------------------------------------------------------
 
 constrain :: M.GlobalModEnv ->  M.ModData E.Id -> Maybe (M.FunArgs) -> Bool -> MExcept (TypeEnvs, TypeCons)
-constrain gModEnv modData mFuncArgs disUnits = runStateT (evalSupplyT (execStateT consM $ mkTypeEnvs disUnits) [1..]) mkTypeCons
+constrain gModEnv modData mFuncArgs unitsCheck = runStateT (evalSupplyT (execStateT consM $ mkTypeEnvs unitsCheck) [1..]) mkTypeCons
   where
     consM :: TypeConsM ()
     consM = DF.mapM_ consTop (OrdMap.elems (M.modExprMap modData)) >> recordRefsCons gModEnv modData mFuncArgs
@@ -254,9 +254,9 @@ constrain gModEnv modData mFuncArgs disUnits = runStateT (evalSupplyT (execState
         -- should this be of unit NoUnit or UnitVar ??
         -- E.Num _ -> uFloat
         -- process differently depending if units are enabled
-        E.Num _ u       -> return $ if disUnits then E.TFloat U.NoUnit else E.TFloat u
-        E.NumSeq _ u    -> return $ if disUnits then E.TFloat U.NoUnit else E.TFloat u
-        E.Time          -> return $ if disUnits then E.TFloat U.NoUnit else E.TFloat U.uSeconds -- should this be uFloat ??
+        E.Num _ u       -> return $ if unitsCheck then E.TFloat u else E.TFloat U.NoUnit
+        E.NumSeq _ u    -> return $ if unitsCheck then E.TFloat u else E.TFloat U.NoUnit
+        E.Time          -> return $ if unitsCheck then E.TFloat U.uSeconds else E.TFloat U.NoUnit-- should this be uFloat ??
         E.Unit          -> return E.TUnit
 
     -- test add, same code for most ops (not mul/div)
@@ -299,7 +299,7 @@ constrain gModEnv modData mFuncArgs disUnits = runStateT (evalSupplyT (execState
 
         -- process differently depending if units are enabled
         -- TODO - contrain both types wrt Time -- is this right?
-        unless disUnits (addConsUnit $ ConSum uV2 U.uSeconds uV1)
+        when unitsCheck (addConsUnit $ ConSum uV2 U.uSeconds uV1)
         -- TODO - return the type of the dExpr
         return eDT
 
@@ -319,14 +319,14 @@ constrain gModEnv modData mFuncArgs disUnits = runStateT (evalSupplyT (execState
         uV1 <- newUnitVar
         addConsType $ ConEqual eT (E.TFloat uV1)
         -- process differently depending if units are enabled
-        if disUnits
-            then return eT
-            else do
+        if unitsCheck
+            then do
                 -- constrain them both units to be of the same dimension
                 addConsUnit $ ConSameDim uV1 u
                 -- return the new "casted" unit
                 return $ E.TFloat u
-
+            else
+                return eT
 
     -- TODO - doesn't work for types exported in functors!!
     consExpr (E.TypeCast e (E.WrapType tName)) = do

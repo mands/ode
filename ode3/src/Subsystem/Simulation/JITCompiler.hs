@@ -65,7 +65,7 @@ compileAndSimulate mod = do
     p <- Sys.getSysState Sys.lSimParams
     liftIO $ debugM "ode3.sim" $ "Compiling and linking Model and Sim code"
     -- all code that runs in the GenM monad
-    lift $ runStateT (runGenM $ genLLVMModule mod >> linkLLVMModule) $ mkGenState p
+    lift $ runStateT (runGenM $ genLLVMModule mod >> linkLLVMModule p) $ mkGenState p
 
     -- Simulate stage - assumes presence of a sim.bc file
     liftIO $ debugM "ode3.sim" $ "Starting (Compiled) Simulation"
@@ -101,8 +101,8 @@ genLLVMModule odeMod = do
     return ()
 
 -- | Calls out to our linker script
-linkLLVMModule :: GenM ()
-linkLLVMModule = Sh.shelly . Sh.verbosely $ llvmLinkScript
+linkLLVMModule :: Sys.SimParams -> GenM ()
+linkLLVMModule p = Sh.shelly . Sh.verbosely $ llvmLinkScript p
 
 -- | Load our compiled module and run a simulation
 runJITSimulation :: Sys.SimParams -> IO ()

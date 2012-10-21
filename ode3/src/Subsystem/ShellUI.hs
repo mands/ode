@@ -105,10 +105,11 @@ initShellDesc = desc'
 
 -- | Default commands used by the system, both toggles and cmd funcs
 -- we use commands to setup and control simulation
+-- TODO - change the toggle cmds to noun - not disableNoun
 defaultCmds :: [ShellCommand SysState]
 defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnitsCmd
                 , simStartCmd
-                , startTimeCmd, stopTimeCmd, simTimestepCmd, simSolverCmd, simBackendCmd, simLinkerCmd, simExecuteCmd
+                , startTimeCmd, stopTimeCmd, simTimestepCmd, simSolverCmd, simBackendCmd, simLinkerCmd, simExecuteCmd, simOptimiseCmd
                 , outPeriodCmd, outFilenameCmd
                 , repoAddCmd, repoDelCmd
                 , typeCmd
@@ -118,7 +119,7 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnits
     -- debug toggle, need to update the logger too
     debugCmd = toggle "debug" "Toggle Debug Mode" (get lDebug) (set lDebug)
 
-    disableUnitsCmd = toggle "disableUnits" "Toggle Debug Mode" (get lDisableUnits) (set lDisableUnits)
+    disableUnitsCmd = toggle "disableUnits" "Toggle Units Checking" (get lUnitsCheck) (set lUnitsCheck)
 
     -- basic cmds
     -- damn record update syntax!
@@ -159,7 +160,8 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnits
         f str | map toLower str == "dynamic"     = modifyShellSt $ set (lLinker . lSimParams) DynamicLink
         f _ = shellPutInfoLn "Possible options <dynamic, static>"
 
-    simExecuteCmd = toggle "execute" "Toggle Execution of Simulations" (get $ lExecute . lSimParams) (set $ lExecute . lSimParams)
+    simExecuteCmd = toggle "disableExecute" "Toggle Execution of Simulations" (get $ lExecute . lSimParams) (set $ lExecute . lSimParams)
+    simOptimiseCmd = toggle "disableOptimise" "Toggle LLVM Optimisation of Simulations" (get $ lOptimise . lSimParams) (set $ lOptimise . lSimParams)
 
     outPeriodCmd = cmd "period" f "Period iterations to save simulation state to disk"
       where
