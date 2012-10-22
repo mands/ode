@@ -77,6 +77,7 @@ genFunction fName fRetType fArgTypes = do
 genModelInitials :: CF.Module -> GenM LLVM.Value
 genModelInitials CF.Module{..} = do
     (curFunc, builder) <- genFunction "modelInitials" voidType createArgsList
+    liftIO $ setLinkage curFunc PrivateLinkage
     -- set func params
     _ <- liftIO $ addFuncAttributes curFunc [AlwaysInlineAttribute, NoUnwindAttribute]
     liftIO $ getParams curFunc >>= \params -> setParamAttribs params
@@ -111,6 +112,7 @@ genModelInitials CF.Module{..} = do
 genModelLoop :: CF.Module -> GenM LLVM.Value
 genModelLoop CF.Module{..} = do
     (curFunc, builder) <- genFunction  "modelLoop" voidType createArgsList
+    liftIO $ setLinkage curFunc PrivateLinkage
     -- set func params
     _ <- liftIO $ addFuncAttributes curFunc [AlwaysInlineAttribute, NoUnwindAttribute]
     liftIO $ getParams curFunc >>= \params -> setParamAttribs params
@@ -156,8 +158,9 @@ genModelLoop CF.Module{..} = do
 genModelSolver :: CF.Module -> LLVM.Value -> LLVM.Value -> GenM LLVM.Value
 genModelSolver CF.Module{..} initsF loopF = do
     (curFunc, builder) <- genFunction  "modelSolver" voidType []
+    -- need external linkage to generate a aot executable
+    liftIO $ setLinkage curFunc ExternalLinkage
     GenState {libOps, llvmMod, simParams} <- get
-
     -- call the start_sim func
     _ <- liftIO $ buildCall builder (libOps Map.! "init") [] ""
     fileStr <- liftIO $ createConstString llvmMod (L.get Sys.lFilename simParams)
@@ -226,7 +229,8 @@ genModelSolver CF.Module{..} initsF loopF = do
             return ()
         -- write to output func
         simOutDataPtr <- liftIO $ buildInBoundsGEP builder simOutData [constInt32' 0, constInt32' 0] $ "storeOutPtr"
-        _ <- liftIO $ buildCall builder (libOps Map.! "write_dbls") [constInt32' $ OrdMap.size initExprs + 1, simOutDataPtr] ""
+        callInst <- liftIO $ buildCall builder (libOps Map.! "write_dbls") [constInt32' $ OrdMap.size initExprs + 1, simOutDataPtr] ""
+        liftIO $ setInstructionCallConv callInst Fast
         return ()
 
     createSolverLoopBody  :: ParamMap -> ParamMap -> (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value) -> GenM ()

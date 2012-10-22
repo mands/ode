@@ -39,10 +39,8 @@ default (LT.Text)
 llvmLinkScript :: Sys.SimParams -> Sh ()
 llvmLinkScript p = do
     liftIO $ debugM "ode3.sim" $ "Starting LLVM Linker Script"
-
     -- delete the old sim file
     rm_f "./sim.bc"
-
     -- optimise the model
     if (L.get Sys.lOptimise p)
         then run "opt" ["-o", modelPath, modelOpts, modelPath] >> return ()
@@ -55,7 +53,6 @@ llvmLinkScript p = do
     if (L.get Sys.lOptimise p)
         then run "opt" ["-o", simPath, linkOpts, modelOpts, simPath] >> return ()
         else return ()
-
     return ()
   where
     -- TODO - fix these paths
@@ -66,22 +63,15 @@ llvmLinkScript p = do
     modelOpts   = if (L.get Sys.lOptimise p) then "-std-compile-opts" else ""
     linkOpts     = if (L.get Sys.lOptimise p) then "-std-link-opts" else ""
 
-
 -- | Embedded script to executre a static simulation, utilising static linking to all libs
 -- and no call-back to Ode run-time (requires use of Clang and system linker)
 llvmAOTScript :: Sys.SimParams -> Sh ()
 llvmAOTScript p = do
     liftIO $ debugM "ode3.sim" $ "Starting AOT Script"
-
     -- delete the old sim file
     rm_f output
-
-    -- check dyn/static linking
-    case (L.get Sys.lLinker p) of
-        -- use clang to link our llvm-linked sim module to the system
-        Sys.StaticLink -> run "clang" $ ["-static", "-o", toTextIgnore output, optLevel, simPath] ++ libDir ++ libs
-        Sys.DynamicLink -> run "clang" $ ["-o", toTextIgnore output, optLevel, simPath] ++ libDir ++ libs
-
+    -- use clang to link our llvm-linked sim module to the system
+    run "clang" $ [linkType, "-o", toTextIgnore output, optLevel, noMathErrno, fastMath, simPath] ++ libDir ++ libs
     -- execute (as ext. process) if specified
     if (L.get Sys.lExecute p) then run output [] >> return () else return ()
     return ()
@@ -90,4 +80,10 @@ llvmAOTScript p = do
     simPath     = "./sim.bc"
     libs        = ["-lm"]
     libDir      = []
-    optLevel = if (L.get Sys.lOptimise p) then "-O3" else "-O0"
+    optLevel    = if (L.get Sys.lOptimise p) then "-O3" else "-O0"
+    noMathErrno = if (L.get Sys.lOptimise p) then "-fno-math-errno" else ""
+    fastMath    = if (L.get Sys.lOptimise p) then "-ffast-math" else ""
+    -- check dyn/static linking
+    linkType    = case (L.get Sys.lLinker p) of
+        Sys.StaticLink -> "-static"
+        Sys.DynamicLink -> ""

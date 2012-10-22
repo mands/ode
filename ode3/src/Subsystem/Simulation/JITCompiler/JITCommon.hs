@@ -145,7 +145,6 @@ defineExtOps llvmMod = do
         -- addFuncAttributes f [NoUnwindAttribute, ReadNoneAttribute]
         return f
 
-
     libOps :: [(String, IO LLVM.Value)]
     libOps =
         [ ("init",   addFunction llvmMod "init" (functionType voidType [] False))
