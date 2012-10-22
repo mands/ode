@@ -160,6 +160,7 @@ genModelSolver CF.Module{..} initsF loopF = do
     (curFunc, builder) <- genFunction  "modelSolver" voidType []
     -- need external linkage to generate a aot executable
     liftIO $ setLinkage curFunc ExternalLinkage
+    _ <- liftIO $ addFuncAttributes curFunc [NoInlineAttribute, NoUnwindAttribute]
     GenState {libOps, llvmMod, simParams} <- get
     -- call the start_sim func
     _ <- liftIO $ buildCall builder (libOps Map.! "init") [] ""

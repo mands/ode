@@ -136,8 +136,8 @@ defineExtOps llvmMod = do
 
     createPureFunc name funcType = do
         f <- addFunction llvmMod name funcType
-        addFuncAttributes f [NoUnwindAttribute, ReadNoneAttribute]
         setFunctionCallConv f Fast
+        addFuncAttributes f [NoUnwindAttribute, ReadNoneAttribute]
         return f
 
     createReadOnlyFunc name funcType = do
@@ -208,6 +208,11 @@ addParamAttributes v attrs = mapM_ (addAttribute v) attrs >> return v
 
 addFuncAttributes :: LLVM.Value -> [Attribute] -> IO LLVM.Value
 addFuncAttributes v attrs = mapM_ (addFunctionAttr v) attrs >> return v
+
+-- WTF!!! why does (-1/4294967295) work as index??
+addInstrAttributes :: LLVM.Value -> [Attribute] -> IO LLVM.Value
+addInstrAttributes v attrs = mapM_ (\a -> LFFI.addInstrAttribute v (fromIntegral (0-1)) $ LFFI.fromAttribute a) attrs >> return v
+
 
 --runFunction' :: LLVM.ExecutionEngine -> LLVM.Value -> [LFFI.GenericValue] -> IO LFFI.GenericValue
 --runFunction' ee f args

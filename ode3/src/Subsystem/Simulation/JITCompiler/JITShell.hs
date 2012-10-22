@@ -47,12 +47,12 @@ llvmLinkScript p = do
         else return ()
     -- link the model to stdlib
     run "llvm-link" ["-o", simPath, modelPath, toTextIgnore libPath]
-    -- DEBUG - dis-assemble sim.bc
-    run "llvm-dis" [simPath]
     -- perfrom LTO
     if (L.get Sys.lOptimise p)
         then run "opt" ["-o", simPath, linkOpts, modelOpts, simPath] >> return ()
         else return ()
+    -- DEBUG - dis-assemble sim.bc
+    run "llvm-dis" [simPath]
     return ()
   where
     -- TODO - fix these paths
