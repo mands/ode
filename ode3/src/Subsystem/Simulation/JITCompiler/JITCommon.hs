@@ -110,29 +110,40 @@ defineExtOps llvmMod = do
     mathOps :: [(AC.MathOp, IO LLVM.Value)]
     mathOps =
         -- trig funcs
-        [ (AC.Sin,      addFunction llvmMod "sin" (functionType doubleType [doubleType] False))
-        , (AC.Cos,      addFunction llvmMod "cos" (functionType doubleType [doubleType] False))
-        , (AC.Tan,      addFunction llvmMod "tan" (functionType doubleType [doubleType] False))
-        , (AC.ASin,     addFunction llvmMod "asin" (functionType doubleType [doubleType] False))
-        , (AC.ACos,     addFunction llvmMod "acos" (functionType doubleType [doubleType] False))
-        , (AC.ATan,     addFunction llvmMod "atan" (functionType doubleType [doubleType] False))
-        , (AC.ATan2,    addFunction llvmMod "atan2" (functionType doubleType [doubleType, doubleType] False))
+        [ (AC.Sin,      createPureFunc "sin" (functionType doubleType [doubleType] False))
+        , (AC.Cos,      createPureFunc "cos" (functionType doubleType [doubleType] False))
+        , (AC.Tan,      createPureFunc "tan" (functionType doubleType [doubleType] False))
+        , (AC.ASin,     createPureFunc "asin" (functionType doubleType [doubleType] False))
+        , (AC.ACos,     createPureFunc "acos" (functionType doubleType [doubleType] False))
+        , (AC.ATan,     createPureFunc "atan" (functionType doubleType [doubleType] False))
+        , (AC.ATan2,    createPureFunc "atan2" (functionType doubleType [doubleType, doubleType] False))
         -- hyperbolics
-        , (AC.SinH,     addFunction llvmMod "sinh" (functionType doubleType [doubleType] False))
-        , (AC.CosH,     addFunction llvmMod "cosh" (functionType doubleType [doubleType] False))
-        , (AC.TanH,     addFunction llvmMod "tanh" (functionType doubleType [doubleType] False))
-        , (AC.ASinH,    addFunction llvmMod "asinh" (functionType doubleType [doubleType] False))
-        , (AC.ACosH,    addFunction llvmMod "acosh" (functionType doubleType [doubleType] False))
-        , (AC.ATanH,    addFunction llvmMod "atanh" (functionType doubleType [doubleType] False))
+        , (AC.SinH,     createPureFunc "sinh" (functionType doubleType [doubleType] False))
+        , (AC.CosH,     createPureFunc "cosh" (functionType doubleType [doubleType] False))
+        , (AC.TanH,     createPureFunc "tanh" (functionType doubleType [doubleType] False))
+        , (AC.ASinH,    createPureFunc "asinh" (functionType doubleType [doubleType] False))
+        , (AC.ACosH,    createPureFunc "acosh" (functionType doubleType [doubleType] False))
+        , (AC.ATanH,    createPureFunc "atanh" (functionType doubleType [doubleType] False))
         -- logs/exps
-        , (AC.Exp,      addFunction llvmMod "exp" (functionType doubleType [doubleType] False))
-        , (AC.Log,      addFunction llvmMod "log" (functionType doubleType [doubleType] False))
+        , (AC.Exp,      createPureFunc "exp" (functionType doubleType [doubleType] False))
+        , (AC.Log,      createPureFunc "log" (functionType doubleType [doubleType] False))
         -- powers
-        , (AC.Pow,      addFunction llvmMod "pow" (functionType doubleType [doubleType, doubleType] False))
-        , (AC.Sqrt,     addFunction llvmMod "sqrt" (functionType doubleType [doubleType] False))
-        , (AC.Cbrt,     addFunction llvmMod "cbrt" (functionType doubleType [doubleType] False))
-        , (AC.Hypot,    addFunction llvmMod "hypot" (functionType doubleType [doubleType, doubleType] False))
+        , (AC.Pow,      createPureFunc "pow" (functionType doubleType [doubleType, doubleType] False))
+        , (AC.Sqrt,     createPureFunc "sqrt" (functionType doubleType [doubleType] False))
+        , (AC.Cbrt,     createPureFunc "cbrt" (functionType doubleType [doubleType] False))
+        , (AC.Hypot,    createPureFunc "hypot" (functionType doubleType [doubleType, doubleType] False))
         ]
+
+    createPureFunc name funcType = do
+        f <- addFunction llvmMod name funcType
+        addFuncAttributes f [NoUnwindAttribute, ReadNoneAttribute]
+        setFunctionCallConv f Fast
+        return f
+
+    createReadOnlyFunc name funcType = do
+        f <- addFunction llvmMod name funcType
+        -- addFuncAttributes f [NoUnwindAttribute, ReadNoneAttribute]
+        return f
 
 
     libOps :: [(String, IO LLVM.Value)]
@@ -143,7 +154,6 @@ defineExtOps llvmMod = do
         , ("end_sim",   addFunction llvmMod "end_sim" (functionType voidType [] False))
         , ("write_dbls", addFunction llvmMod "write_dbls" (functionType voidType [int32Type, pointerType doubleType 0] False))
         ]
-
 
 -- LLVM Funcs ----------------------------------------------------------------------------------------------------------
 -- TODO - move these into LLVM.Wrapper at some point
@@ -194,6 +204,11 @@ updatePtrVal builder ptrVal updateFunc = do
 withPtrVal :: Builder -> LLVM.Value -> (LLVM.Value -> IO a) -> IO a
 withPtrVal builder ptrVal runFunc = buildLoad builder ptrVal "derefVal" >>= (\val -> runFunc val)
 
+addParamAttributes :: LLVM.Value -> [Attribute] -> IO LLVM.Value
+addParamAttributes v attrs = mapM_ (addAttribute v) attrs >> return v
+
+addFuncAttributes :: LLVM.Value -> [Attribute] -> IO LLVM.Value
+addFuncAttributes v attrs = mapM_ (addFunctionAttr v) attrs >> return v
 
 --runFunction' :: LLVM.ExecutionEngine -> LLVM.Value -> [LFFI.GenericValue] -> IO LFFI.GenericValue
 --runFunction' ee f args

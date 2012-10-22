@@ -18,7 +18,6 @@ module Subsystem.Simulation.JITCompiler.JITSolver (
 genModelInitials, genModelLoop, genModelSolver
 ) where
 
-
 -- Labels
 import Control.Category
 import qualified Data.Label as L
@@ -77,7 +76,11 @@ genFunction fName fRetType fArgTypes = do
 
 genModelInitials :: CF.Module -> GenM LLVM.Value
 genModelInitials CF.Module{..} = do
-    (curFunc, builder) <- genFunction  "modelInitials" voidType createArgsList
+    (curFunc, builder) <- genFunction "modelInitials" voidType createArgsList
+    -- set func params
+    _ <- liftIO $ addFuncAttributes curFunc [AlwaysInlineAttribute, NoUnwindAttribute]
+    liftIO $ getParams curFunc >>= \params -> setParamAttribs params
+
     -- add the insts (if exprMap not empty)
     unless (OrdMap.null initExprs) (void $ genExprMap initExprs)
     -- store the outputs
@@ -88,7 +91,11 @@ genModelInitials CF.Module{..} = do
     return curFunc
   where
     -- create the input args
-    createArgsList = doubleType : (OrdMap.elems . fmap (\(ExprData _ t) -> pointerType (convertType t) 0) $ initExprs)
+    createArgsList = doubleType : (OrdMap.elems . fmap (\(ExprData _ t) -> (pointerType (convertType t) 0)) $ initExprs)
+
+    setParamAttribs res@(t:outParams) = do
+        forM_ outParams $ \param -> addParamAttributes param [NoAliasAttribute, NoCaptureAttribute]
+        return res
 
     -- setup the store commands for the outputs
     storeOutputs curFunc builder = do
@@ -104,6 +111,9 @@ genModelInitials CF.Module{..} = do
 genModelLoop :: CF.Module -> GenM LLVM.Value
 genModelLoop CF.Module{..} = do
     (curFunc, builder) <- genFunction  "modelLoop" voidType createArgsList
+    -- set func params
+    _ <- liftIO $ addFuncAttributes curFunc [AlwaysInlineAttribute, NoUnwindAttribute]
+    liftIO $ getParams curFunc >>= \params -> setParamAttribs params
     -- setup access to the input args
     createLocalMap curFunc
     -- add the insts (if exprMap not empty)
@@ -117,6 +127,11 @@ genModelLoop CF.Module{..} = do
   where
     createArgsList =    doubleType : (OrdMap.elems . fmap (\(ExprData _ t) -> convertType t) $ initExprs) ++
                         (OrdMap.elems . fmap (\(ExprData _ t) -> pointerType (convertType t) 0) $ initExprs)
+
+    setParamAttribs res@(t:params) = do
+        let outParams = drop (length params `div` 2) params
+        forM_ outParams $ \param -> addParamAttributes param [NoAliasAttribute, NoCaptureAttribute]
+        return res
 
     createLocalMap curFunc = do
         (curTimeVal : params) <- liftIO $ LLVM.getParams curFunc

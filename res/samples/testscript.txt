@@ -20,13 +20,13 @@ import SimTests.HodHux.HodHux
 
 // sim backend params
 :solver "euler"
-:linker "static"
+//:linker "static"
 // disable exe
 :disableExecute
 // disable opts
 //:disableOptimise
-//:backend "aotcompiler"
-:backend "interpreter"
+:backend "aotcompiler"
+//:backend "interpreter"
 
 // all done
 :simulate HodHux

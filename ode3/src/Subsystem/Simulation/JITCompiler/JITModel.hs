@@ -152,7 +152,7 @@ genOp (AC.BasicOp AC.And)   (v1:v2:[])  = (\b _ s -> buildAnd b v1 v2 s)
 genOp (AC.BasicOp AC.Or)    (v1:v2:[])  = (\b _ s -> buildOr b v1 v2 s)
 genOp (AC.BasicOp AC.Not)   (v1:[])     = (\b _ s -> buildNot b v1 s)
 -- Math Ops - re-route to pre-defined LLVM func calls
-genOp (AC.MathOp mOp)   vs = (\b opMap s -> buildCall b (opMap Map.! mOp) vs s)
+genOp (AC.MathOp mOp)   vs = (\b opMap s -> buildCall b (opMap Map.! mOp) vs s >>= \v -> setInstructionCallConv v Fast >> return v)
 genOp op vs = errorDump [MkSB op, MkSB vs] "Not implemented" assert
 
 
