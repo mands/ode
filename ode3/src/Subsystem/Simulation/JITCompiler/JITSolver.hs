@@ -200,25 +200,26 @@ genModelSolver CF.Module{..} initsF loopF = do
     createVals ids suffix = foldM createVal OrdMap.empty ids
       where
         createVal idMap i = do
-            GenState {builder} <- get
-            llV <- liftIO $ buildAlloca builder doubleType (getName i)
+            GenState {builder, llvmMod} <- get
+            llV <- liftIO $ addGlobalWithInit llvmMod (constDouble 0.0) doubleType (getName i)
             return $ OrdMap.insert i llV idMap
         getName i = (getValidIdName i) ++ suffix
 
     -- create most (mutable) sim params
     createSimParams :: GenM (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value)
     createSimParams = do
-        GenState {builder, simParams} <- get
-        curPeriodRef <- liftIO $ buildAllocaWithInit builder (constInt' 1) int64Type "simCurPeriod"
-        curLoopRef <- liftIO $ buildAllocaWithInit builder (constInt' 0) int64Type "simCurLoop"
-
+        GenState {builder, simParams, llvmMod} <- get
+        curPeriodRef <- liftIO $ addGlobalWithInit llvmMod (constInt' 1) int64Type "simCurPeriod"
+        curLoopRef <- liftIO $ addGlobalWithInit llvmMod (constInt' 0) int64Type "simCurLoop"
         -- set inital time
-        curTimeRef <- liftIO $ buildAllocaWithInit builder (constDouble $ L.get Sys.lStartTime simParams)
-            doubleType "simCurTime"
-
+        curTimeRef <- liftIO $ addGlobalWithInit llvmMod (constDouble $ L.get Sys.lStartTime simParams) doubleType "simCurTime"
         -- set output vector
-        outDataRef <- liftIO $ buildAlloca builder (LFFI.arrayType doubleType (fromIntegral $ OrdMap.size initExprs + 1)) "simOutData"
+        -- outDataRef <- liftIO $ buildAlloca builder (LFFI.arrayType doubleType $ fromIntegral outDataSize) "simOutData"
+        initOutData <- liftIO $ constArray doubleType $ replicate outDataSize (constDouble 0.0)
+        outDataRef <- liftIO $ addGlobalWithInit llvmMod initOutData (LFFI.arrayType doubleType $ fromIntegral outDataSize) "simOutData"
         return (curPeriodRef, curLoopRef, curTimeRef, outDataRef)
+      where
+        outDataSize = OrdMap.size initExprs + 1
 
     writeOutData :: LLVM.Value -> LLVM.Value -> [LLVM.Value] -> GenM ()
     writeOutData simOutData curTimeRef stateValRefs = do

@@ -192,6 +192,10 @@ constInt' i = constInt int64Type (fromIntegral i) False
 constInt32' :: Integral a => a -> LLVM.Value
 constInt32' i = constInt int32Type (fromIntegral i) False
 
+constArray :: LLVM.Type -> [LLVM.Value] -> IO LLVM.Value
+constArray t llVs = withArrayLen llVs $ \len ptr ->
+    return $ LFFI.constArray t ptr (fromIntegral len)
+
 buildNoOp :: Builder -> IO LLVM.Value
 buildNoOp builder = buildBitCast builder (constInt' 0) int64Type "noop"
 

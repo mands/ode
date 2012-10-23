@@ -59,7 +59,7 @@ llvmLinkScript p = do
     modelPath   = "./model.bc"
     simPath     = "./sim.bc"
     libDir      = "../res/stdlib"
-    libPath     = libDir </> "odelibrary.bc"
+    libPath     = libDir </> "odelibrary.opt.bc"
     modelOpts   = if (L.get Sys.lOptimise p) then "-std-compile-opts" else ""
     linkOpts     = if (L.get Sys.lOptimise p) then "-std-link-opts" else ""
 
