@@ -62,7 +62,7 @@ void write_dbls(const uint32_t n_args, const double *dbls) {
 }
 
 // interface for AOT compilation
-void modelSolver();
+void modelSolver(void);
 
 int main() {
     modelSolver();

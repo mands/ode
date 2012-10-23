@@ -38,6 +38,7 @@ import Foreign.C
 import qualified Data.Foldable as DF
 import qualified Data.Traversable as DT
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import qualified Utils.OrdMap as OrdMap
 
 import Control.Monad.State
@@ -140,11 +141,11 @@ defineExtOps p llvmMod = do
         addFuncAttributes f [NoUnwindAttribute, ReadNoneAttribute]
         return f
      where
-        name' = if (L.get Sys.lMathModel p == Sys.FastMath && name `elem` finiteFuncs)
+        name' = if (L.get Sys.lMathModel p == Sys.FastMath && Set.member name finiteFuncs)
             then "__" ++ name ++ "_finite" else name
 
-        finiteFuncs =   ["acos", "acosh", "asin", "atan2", "atanh", "cosh", "sinh", "exp10", "exp2"
-                        , "exp", "log10", "log2", "log", "fmod", "hypot", "pow", "sqrt"]
+    finiteFuncs = Set.fromList  ["acos", "acosh", "asin", "atan2", "atanh", "cosh", "sinh", "exp10", "exp2"
+                                , "exp", "log10", "log2", "log", "fmod", "hypot", "pow", "sqrt"]
 
     createReadOnlyFunc name funcType = do
         f <- addFunction llvmMod name funcType
