@@ -25,6 +25,7 @@ import SimTests.HodHux.HodHux
 :disableExecute
 // disable opts
 //:disableOptimise
+:mathModel "fastMath"
 :backend "aotcompiler"
 //:backend "interpreter"
 

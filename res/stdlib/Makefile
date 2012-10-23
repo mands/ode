@@ -19,9 +19,12 @@ odelibrary.bc: odelibrary.opt.ll
 	llvm-as -o $@ $<
 
 vecmath: VecMathCog.py
-	cog.py vecmath_amd.ll -r -c -e
-	cog.py vecmath_intel.ll -r -c -e
-	cog.py vecmath_libm.ll -r -c -e
+	cog.py -r -c -e vecmath_libm.ll
+	cog.py -r -c -e vecmath_amd.ll
+	cog.py -r -c -e vecmath_intel.ll
+	llvm-as vecmath_libm.ll
+	llvm-as vecmath_amd.ll
+	llvm-as vecmath_intel.ll
 
 clean:
 	rm -f *.bc *.ll *~

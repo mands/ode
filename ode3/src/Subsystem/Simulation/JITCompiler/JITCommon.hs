@@ -60,7 +60,7 @@ newtype GenM a = GenM { runGenM :: (StateT GenState (MExceptIO)) a }
     deriving (Monad, MonadError String, MonadIO, MonadState GenState, Functor) -- , MonadTrans)
 
 data GenState = GenState    { -- stateMap :: Map.Map Id String     -- a mapping from (state) ids to global vals in bitcode
-                            localMap :: Map.Map Id LLVM.Value -- a mapping from local-def'd ids to their LLVM vals
+                              localMap :: Map.Map Id LLVM.Value -- a mapping from local-def'd ids to their LLVM vals
                             , mathOps :: MathOps -- a mapping to all externally defined funcs
                             , libOps :: LibOps -- a mapping to all externally defined funcs
                             , builder :: LLVM.Builder           -- the current inst. builder
@@ -99,8 +99,8 @@ convertType (CF.TTuple ts) = structType (map convertType ts) False
 
 -- | Define the basic math operations required by the code-generator
 -- TODO - set the func attribs and calling convs
-defineExtOps :: LLVM.Module ->  IO (MathOps, LibOps)
-defineExtOps llvmMod = do
+defineExtOps :: Sys.SimParams -> LLVM.Module ->  IO (MathOps, LibOps)
+defineExtOps p llvmMod = do
     mathOps <- mapM seqOps mathOps
     libOps <- mapM seqOps libOps
     return $ (Map.fromList mathOps, Map.fromList libOps)
@@ -135,10 +135,16 @@ defineExtOps llvmMod = do
         ]
 
     createPureFunc name funcType = do
-        f <- addFunction llvmMod name funcType
+        f <- addFunction llvmMod name' funcType
         setFunctionCallConv f Fast
         addFuncAttributes f [NoUnwindAttribute, ReadNoneAttribute]
         return f
+     where
+        name' = if (L.get Sys.lMathModel p == Sys.FastMath && name `elem` finiteFuncs)
+            then "__" ++ name ++ "_finite" else name
+
+        finiteFuncs =   ["acos", "acosh", "asin", "atan2", "atanh", "cosh", "sinh", "exp10", "exp2"
+                        , "exp", "log10", "log2", "log", "fmod", "hypot", "pow", "sqrt"]
 
     createReadOnlyFunc name funcType = do
         f <- addFunction llvmMod name funcType

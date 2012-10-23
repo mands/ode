@@ -92,6 +92,7 @@ defSysState = SysState
 data OdeSolver  = FEuler | RK4 deriving (Show, Eq)
 data OdeBackend = Interpreter | JITCompiler | AOTCompiler deriving (Show, Eq)
 data OdeLinker  = StaticLink | DynamicLink deriving (Show, Eq)
+data OdeMathModel = StrictMath | FastMath | GNUVecMath | AMDVecMath | IntelVecMath deriving (Show, Eq)
 
 data SimParams = SimParams
     { _startTime :: Double
@@ -104,6 +105,7 @@ data SimParams = SimParams
     , _linker :: OdeLinker
     , _execute :: Bool
     , _optimise :: Bool
+    , _mathModel :: OdeMathModel
     } deriving Show
 
 defSimParams = SimParams
@@ -117,6 +119,7 @@ defSimParams = SimParams
     , _linker       = DynamicLink       -- always dyn link (not used for Interpreter & JIT)
     , _execute      = True              -- always execute (not used for Interpreter & JIT)
     , _optimise     = True              -- always optimise
+    , _mathModel    = FastMath          -- always use fast maths
     }
 
 -- | Holds the ordered set of enabled repositories
@@ -169,7 +172,8 @@ def genLens(recName, fields):
     cog.outl("{0} = lens ({1}) (\\x rec -> rec {{ {1} = x }})".format(lName, field))
 
 genLens("SysState", ['_debug', '_unitsCheck', '_simParams', '_modState', '_unitsState'])
-genLens("SimParams", ['_startTime', '_endTime', '_timestep', '_outputPeriod', '_filename', '_solver', '_backend', '_linker', '_execute', '_optimise'])
+genLens("SimParams",    ['_startTime', '_endTime', '_timestep', '_outputPeriod', '_filename', '_solver', '_backend',
+                        '_linker', '_execute', '_optimise', '_mathModel'])
 genLens("ModState", ['_repos', '_modEnv', '_parsedFiles', '_replFile'])
 genLens("UnitsState", ['_quantities', '_unitDimEnv', '_convEnv'])
 
@@ -193,6 +197,7 @@ lBackend = lens (_backend) (\x rec -> rec { _backend = x })
 lLinker = lens (_linker) (\x rec -> rec { _linker = x })
 lExecute = lens (_execute) (\x rec -> rec { _execute = x })
 lOptimise = lens (_optimise) (\x rec -> rec { _optimise = x })
+lMathModel = lens (_mathModel) (\x rec -> rec { _mathModel = x })
 
 -- ModState
 lRepos = lens (_repos) (\x rec -> rec { _repos = x })
@@ -204,7 +209,7 @@ lReplFile = lens (_replFile) (\x rec -> rec { _replFile = x })
 lQuantities = lens (_quantities) (\x rec -> rec { _quantities = x })
 lUnitDimEnv = lens (_unitDimEnv) (\x rec -> rec { _unitDimEnv = x })
 lConvEnv = lens (_convEnv) (\x rec -> rec { _convEnv = x })
---[[[end]]] (checksum: e432e6d7ba0c601201ffd101846459a5)
+--[[[end]]] (checksum: 3cc30c05d670307f87ff06c5c4fb02c5)
 
 -- a few useful views from top SysState into nested labels
 vModEnv :: SysState :-> MA.GlobalModEnv

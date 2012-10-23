@@ -9,7 +9,7 @@
 -- Portability :
 --
 -- | A bit of hackery to link our module together with the stdlib and vecmath implementation
--- NOTE - needs to have a (VecMath enabled) version of LLVM located on the PATH
+-- NOTE - needs to have a (VecMath-enabled) version of LLVM/Clang located on the PATH
 -----------------------------------------------------------------------------
 
 {-# LANGUAGE OverloadedStrings, ExtendedDefaultRules #-}
@@ -81,8 +81,8 @@ llvmAOTScript p = do
     libs        = ["-lm"]
     libDir      = []
     optLevel    = if (L.get Sys.lOptimise p) then "-O3" else "-O0"
-    noMathErrno = if (L.get Sys.lOptimise p) then "-fno-math-errno" else ""
-    fastMath    = if (L.get Sys.lOptimise p) then "-ffast-math" else ""
+    noMathErrno = if (L.get Sys.lMathModel p /= Sys.StrictMath) then "-fno-math-errno" else ""
+    fastMath    = if (L.get Sys.lMathModel p /= Sys.StrictMath) then "-ffast-math" else ""
     -- check dyn/static linking
     linkType    = case (L.get Sys.lLinker p) of
         Sys.StaticLink -> "-static"

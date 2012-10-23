@@ -109,7 +109,8 @@ initShellDesc = desc'
 defaultCmds :: [ShellCommand SysState]
 defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnitsCmd
                 , simStartCmd
-                , startTimeCmd, stopTimeCmd, simTimestepCmd, simSolverCmd, simBackendCmd, simLinkerCmd, simExecuteCmd, simOptimiseCmd
+                , startTimeCmd, stopTimeCmd, simTimestepCmd, simSolverCmd
+                , simBackendCmd, simLinkerCmd, simExecuteCmd, simOptimiseCmd, simMathModelCmd
                 , outPeriodCmd, outFilenameCmd
                 , repoAddCmd, repoDelCmd
                 , typeCmd
@@ -156,12 +157,22 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnits
     simLinkerCmd = cmd "linker" f "System linker to use when compiling <dynamic, static>"
       where
         f :: String -> Sh SysState ()
-        f str | map toLower str == "static"     = modifyShellSt $ set (lLinker . lSimParams) StaticLink
-        f str | map toLower str == "dynamic"     = modifyShellSt $ set (lLinker . lSimParams) DynamicLink
+        f str | map toLower str == "static"  = modifyShellSt $ set (lLinker . lSimParams) StaticLink
+        f str | map toLower str == "dynamic" = modifyShellSt $ set (lLinker . lSimParams) DynamicLink
         f _ = shellPutInfoLn "Possible options <dynamic, static>"
 
     simExecuteCmd = toggle "disableExecute" "Toggle Execution of Simulations" (get $ lExecute . lSimParams) (set $ lExecute . lSimParams)
     simOptimiseCmd = toggle "disableOptimise" "Toggle LLVM Optimisation of Simulations" (get $ lOptimise . lSimParams) (set $ lOptimise . lSimParams)
+
+    simMathModelCmd = cmd "mathModel" f "Compilation Math model to utilise <strict, fast, gnuVec, amdVec, intelVec>"
+      where
+        f :: String -> Sh SysState ()
+        f str | map toLower str == "strict"      = modifyShellSt $ set (lMathModel . lSimParams) StrictMath
+        f str | map toLower str == "fast"        = modifyShellSt $ set (lMathModel . lSimParams) FastMath
+        f str | map toLower str == "gnuVec"      = modifyShellSt $ set (lMathModel . lSimParams) GNUVecMath
+        f str | map toLower str == "amdVec"      = modifyShellSt $ set (lMathModel . lSimParams) AMDVecMath
+        f str | map toLower str == "intelVec"    = modifyShellSt $ set (lMathModel . lSimParams) IntelVecMath
+        f _ = shellPutInfoLn "Possible options <strict, fast, gnuVec, amdVec, intelVec>"
 
     outPeriodCmd = cmd "period" f "Period iterations to save simulation state to disk"
       where
