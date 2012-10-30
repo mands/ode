@@ -95,6 +95,9 @@ genLLVMModule p odeMod = do
     loopF <-    genModelLoop odeMod
     simF <-     genModelSolver odeMod initsF loopF
 
+    -- gen a main func if standalone AOT compiling
+    when (L.get Sys.lBackend p == Sys.AOTCompiler) $ genAOTMain simF
+
     -- save the module to disk
     liftIO $ printModuleToFile llvmMod "model.ll"
     liftIO $ writeBitcodeToFile llvmMod "model.bc"
@@ -122,8 +125,8 @@ runJITSimulation p = do
     disposeModule simMod
 
     -- DEBUG - also write the dyn exe to disk
-    liftIO $ debugM "ode3.sim" $ "Writing executable to disk"
-    runAOTScript $ p { Sys._linker = Sys.DynamicLink, Sys._execute = False }
+    --liftIO $ debugM "ode3.sim" $ "Writing executable to disk"
+    --runAOTScript $ p { Sys._linker = Sys.DynamicLink, Sys._execute = False }
     return ()
 
 -- | Calls out to our AOT script

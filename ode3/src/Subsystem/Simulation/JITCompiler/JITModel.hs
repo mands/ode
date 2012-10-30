@@ -157,8 +157,8 @@ genOp op vs = errorDump [MkSB op, MkSB vs] "Not implemented" assert
 
 genMathCall mOp vs b opMap s = do
     v <- buildCall b (opMap Map.! mOp) vs s
-    setInstructionCallConv v Fast
-    setTailCall v True
+    -- setInstructionCallConv v Fast
+    -- setTailCall v True
     addInstrAttributes v [ReadNoneAttribute, NoUnwindAttribute]
     return v
 

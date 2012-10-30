@@ -15,7 +15,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Subsystem.Simulation.JITCompiler.JITSolver (
-genModelInitials, genModelLoop, genModelSolver
+genModelInitials, genModelLoop, genModelSolver, genAOTMain
 ) where
 
 -- Labels
@@ -160,7 +160,7 @@ genModelSolver CF.Module{..} initsF loopF = do
     (curFunc, builder) <- genFunction  "modelSolver" voidType []
     -- need external linkage to generate a aot executable
     liftIO $ setLinkage curFunc ExternalLinkage
-    _ <- liftIO $ addFuncAttributes curFunc [NoInlineAttribute, NoUnwindAttribute]
+    _ <- liftIO $ addFuncAttributes curFunc [NoUnwindAttribute]-- [NoInlineAttribute, NoUnwindAttribute]
     GenState {libOps, llvmMod, simParams} <- get
     -- call the start_sim func
     _ <- liftIO $ buildCall builder (libOps Map.! "init") [] ""
@@ -202,6 +202,7 @@ genModelSolver CF.Module{..} initsF loopF = do
         createVal idMap i = do
             GenState {builder, llvmMod} <- get
             llV <- liftIO $ addGlobalWithInit llvmMod (constDouble 0.0) doubleType (getName i)
+            liftIO $ setLinkage llV PrivateLinkage
             return $ OrdMap.insert i llV idMap
         getName i = (getValidIdName i) ++ suffix
 
@@ -217,6 +218,8 @@ genModelSolver CF.Module{..} initsF loopF = do
         -- outDataRef <- liftIO $ buildAlloca builder (LFFI.arrayType doubleType $ fromIntegral outDataSize) "simOutData"
         initOutData <- liftIO $ constArray doubleType $ replicate outDataSize (constDouble 0.0)
         outDataRef <- liftIO $ addGlobalWithInit llvmMod initOutData (LFFI.arrayType doubleType $ fromIntegral outDataSize) "simOutData"
+        -- set linkages
+        liftIO $ mapM_ (\v -> setLinkage v PrivateLinkage) [curPeriodRef, curLoopRef, curTimeRef, outDataRef]
         return (curPeriodRef, curLoopRef, curTimeRef, outDataRef)
       where
         outDataSize = OrdMap.size initExprs + 1
@@ -232,7 +235,7 @@ genModelSolver CF.Module{..} initsF loopF = do
         -- write to output func
         simOutDataPtr <- liftIO $ buildInBoundsGEP builder simOutData [constInt32' 0, constInt32' 0] $ "storeOutPtr"
         callInst <- liftIO $ buildCall builder (libOps Map.! "write_dbls") [constInt32' $ OrdMap.size initExprs + 1, simOutDataPtr] ""
-        liftIO $ setInstructionCallConv callInst Fast
+        -- liftIO $ setInstructionCallConv callInst Fast
         return ()
 
     createSolverLoopBody  :: ParamMap -> ParamMap -> (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value) -> GenM ()
@@ -277,5 +280,11 @@ genModelSolver CF.Module{..} initsF loopF = do
                     dValTime <- buildFMul builder dVal (constDouble $ L.get Sys.lTimestep simParams) "deltaTime"
                     buildFAdd builder stateVal dValTime "newState"
 
-
-
+-- | A stub main function used for AOT compilation
+genAOTMain :: LLVM.Value -> GenM ()
+genAOTMain simF = do
+    (curFunc, builder) <- genFunction "main" int32Type []
+    -- call the sim func
+    _ <- liftIO $ buildCall builder simF [] ""
+    liftIO $ buildRet builder $ constInt32' 0
+    return ()

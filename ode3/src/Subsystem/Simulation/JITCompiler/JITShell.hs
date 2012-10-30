@@ -41,16 +41,16 @@ llvmLinkScript p = do
     liftIO $ debugM "ode3.sim" $ "Starting LLVM Linker Script"
     -- delete the old sim file
     rm_f "./sim.bc"
+    rm_f "./sim.ll"
+
     -- optimise the model
-    if (L.get Sys.lOptimise p)
-        then run "opt" ["-o", modelPath, modelOpts, modelPath] >> return ()
-        else return ()
+    when (L.get Sys.lOptimise p) $
+        run "opt" (["-o", modelPath] ++ modelOpts ++ [modelPath]) >> return ()
     -- link the model to stdlib
     run "llvm-link" ["-o", simPath, modelPath, toTextIgnore libPath]
     -- perfrom LTO
-    if (L.get Sys.lOptimise p)
-        then run "opt" ["-o", simPath, linkOpts, modelOpts, simPath] >> return ()
-        else return ()
+    when (L.get Sys.lOptimise p) $
+        run "opt" (["-o", simPath] ++ linkOpts ++ [simPath]) >> return ()
     -- DEBUG - dis-assemble sim.bc
     run "llvm-dis" [simPath]
     return ()
@@ -59,9 +59,9 @@ llvmLinkScript p = do
     modelPath   = "./model.bc"
     simPath     = "./sim.bc"
     libDir      = "../res/stdlib"
-    libPath     = libDir </> "odelibrary.opt.bc"
-    modelOpts   = if (L.get Sys.lOptimise p) then "-std-compile-opts" else ""
-    linkOpts     = if (L.get Sys.lOptimise p) then "-std-link-opts" else ""
+    libPath     = libDir </> "odelibrary.bc" -- change to opt
+    modelOpts   = if (L.get Sys.lOptimise p) then ["-std-compile-opts", "-O3"] else []
+    linkOpts     = if (L.get Sys.lOptimise p) then ["-std-link-opts", "-std-compile-opts", "-O3"] else []
 
 -- | Embedded script to executre a static simulation, utilising static linking to all libs
 -- and no call-back to Ode run-time (requires use of Clang and system linker)
@@ -71,13 +71,14 @@ llvmAOTScript p = do
     -- delete the old sim file
     rm_f output
     -- use clang to link our llvm-linked sim module to the system
-    run "clang" $ [linkType, "-o", toTextIgnore output, optLevel, noMathErrno, fastMath, simPath] ++ libDir ++ libs
+    run "clang" $ [linkType, "-o", toTextIgnore output, optLevel, noMathErrno, fastMath, simPath, aotStubPath] ++ libDir ++ libs
     -- execute (as ext. process) if specified
     if (L.get Sys.lExecute p) then run output [] >> return () else return ()
     return ()
   where
     output      = "./sim.exe"
     simPath     = "./sim.bc"
+    aotStubPath = "" -- "../res/stdlib/aotStub.bc"
     libs        = ["-lm"]
     libDir      = []
     optLevel    = if (L.get Sys.lOptimise p) then "-O3" else "-O0"

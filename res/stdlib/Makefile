@@ -10,7 +10,7 @@ LD            = ld.gold
 #ODE_INC_DIR = $(ROOT_DIR)/stdlib
 
 
-all: odelibrary.bc odelibrary.opt.bc odelibrary.o
+all: odelibrary.bc odelibrary.opt.bc odelibrary.o aotStub.bc
 
 odelibrary.bc: odelibrary.c odelibrary.h
 	$(CC) $(CFLAGS) -S -O3 -emit-llvm -c -o odelibrary.ll $<
@@ -21,6 +21,9 @@ odelibrary.opt.bc: odelibrary.opt.ll
 
 odelibrary.o: odelibrary.c odelibrary.h
 	$(CC) $(CFLAGS) -O3 -c -o $@ $<
+
+aotStub.bc: aotStub.ll
+	llvm-as -o $@ $<
 
 vecmath: VecMathCog.py
 	cog.py -r -c -e vecmath_libm.ll

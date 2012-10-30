@@ -3,29 +3,6 @@ module HodHux {
     val Cm = 1
     val E_R = -75
 
-    component leakage_current(V, E_R) {
-        val g_L = 0.3
-        val E_L = E_R + 10.613
-        val i_L = g_L * (V - E_L)
-        return (i_L)
-    }
-
-    component potassium_channel_n_gate(V) {
-        val alpha_n = (-0.01 * (V + 65)) / (exp((-1 * (V + 65)) / 10) - 1)
-        val beta_n = 0.125 * exp((V + 75) / 80)
-        init n = 0.325        
-        ode {init: n, delta: dn } = alpha_n*(1 - n) - beta_n*n
-        return (n)
-    }
-
-    component potassium_channel(V, E_R) {
-        val n = potassium_channel_n_gate(V)
-        val g_K = 36
-        val E_K = E_R - 12
-        val i_K = g_K * pow(n, 4) * (V - E_K)
-        return (i_K)
-    }
-
     component sodium_channel_m_gate(V) { 
         val alpha_m = -0.1 * (V + 50) / (exp((-1 * (V + 50)) / 10) - 1)
         val beta_m = 4 * exp((-1 * (V + 75)) / 18)
@@ -51,14 +28,37 @@ module HodHux {
         return (i_Na)
     }
 
+    component potassium_channel_n_gate(V) {
+        val alpha_n = (-0.01 * (V + 65)) / (exp((-1 * (V + 65)) / 10) - 1)
+        val beta_n = 0.125 * exp((V + 75) / 80)
+        init n = 0.325        
+        ode {init: n, delta: dn } = alpha_n*(1 - n) - beta_n*n
+        return (n)
+    }
+
+    component potassium_channel(V, E_R) {
+        val n = potassium_channel_n_gate(V)
+        val g_K = 36
+        val E_K = E_R - 12
+        val i_K = g_K * pow(n, 4) * (V - E_K)
+        return (i_K)
+    }
+
+    component leakage_current(V, E_R) {
+        val g_L = 0.3
+        val E_L = E_R + 10.613
+        val i_L = g_L * (V - E_L)
+        return (i_L)
+    }
+
     val i_Stim = piecewise {
         time >= 10 and time <= 10.5 : 20,
         default: 0
     }
 
     init V = -75
-    val i_K = potassium_channel(V, E_R)
     val i_Na = sodium_channel(V, E_R)
+    val i_K = potassium_channel(V, E_R)
     val i_L = leakage_current(V, E_R)
     ode { init : V, delta : dV } = (-1 * (-1 * i_Stim + i_Na + i_K + i_L)) / Cm
 }

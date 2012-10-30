@@ -26,52 +26,55 @@
 """
 
 import os
-import struct
 import logging
-from optparse import OptionParser
-import scipy as sp
 import pylab
+import argparse
+import scipy as sp
 
-def plot(data, cols, title = 'graph', save = False):
-    logging.debug("Setting up a plot")
-    for col in range(1, cols):
-        pylab.plot(data[:,0], data[:,col])
-
-    pylab.xlabel("Time (s)")
-    pylab.ylabel("Value")
-    pylab.title(title)
-    pylab.grid(True)
-    if save:
-        pylab.savefig(title + ".eps", format='eps')
-    pylab.show()
+from OdeSupport.FileReader import openFile
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     logging.debug("In main python script")
 
-    #parse cmd line args
-    usage = "usage: %prog [options] FILE"
-    version="%prog 0.1"
-    parser = OptionParser(usage=usage, version=version)
-    # do we have any options yet...
-    (options, args) = parser.parse_args()
+    # arg parsing
+    parser = argparse.ArgumentParser()
+    parser.add_argument("file", help="File to plot")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose mode")
+    parser.add_argument("--title", type=str, help="Title to use for graph")
+    parser.add_argument("-s", "--save", type=str, help="Write the output to file")
+    parser.add_argument("-c", "--cols", type=str, help="Plot this subset of cols=x,y,z")
+    parser.add_argument("-x", "--xlabel", type=str, default="Time (s)", help="Label for the x-axis")
+    parser.add_argument("-y", "--ylabel", type=str, default="Value", help="Label for the y-axis")
+    args = parser.parse_args()
 
-    if len(args) < 1:
-        parser.error("incorrect number of arguments")
+    # open the file
+    filename = os.path.abspath(args.file)
+    (data, num_cols) = openFile(filename)
+
+    # setup the cols
+    cols = range(1, num_cols)
+    if args.cols:
+      cols = [int(c) for c in args.cols.split(',') if int(c) > 0 and int(c) < num_cols]
+    
+    # plot the data
+    logging.debug("Setting up a plot")
+    # add each specified column to the plot
+    for col in cols:
+        pylab.plot(data[:,0], data[:,col])
+
+    # add the labels
+    pylab.xlabel(args.xlabel)
+    pylab.ylabel(args.ylabel)
+    if args.title:
+      pylab.title(args.title)
+
+    # save or display the graph
+    if args.save:
+        pylab.savefig(args.save, format='pdf')
     else:
-        filename = os.path.abspath(args[0])
-        (path, filen) = os.path.split(filename)
-        (title, ext) = os.path.splitext(filen)
+      pylab.grid(True)
+      pylab.show()
 
-    # parse the file
-    with open(filename, 'rb') as f:
-        # parse the header
-        # get the num columns
-        (cols, ) = struct.unpack('i', f.read(4))
-        logging.debug("Number of cols %d" % cols)
-
-        # skip to the data
-        a = sp.fromfile(f, dtype='f8', count=-1)
-        a = sp.reshape(a, (-1, cols))
-    plot(a, cols, title, save=False)
     logging.debug("Done")
+

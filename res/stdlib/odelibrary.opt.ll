@@ -89,17 +89,6 @@ if.end:                                           ; preds = %entry, %if.then
   ret void
 }
 
-define i32 @main() noreturn nounwind uwtable {
-entry:
-  tail call void @modelSolver() nounwind
-  tail call void @exit(i32 0) noreturn nounwind
-  unreachable
-}
-
-declare void @modelSolver()
-
-declare void @exit(i32) noreturn nounwind
-
 declare i32 @puts(i8* nocapture) nounwind
 
 declare void @llvm.lifetime.start(i64, i8* nocapture) nounwind

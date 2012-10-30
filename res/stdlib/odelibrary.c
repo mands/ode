@@ -61,10 +61,3 @@ void write_dbls(const uint32_t n_args, const double *dbls) {
   fwrite(dbls, sizeof(double), n_args, out_file);  
 }
 
-// interface for AOT compilation
-void modelSolver(void);
-
-int main() {
-    modelSolver();
-    exit(0);
-}
