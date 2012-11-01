@@ -159,8 +159,6 @@ simExpr (ExprData (If vB emT emF) t) = do
         return v'
 
 
-
-
 -- | Interpret a var operation
 simVar :: Var -> SimM Var
 -- refs lookup in env
@@ -271,8 +269,8 @@ simSimOp ((Ode initId v)) = do
 
 writeColumnHeader :: Int -> [String] -> Handle -> IO ()
 writeColumnHeader n _ handle = do
-    -- write Int/Word32 to BS
-    let outBS = runPut $ putWord32le $ fromIntegral (n + 1) -- include time col
+    -- write Int/Word64 to BS
+    let outBS = runPut $ putWord64le $ fromIntegral (n + 1) -- include time col
     -- TODO - write Column Headers to BS
     -- write BS to handle
     BL.hPut handle outBS

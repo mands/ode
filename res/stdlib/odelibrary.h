@@ -12,6 +12,6 @@ void start_sim(const char* filename);
 void end_sim(void);
 
 // iteration output
-void write_dbls(uint32_t n_args, const double *dbls);
+void write_dbls(const uint64_t n_args, const double *dbls);
 
 #endif // ODE_LIBRARY_H

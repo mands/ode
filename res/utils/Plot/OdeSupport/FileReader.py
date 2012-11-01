@@ -10,7 +10,7 @@ def openFile(filename):
     with open(filename, 'rb') as f:
         # parse the header
         # get the num columns
-        (cols, ) = struct.unpack('i', f.read(4))
+        (cols, ) = struct.unpack('=Q', f.read(8))
         logging.debug("Number of cols %d" % cols)
 
         # skip to the data

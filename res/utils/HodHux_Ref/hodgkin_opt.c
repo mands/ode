@@ -20,7 +20,8 @@ void modelLoop ( const double time, const double V, const double m, const double
 
 int main(void) {
     modelSolver();
-    exit(EXIT_SUCCESS);
+    //exit(EXIT_SUCCESS);
+    return(0);
 }
 
 
@@ -33,18 +34,18 @@ void modelSolver(void) {
     static const double start_time = 0; 
     static const double stop_time = 60; // switch upto 600s for 10m of sim, 20 APs and long (~1m) computational time
     static const double time_step = 0.00001; 
-    static const uint32_t period = 100000;
+    static const uint64_t period = 100000;
 
     // alloc state vals
-    static double V;
-    static double d_V;
-    static double m;
-    static double d_m;
-    static double h;
-    static double d_h;
-    static double n;
-    static double d_n;
     static double time;
+    static double V;
+    static double m;
+    static double h;
+    static double n;
+    static double d_V;
+    static double d_m;
+    static double d_h;
+    static double d_n;
 
     // statically alloc the buffer of doubles
     static double out_data[NUM_PARAMS];

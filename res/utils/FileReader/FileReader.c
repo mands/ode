@@ -3,9 +3,13 @@
 ** These are used to output a matrix of doubles that may be redirected to the screen or a file as needed
 */
 
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <inttypes.h> 
 #include <string.h>
+#include <math.h>
 
 int main(int argc, char** argv) {
 	if (argc != 2) {
@@ -22,8 +26,8 @@ int main(int argc, char** argv) {
 	}
 
 	// read the file columns
-	int columns = 1;
-	if (feof(file) || (fread(&columns, sizeof(int), 1, file) != 1)) {
+	uint64_t columns = 1;
+	if (feof(file) || (fread(&columns, sizeof(uint64_t), 1, file) != 1)) {
 		fprintf(stderr, "Cannot read columns from file %s\n", filename);
 		exit(EXIT_FAILURE);		
 	}
@@ -34,14 +38,14 @@ int main(int argc, char** argv) {
 	}
 
 	// parse file in blocks equiv to a single row  
-	printf("Opened file %s with %d columns\n", filename, columns);
+	printf("Opened file %s with %" PRIu64 " columns\n", filename, columns);
 	double row[columns];
-	int i;
+	uint64_t i;
 	while (!feof(file)) {
 		if (fread(&row, sizeof(double), columns, file) != 0) {
 			for(i = 0; i < (columns); i++) {
 				//printf("%8.5g,\t", row[i]);
-                printf("%.16g,\t", row[i]);
+        printf("%.16g,\t", row[i]);
 			}
 			printf("\n");
 		}

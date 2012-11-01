@@ -16,7 +16,7 @@
 // multiple file opens within single ode file - needs compiler support
 // 
 
-void first_run(const uint32_t n_args);
+void first_run(const uint64_t n_args);
 
 // sets up the global enviornment for all simluations
 void init(void) {
@@ -47,15 +47,18 @@ void end_sim(void) {
   printf("Finished simulation\n");
 }
 
-void first_run(const uint32_t n_args) {
+/*
+** sets up the binary file header information
+*/
+void first_run(const uint64_t n_args) {
   is_first_run = false;
   printf("First run called...\n");
 
   // write the num of cols as the header of the output file
-  fwrite(&n_args, sizeof(uint32_t), 1, out_file);
+  fwrite(&n_args, sizeof(uint64_t), 1, out_file);
 }
 
-void write_dbls(const uint32_t n_args, const double *dbls) {
+void write_dbls(const uint64_t n_args, const double *dbls) {
   if (is_first_run) first_run(n_args);
   // we use fwrite rather than write syscall as want buffering as the data byte-count is small
   fwrite(dbls, sizeof(double), n_args, out_file);  

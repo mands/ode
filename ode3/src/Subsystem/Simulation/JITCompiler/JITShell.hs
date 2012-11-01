@@ -48,6 +48,9 @@ llvmLinkScript p = do
         run "opt" (["-o", modelPath] ++ modelOpts ++ [modelPath]) >> return ()
     -- link the model to stdlib
     run "llvm-link" ["-o", simPath, modelPath, toTextIgnore libPath]
+    -- opt the sim
+--    when (L.get Sys.lOptimise p) $
+--        run "opt" (["-o", simPath] ++ modelOpts ++ [simPath]) >> return ()
     -- perfrom LTO
     when (L.get Sys.lOptimise p) $
         run "opt" (["-o", simPath] ++ linkOpts ++ [simPath]) >> return ()
@@ -60,8 +63,8 @@ llvmLinkScript p = do
     simPath     = "./sim.bc"
     libDir      = "../res/stdlib"
     libPath     = libDir </> "odelibrary.bc" -- change to opt
-    modelOpts   = if (L.get Sys.lOptimise p) then ["-std-compile-opts", "-O3"] else []
-    linkOpts     = if (L.get Sys.lOptimise p) then ["-std-link-opts", "-std-compile-opts", "-O3"] else []
+    modelOpts   = if (L.get Sys.lOptimise p) then ["-std-compile-opts"] else []
+    linkOpts     = if (L.get Sys.lOptimise p) then ["-std-link-opts", "-std-compile-opts"] else []
 
 -- | Embedded script to executre a static simulation, utilising static linking to all libs
 -- and no call-back to Ode run-time (requires use of Clang and system linker)

@@ -2,8 +2,7 @@
 #ROOT_DIR = ../..
 #include $(ROOT_DIR)/Makefile.inc
 CC            = clang
-CFLAGS        = -std=c99 -O3 -pedantic -Wall -Wextra
-
+CFLAGS        = -std=c99 -O3 -pedantic -Weverything -integrated-as -fno-math-errno -ffast-math
 TARGET = FileReader
 
 all: $(TARGET)

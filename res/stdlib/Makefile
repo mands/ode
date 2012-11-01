@@ -4,23 +4,24 @@
 
 ####### Compiler, tools and options
 CC            = clang
-CFLAGS        = -std=c99 -pedantic -Weverything -integrated-as -fno-math-errno -ffast-math 
+CFLAGS        = -std=c99 -O3 -pedantic -Weverything -integrated-as -fno-math-errno -ffast-math 
 LD            = ld.gold
 #ODE_LIB_DIR = $(ROOT_DIR)/stdlib
 #ODE_INC_DIR = $(ROOT_DIR)/stdlib
 
 
-all: odelibrary.bc odelibrary.opt.bc odelibrary.o aotStub.bc
+all: odelibrary.bc odelibrary.o aotStub.bc
 
 odelibrary.bc: odelibrary.c odelibrary.h
-	$(CC) $(CFLAGS) -S -O3 -emit-llvm -c -o odelibrary.ll $<
+	$(CC) $(CFLAGS) -S -emit-llvm -c -o odelibrary.ll $<
 	llvm-as odelibrary.ll
 
+# generate an optimised version of the odelibrary
 odelibrary.opt.bc: odelibrary.opt.ll
 	llvm-as -o $@ $<
 
 odelibrary.o: odelibrary.c odelibrary.h
-	$(CC) $(CFLAGS) -O3 -c -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 aotStub.bc: aotStub.ll
 	llvm-as -o $@ $<
