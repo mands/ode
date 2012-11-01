@@ -188,18 +188,18 @@ buildAllocaWithInit builder initV lType str = do
     buildStore builder initV allocaV
     return allocaV
 
+-- const value wrappers
 constDouble d = constReal doubleType (CDouble d)
-constInt' i = constInt int64Type (fromIntegral i) False
-
-constInt32' :: Integral a => a -> LLVM.Value
-constInt32' i = constInt int32Type (fromIntegral i) False
+constInt64 i = constInt int64Type (fromIntegral i) False
+constInt32 i = constInt int32Type (fromIntegral i) False
 
 constArray :: LLVM.Type -> [LLVM.Value] -> IO LLVM.Value
 constArray t llVs = withArrayLen llVs $ \len ptr ->
     return $ LFFI.constArray t ptr (fromIntegral len)
 
+-- | LLVM No-Op - sometimes needed for funcs a LLVM value is required (i.e. FP-style if stmts)
 buildNoOp :: Builder -> IO LLVM.Value
-buildNoOp builder = buildBitCast builder (constInt' 0) int64Type "noop"
+buildNoOp builder = buildBitCast builder (constInt64 0) int64Type "noop"
 
 addGlobalWithInit :: LLVM.Module -> LLVM.Value -> LLVM.Type -> String -> IO LLVM.Value
 addGlobalWithInit mod initVal typ name = do
@@ -222,7 +222,7 @@ addParamAttributes v attrs = mapM_ (addAttribute v) attrs >> return v
 addFuncAttributes :: LLVM.Value -> [Attribute] -> IO LLVM.Value
 addFuncAttributes v attrs = mapM_ (addFunctionAttr v) attrs >> return v
 
--- WTF!!! why does (-1/4294967295) work as index??
+-- WTF!!! why does (-1 or 4294967295) work as the index??
 addInstrAttributes :: LLVM.Value -> [Attribute] -> IO LLVM.Value
 addInstrAttributes v attrs = mapM_ (\a -> LFFI.addInstrAttribute v (fromIntegral (0-1)) $ LFFI.fromAttribute a) attrs >> return v
 
@@ -275,30 +275,28 @@ ifStmt builder curFunc condVal trueF falseF = do
 
     -- create a bb for the end of the if
     liftIO $ positionAtEnd builder endBB
+    -- let the caller deal with the phis
     return [(trueV, trueBB), (falseV, falseBB)]
 
--- TODO - are phis correct for loopStart
+-- TODO - are phis correct for loopStart - yes, think so
 doWhileStmt :: (MonadIO m) => Builder -> LLVM.Value -> (Builder -> m LLVM.Value) -> (Builder -> LLVM.Value -> m LLVM.Value) -> m ()
-doWhileStmt builder curFunc loopBody condF = do
+doWhileStmt builder curFunc doBodyF doCondF = do
     -- create do-loop bb's
-    loopStartBB <- liftIO $ appendBasicBlock curFunc "doWhile.start"
-    loopEndBB <- liftIO $ appendBasicBlock curFunc "doWhile.end"
+    doBodyBB <- liftIO $ appendBasicBlock curFunc "do.body"
+    doCondBB <- liftIO $ appendBasicBlock curFunc "do.cond"
+    doEndBB <- liftIO $ appendBasicBlock curFunc "do.end"
+
     -- create and br to loop body
-    liftIO $ buildBr builder loopStartBB
-    liftIO $ positionAtEnd builder loopStartBB
-    bodyV <- loopBody builder
+    liftIO $ buildBr builder doBodyBB
+    liftIO $ positionAtEnd builder doBodyBB
+    bodyV <- doBodyF builder
+
     -- while loop test
-    condV <- condF builder bodyV
-    liftIO $ buildCondBr builder condV loopStartBB loopEndBB
+    liftIO $ buildBr builder doCondBB
+    liftIO $ positionAtEnd builder doCondBB
+    condV <- doCondF builder bodyV
+    liftIO $ buildCondBr builder condV doBodyBB doEndBB
+
     -- leave loop
-    liftIO $ positionAtEnd builder loopEndBB
+    liftIO $ positionAtEnd builder doEndBB
 
-
--- We create const strings as consts global w/ internal linkage
--- TODO - check this is correct
-createConstString :: LLVM.Module -> String -> IO LLVM.Value
-createConstString mod str = do
-    strVal <- addGlobalWithInit mod (constString str False) (arrayType int8Type (fromIntegral $ length str + 1)) "localConstStr"
-    setLinkage strVal LFFI.InternalLinkage
-    LFFI.setGlobalConstant strVal True
-    return strVal

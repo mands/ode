@@ -164,8 +164,8 @@ genModelSolver CF.Module{..} initsF loopF = do
     GenState {libOps, llvmMod, simParams} <- get
     -- call the start_sim func
     _ <- liftIO $ buildCall builder (libOps Map.! "init") [] ""
-    fileStr <- liftIO $ createConstString llvmMod (L.get Sys.lFilename simParams)
-    fileStrPtr <- liftIO $ buildInBoundsGEP builder fileStr [constInt32' 0, constInt32' 0] ""
+    fileStr <- liftIO $ buildGlobalString builder (L.get Sys.lFilename simParams) "simFilename"
+    fileStrPtr <- liftIO $ buildInBoundsGEP builder fileStr [constInt32 0, constInt32 0] ""
     _ <- liftIO $ buildCall builder (libOps Map.! "start_sim") [fileStrPtr] ""
 
     -- create the vals
@@ -182,7 +182,9 @@ genModelSolver CF.Module{..} initsF loopF = do
 
     -- create the main solver loop
     doWhileStmt builder curFunc
+        -- doBody
         (\builder ->  createSolverLoopBody stateValRefMap deltaValRefMap simParamVs >> (liftIO $ buildNoOp builder))
+        -- doCond
         (\builder _ ->  do
             liftIO $ withPtrVal builder curTimeRef $ \curTime -> do
                 liftIO $ buildFCmp builder FPOLT curTime (constDouble $ L.get Sys.lEndTime simParams) "bWhileTime")
@@ -210,8 +212,8 @@ genModelSolver CF.Module{..} initsF loopF = do
     createSimParams :: GenM (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value)
     createSimParams = do
         GenState {builder, simParams, llvmMod} <- get
-        curPeriodRef <- liftIO $ addGlobalWithInit llvmMod (constInt' 1) int64Type "simCurPeriod"
-        curLoopRef <- liftIO $ addGlobalWithInit llvmMod (constInt' 0) int64Type "simCurLoop"
+        curPeriodRef <- liftIO $ addGlobalWithInit llvmMod (constInt64 1) int64Type "simCurPeriod"
+        curLoopRef <- liftIO $ addGlobalWithInit llvmMod (constInt64 0) int64Type "simCurLoop"
         -- set inital time
         curTimeRef <- liftIO $ addGlobalWithInit llvmMod (constDouble $ L.get Sys.lStartTime simParams) doubleType "simCurTime"
         -- set output vector
@@ -229,12 +231,12 @@ genModelSolver CF.Module{..} initsF loopF = do
         GenState {builder, libOps} <- get
         -- fill the output array (inc curTime)
         forM_ (zip [0..] (curTimeRef:stateValRefs)) $ \(i, ptrVal) -> do
-            outV <- liftIO $ buildInBoundsGEP builder simOutData [constInt32' 0, constInt32' i] $ "storeOutPtr" ++ (show i)
+            outV <- liftIO $ buildInBoundsGEP builder simOutData [constInt32 0, constInt32 i] $ "storeOutPtr" ++ (show i)
             liftIO $ withPtrVal builder ptrVal $ \loadV -> liftIO $ buildStore builder loadV outV
             return ()
         -- write to output func
-        simOutDataPtr <- liftIO $ buildInBoundsGEP builder simOutData [constInt32' 0, constInt32' 0] $ "storeOutPtr"
-        callInst <- liftIO $ buildCall builder (libOps Map.! "write_dbls") [constInt32' $ OrdMap.size initExprs + 1, simOutDataPtr] ""
+        simOutDataPtr <- liftIO $ buildInBoundsGEP builder simOutData [constInt32 0, constInt32 0] $ "storeOutPtr"
+        callInst <- liftIO $ buildCall builder (libOps Map.! "write_dbls") [constInt32 $ OrdMap.size initExprs + 1, simOutDataPtr] ""
         -- liftIO $ setInstructionCallConv callInst Fast
         return ()
 
@@ -243,7 +245,7 @@ genModelSolver CF.Module{..} initsF loopF = do
         GenState {builder, curFunc, simParams} <- get
 
         -- inc loop counter & calc the time
-        liftIO $ updatePtrVal builder curLoopRef (\curLoop -> buildAdd builder curLoop (constInt' 1) "incCurLoop")
+        liftIO $ updatePtrVal builder curLoopRef (\curLoop -> buildAdd builder curLoop (constInt64 1) "incCurLoop")
         liftIO $ withPtrVal builder curLoopRef $ \ curLoop -> do
             curLoop' <- buildUIToFP builder curLoop doubleType "convDouble"
             timeDelta <- buildFMul builder curLoop' (constDouble $ L.get Sys.lTimestep simParams) "timeDelta"
@@ -259,15 +261,17 @@ genModelSolver CF.Module{..} initsF loopF = do
         liftIO $ mapM_ (updateState builder simParams) simOps
 
         bWriteOut <- liftIO $ withPtrVal builder curPeriodRef $ \curPeriod -> do
-            buildICmp builder IntEQ curPeriod (constInt' $ L.get Sys.lOutputPeriod simParams) "bWriteOut"
+            buildICmp builder IntEQ curPeriod (constInt64 $ L.get Sys.lOutputPeriod simParams) "bWriteOut"
 
         -- check period and writeOutData if needed
         _ <- ifStmt builder curFunc bWriteOut
+            -- ifTrue
             (\builder -> do
                 _ <- writeOutData outDataRef curTimeRef $ OrdMap.elems stateValRefMap
-                liftIO $ buildStore builder (constInt' 1) curPeriodRef)
+                liftIO $ buildStore builder (constInt64 1) curPeriodRef)
+            -- ifFalse
             (\builder -> do
-                liftIO $ updatePtrVal builder curPeriodRef $ \curPeriod -> buildAdd builder curPeriod (constInt' 1) "incCurPeriod"
+                liftIO $ updatePtrVal builder curPeriodRef $ \curPeriod -> buildAdd builder curPeriod (constInt64 1) "incCurPeriod"
                 liftIO $ buildNoOp builder)
 
         return ()
@@ -286,5 +290,5 @@ genAOTMain simF = do
     (curFunc, builder) <- genFunction "main" int32Type []
     -- call the sim func
     _ <- liftIO $ buildCall builder simF [] ""
-    liftIO $ buildRet builder $ constInt32' 0
+    liftIO $ buildRet builder $ constInt32 0
     return ()
