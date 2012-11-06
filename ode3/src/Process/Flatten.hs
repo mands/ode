@@ -32,7 +32,7 @@ import Prelude hiding ((.), id)
 import qualified Data.Traversable as DT
 import qualified Data.Map as Map
 
-import Control.Monad.State
+import Control.Monad.State as S
 import Utils.MonadSupply
 
 import Utils.CommonImports
@@ -51,29 +51,37 @@ import Process.Flatten.InlineComps
 import Process.Flatten.ConvertAST
 import Process.Flatten.ConvertTypes
 import Process.Flatten.UnpackTuples
+import Process.Flatten.OptimiseAST
 
 flatten :: String -> SysExcept ACF.Module
 flatten initModStr = do
+    sysSt <- S.get
     -- lookup the refmod in repl filedata
     replFD <- getSysState vLocalFile
     initMod <- lift $  maybeToExcept (Map.lookup (ModName initModStr) (fileModEnv replFD))
                         (printf "Cannot find module %s loaded to simulate" (show initModStr))
-    trace' [MkSB initMod] "CoreFlat AST input" $ return ()
+    --trace' [MkSB initMod] "CoreFlat AST input" $ return ()
     -- inline mods
     gModEnv <- getSysState vModEnv
     mod1 <- lift $ inlineMod gModEnv initMod
-    trace' [MkSB mod1] "Inline Mods output" $ return ()
+    --trace' [MkSB mod1] "Inline Mods output" $ return ()
     -- inline components
     mod2 <- lift $ inlineComps mod1
-    trace' [MkSB mod2] "Inline Comps output" $ return ()
+    --trace' [MkSB mod2] "Inline Comps output" $ return ()
     -- convert units and types
     unitsState <- getSysState lUnitsState
     mod3 <- lift $ convertTypes mod2 unitsState
     trace' [MkSB mod3] "Convert units output" $ return ()
+    -- perform Core AST micro-opts
+
+    shortCircuit <- getSysState $ lShortCircuitEval . lSimParams
+    mod4 <- lift $ optimiseCoreAST mod3 shortCircuit
+    -- trace' [MkSB mod4] "Optimised Core AST" $ return ()
+
     -- convert to CoreFlat
-    core1 <- lift $ convertAST mod3
-    trace' [MkSB core1] "CoreFlat AST output" $ return ()
+    core1 <- lift $ convertAST mod4
+    --trace' [MkSB core1] "CoreFlat AST output" $ return ()
     -- unpack tuples (in CoreFlat)
     core2 <- lift $ unpackTuples core1
-    trace' [MkSB core2] "(Unpacked) CoreFlat AST output" $ return ()
+    --trace' [MkSB core2] "(Unpacked) CoreFlat AST output" $ return ()
     return core2

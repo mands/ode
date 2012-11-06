@@ -209,6 +209,7 @@ dsStmt stmt = throw $ printf "(DS01) Found an unhandled stmt that is top-level o
 dsExpr :: O.Expr -> TmpSupply (C.Expr C.DesId)
 -- dsExpr (O.Op (Ops.BasicOp Ops.Not) (e:[])) = (C.Op (Ops.BasicOp Ops.Not)) <$> (dsExpr e)
 
+-- TODO - convert this into (0 - x), not (x * -1), may result in utilising xorpd SSE2 opcode
 -- convert unary negation into (* -1), with direct negate of nums
 dsExpr (O.Op (BasicOp Neg) ((O.Number n u):[])) = dsExpr $ O.Number (negate n) u
 

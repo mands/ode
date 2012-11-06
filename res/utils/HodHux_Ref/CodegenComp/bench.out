@@ -129,364 +129,40 @@ First run called...
 Finished simulation
 Shutting down the ODE environment
 cmd: Iterating until target precision reached...
-cmd: Reached relative precision 0.00165221970797247 (neeed 0.1).
+cmd: Reached relative precision 0.00106674412446146 (neeed 0.1).
 Initialising the ODE environment
 Starting simluation with output to hodhux_c.bin
 First run called...
 Finished simulation
 Shutting down the ODE environment
-cmd: Reached relative precision 0.00219024494743619 (neeed 0.1).
+cmd: Reached relative precision 0.000985638050150471 (neeed 0.1).
 Initialising the ODE environment
 Starting simluation with output to hodhux_c.bin
 First run called...
 Finished simulation
 Shutting down the ODE environment
-cmd: Reached relative precision 0.00136747173619336 (neeed 0.1).
+cmd: Reached relative precision 0.00111243346937335 (neeed 0.1).
 Initialising the ODE environment
 Starting simluation with output to hodhux_c.bin
 First run called...
 Finished simulation
 Shutting down the ODE environment
-cmd: Reached relative precision 0.00136747173619336 (neeed 0.1).
+cmd: Reached relative precision 0.000487946254077912 (neeed 0.1).
 Initialising the ODE environment
 Starting simluation with output to hodhux_c.bin
 First run called...
 Finished simulation
 Shutting down the ODE environment
-cmd: Reached relative precision 0.00137033559017746 (neeed 0.1).
+cmd: Reached relative precision 0.000402894140035419 (neeed 0.1).
 Initialising the ODE environment
 Starting simluation with output to hodhux_c.bin
 First run called...
 Finished simulation
 Shutting down the ODE environment
-cmd: Reached relative precision 0.00152296125436275 (neeed 0.1).
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Reached relative precision 0.0011118793571527 (neeed 0.1).
-cmd: Ran 26 iterations (6 outliers).
-cmd: Rounded run time per iteration: 4.3237e+00 +/- 4.8e-03 (0.1%)
-cmd: Raw:                            4.32367891577574 +/- 0.00481135469499105
-cmd: Running initial timing for warming up the cache...
-cmd: Running 100 initial timings...
-cmd: Iterating until target precision reached...
-cmd: Running initial timing for warming up the cache...
-Initialising the ODE environment
-Starting simluation with output to ./hodhux_ode.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running 20 initial timings...
-cmd: Running timing 1...
-Initialising the ODE environment
-Starting simluation with output to ./hodhux_ode.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 2...
-Initialising the ODE environment
-Starting simluation with output to ./hodhux_ode.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 3...
-Initialising the ODE environment
-Starting simluation with output to ./hodhux_ode.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 4...
-Initialising the ODE environment
-Starting simluation with output to ./hodhux_ode.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 5...
-Initialising the ODE environment
-Starting simluation with output to ./hodhux_ode.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 6...
-Initialising the ODE environment
-Starting simluation with output to ./hodhux_ode.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 7...
-Initialising the ODE environment
-Starting simluation with output to ./hodhux_ode.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 8...
-Initialising the ODE environment
-Starting simluation with output to ./hodhux_ode.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 9...
-Initialising the ODE environment
-Starting simluation with output to ./hodhux_ode.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 10...
-Initialising the ODE environment
-Starting simluation with output to ./hodhux_ode.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 11...
-Initialising the ODE environment
-Starting simluation with output to ./hodhux_ode.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 12...
-Initialising the ODE environment
-Starting simluation with output to ./hodhux_ode.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 13...
-Initialising the ODE environment
-Starting simluation with output to ./hodhux_ode.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 14...
-Initialising the ODE environment
-Starting simluation with output to ./hodhux_ode.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 15...
-Initialising the ODE environment
-Starting simluation with output to ./hodhux_ode.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 16...
-Initialising the ODE environment
-Starting simluation with output to ./hodhux_ode.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 17...
-Initialising the ODE environment
-Starting simluation with output to ./hodhux_ode.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 18...
-Initialising the ODE environment
-Starting simluation with output to ./hodhux_ode.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 19...
-Initialising the ODE environment
-Starting simluation with output to ./hodhux_ode.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 20...
-Initialising the ODE environment
-Starting simluation with output to ./hodhux_ode.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Iterating until target precision reached...
-cmd: Reached relative precision 0.00125241902619262 (neeed 0.1).
-Initialising the ODE environment
-Starting simluation with output to ./hodhux_ode.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Reached relative precision 0.00115495935648477 (neeed 0.1).
-Initialising the ODE environment
-Starting simluation with output to ./hodhux_ode.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Reached relative precision 0.00115495935648477 (neeed 0.1).
-Initialising the ODE environment
-Starting simluation with output to ./hodhux_ode.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Reached relative precision 0.0013368517121496 (neeed 0.1).
-cmd: Ran 23 iterations (2 outliers).
-cmd: Rounded run time per iteration: 4.3154e+00 +/- 5.8e-03 (0.1%)
-cmd: Raw:                            4.31543612704981 +/- 0.00577374886647126
-cmd: Running initial timing for warming up the cache...
-cmd: Running 100 initial timings...
-cmd: Iterating until target precision reached...
-cmd: Running initial timing for warming up the cache...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running 20 initial timings...
-cmd: Running timing 1...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 2...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 3...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 4...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 5...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 6...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 7...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 8...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 9...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 10...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 11...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 12...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 13...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 14...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 15...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 16...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 17...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 18...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 19...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 20...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Iterating until target precision reached...
-cmd: Reached relative precision 0.00410071061560969 (neeed 0.1).
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Reached relative precision 0.0038320736339283 (neeed 0.1).
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Reached relative precision 0.00405544766092708 (neeed 0.1).
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Reached relative precision 0.00393994377065686 (neeed 0.1).
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Reached relative precision 0.00410599404510942 (neeed 0.1).
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Reached relative precision 0.00373556633314866 (neeed 0.1).
+cmd: Reached relative precision 0.00046296678085172 (neeed 0.1).
 cmd: Ran 25 iterations (5 outliers).
-cmd: Rounded run time per iteration: 4.356e+00 +/- 1.6e-02 (0.4%)
-cmd: Raw:                            4.35643620729446 +/- 0.0162869055891866
+cmd: Rounded run time per iteration: 4.2938e+00 +/- 2.0e-03 (0.0%)
+cmd: Raw:                            4.29381643056869 +/- 0.00198952715274822
 cmd: Running initial timing for warming up the cache...
 cmd: Running 100 initial timings...
 cmd: Iterating until target precision reached...
@@ -618,40 +294,40 @@ First run called...
 Finished simulation
 Shutting down the ODE environment
 cmd: Iterating until target precision reached...
-cmd: Reached relative precision 0.00265710363763661 (neeed 0.1).
+cmd: Reached relative precision 0.0005071008970689 (neeed 0.1).
 Initialising the ODE environment
 Starting simluation with output to ./hodhux_ode.bin
 First run called...
 Finished simulation
 Shutting down the ODE environment
-cmd: Reached relative precision 0.00365141238370453 (neeed 0.1).
+cmd: Reached relative precision 0.000490810399033032 (neeed 0.1).
 Initialising the ODE environment
 Starting simluation with output to ./hodhux_ode.bin
 First run called...
 Finished simulation
 Shutting down the ODE environment
-cmd: Reached relative precision 0.0044782161065838 (neeed 0.1).
+cmd: Reached relative precision 0.000651594698856307 (neeed 0.1).
 Initialising the ODE environment
 Starting simluation with output to ./hodhux_ode.bin
 First run called...
 Finished simulation
 Shutting down the ODE environment
-cmd: Reached relative precision 0.0055564178850147 (neeed 0.1).
+cmd: Reached relative precision 0.000595310848893406 (neeed 0.1).
 Initialising the ODE environment
 Starting simluation with output to ./hodhux_ode.bin
 First run called...
 Finished simulation
 Shutting down the ODE environment
-cmd: Reached relative precision 0.00423271257174386 (neeed 0.1).
+cmd: Reached relative precision 0.000596992996916901 (neeed 0.1).
 Initialising the ODE environment
 Starting simluation with output to ./hodhux_ode.bin
 First run called...
 Finished simulation
 Shutting down the ODE environment
-cmd: Reached relative precision 0.00325798419498901 (neeed 0.1).
+cmd: Reached relative precision 0.000581783007133305 (neeed 0.1).
 cmd: Ran 25 iterations (5 outliers).
-cmd: Rounded run time per iteration: 4.396e+00 +/- 1.4e-02 (0.3%)
-cmd: Raw:                            4.39642110623202 +/- 0.0143350030701213
+cmd: Rounded run time per iteration: 4.2873e+00 +/- 2.5e-03 (0.1%)
+cmd: Raw:                            4.2873018860817 +/- 0.00249633434752273
 cmd: Running initial timing for warming up the cache...
 cmd: Running 100 initial timings...
 cmd: Iterating until target precision reached...
@@ -783,34 +459,34 @@ First run called...
 Finished simulation
 Shutting down the ODE environment
 cmd: Iterating until target precision reached...
-cmd: Reached relative precision 0.00216250752424012 (neeed 0.1).
+cmd: Reached relative precision 0.000828679987833458 (neeed 0.1).
 Initialising the ODE environment
 Starting simluation with output to hodhux_c.bin
 First run called...
 Finished simulation
 Shutting down the ODE environment
-cmd: Reached relative precision 0.00320230745470867 (neeed 0.1).
+cmd: Reached relative precision 0.000802145766102426 (neeed 0.1).
 Initialising the ODE environment
 Starting simluation with output to hodhux_c.bin
 First run called...
 Finished simulation
 Shutting down the ODE environment
-cmd: Reached relative precision 0.00210410047771662 (neeed 0.1).
+cmd: Reached relative precision 0.00105518800093096 (neeed 0.1).
 Initialising the ODE environment
 Starting simluation with output to hodhux_c.bin
 First run called...
 Finished simulation
 Shutting down the ODE environment
-cmd: Reached relative precision 0.00302388340524924 (neeed 0.1).
+cmd: Reached relative precision 0.00120913592541395 (neeed 0.1).
 Initialising the ODE environment
 Starting simluation with output to hodhux_c.bin
 First run called...
 Finished simulation
 Shutting down the ODE environment
-cmd: Reached relative precision 0.00294377510964808 (neeed 0.1).
+cmd: Reached relative precision 0.00109617914007521 (neeed 0.1).
 cmd: Ran 24 iterations (4 outliers).
-cmd: Rounded run time per iteration: 4.351e+00 +/- 1.3e-02 (0.3%)
-cmd: Raw:                            4.35114653889496 +/- 0.0128191664006959
+cmd: Rounded run time per iteration: 4.2928e+00 +/- 4.7e-03 (0.1%)
+cmd: Raw:                            4.29276537100474 +/- 0.00470954369833714
 cmd: Running initial timing for warming up the cache...
 cmd: Running 100 initial timings...
 cmd: Iterating until target precision reached...
@@ -942,169 +618,193 @@ First run called...
 Finished simulation
 Shutting down the ODE environment
 cmd: Iterating until target precision reached...
-cmd: Reached relative precision 0.0277636390585374 (neeed 0.1).
+cmd: Reached relative precision 0.000857504890883043 (neeed 0.1).
 Initialising the ODE environment
 Starting simluation with output to ./hodhux_ode.bin
 First run called...
 Finished simulation
 Shutting down the ODE environment
-cmd: Reached relative precision 0.0228272252906033 (neeed 0.1).
-cmd: Ran 21 iterations (1 outliers).
-cmd: Rounded run time per iteration: 5.81e+00 +/- 1.3e-01 (2.3%)
-cmd: Raw:                            5.80963327646255 +/- 0.132697913016049
-cmd: Running initial timing for warming up the cache...
-cmd: Running 100 initial timings...
-cmd: Iterating until target precision reached...
-cmd: Running initial timing for warming up the cache...
+cmd: Reached relative precision 0.000817179049687807 (neeed 0.1).
 Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
+Starting simluation with output to ./hodhux_ode.bin
 First run called...
 Finished simulation
 Shutting down the ODE environment
-cmd: Running 20 initial timings...
-cmd: Running timing 1...
+cmd: Reached relative precision 0.000608842986502191 (neeed 0.1).
 Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
+Starting simluation with output to ./hodhux_ode.bin
 First run called...
 Finished simulation
 Shutting down the ODE environment
-cmd: Running timing 2...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 3...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 4...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 5...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 6...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 7...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 8...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 9...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 10...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 11...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 12...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 13...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 14...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 15...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 16...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 17...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 18...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 19...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Running timing 20...
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Iterating until target precision reached...
-cmd: Reached relative precision 0.0013999524083058 (neeed 0.1).
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Reached relative precision 0.00100970270354422 (neeed 0.1).
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Reached relative precision 0.0013247307282519 (neeed 0.1).
-Initialising the ODE environment
-Starting simluation with output to hodhux_c.bin
-First run called...
-Finished simulation
-Shutting down the ODE environment
-cmd: Reached relative precision 0.00128945947408442 (neeed 0.1).
+cmd: Reached relative precision 0.000593168656562808 (neeed 0.1).
 cmd: Ran 23 iterations (3 outliers).
-cmd: Rounded run time per iteration: 4.3191e+00 +/- 5.6e-03 (0.1%)
-cmd: Raw:                            4.31910494804382 +/- 0.00557384989477502
+cmd: Rounded run time per iteration: 4.2933e+00 +/- 2.5e-03 (0.1%)
+cmd: Raw:                            4.29326702627805 +/- 0.00254873764888887
+cmd: Running initial timing for warming up the cache...
+cmd: Running 100 initial timings...
+cmd: Iterating until target precision reached...
+cmd: Running initial timing for warming up the cache...
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Running 20 initial timings...
+cmd: Running timing 1...
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Running timing 2...
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Running timing 3...
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Running timing 4...
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Running timing 5...
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Running timing 6...
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Running timing 7...
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Running timing 8...
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Running timing 9...
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Running timing 10...
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Running timing 11...
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Running timing 12...
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Running timing 13...
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Running timing 14...
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Running timing 15...
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Running timing 16...
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Running timing 17...
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Running timing 18...
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Running timing 19...
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Running timing 20...
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Iterating until target precision reached...
+cmd: Reached relative precision 0.00106218994043489 (neeed 0.1).
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Reached relative precision 0.00103314136317936 (neeed 0.1).
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Reached relative precision 0.00100791985758893 (neeed 0.1).
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Reached relative precision 0.000977680465851772 (neeed 0.1).
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Reached relative precision 0.00125833599313512 (neeed 0.1).
+Initialising the ODE environment
+Starting simluation with output to hodhux_c.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Reached relative precision 0.000981862357096302 (neeed 0.1).
+cmd: Ran 25 iterations (5 outliers).
+cmd: Rounded run time per iteration: 4.3021e+00 +/- 4.2e-03 (0.1%)
+cmd: Raw:                            4.30209335226279 +/- 0.0042275550472114
 cmd: Running initial timing for warming up the cache...
 cmd: Running 100 initial timings...
 cmd: Iterating until target precision reached...
@@ -1236,19 +936,31 @@ First run called...
 Finished simulation
 Shutting down the ODE environment
 cmd: Iterating until target precision reached...
-cmd: Reached relative precision 0.00105038423160167 (neeed 0.1).
+cmd: Reached relative precision 0.000879297168083569 (neeed 0.1).
 Initialising the ODE environment
 Starting simluation with output to ./hodhux_ode.bin
 First run called...
 Finished simulation
 Shutting down the ODE environment
-cmd: Reached relative precision 0.000996463702920183 (neeed 0.1).
+cmd: Reached relative precision 0.00118203417717468 (neeed 0.1).
 Initialising the ODE environment
 Starting simluation with output to ./hodhux_ode.bin
 First run called...
 Finished simulation
 Shutting down the ODE environment
-cmd: Reached relative precision 0.000996047050921082 (neeed 0.1).
-cmd: Ran 22 iterations (2 outliers).
-cmd: Rounded run time per iteration: 4.3014e+00 +/- 4.3e-03 (0.1%)
-cmd: Raw:                            4.3013527906858 +/- 0.00428786277471211
+cmd: Reached relative precision 0.000829321123500164 (neeed 0.1).
+Initialising the ODE environment
+Starting simluation with output to ./hodhux_ode.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Reached relative precision 0.000807218418193237 (neeed 0.1).
+Initialising the ODE environment
+Starting simluation with output to ./hodhux_ode.bin
+First run called...
+Finished simulation
+Shutting down the ODE environment
+cmd: Reached relative precision 0.000762817248322914 (neeed 0.1).
+cmd: Ran 24 iterations (4 outliers).
+cmd: Rounded run time per iteration: 4.2950e+00 +/- 3.3e-03 (0.1%)
+cmd: Raw:                            4.29498935926079 +/- 0.00327899135622147

@@ -14,8 +14,8 @@
 
 // func declarations
 void modelSolver(void);
-void modelInitials(double* V, double* m, double* h, double* n);
-void modelLoop ( const double time, const double V, const double m, const double h, const double n
+void modelInitials(const double time, double* V, double* m, double* h, double* n);
+void modelLoop (const double time, const double V, const double m, const double h, const double n
                 , double* restrict d_V, double* restrict d_m, double* restrict d_h, double* restrict d_n);
 
 int main(void) {
@@ -27,8 +27,10 @@ int main(void) {
 
 void modelSolver(void) {
     init();
+    //static const uint64_t NUM = 5;
     // setup file output
-    start_sim("hodhux_c.bin");
+    start_sim("hodhux_c.bin", 5);
+
 
     // sim params
     static const double start_time = 0; 
@@ -55,14 +57,14 @@ void modelSolver(void) {
     uint64_t cur_period = 1;
     uint64_t cur_loop = 0;
 
-    modelInitials(&V, &m, &h, &n);
+    modelInitials(time, &V, &m, &h, &n);
     // copy data into output buffer
     out_data[0] = time;
     out_data[1] = V;
     out_data[2] = m;
     out_data[3] = h;
     out_data[4] = n;
-    write_dbls(NUM_PARAMS, out_data);
+    write_dbls(out_data, NUM_PARAMS);
 
     // main forward euler loop
     do {
@@ -87,7 +89,7 @@ void modelSolver(void) {
             out_data[2] = m;
             out_data[3] = h;
             out_data[4] = n;
-            write_dbls(NUM_PARAMS, out_data);
+            write_dbls(out_data, NUM_PARAMS);
             cur_period = 1;
         } else {
             cur_period ++;
@@ -98,7 +100,7 @@ void modelSolver(void) {
 }
 
 
-void modelInitials(double* V, double* m, double* h, double* n) {
+void modelInitials(const double time, double* V, double* m, double* h, double* n) {
     // load initial values
     *V = -75.0;
     *m = 0.05;

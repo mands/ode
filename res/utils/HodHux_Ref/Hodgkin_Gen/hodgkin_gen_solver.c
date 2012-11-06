@@ -20,7 +20,8 @@ void modelSolver(uint64_t num, double* STATE, double* DELTA);
 void modelSolver(uint64_t num, double* STATE, double* DELTA) {
     init();
     // setup file output
-    start_sim("hodhux_c_gen.bin");
+    uint64_t out_num = num+1;
+    start_sim("hodhux_c_gen.bin", out_num);
 
     // sim params
     static const double start_time = 0; 
@@ -32,7 +33,6 @@ void modelSolver(uint64_t num, double* STATE, double* DELTA) {
     static double time;
 
     // alloc the buffer of doubles
-    uint64_t out_num = num+1;
     double out_data[out_num];
 
     // euler loop params
@@ -46,7 +46,7 @@ void modelSolver(uint64_t num, double* STATE, double* DELTA) {
     for (uint64_t i = 1; i < out_num; ++i) {
         out_data[i] = STATE[i-1];
     }
-    write_dbls(out_num, out_data);
+    write_dbls(out_data, out_num);
 
     // main forward euler loop
     do {
@@ -69,7 +69,7 @@ void modelSolver(uint64_t num, double* STATE, double* DELTA) {
             for (uint64_t i = 1; i < out_num; ++i) {
                 out_data[i] = STATE[i-1];
             }
-            write_dbls(out_num, out_data);
+            write_dbls(out_data, out_num);
             cur_period = 1;
         } else {
             cur_period ++;

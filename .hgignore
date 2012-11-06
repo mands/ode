@@ -18,6 +18,7 @@ res/samples/output
 *.so.*
 *.exe
 *.out
+*.dot
 
 # LLVM bitcode
 *.bc

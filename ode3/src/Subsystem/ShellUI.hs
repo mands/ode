@@ -110,7 +110,7 @@ defaultCmds :: [ShellCommand SysState]
 defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnitsCmd
                 , simStartCmd
                 , startTimeCmd, stopTimeCmd, simTimestepCmd, simSolverCmd
-                , simBackendCmd, simLinkerCmd, simExecuteCmd, simOptimiseCmd, simMathModelCmd
+                , simBackendCmd, simLinkerCmd, simExecuteCmd, simOptimiseCmd, simShortCircuitCmd, simMathModelCmd
                 , outPeriodCmd, outFilenameCmd
                 , repoAddCmd, repoDelCmd
                 , typeCmd
@@ -163,6 +163,7 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnits
 
     simExecuteCmd = toggle "disableExecute" "Toggle Execution of Simulations" (get $ lExecute . lSimParams) (set $ lExecute . lSimParams)
     simOptimiseCmd = toggle "disableOptimise" "Toggle LLVM Optimisation of Simulations" (get $ lOptimise . lSimParams) (set $ lOptimise . lSimParams)
+    simShortCircuitCmd = toggle "disableShortCircuit" "Toggle Short-circuiting of boolean operators (N.B. may change simulation semantics) " (get $ lShortCircuitEval . lSimParams) (set $ lShortCircuitEval . lSimParams)
 
     simMathModelCmd = cmd "mathModel" f "Compilation Math model to utilise <strict, fast, gnuVec, amdVec, intelVec>"
       where

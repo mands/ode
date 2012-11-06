@@ -75,7 +75,7 @@ genExpr :: Id -> ExprData -> GenM (LLVM.Value)
 genExpr i (ExprData (Var v) t) = do
     -- need to allocate an expr, depends on the type and value generated
     llV <- genVar v
-    trace' [MkSB i, MkSB v] "Adding var to localmap" $ return ()
+    -- trace' [MkSB i, MkSB v] "Adding var to localmap" $ return ()
     return llV
 
 -- process vs, then op
@@ -85,7 +85,7 @@ genExpr i (ExprData (Op op vs) t) = do
     -- call the build op func
     GenState { builder, mathOps } <- get
     llV <- liftIO $ buildOpF builder mathOps (getValidIdName i)
-    trace' [MkSB i, MkSB op] "Created op func" $ return ()
+    -- trace' [MkSB i, MkSB op] "Created op func" $ return ()
     return llV
 
 -- process the cond, then BBs for each branch and a phi to connect them

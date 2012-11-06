@@ -13,8 +13,8 @@ LD            = ld.gold
 all: odelibrary.bc odelibrary.o aotStub.bc
 
 odelibrary.bc: odelibrary.c odelibrary.h
-	$(CC) $(CFLAGS) -S -emit-llvm -c -o odelibrary.ll $<
-	llvm-as odelibrary.ll
+	$(CC) $(CFLAGS) -emit-llvm -c -o odelibrary.bc $<
+	llvm-dis odelibrary.bc
 
 # generate an optimised version of the odelibrary
 odelibrary.opt.bc: odelibrary.opt.ll

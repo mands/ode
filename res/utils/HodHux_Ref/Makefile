@@ -2,7 +2,7 @@
 
 ####### Compiler, tools and options
 CC          = clang
-CFLAGS      = -std=c99 -pedantic -Weverything -Werror -integrated-as -fno-math-errno -ffast-math
+CFLAGS      = -std=c99 -pedantic -Weverything -integrated-as -fno-math-errno -ffast-math
 LIBS        = -lm
 LD          = ld.gold
 ODE_LIB_DIR = ../../stdlib
