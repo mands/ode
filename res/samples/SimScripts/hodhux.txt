@@ -1,0 +1,36 @@
+// disable unit checking
+:disableUnits
+
+// setup the repo
+:addRepo ../res/utils/HodHux_Ref
+
+// import our modules
+import HodHux.HodHux
+
+// :show all
+//:show modState
+
+// set sim params
+:startTime 0
+:endTime 60
+:timestep 0.00001
+:period 100000
+:output "./hodhux_ode.bin"
+
+// sim backend params
+:solver "euler"
+//:linker "static"
+// disable exe
+:disableExecute
+// disable opts
+//:disableOptimise
+// disable short-circuiting
+//:disableShortCircuit
+:mathModel "fast"
+:backend "aotcompiler"
+//:backend "interpreter"
+
+// all done
+:simulate HodHux
+:quit
+

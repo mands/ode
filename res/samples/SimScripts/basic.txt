@@ -2,23 +2,20 @@
 :disableUnits
 
 // setup the repo
-//:addRepo ../res/samples/repo
-:addRepo ../res/utils/HodHux_Ref
+:addRepo ../res/samples/repo
 
 // import our modules
-//import SimTests.HodHux.HodHux
-//import SimTests.BasicCalcUnits.*
-import HodHux.HodHux
+import SimTests.BasicCalcNoUnits.*
 
 // :show all
 //:show modState
 
 // set sim params
 :startTime 0
-:endTime 60
-:timestep 0.00001
-:period 100000
-:output "./hodhux_ode.bin"
+:endTime 10
+:timestep 1
+:period 1
+:output "./output.bin"
 
 // sim backend params
 :solver "euler"
@@ -34,7 +31,7 @@ import HodHux.HodHux
 //:backend "interpreter"
 
 // all done
-:simulate HodHux
-//:simulate BasicCalcUnits4
+//:simulate HodHux
+:simulate BasicCalc1c
 :quit
 
