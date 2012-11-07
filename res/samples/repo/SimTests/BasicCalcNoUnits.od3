@@ -8,12 +8,12 @@ module BasicCalc1b {
     val a = 1 + 2
 }
 
-// negation - use an ode so is not optimised away
+// negation of exprs - we use an ode so is not optimised away
 module BasicCalc1c {
-    init x = 0
+    init x = 10
     val pi = 3.14159
     val a = (x/x) * sin(pi) + 2 // = 0 + 2 = +2
-    val b = -a + -((x/x) * 2 * cos(pi) * 3) // -2 + +6 = +4
+    val b = -a + -((x/x) * 2 * cos(pi) * 3) // -2 + -(-6) = +4
     ode {init: x, delta : dx } = b
 }
 

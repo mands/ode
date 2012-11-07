@@ -1,8 +1,8 @@
 # Simple makefile for benchmarks
+ROOT_DIR = .
+include $(ROOT_DIR)/Makefile.inc
 
 ####### Compiler, tools and options
-CC          = clang
-CFLAGS      = -std=c11 -pedantic -Weverything -integrated-as -fno-math-errno -ffast-math
 LIBS        = -lm
 LD          = ld.gold
 ODE_LIB_DIR = ../../stdlib

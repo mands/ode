@@ -49,7 +49,7 @@ if __name__ == '__main__':
 
     diffAbs = (sp.absolute(sp.subtract(a, b)))
     diffMax = sp.nanmax(diffAbs)
-    diffEps = diffMax / sys.float_info.epsilon
+    diffEps = (diffMax / sys.float_info.epsilon) * 2 # we have to mult by two as python epsilon is not correct
 
     print("Max difference is {:+.16g} ({:+.16g} machine epsilons)".format(diffMax, diffEps))
 
