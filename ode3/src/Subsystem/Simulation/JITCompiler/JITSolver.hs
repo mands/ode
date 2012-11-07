@@ -165,8 +165,8 @@ genModelSolver CF.Module{..} initsF loopF = do
     -- call the start_sim func
     _ <- liftIO $ buildCall builder (libOps Map.! "init") [] ""
     fileStr <- liftIO $ buildGlobalString builder (L.get Sys.lFilename simParams) "simFilename"
-    fileStrPtr <- liftIO $ buildInBoundsGEP builder fileStr [constInt32 0, constInt32 0] ""
-    _ <- liftIO $ buildCall builder (libOps Map.! "start_sim") [fileStrPtr] ""
+    fileStrPtr <- liftIO $ buildInBoundsGEP builder fileStr [constInt64 0, constInt64 0] ""
+    _ <- liftIO $ buildCall builder (libOps Map.! "start_sim") [fileStrPtr, constInt64 $ OrdMap.size initExprs + 1] ""
 
     -- create the vals
     stateValRefMap <- createVals (OrdMap.keys initExprs) "StateRef"
@@ -231,12 +231,12 @@ genModelSolver CF.Module{..} initsF loopF = do
         GenState {builder, libOps} <- get
         -- fill the output array (inc curTime)
         forM_ (zip [0..] (curTimeRef:stateValRefs)) $ \(i, ptrVal) -> do
-            outV <- liftIO $ buildInBoundsGEP builder simOutData [constInt32 0, constInt32 i] $ "storeOutPtr" ++ (show i)
+            outV <- liftIO $ buildInBoundsGEP builder simOutData [constInt64 0, constInt64 i] $ "storeOutPtr" ++ (show i)
             liftIO $ withPtrVal builder ptrVal $ \loadV -> liftIO $ buildStore builder loadV outV
             return ()
         -- write to output func
-        simOutDataPtr <- liftIO $ buildInBoundsGEP builder simOutData [constInt32 0, constInt32 0] $ "storeOutPtr"
-        callInst <- liftIO $ buildCall builder (libOps Map.! "write_dbls") [constInt32 $ OrdMap.size initExprs + 1, simOutDataPtr] ""
+        simOutDataPtr <- liftIO $ buildInBoundsGEP builder simOutData [constInt64 0, constInt64 0] $ "storeOutPtr"
+        callInst <- liftIO $ buildCall builder (libOps Map.! "write_dbls") [simOutDataPtr, constInt64 $ OrdMap.size initExprs + 1] ""
         -- liftIO $ setInstructionCallConv callInst Fast
         return ()
 

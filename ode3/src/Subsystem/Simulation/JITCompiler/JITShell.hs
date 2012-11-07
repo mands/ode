@@ -54,8 +54,11 @@ llvmLinkScript p = do
     -- perfrom LTO
     when (L.get Sys.lOptimise p) $
         run "opt" (["-o", simPath] ++ linkOpts ++ [simPath]) >> return ()
-    -- DEBUG - dis-assemble sim.bc
+
+    -- DEBUG - dis-assemble sim.bc and gen graphs
     run "llvm-dis" [simPath]
+    run "opt" ["-analyze", "-dot-callgraph", "-dot-cfg", "-dot-dom", simPath]
+
     return ()
   where
     -- TODO - fix these paths

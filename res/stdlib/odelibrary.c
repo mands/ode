@@ -16,50 +16,36 @@
 // multiple file opens within single ode file - needs compiler support
 // 
 
-void first_run(const uint64_t n_args);
-
 // sets up the global enviornment for all simluations
 void init(void) {
-  printf("Initialising the ODE environment\n");
+  puts("Initialising the Ode Solver environment");
   // any other global initialisation
 }
 
 void shutdown(void) {
-  printf("Shutting down the ODE environment\n");
-
+  puts("Shutting down the Ode Solver environment");
 }
 
 // data for individual simluations
 // holds the block of data to output
-bool is_first_run = true;
 static FILE* out_file;
 
-void start_sim(const char* filename) {
-  printf("Starting simluation with output to %s\n", filename);
+void start_sim(const char* restrict filename, const uint64_t n_args) {
+  printf("Starting simulation with output to %s\n", filename);
   //char* filename = "outfile.bin";
   out_file = fopen(filename, "wb");
-  // should do first_run init here
-}
 
-void end_sim(void) {
-  fclose(out_file);
-  is_first_run = true;
-  printf("Finished simulation\n");
-}
-
-/*
-** sets up the binary file header information
-*/
-void first_run(const uint64_t n_args) {
-  is_first_run = false;
-  printf("First run called...\n");
-
+  // setup file header/first_run init here
   // write the num of cols as the header of the output file
   fwrite(&n_args, sizeof(uint64_t), 1, out_file);
 }
 
-void write_dbls(const uint64_t n_args, const double *dbls) {
-  if (is_first_run) first_run(n_args);
+void end_sim(void) {
+  fclose(out_file);
+  puts("Finished simulation");
+}
+
+void write_dbls(const double* restrict dbls, const uint64_t n_args) {
   // we use fwrite rather than write syscall as want buffering as the data byte-count is small
   fwrite(dbls, sizeof(double), n_args, out_file);  
 }

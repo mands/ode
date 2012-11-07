@@ -12,41 +12,33 @@
 #include "odelibrary.h"
 
 // func declarations
-void modelInitials(double* STATE);
-void modelLoop (double time, double* STATE, double* DELTA);
-void modelSolver(uint64_t num, double* STATE, double* DELTA);
+void modelSolver(const uint64_t num, double* restrict STATE, double* restrict DELTA, const double start_time, const double stop_time, const double time_step, const uint64_t period);
+void modelInitials(double* restrict STATE);
+void modelLoop (double time, const double* restrict STATE, double* restrict DELTA);
 
 // we assume this function would be optimised as is a library func
-void modelSolver(uint64_t num, double* STATE, double* DELTA) {
+void modelSolver(const uint64_t num, double* restrict STATE, double* restrict DELTA, const double start_time, const double stop_time, const double time_step, const uint64_t period) {
     init();
     // setup file output
-    start_sim("hodhux_c_gen.bin");
-
-    // sim params
-    static const double start_time = 0; 
-    static const double stop_time = 60; // switch upto 600s for 10m of sim, 20 APs and long (~1m) computational time
-    static const double time_step = 0.00001; 
-    static const uint64_t period = 100000;
-
-    // alloc state vals
-    static double time;
-
-    // alloc the buffer of doubles
     uint64_t out_num = num+1;
+    // alloc the buffer of doubles
     double out_data[out_num];
+    start_sim("hodhux_c_gen.bin", out_num);
 
     // euler loop params
+    static double time;
     time = start_time;
-    uint64_t cur_period = 1;
-    uint64_t cur_loop = 0;
+    static uint64_t cur_period = 1;
+    static uint64_t cur_loop = 0;
 
+    // setup init vals and write out
     modelInitials(STATE);
     // copy data into output buffer
     out_data[0] = time;
     for (uint64_t i = 1; i < out_num; ++i) {
         out_data[i] = STATE[i-1];
     }
-    write_dbls(out_num, out_data);
+    write_dbls(out_data, out_num);
 
     // main forward euler loop
     do {
@@ -69,7 +61,7 @@ void modelSolver(uint64_t num, double* STATE, double* DELTA) {
             for (uint64_t i = 1; i < out_num; ++i) {
                 out_data[i] = STATE[i-1];
             }
-            write_dbls(out_num, out_data);
+            write_dbls(out_data, out_num);
             cur_period = 1;
         } else {
             cur_period ++;

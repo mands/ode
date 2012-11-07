@@ -105,6 +105,7 @@ data SimParams = SimParams
     , _linker :: OdeLinker
     , _execute :: Bool
     , _optimise :: Bool
+    , _shortCircuitEval :: Bool         -- do we perform short-circuit evaluation of booleans?
     , _mathModel :: OdeMathModel
     } deriving Show
 
@@ -119,6 +120,7 @@ defSimParams = SimParams
     , _linker       = DynamicLink       -- always dyn link (not used for Interpreter & JIT)
     , _execute      = True              -- always execute (not used for Interpreter & JIT)
     , _optimise     = True              -- always optimise
+    , _shortCircuitEval = True          -- always perform short-circuit evaluation
     , _mathModel    = FastMath          -- always use fast maths
     }
 
@@ -160,7 +162,7 @@ defUnitsState = UnitsState
 -- post TH, all generated defs/labels are in scope
 
 -- We can't use TH splice above, as TH invokes ghci which results in undefined symbols for LLVM bindings
--- (main issue is ghci custom RTS linker is browkn r.e. weak symbols & C++ constructors/destructors
+-- (main issue is ghci custom RTS linker is broken wrt. weak symbols & C++ constructors/destructors
 --   instead wait for ghci dynamic version that will use system linker & dlopen - GHC bug #3658)
 -- Alt. generated splices (using Cog pre-processor)
 {--[[[cog
@@ -173,7 +175,7 @@ def genLens(recName, fields):
 
 genLens("SysState", ['_debug', '_unitsCheck', '_simParams', '_modState', '_unitsState'])
 genLens("SimParams",    ['_startTime', '_endTime', '_timestep', '_outputPeriod', '_filename', '_solver', '_backend',
-                        '_linker', '_execute', '_optimise', '_mathModel'])
+                        '_linker', '_execute', '_optimise', '_shortCircuitEval', '_mathModel'])
 genLens("ModState", ['_repos', '_modEnv', '_parsedFiles', '_replFile'])
 genLens("UnitsState", ['_quantities', '_unitDimEnv', '_convEnv'])
 
@@ -197,6 +199,7 @@ lBackend = lens (_backend) (\x rec -> rec { _backend = x })
 lLinker = lens (_linker) (\x rec -> rec { _linker = x })
 lExecute = lens (_execute) (\x rec -> rec { _execute = x })
 lOptimise = lens (_optimise) (\x rec -> rec { _optimise = x })
+lShortCircuitEval = lens (_shortCircuitEval) (\x rec -> rec { _shortCircuitEval = x })
 lMathModel = lens (_mathModel) (\x rec -> rec { _mathModel = x })
 
 -- ModState

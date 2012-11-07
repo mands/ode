@@ -154,13 +154,22 @@ defineExtOps p llvmMod = do
         -- addFuncAttributes f [NoUnwindAttribute, ReadNoneAttribute]
         return f
 
+    -- hardcoded interface to the Ode Stdlib
     libOps :: [(String, IO LLVM.Value)]
     libOps =
-        [ ("init",   addFunction llvmMod "init" (functionType voidType [] False))
-        , ("shutdown",   addFunction llvmMod "shutdown" (functionType voidType [] False))
-        , ("start_sim",   addFunction llvmMod "start_sim" (functionType voidType [pointerType int8Type 0] False))
-        , ("end_sim",   addFunction llvmMod "end_sim" (functionType voidType [] False))
-        , ("write_dbls", addFunction llvmMod "write_dbls" (functionType voidType [int32Type, pointerType doubleType 0] False))
+        [ ("init",          addFunction llvmMod "init" (functionType voidType [] False))
+        , ("shutdown",      addFunction llvmMod "shutdown" (functionType voidType [] False))
+        , ("start_sim",     do
+                                f <- addFunction llvmMod "start_sim" (functionType voidType [pointerType int8Type 0, int64Type] False)
+                                setFuncParam f 0 [NoAliasAttribute, NoCaptureAttribute]
+                                return f
+                                )
+        , ("end_sim",       addFunction llvmMod "end_sim" (functionType voidType [] False))
+        , ("write_dbls",    do
+                                f <- addFunction llvmMod "write_dbls" (functionType voidType [pointerType doubleType 0, int64Type] False)
+                                setFuncParam f 0 [NoAliasAttribute, NoCaptureAttribute]
+                                return f
+                                )
         ]
 
 -- LLVM Funcs ----------------------------------------------------------------------------------------------------------
@@ -226,6 +235,12 @@ addFuncAttributes v attrs = mapM_ (addFunctionAttr v) attrs >> return v
 addInstrAttributes :: LLVM.Value -> [Attribute] -> IO LLVM.Value
 addInstrAttributes v attrs = mapM_ (\a -> LFFI.addInstrAttribute v (fromIntegral (0-1)) $ LFFI.fromAttribute a) attrs >> return v
 
+setFuncParam :: LLVM.Value -> Int -> [Attribute] -> IO ()
+setFuncParam f idx attrs = do
+    ps <- getParams f
+    _ <- addParamAttributes (ps !! 0) attrs
+    return ()
+
 
 --runFunction' :: LLVM.ExecutionEngine -> LLVM.Value -> [LFFI.GenericValue] -> IO LFFI.GenericValue
 --runFunction' ee f args
@@ -251,7 +266,9 @@ readBitcodeFromFile name =
              else peek modPtr
 
 
--- LLVM Higher-Level Control Structures (limited power) ----------------------------------------------------------------
+-- LLVM Higher-Level Control Structures (limited power, useful for FP langs) -------------------------------------------
+
+-- | An FP-style If-stmt, ie. requires both branches to be present, return types of each must be equal
 ifStmt :: (MonadIO m) => Builder -> LLVM.Value -> LLVM.Value -> (Builder -> m LLVM.Value) -> (Builder -> m LLVM.Value)
     -> m [(LLVM.Value, LLVM.BasicBlock)]
 ifStmt builder curFunc condVal trueF falseF = do
@@ -278,6 +295,7 @@ ifStmt builder curFunc condVal trueF falseF = do
     -- let the caller deal with the phis
     return [(trueV, trueBB), (falseV, falseBB)]
 
+-- | A basic do-While loop
 -- TODO - are phis correct for loopStart - yes, think so
 doWhileStmt :: (MonadIO m) => Builder -> LLVM.Value -> (Builder -> m LLVM.Value) -> (Builder -> LLVM.Value -> m LLVM.Value) -> m ()
 doWhileStmt builder curFunc doBodyF doCondF = do

@@ -18,23 +18,28 @@
 #define N 3
 
 // func declarations
-void modelSolver(uint64_t num, double* STATE, double* DELTA);
-void modelInitials(double* STATE);
-void modelLoop (double time, double* STATE, double* DELTA);
+void modelSolver(const uint64_t num, double* restrict STATE, double* restrict DELTA, const double start_time, const double stop_time, const double time_step, const uint64_t period);
+void modelInitials(double* restrict STATE);
+void modelLoop (double time, const double* restrict STATE, double* restrict DELTA);
 
 int main(void) {
     // need to alloc the data here
     double STATE[NUM_PARAMS];
     double DELTA[NUM_PARAMS];
 
-    modelSolver(NUM_PARAMS, STATE, DELTA);
-    //exit(EXIT_SUCCESS);
+    // sim params
+    static const double start_time = 0; 
+    static const double stop_time = 60; // switch upto 600s for 10m of sim, 20 APs and long (~1m) computational time
+    static const double time_step = 0.00001; 
+    static const uint64_t period = 100000;
+
+    modelSolver(NUM_PARAMS, STATE, DELTA, start_time, stop_time, time_step, period);
     return(0);
 }
 
 
 
-void modelInitials(double* STATE) {
+void modelInitials(double* restrict STATE) {
     // load initial values
     STATE[V] = -75.0;
     STATE[M] = 0.05;
@@ -43,7 +48,7 @@ void modelInitials(double* STATE) {
 }
 
 
-void modelLoop (double time, double* STATE, double* DELTA) {
+void modelLoop (double time, const double* restrict STATE, double* restrict DELTA) {
     // global model constants
     double E_R = -75.0;
     double Cm = 1.0;

@@ -27,6 +27,8 @@ import HodHux.HodHux
 :disableExecute
 // disable opts
 //:disableOptimise
+// disable short-circuiting
+//:disableShortCircuit
 :mathModel "fast"
 :backend "aotcompiler"
 //:backend "interpreter"

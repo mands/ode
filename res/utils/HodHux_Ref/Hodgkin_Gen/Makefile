@@ -2,13 +2,13 @@
 
 ####### Compiler, tools and options
 CC          = clang
-CFLAGS      = -std=c99 -pedantic -Weverything -Werror -integrated-as -fno-math-errno -ffast-math
+CFLAGS      = -std=c11 -pedantic -Weverything -Werror -integrated-as -fno-math-errno -ffast-math
 LIBS        = -lm
 LD          = ld.gold
 ODE_LIB_DIR = ../../../stdlib
 ODE_INC_DIR = ../../../stdlib
 GCC         = gcc
-GCCFLAGS    = -std=c99 -pedantic -Wall -fno-math-errno -ffast-math
+GCCFLAGS    = -std=c11 -pedantic -Wall -fno-math-errno -ffast-math
 
 all: hodgkin_gen
 
