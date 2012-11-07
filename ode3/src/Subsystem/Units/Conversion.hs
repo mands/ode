@@ -218,3 +218,6 @@ convertCastUnit fromUnitC@(UnitC fromUnit) toUnitC@(UnitC toUnit) uEnv cEnv = do
                 -- return the updated rhs map minus an index, and the inlined conversion expr
                 let rhsUs'' = if (rIdx == 1) then rhsUs' else Map.insert rhsUnit (rIdx-1) rhsUs'
                 return (rhsUs'', inlineCExpr cExpr cExpr')
+
+convertCastUnit fromUnit toUnit uEnv cEnv = throwError $ printf "Cannot convert between units %s and %s" (show fromUnit) (show toUnit)
+
