@@ -8,11 +8,11 @@ void init(void);
 void shutdown(void);
 
 // individual iteration specific
-void start_sim(const char* restrict filename, const uint64_t n_args);
-void end_sim(void);
+void startSim(const char* restrict filename, const uint64_t nArgs);
+void endSim(void);
 
 // iteration output
-void write_dbls(const double* restrict dbls, const uint64_t n_args);
+void writeDbls(const double* restrict dbls, const uint64_t nArgs);
 
 #endif // ODE_LIBRARY_H
 

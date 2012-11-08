@@ -1,33 +1,34 @@
 ####### Compiler, tools and options
 CC            = clang
-CFLAGS        = -std=c11 -pedantic -Weverything -ffast-math -integrated-as -O3
+CFLAGS        = -std=c11 -pedantic -Weverything -ffast-math -integrated-as
 
-all: odelibrary.bc odelibrary.o aotStub.bc
+all: OdeLibrary.bc OdeLibrary.o
 
-odelibrary.bc: odelibrary.c odelibrary.h
-	$(CC) $(CFLAGS) -emit-llvm -c -o odelibrary.bc $<
-	llvm-dis odelibrary.bc
+OdeLibrary.bc: OdeLibrary.c OdeLibrary.h
+	$(CC) $(CFLAGS) -emit-llvm -c -o $@ $<
+	llvm-dis $@
 
 # generate an optimised version of the odelibrary
-odelibrary.opt.bc: odelibrary.opt.ll
+OdeLibraryOpt.bc: OdeLibraryOpt.ll
 	llvm-as -o $@ $<
 
-odelibrary.o: odelibrary.c odelibrary.h
-	$(CC) $(CFLAGS) -c -o $@ $<
+OdeLibrary.o: OdeLibrary.c OdeLibrary.h
+	$(CC) $(CFLAGS) -O3 -c -o $@ $<
 
 aotStub.bc: aotStub.ll
 	llvm-as -o $@ $<
 
-vecmath: VecMathCog.py
-	cog.py -r -c -e vecmath_libm.ll
-	cog.py -r -c -e vecmath_amd.ll
-	cog.py -r -c -e vecmath_intel.ll
-	llvm-as vecmath_libm.ll
-	llvm-as vecmath_amd.ll
-	llvm-as vecmath_intel.ll
+VecMath: VecMathCog.py
+	cog.py -r -c -e VecMath_GNU.ll
+	cog.py -r -c -e VecMath_AMD.ll
+	cog.py -r -c -e VecMath_Intel.ll
+	llvm-as VecMath_GNU.ll
+	llvm-as VecMath_AMD.ll
+	llvm-as VecMath_Intel.ll
 
 clean:
 	rm -f *.o *~
 
 .PHONY: clean
+
 

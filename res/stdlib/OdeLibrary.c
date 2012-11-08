@@ -1,7 +1,7 @@
 // Run-time library for the ODE Compiler
 // Written in C99 rathn than LLVM for quick development
 // Mainly utility functions for outputting balues to screen and files
-#include "odelibrary.h"
+#include "OdeLibrary.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -28,25 +28,25 @@ void shutdown(void) {
 
 // data for individual simluations
 // holds the block of data to output
-static FILE* out_file;
+static FILE* outFile;
 
-void start_sim(const char* restrict filename, const uint64_t n_args) {
+void startSim(const char* restrict filename, const uint64_t nArgs) {
   printf("Starting simulation with output to %s\n", filename);
   //char* filename = "outfile.bin";
-  out_file = fopen(filename, "wb");
+  outFile = fopen(filename, "wb");
 
   // setup file header/first_run init here
   // write the num of cols as the header of the output file
-  fwrite(&n_args, sizeof(uint64_t), 1, out_file);
+  fwrite(&nArgs, sizeof(uint64_t), 1, outFile);
 }
 
-void end_sim(void) {
-  fclose(out_file);
+void endSim(void) {
+  fclose(outFile);
   puts("Finished simulation");
 }
 
-void write_dbls(const double* restrict dbls, const uint64_t n_args) {
+void writeDbls(const double* restrict dbls, const uint64_t nArgs) {
   // we use fwrite rather than write syscall as want buffering as the data byte-count is small
-  fwrite(dbls, sizeof(double), n_args, out_file);  
+  fwrite(dbls, sizeof(double), nArgs, outFile);  
 }
 
