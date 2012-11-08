@@ -1,14 +1,6 @@
-# Simple makefile for ode runtime library
-#ROOT_DIR = ..
-#include $(ROOT_DIR)/Makefile.inc
-
 ####### Compiler, tools and options
 CC            = clang
-CFLAGS        = -std=c11 -O3 -pedantic -Weverything -integrated-as -fno-math-errno -ffast-math 
-LD            = ld.gold
-#ODE_LIB_DIR = $(ROOT_DIR)/stdlib
-#ODE_INC_DIR = $(ROOT_DIR)/stdlib
-
+CFLAGS        = -std=c11 -pedantic -Weverything -ffast-math -integrated-as -O3
 
 all: odelibrary.bc odelibrary.o aotStub.bc
 

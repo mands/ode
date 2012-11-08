@@ -1,14 +1,6 @@
 # Simple makefile for benchmarks
-ROOT_DIR = .
+ROOT_DIR = ..
 include $(ROOT_DIR)/Makefile.inc
-
-####### Compiler, tools and options
-LIBS        = -lm
-LD          = ld.gold
-ODE_LIB_DIR = ../../stdlib
-ODE_INC_DIR = ../../stdlib
-GCC         = gcc
-GCCFLAGS    = -std=c99 -pedantic -Wall -fno-math-errno -ffast-math
 
 all: sim.o0.exe sim.opt.exe sim.lto.exe sim.gcc.exe
 
@@ -45,13 +37,12 @@ hodgkin_gen: hodgkin_gen_model.c hodgkin_gen_solver.c
 	$(GCC) $(GCCFLAGS) -I$(ODE_INC_DIR) -O3 -fno-math-errno -ffast-math -o $@ $< $(ODE_LIB_DIR)/odelibrary.o -lm
 
 
-
 bench: sim.o0.exe sim.opt.exe sim.lto.exe
-	dumbbench -v -v ./sim.o0.exe > bench.out
-	dumbbench -v -v ./sim.opt.exe >> bench.out
-	dumbbench -v -v ./sim.lto.exe >> bench.out
-	dumbbench -v -v ./sim.gcc.exe >> bench.out
-	dumbbench -v -v ./sim.lto.exe >> bench.out
+	dumbbench -vv ./sim.o0.exe  > bench.out
+	dumbbench -vv ./sim.opt.exe >> bench.out
+	dumbbench -vv ./sim.lto.exe >> bench.out
+	dumbbench -vv ./sim.gcc.exe >> bench.out
+	dumbbench -vv ./sim.lto.exe >> bench.out
 
 clean:
 	rm -f *.exe *.bc

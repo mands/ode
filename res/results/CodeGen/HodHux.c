@@ -9,13 +9,13 @@
 #include <string.h>
 #include <math.h>
 
-#include "odelibrary.h"
+#include "OdeLibrary.h"
 #define NUM_PARAMS 5
 
 // func declarations
 void modelSolver(void);
 void modelInitials(const double time, double* V, double* m, double* h, double* n);
-void modelLoop (const double time, const double V, const double m, const double h, const double n
+void modelLoop  (const double time, const double V, const double m, const double h, const double n
                 , double* restrict d_V, double* restrict d_m, double* restrict d_h, double* restrict d_n);
 
 int main(void) {
@@ -107,7 +107,7 @@ void modelInitials(const double time, double* V, double* m, double* h, double* n
 }
 
 
-void modelLoop ( const double time, const double V, const double m, const double h, const double n
+void modelLoop  ( const double time, const double V, const double m, const double h, const double n
                 , double* restrict d_V, double* restrict d_m, double* restrict d_h, double* restrict d_n) {
     // global model constants
     static const double E_R = -75.0;

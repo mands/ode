@@ -1,19 +1,11 @@
 # Simple makefile for benchmarks
+ROOT_DIR = ..
+include $(ROOT_DIR)/Makefile.inc
 
-####### Compiler, tools and options
-CC          = clang
-CFLAGS      = -std=c11 -pedantic -Weverything -Werror -integrated-as -fno-math-errno -ffast-math
-LIBS        = -lm
-LD          = ld.gold
-ODE_LIB_DIR = ../../../stdlib
-ODE_INC_DIR = ../../../stdlib
-GCC         = gcc
-GCCFLAGS    = -std=c11 -pedantic -Wall -fno-math-errno -ffast-math
+all: sim.clang_gen.exe
 
-all: hodgkin_gen
-
-hodgkin_gen: hodgkin_gen_model.c hodgkin_gen_solver.c
-	@echo "** Building Hodkgin Generic **"
+sim.clang_gen.exe: hodgkin_gen_model.c hodgkin_gen_solver.c
+	@echo "** Building Clang-Generic **"
 	# compile each separately to object files
 	$(CC) $(CFLAGS) -I$(ODE_INC_DIR) -O3 -c hodgkin_gen_model.c
 	$(CC) $(CFLAGS) -I$(ODE_INC_DIR) -O3 -c hodgkin_gen_solver.c

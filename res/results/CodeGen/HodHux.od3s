@@ -2,7 +2,7 @@
 :disableUnits
 
 // setup the repo
-:addRepo ../res/utils/HodHux_Ref
+:addRepo ../res/utils/CodeGen
 
 // import our modules
 import HodHux.HodHux
