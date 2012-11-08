@@ -40,8 +40,8 @@ llvmLinkScript :: Sys.SimParams -> Sh ()
 llvmLinkScript p = do
     liftIO $ debugM "ode3.sim" $ "Starting LLVM Linker Script"
     -- delete the old sim file
-    rm_f "./sim.bc"
-    rm_f "./sim.ll"
+    rm_f "./Sim.bc"
+    rm_f "./Sim.ll"
 
     -- optimise the model
     when (L.get Sys.lOptimise p) $
@@ -62,10 +62,10 @@ llvmLinkScript p = do
     return ()
   where
     -- TODO - fix these paths
-    modelPath   = "./model.bc"
-    simPath     = "./sim.bc"
-    libDir      = "../res/stdlib"
-    libPath     = libDir </> "odelibrary.bc" -- change to opt
+    modelPath   = "./Model.bc"
+    simPath     = "./Sim.bc"
+    libDir      = "../res/StdLib"
+    libPath     = libDir </> "OdeLibrary.bc" -- change to opt
     modelOpts   = if (L.get Sys.lOptimise p) then ["-std-compile-opts"] else []
     linkOpts     = if (L.get Sys.lOptimise p) then ["-std-link-opts", "-std-compile-opts"] else []
 
@@ -77,18 +77,17 @@ llvmAOTScript p = do
     -- delete the old sim file
     rm_f output
     -- use clang to link our llvm-linked sim module to the system
-    run "clang" $ [linkType, "-o", toTextIgnore output, optLevel, noMathErrno, fastMath, simPath, aotStubPath] ++ libDir ++ libs
+    run "clang" $ [linkType, "-o", toTextIgnore output, optLevel, fastMath, simPath] ++ libDir ++ libs
     -- execute (as ext. process) if specified
     if (L.get Sys.lExecute p) then run output [] >> return () else return ()
     return ()
   where
-    output      = "./sim.exe"
-    simPath     = "./sim.bc"
-    aotStubPath = "" -- "../res/stdlib/aotStub.bc"
+    output      = "./Sim.exe"
+    simPath     = "./Sim.bc"
+    -- aotStubPath = "" -- "../res/StdLib/AOTStub.bc"
     libs        = ["-lm"]
     libDir      = []
     optLevel    = if (L.get Sys.lOptimise p) then "-O3" else "-O0"
-    noMathErrno = if (L.get Sys.lMathModel p /= Sys.StrictMath) then "-fno-math-errno" else ""
     fastMath    = if (L.get Sys.lMathModel p /= Sys.StrictMath) then "-ffast-math" else ""
     -- check dyn/static linking
     linkType    = case (L.get Sys.lLinker p) of
