@@ -15,7 +15,7 @@ import HodHux.HodHux
 :endTime 60
 :timestep 0.00001
 :period 100000
-:output "./hodhux_ode.bin"
+:output "./OutputOde.bin"
 
 // sim backend params
 :solver "euler"

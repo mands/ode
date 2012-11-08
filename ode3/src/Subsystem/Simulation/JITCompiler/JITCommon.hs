@@ -159,15 +159,15 @@ defineExtOps p llvmMod = do
     libOps =
         [ ("init",          addFunction llvmMod "init" (functionType voidType [] False))
         , ("shutdown",      addFunction llvmMod "shutdown" (functionType voidType [] False))
-        , ("start_sim",     do
-                                f <- addFunction llvmMod "start_sim" (functionType voidType [pointerType int8Type 0, int64Type] False)
-                                setFuncParam f 0 [NoAliasAttribute, NoCaptureAttribute]
+        , ("startSim",     do
+                                f <- addFunction llvmMod "startSim" (functionType voidType [pointerType int8Type 0, int64Type] False)
+                                setFuncParam f 0 [NoAliasAttribute] -- , NoCaptureAttribute]
                                 return f
                                 )
-        , ("end_sim",       addFunction llvmMod "end_sim" (functionType voidType [] False))
-        , ("write_dbls",    do
-                                f <- addFunction llvmMod "write_dbls" (functionType voidType [pointerType doubleType 0, int64Type] False)
-                                setFuncParam f 0 [NoAliasAttribute, NoCaptureAttribute]
+        , ("endSim",       addFunction llvmMod "endSim" (functionType voidType [] False))
+        , ("writeDbls",    do
+                                f <- addFunction llvmMod "writeDbls" (functionType voidType [pointerType doubleType 0, int64Type] False)
+                                setFuncParam f 0 [NoAliasAttribute] -- , NoCaptureAttribute]
                                 return f
                                 )
         ]

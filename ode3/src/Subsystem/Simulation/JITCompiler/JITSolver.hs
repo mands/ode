@@ -162,11 +162,11 @@ genModelSolver CF.Module{..} initsF loopF = do
     liftIO $ setLinkage curFunc ExternalLinkage
     _ <- liftIO $ addFuncAttributes curFunc [NoUnwindAttribute]-- [NoInlineAttribute, NoUnwindAttribute]
     GenState {libOps, llvmMod, simParams} <- get
-    -- call the start_sim func
+    -- call the startSim func
     _ <- liftIO $ buildCall builder (libOps Map.! "init") [] ""
     fileStr <- liftIO $ buildGlobalString builder (L.get Sys.lFilename simParams) "simFilename"
     fileStrPtr <- liftIO $ buildInBoundsGEP builder fileStr [constInt64 0, constInt64 0] ""
-    _ <- liftIO $ buildCall builder (libOps Map.! "start_sim") [fileStrPtr, constInt64 $ OrdMap.size initExprs + 1] ""
+    _ <- liftIO $ buildCall builder (libOps Map.! "startSim") [fileStrPtr, constInt64 $ OrdMap.size initExprs + 1] ""
 
     -- create the vals
     stateValRefMap <- createVals (OrdMap.keys initExprs) "StateRef"
@@ -190,7 +190,7 @@ genModelSolver CF.Module{..} initsF loopF = do
                 liftIO $ buildFCmp builder FPOLT curTime (constDouble $ L.get Sys.lEndTime simParams) "bWhileTime")
 
     -- end sim
-    _ <- liftIO $ buildCall builder (libOps Map.! "end_sim") [] ""
+    _ <- liftIO $ buildCall builder (libOps Map.! "endSim") [] ""
     _ <- liftIO $ buildCall builder (libOps Map.! "shutdown") [] ""
     -- return void
     r <- liftIO $ buildRetVoid builder
@@ -236,7 +236,7 @@ genModelSolver CF.Module{..} initsF loopF = do
             return ()
         -- write to output func
         simOutDataPtr <- liftIO $ buildInBoundsGEP builder simOutData [constInt64 0, constInt64 0] $ "storeOutPtr"
-        callInst <- liftIO $ buildCall builder (libOps Map.! "write_dbls") [simOutDataPtr, constInt64 $ OrdMap.size initExprs + 1] ""
+        callInst <- liftIO $ buildCall builder (libOps Map.! "writeDbls") [simOutDataPtr, constInt64 $ OrdMap.size initExprs + 1] ""
         -- liftIO $ setInstructionCallConv callInst Fast
         return ()
 

@@ -28,7 +28,7 @@ int main(void) {
 void modelSolver(void) {
     init();
     // setup file output
-    start_sim("hodhux_c.bin", NUM_PARAMS);
+    start_sim("./OutputC.bin", NUM_PARAMS);
 
     // sim params
     static const double start_time = 0; 

@@ -2,7 +2,7 @@
 CC            = clang
 CFLAGS        = -std=c11 -pedantic -Weverything -ffast-math -integrated-as
 
-all: OdeLibrary.bc OdeLibrary.o
+all: OdeLibrary.bc OdeLibrary.o AOTStub.bc
 
 OdeLibrary.bc: OdeLibrary.c OdeLibrary.h
 	$(CC) $(CFLAGS) -emit-llvm -c -o $@ $<
@@ -15,7 +15,7 @@ OdeLibraryOpt.bc: OdeLibraryOpt.ll
 OdeLibrary.o: OdeLibrary.c OdeLibrary.h
 	$(CC) $(CFLAGS) -O3 -c -o $@ $<
 
-aotStub.bc: aotStub.ll
+AOTStub.bc: AOTStub.ll
 	llvm-as -o $@ $<
 
 VecMath: VecMathCog.py
