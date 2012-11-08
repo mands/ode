@@ -99,8 +99,8 @@ genLLVMModule p odeMod = do
     when (L.get Sys.lBackend p == Sys.AOTCompiler) $ genAOTMain simF
 
     -- save the module to disk
-    liftIO $ printModuleToFile llvmMod "model.ll"
-    liftIO $ writeBitcodeToFile llvmMod "model.bc"
+    liftIO $ printModuleToFile llvmMod "Model.ll"
+    liftIO $ writeBitcodeToFile llvmMod "Model.bc"
     return ()
 
 -- | Calls out to our linker script
@@ -111,7 +111,7 @@ linkLLVMModule p = Sh.shelly . Sh.verbosely $ llvmLinkScript p
 runJITSimulation :: Sys.SimParams -> IO ()
 runJITSimulation p = do
     -- load the linked/optimised module
-    simMod <- readBitcodeFromFile "./sim.bc"
+    simMod <- readBitcodeFromFile "./Sim.bc"
 
     -- setup the jitter
     LFFI.initializeNativeTarget
