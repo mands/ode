@@ -9,7 +9,7 @@
 #include <string.h>
 #include <math.h>
 
-#include "odelibrary.h"
+#include "OdeLibrary.h"
 #define NUM_PARAMS 4
 
 #define V 0

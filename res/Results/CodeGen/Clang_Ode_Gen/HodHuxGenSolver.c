@@ -9,7 +9,7 @@
 #include <string.h>
 #include <math.h>
 
-#include "odelibrary.h"
+#include "OdeLibrary.h"
 
 // func declarations
 void modelSolver(const uint64_t num, double* restrict STATE, double* restrict DELTA, const double start_time, const double stop_time, const double time_step, const uint64_t period);
@@ -23,7 +23,7 @@ void modelSolver(const uint64_t num, double* restrict STATE, double* restrict DE
     uint64_t out_num = num+1;
     // alloc the buffer of doubles
     double out_data[out_num];
-    start_sim("hodhux_c_gen.bin", out_num);
+    startSim("HodHuxCGen.bin", out_num);
 
     // euler loop params
     static double time;
@@ -38,7 +38,7 @@ void modelSolver(const uint64_t num, double* restrict STATE, double* restrict DE
     for (uint64_t i = 1; i < out_num; ++i) {
         out_data[i] = STATE[i-1];
     }
-    write_dbls(out_data, out_num);
+    writeDbls(out_data, out_num);
 
     // main forward euler loop
     do {
@@ -61,13 +61,13 @@ void modelSolver(const uint64_t num, double* restrict STATE, double* restrict DE
             for (uint64_t i = 1; i < out_num; ++i) {
                 out_data[i] = STATE[i-1];
             }
-            write_dbls(out_data, out_num);
+            writeDbls(out_data, out_num);
             cur_period = 1;
         } else {
             cur_period ++;
         }
     } while (time < stop_time);
-    end_sim();
+    endSim();
     shutdown();
 }
 

@@ -28,7 +28,7 @@ int main(void) {
 void modelSolver(void) {
     init();
     // setup file output
-    start_sim("./OutputC.bin", NUM_PARAMS);
+    startSim("./OutputC.bin", NUM_PARAMS);
 
     // sim params
     static const double start_time = 0; 
@@ -62,7 +62,7 @@ void modelSolver(void) {
     out_data[2] = m;
     out_data[3] = h;
     out_data[4] = n;
-    write_dbls(out_data, NUM_PARAMS);
+    writeDbls(out_data, NUM_PARAMS);
 
     // main forward euler loop
     do {
@@ -87,13 +87,13 @@ void modelSolver(void) {
             out_data[2] = m;
             out_data[3] = h;
             out_data[4] = n;
-            write_dbls(out_data, NUM_PARAMS);
+            writeDbls(out_data, NUM_PARAMS);
             cur_period = 1;
         } else {
             cur_period ++;
         }
     } while (time < stop_time);
-    end_sim();
+    endSim();
     shutdown();
 }
 
