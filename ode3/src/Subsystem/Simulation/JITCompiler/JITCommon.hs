@@ -129,25 +129,25 @@ defineExtOps p llvmMod = do
         , (AC.Exp,      createPureFunc "exp" (functionType doubleType [doubleType] False))
         , (AC.Log,      createPureFunc "log" (functionType doubleType [doubleType] False))
         -- powers
-        -- , (AC.Pow,      createPureFunc "pow" (functionType doubleType [doubleType, doubleType] False))
-        , (AC.Pow,      createPureFunc "llvm.pow.f64" (functionType doubleType [doubleType, doubleType] False))
+        , (AC.Pow,      createPureFunc "pow" (functionType doubleType [doubleType, doubleType] False))
         , (AC.Sqrt,     createPureFunc "sqrt" (functionType doubleType [doubleType] False))
         , (AC.Cbrt,     createPureFunc "cbrt" (functionType doubleType [doubleType] False))
         , (AC.Hypot,    createPureFunc "hypot" (functionType doubleType [doubleType, doubleType] False))
         ]
 
     createPureFunc name funcType = do
-        f <- addFunction llvmMod name' funcType
+        f <- addFunction llvmMod name funcType
         -- setFunctionCallConv f Fast
         addFuncAttributes f [NoUnwindAttribute, ReadNoneAttribute]
         return f
-     where
-        name' = if (L.get Sys.lMathModel p == Sys.FastMath && Set.member name finiteFuncs)
-            then "__" ++ name ++ "_finite" else name
 
-    finiteFuncs = Set.fromList  ["acos", "acosh", "asin", "atan2", "atanh", "cosh", "sinh", "exp10", "exp2"
-                                --, "exp", "log10", "log2", "log", "fmod", "hypot", "pow", "sqrt"]
-                                , "exp", "log10", "log2", "log", "fmod", "hypot", "sqrt"]
+--     where
+-- we don't convert to finite funcs here, instead rely on vecmath to handle this externally
+--        name' = if (L.get Sys.lMathModel p == Sys.Fast && Set.member name finiteFuncs)
+--            then "__" ++ name ++ "_finite" else name
+--
+--    finiteFuncs = Set.fromList  ["acos", "acosh", "asin", "atan2", "atanh", "cosh", "sinh", "exp10", "exp2"
+--                                , "exp", "log10", "log2", "log", "fmod", "hypot", "pow", "sqrt"]
 
     createReadOnlyFunc name funcType = do
         f <- addFunction llvmMod name funcType

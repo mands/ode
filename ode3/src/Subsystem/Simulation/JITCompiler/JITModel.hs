@@ -135,7 +135,7 @@ genVar v = errorDump [] "NYI" assert
 -- | Takes an already evaulated list of vars and processes the builtin op
 -- can pattern match these directly as we know the types are all correct
 genOp :: AC.Op -> [LLVM.Value] -> (LLVM.Builder -> MathOps -> String -> IO LLVM.Value)
--- Basic Ops
+-- Basic (Intrisic) Ops
 genOp (AC.BasicOp AC.Add)   (v1:v2:[])  = (\b _ s -> buildFAdd b v1 v2 s)
 genOp (AC.BasicOp AC.Sub)   (v1:v2:[])  = (\b _ s -> buildFSub b v1 v2 s)
 genOp (AC.BasicOp AC.Mul)   (v1:v2:[])  = (\b _ s -> buildFMul b v1 v2 s)

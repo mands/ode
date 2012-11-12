@@ -91,22 +91,25 @@ defSysState = SysState
 -- Simulation Datatypes
 data OdeSolver  = FEuler | RK4 deriving (Show, Eq)
 data OdeBackend = Interpreter | JITCompiler | AOTCompiler deriving (Show, Eq)
-data OdeLinker  = StaticLink | DynamicLink deriving (Show, Eq)
-data OdeMathModel = StrictMath | FastMath | GNUVecMath | AMDVecMath | IntelVecMath deriving (Show, Eq)
+data OdeLinker  = Static | Dynamic deriving (Show, Eq)
+data OdeMathModel = Strict | Fast deriving (Show, Eq)
+data OdeMathLib = GNU | AMD | Intel deriving (Show, Eq)
 
 data SimParams = SimParams
-    { _startTime :: Double
-    , _endTime :: Double
-    , _timestep :: Double               -- simulation timestep
+    { _startTime    :: Double
+    , _endTime      :: Double
+    , _timestep     :: Double               -- simulation timestep
     , _outputPeriod :: Integer          -- period with which to save simulation state to outfile, wrt timestep
-    , _filename :: FilePath             -- output filename to save data to
-    , _solver :: OdeSolver
-    , _backend :: OdeBackend
-    , _linker :: OdeLinker
-    , _execute :: Bool
-    , _optimise :: Bool
+    , _filename     :: FilePath             -- output filename to save data to
+    , _solver       :: OdeSolver
+    , _backend      :: OdeBackend
+    , _linker       :: OdeLinker
+    , _execute      :: Bool
+    , _optimise     :: Bool
     , _shortCircuitEval :: Bool         -- do we perform short-circuit evaluation of booleans?
-    , _mathModel :: OdeMathModel
+    , _mathModel    :: OdeMathModel
+    , _mathLib      :: OdeMathLib
+    , _vecMath      :: Bool
     } deriving Show
 
 defSimParams = SimParams
@@ -117,11 +120,13 @@ defSimParams = SimParams
     , _filename     = "Output.bin"      -- default output file
     , _solver       = FEuler            -- default solver
     , _backend      = Interpreter       -- default backend
-    , _linker       = DynamicLink       -- always dyn link (not used for Interpreter & JIT)
+    , _linker       = Dynamic           -- always dyn link (not used for Interpreter & JIT)
     , _execute      = True              -- always execute (not used for Interpreter & JIT)
-    , _optimise     = True              -- always optimise
+    , _optimise     = True              -- always optimise during code-gen
     , _shortCircuitEval = True          -- always perform short-circuit evaluation
-    , _mathModel    = FastMath          -- always use fast maths
+    , _mathModel    = Fast              -- always use fast maths during code-gen
+    , _mathLib      = GNU               -- always use GNU libm
+    , _vecMath      = False             -- vecMath optimisation disabled by default
     }
 
 -- | Holds the ordered set of enabled repositories
@@ -175,7 +180,7 @@ def genLens(recName, fields):
 
 genLens("SysState", ['_debug', '_unitsCheck', '_simParams', '_modState', '_unitsState'])
 genLens("SimParams",    ['_startTime', '_endTime', '_timestep', '_outputPeriod', '_filename', '_solver', '_backend',
-                        '_linker', '_execute', '_optimise', '_shortCircuitEval', '_mathModel'])
+                        '_linker', '_execute', '_optimise', '_shortCircuitEval', '_mathModel', '_mathLib', '_vecMath'])
 genLens("ModState", ['_repos', '_modEnv', '_parsedFiles', '_replFile'])
 genLens("UnitsState", ['_quantities', '_unitDimEnv', '_convEnv'])
 
@@ -201,6 +206,8 @@ lExecute = lens (_execute) (\x rec -> rec { _execute = x })
 lOptimise = lens (_optimise) (\x rec -> rec { _optimise = x })
 lShortCircuitEval = lens (_shortCircuitEval) (\x rec -> rec { _shortCircuitEval = x })
 lMathModel = lens (_mathModel) (\x rec -> rec { _mathModel = x })
+lMathLib = lens (_mathLib) (\x rec -> rec { _mathLib = x })
+lVecMath = lens (_vecMath) (\x rec -> rec { _vecMath = x })
 
 -- ModState
 lRepos = lens (_repos) (\x rec -> rec { _repos = x })
@@ -212,7 +219,7 @@ lReplFile = lens (_replFile) (\x rec -> rec { _replFile = x })
 lQuantities = lens (_quantities) (\x rec -> rec { _quantities = x })
 lUnitDimEnv = lens (_unitDimEnv) (\x rec -> rec { _unitDimEnv = x })
 lConvEnv = lens (_convEnv) (\x rec -> rec { _convEnv = x })
---[[[end]]] (checksum: 3cc30c05d670307f87ff06c5c4fb02c5)
+--[[[end]]] (checksum: c4cf836f708a52707735ce72c564808d)
 
 -- a few useful views from top SysState into nested labels
 vModEnv :: SysState :-> MA.GlobalModEnv

@@ -88,8 +88,8 @@ llvmAOTScript p = do
     libs        = ["-lm"]
     libDir      = []
     optLevel    = if (L.get Sys.lOptimise p) then "-O3" else "-O0"
-    fastMath    = if (L.get Sys.lMathModel p /= Sys.StrictMath) then "-ffast-math" else ""
+    fastMath    = if (L.get Sys.lMathModel p /= Sys.Strict) then "-ffast-math" else ""
     -- check dyn/static linking
     linkType    = case (L.get Sys.lLinker p) of
-        Sys.StaticLink -> "-static"
-        Sys.DynamicLink -> ""
+        Sys.Static -> "-static"
+        Sys.Dynamic -> ""
