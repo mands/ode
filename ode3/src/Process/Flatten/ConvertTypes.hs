@@ -104,7 +104,7 @@ convertTypesExpr et@(AC.TypeCast e (AC.UnitCast toU)) = do
     -- get the type of the orig expression
     AC.TFloat fromU <- lift . lift $ T.calcTypeExpr tMap e
     isInit <- _inInit <$> lift get
-    AC.Let False (AC.TFloat U.NoUnit) [id] e' <$> (convertUnitCast id fromU toU)
+    AC.Let isInit (AC.TFloat U.NoUnit) [id] e' <$> (convertUnitCast id fromU toU)
 
 -- don't care about the rest, pass on to mapExprM
 convertTypesExpr e = AC.mapExprM convertTypesExpr e

@@ -13,7 +13,8 @@
 -----------------------------------------------------------------------------
 
 module AST.CoreFlat (
-Module(..), ExprMap, TopLet, Expr(..), Var(..), ExprData(..), Type(..), SimOps(..)
+Module(..), ExprMap, TopLet, Expr(..), Var(..), ExprData(..), Type(..), SimOps(..),
+mapExpr
 ) where
 
 -- import Data.IntMap as IM
@@ -66,4 +67,7 @@ data SimOps = Ode Id Var    -- indicates the state val and a ref to an id holdin
 -- data OpParams = OpParams [Id] deriving (Show, Eq, Ord)
 
 -- Traversal Functions -------------------------------------------------------------------------------------------------
--- TODO
+
+mapExpr :: (ExprData -> ExprData) -> Expr -> Expr
+mapExpr f (If v eT eF) = If v (fmap f eT) (fmap f eF)
+mapExpr f e = e -- trace' [MkSB e] "Returing unhandled non-composite e" $ e

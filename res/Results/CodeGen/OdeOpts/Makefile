@@ -2,7 +2,7 @@
 ROOT_DIR = ..
 include $(ROOT_DIR)/Makefile.inc
 
-all: SimGCC.exe SimOde.exe
+all: BuildSims
 
 SimGCC.exe: HodHux.c
 	# ** Building GCC **
@@ -12,9 +12,24 @@ SimOde.exe: HodHuxOde.ll
 	# ** Building Ode **
 	$(CC) $(CFLAGS) -O3 -o $@ $< $(ODE_LIB_OBJ) $(LIBS) $(CRTFAST)
 
+BuildSims:
+	# ** Building Simulations **
+	./SimScript.sh
+
+# Test errs in pow expansion
+# 1 - x^4 opt expanded
+ManualSims: Sim_PowerExpa1.ll
+	$(CC) $(CFLAGS) -O3 -o Sim_PowerExpa1.exe Sim_PowerExpa1.ll $(ODE_LIB_OBJ) $(LIBS) $(CRTFAST)
+
 bench:
-	dumbbench -vv ./SimGCC.exe > bench.out
-	dumbbench -vv ./SimOde.exe >> bench.out
+	dumbbench -vv ./Sim_Unopt.exe > bench.out
+	dumbbench -vv ./Sim_OptStrict.exe >> bench.out
+	dumbbench -vv ./Sim_OptStrictLTO.exe >> bench.out
+	dumbbench -vv ./Sim_FastMath.exe >> bench.out
+	dumbbench -vv ./Sim_ShortCircuit.exe >> bench.out
+	dumbbench -vv ./Sim_PowerExpan.exe >> bench.out
+	dumbbench -vv ./Sim_PowerExpa1.exe >> bench.out
+
 
 clean:
 	rm -f *.exe *.bc *.o

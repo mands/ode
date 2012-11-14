@@ -16,7 +16,7 @@
 
 module Utils.Utils (
 MExcept, MExceptIO, mkExceptIO, maybeToExcept, maybeToExcept', maybeToExceptIO,
-mapFst, mapSnd, pairM, notEqual, inc, dec,
+mapFst, mapSnd, pairM, notEqual, inc, dec, isWholeNumber,
 (|>),
 SB(..), trace', errorDump,
 openPipe, closePipe, readLoop,
@@ -67,6 +67,10 @@ a `notEqual` b = not (a == b)
 
 inc = (+) 1
 dec = (-) 1
+
+isWholeNumber :: Double -> Bool
+isWholeNumber n = (fromInteger $ floor n) == n
+
 
 -- Monadic Error Handling ----------------------------------------------------------------------------------------------
 -- Switch to errors package

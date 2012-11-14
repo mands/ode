@@ -71,22 +71,21 @@ liftExSys :: MExcept a -> SysExceptIO a
 liftExSys = lift . mkExceptIO
 
 data SysState = SysState
-    { _debug :: Bool                -- do we enable debug mode
-    , _unitsCheck :: Bool         -- disable type-checker units?
-    , _simParams :: SimParams         -- simulation params
-    , _modState :: ModState
-    , _unitsState :: UnitsState
+    { _debug        :: Bool             -- do we enable debug mode
+    , _unitsCheck   :: Bool             -- disable type-checker units?
+    , _simParams    :: SimParams        -- simulation params
+    , _modState     :: ModState
+    , _unitsState   :: UnitsState
     } deriving Show
 
 
 defSysState = SysState
-    { _debug = False
-    , _unitsCheck = True
-    , _simParams = defSimParams
-    , _modState = defModState
-    , _unitsState = defUnitsState
+    { _debug        = False
+    , _unitsCheck   = True
+    , _simParams    = defSimParams
+    , _modState     = defModState
+    , _unitsState   = defUnitsState
     }
-
 
 -- Simulation Datatypes
 data OdeSolver  = FEuler | RK4 deriving (Show, Eq)
@@ -98,18 +97,21 @@ data OdeMathLib = GNU | AMD | Intel deriving (Show, Eq)
 data SimParams = SimParams
     { _startTime    :: Double
     , _endTime      :: Double
-    , _timestep     :: Double               -- simulation timestep
+    , _timestep     :: Double           -- simulation timestep
     , _outputPeriod :: Integer          -- period with which to save simulation state to outfile, wrt timestep
-    , _filename     :: FilePath             -- output filename to save data to
+    , _filename     :: FilePath         -- output filename to save data to
     , _solver       :: OdeSolver
     , _backend      :: OdeBackend
     , _linker       :: OdeLinker
     , _execute      :: Bool
-    , _optimise     :: Bool
-    , _shortCircuitEval :: Bool         -- do we perform short-circuit evaluation of booleans?
+
     , _mathModel    :: OdeMathModel
     , _mathLib      :: OdeMathLib
     , _vecMath      :: Bool
+
+    , _optimise     :: Bool
+    , _optShortCircuit  :: Bool         -- do we perform short-circuit evaluation of booleans?
+    , _optPowerExpan    :: Bool         -- do we perform expansion of calls to pow()?
     } deriving Show
 
 defSimParams = SimParams
@@ -122,43 +124,47 @@ defSimParams = SimParams
     , _backend      = Interpreter       -- default backend
     , _linker       = Dynamic           -- always dyn link (not used for Interpreter & JIT)
     , _execute      = True              -- always execute (not used for Interpreter & JIT)
-    , _optimise     = True              -- always optimise during code-gen
-    , _shortCircuitEval = True          -- always perform short-circuit evaluation
+
     , _mathModel    = Fast              -- always use fast maths during code-gen
     , _mathLib      = GNU               -- always use GNU libm
     , _vecMath      = False             -- vecMath optimisation disabled by default
+
+    , _optimise     = True              -- always optimise during code-gen
+    , _optShortCircuit  = True          -- always perform short-circuit evaluation
+    , _optPowerExpan    = True          -- always perform expansion of calls to pow()
+
     }
 
 -- | Holds the ordered set of enabled repositories
 type RepoSet = OrdSet.OrdSet FilePath
 
 data ModState = ModState
-    { _repos :: RepoSet                 -- list of enabled module repositories
-    , _modEnv :: MA.GlobalModEnv        -- map of loaded modules
+    { _repos    :: RepoSet                 -- list of enabled module repositories
+    , _modEnv   :: MA.GlobalModEnv        -- map of loaded modules
     , _parsedFiles :: Set.Set ModRoot   -- set of fully parsed files
     , _replFile :: MA.FileData          -- a speical file that holds the REPL mod data
     } deriving Show
 
 defModState = ModState
-    { _repos = OrdSet.empty             -- do we add the defaults here?
-    , _modEnv = Map.empty               -- map of loaded modules
+    { _repos    = OrdSet.empty             -- do we add the defaults here?
+    , _modEnv   = Map.empty               -- map of loaded modules
     , _parsedFiles = Set.empty
     , _replFile = MA.mkFileData MA.replModRoot
     }
 
 
 data UnitsState = UnitsState
-    { _quantities :: U.QuantityBimap    -- a bimap of all quantities <-> dimension
+    { _quantities   :: U.QuantityBimap    -- a bimap of all quantities <-> dimension
 --    , _unitAliases :: U.UnitAliasBimap  -- a bimap from unit <-> alias
-    , _unitDimEnv :: U.UnitDimEnv       -- mapping from unit -> dimension
-    , _convEnv :: U.ConvEnv             -- a mapping from dimension -> conv graph
+    , _unitDimEnv   :: U.UnitDimEnv       -- mapping from unit -> dimension
+    , _convEnv      :: U.ConvEnv             -- a mapping from dimension -> conv graph
     } deriving Show
 
 defUnitsState = UnitsState
-    { _quantities = U.defQuantities
+    { _quantities   = U.defQuantities
 --    , _unitAliases = Bimap.empty
-    , _unitDimEnv = U.defUnits
-    , _convEnv = U.defConvs
+    , _unitDimEnv   = U.defUnits
+    , _convEnv      = U.defConvs
     }
 
 -- TH splice
@@ -180,7 +186,8 @@ def genLens(recName, fields):
 
 genLens("SysState", ['_debug', '_unitsCheck', '_simParams', '_modState', '_unitsState'])
 genLens("SimParams",    ['_startTime', '_endTime', '_timestep', '_outputPeriod', '_filename', '_solver', '_backend',
-                        '_linker', '_execute', '_optimise', '_shortCircuitEval', '_mathModel', '_mathLib', '_vecMath'])
+                        '_linker', '_execute', '_mathModel', '_mathLib', '_vecMath',
+                        '_optimise', '_optShortCircuit', '_optPowerExpan'])
 genLens("ModState", ['_repos', '_modEnv', '_parsedFiles', '_replFile'])
 genLens("UnitsState", ['_quantities', '_unitDimEnv', '_convEnv'])
 
@@ -203,11 +210,12 @@ lSolver = lens (_solver) (\x rec -> rec { _solver = x })
 lBackend = lens (_backend) (\x rec -> rec { _backend = x })
 lLinker = lens (_linker) (\x rec -> rec { _linker = x })
 lExecute = lens (_execute) (\x rec -> rec { _execute = x })
-lOptimise = lens (_optimise) (\x rec -> rec { _optimise = x })
-lShortCircuitEval = lens (_shortCircuitEval) (\x rec -> rec { _shortCircuitEval = x })
 lMathModel = lens (_mathModel) (\x rec -> rec { _mathModel = x })
 lMathLib = lens (_mathLib) (\x rec -> rec { _mathLib = x })
 lVecMath = lens (_vecMath) (\x rec -> rec { _vecMath = x })
+lOptimise = lens (_optimise) (\x rec -> rec { _optimise = x })
+lOptShortCircuit = lens (_optShortCircuit) (\x rec -> rec { _optShortCircuit = x })
+lOptPowerExpan = lens (_optPowerExpan) (\x rec -> rec { _optPowerExpan = x })
 
 -- ModState
 lRepos = lens (_repos) (\x rec -> rec { _repos = x })
@@ -219,7 +227,7 @@ lReplFile = lens (_replFile) (\x rec -> rec { _replFile = x })
 lQuantities = lens (_quantities) (\x rec -> rec { _quantities = x })
 lUnitDimEnv = lens (_unitDimEnv) (\x rec -> rec { _unitDimEnv = x })
 lConvEnv = lens (_convEnv) (\x rec -> rec { _convEnv = x })
---[[[end]]] (checksum: c4cf836f708a52707735ce72c564808d)
+--[[[end]]] (checksum: 49c6ffef5c1e308dd66760b201ff60c5)
 
 -- a few useful views from top SysState into nested labels
 vModEnv :: SysState :-> MA.GlobalModEnv

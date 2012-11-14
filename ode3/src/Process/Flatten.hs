@@ -33,6 +33,7 @@ import qualified Data.Traversable as DT
 import qualified Data.Map as Map
 
 import Control.Monad.State as S
+import Control.Conditional
 import Utils.MonadSupply
 
 import Utils.CommonImports
@@ -52,6 +53,7 @@ import Process.Flatten.ConvertAST
 import Process.Flatten.ConvertTypes
 import Process.Flatten.UnpackTuples
 import Process.Flatten.OptimiseAST
+import Process.Flatten.OptimiseCoreFlatAST
 
 flatten :: String -> SysExcept ACF.Module
 flatten initModStr = do
@@ -74,8 +76,10 @@ flatten initModStr = do
     trace' [MkSB mod3] "Convert units output" $ return ()
     -- perform Core AST micro-opts
 
-    shortCircuit <- getSysState $ lShortCircuitEval . lSimParams
-    mod4 <- lift $ optimiseCoreAST mod3 shortCircuit
+    shortCircuit <- getSysState $ lOptShortCircuit . lSimParams
+    ops <- getSysState $ lOptimise . lSimParams
+    simParams <- getSysState $ lSimParams
+    mod4 <- lift $ optimiseCoreAST mod3 simParams
     -- trace' [MkSB mod4] "Optimised Core AST" $ return ()
 
     -- convert to CoreFlat
@@ -84,4 +88,9 @@ flatten initModStr = do
     -- unpack tuples (in CoreFlat)
     core2 <- lift $ unpackTuples core1
     --trace' [MkSB core2] "(Unpacked) CoreFlat AST output" $ return ()
+
+--    core3 <- ifM (getSysState $ lOptimise . lSimParams)
+--                (lift $ optimiseCoreFlatAST core2)
+--                (return core2)
+
     return core2

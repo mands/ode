@@ -32,15 +32,16 @@ executable ode3
                 OverloadedStrings GADTs GADTSyntax DeriveFunctor DeriveTraversable
                 DeriveFoldable
     hs-source-dirs: src
-    other-modules: Process.Flatten.OptimiseAST Parser.Ode Parser.Common
-                   Parser.Module Parser.Ion Utils.CommonImports Utils.Utils
-                   Utils.ShellHandleBackend Utils.OrdMap Utils.OrdSet
-                   Utils.MonadSupply Utils.Graph Subsystem.ShellUI Subsystem.Types
-                   Subsystem.ModDriver Subsystem.Units Subsystem.SysState
-                   Subsystem.Units.UnitsDims Subsystem.Units.Conversion
-                   Subsystem.Units.Builtins Subsystem.ModDriver.ModCmd
-                   Subsystem.ModDriver.ModDef Subsystem.Simulation.Interpreter
-                   Subsystem.Simulation.JITCompiler Subsystem.Simulation.Common
+    other-modules: Process.Flatten.OptimiseCoreFlatAST
+                   Process.Flatten.OptimiseAST Parser.Ode Parser.Common Parser.Module
+                   Parser.Ion Utils.CommonImports Utils.Utils Utils.ShellHandleBackend
+                   Utils.OrdMap Utils.OrdSet Utils.MonadSupply Utils.Graph
+                   Subsystem.ShellUI Subsystem.Types Subsystem.ModDriver
+                   Subsystem.Units Subsystem.SysState Subsystem.Units.UnitsDims
+                   Subsystem.Units.Conversion Subsystem.Units.Builtins
+                   Subsystem.ModDriver.ModCmd Subsystem.ModDriver.ModDef
+                   Subsystem.Simulation.Interpreter Subsystem.Simulation.JITCompiler
+                   Subsystem.Simulation.Common
                    Subsystem.Simulation.JITCompiler.JITShell
                    Subsystem.Simulation.JITCompiler.JITSolver
                    Subsystem.Simulation.JITCompiler.JITModel

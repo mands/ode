@@ -110,6 +110,8 @@ linkLLVMModule p = Sh.shelly . Sh.verbosely $ llvmLinkScript p
 -- | Load our compiled module and run a simulation
 runJITSimulation :: Sys.SimParams -> IO ()
 runJITSimulation p = do
+    liftIO $ warningM "ode3.sim" $ "JIT Simulation is experimental - only GNU linking tested"
+
     -- load the linked/optimised module
     simMod <- readBitcodeFromFile "./Sim.bc"
 

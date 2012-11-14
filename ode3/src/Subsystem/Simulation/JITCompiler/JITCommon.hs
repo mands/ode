@@ -137,7 +137,7 @@ defineExtOps p llvmMod = do
 
     createPureFunc name funcType = do
         f <- addFunction llvmMod name funcType
-        -- setFunctionCallConv f Fast
+        setFunctionCallConv f Fast
         addFuncAttributes f [NoUnwindAttribute, ReadNoneAttribute]
         return f
 
@@ -149,9 +149,9 @@ defineExtOps p llvmMod = do
 --    finiteFuncs = Set.fromList  ["acos", "acosh", "asin", "atan2", "atanh", "cosh", "sinh", "exp10", "exp2"
 --                                , "exp", "log10", "log2", "log", "fmod", "hypot", "pow", "sqrt"]
 
-    createReadOnlyFunc name funcType = do
+    createReadOnlyFunc' name funcType = do
         f <- addFunction llvmMod name funcType
-        -- addFuncAttributes f [NoUnwindAttribute, ReadNoneAttribute]
+        addFuncAttributes f [NoUnwindAttribute, ReadOnlyAttribute]
         return f
 
     -- hardcoded interface to the Ode Stdlib
@@ -161,13 +161,13 @@ defineExtOps p llvmMod = do
         , ("shutdown",      addFunction llvmMod "shutdown" (functionType voidType [] False))
         , ("startSim",     do
                                 f <- addFunction llvmMod "startSim" (functionType voidType [pointerType int8Type 0, int64Type] False)
-                                setFuncParam f 0 [NoAliasAttribute] -- , NoCaptureAttribute]
+                                setFuncParam f 0 [NoAliasAttribute, NoCaptureAttribute]
                                 return f
                                 )
         , ("endSim",       addFunction llvmMod "endSim" (functionType voidType [] False))
         , ("writeDbls",    do
                                 f <- addFunction llvmMod "writeDbls" (functionType voidType [pointerType doubleType 0, int64Type] False)
-                                setFuncParam f 0 [NoAliasAttribute] -- , NoCaptureAttribute]
+                                setFuncParam f 0 [NoAliasAttribute, NoCaptureAttribute]
                                 return f
                                 )
         ]

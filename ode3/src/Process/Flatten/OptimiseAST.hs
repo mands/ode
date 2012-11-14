@@ -8,9 +8,11 @@
 -- Stability   :  alpha
 -- Portability :
 --
--- | Performs some simple - simulation-speifici optimisations on the Core-level AST
--- currently this only includes short-circuiting of boolean operators
--- others to follow
+-- | Performs some simple simulation-specific optimisations on the Core-level AST by pattern-matching
+--
+-- currently includes
+-- * short-circuiting of boolean operators
+-- * expansion of pow() calls
 -----------------------------------------------------------------------------
 
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances, PatternGuards #-}
@@ -21,34 +23,129 @@ optimiseCoreAST
 
 import Control.Monad.State
 import Utils.CommonImports
+import Utils.MonadSupply
 
-import AST.Common as ACO
-import qualified AST.Core as AC
+import qualified Data.Foldable as DF
+import qualified Data.Traversable as DT
+
+
+import AST.Common as AC
+import qualified AST.Core as ACR
 import AST.Module
+import qualified Subsystem.Units as U
+import qualified Subsystem.Types as T
+import qualified Subsystem.SysState as Sys
 
-optimiseCoreAST :: Module Id -> Bool -> MExcept (Module Id)
-optimiseCoreAST (LitMod modData) shortCircuit = do
-    let exprMap' = if shortCircuit then optSCETop <$> modExprMap modData else modExprMap modData
+-- Monad and Helper Funcs -----------------------------------------------------------------------------------------------------
 
-    return $ LitMod $ modData { modExprMap = exprMap' } -- updateModData2 modData exprMap'
+type OptM = SupplyT Id (StateT OptState MExcept)
+
+data OptState = OptState { inInit :: Bool, tMap :: TypeMap } deriving (Show)
+
+mkOptState = OptState False
+
+modInit :: Bool -> OptM Bool
+modInit inInit' = do
+    s@OptState{..} <- lift get
+    lift $ put (s { inInit = inInit || inInit' }) --  modify (\st -> st { _inInit = isInit || (_inInit st) } ) -- set Init flag
+    return inInit
+
+setInit :: Bool -> OptM ()
+setInit inInit = lift $ modify (\st -> st { inInit } ) -- set Init flag
+
+-- Entry Point ---------------------------------------------------------------------------------------------------------
+
+
+-- we pass SimParams direct as need access to variety of opt options
+optimiseCoreAST :: Module Id -> Sys.SimParams -> MExcept (Module Id)
+optimiseCoreAST (LitMod modData@ModData{..}) Sys.SimParams{..} = do
+    -- run non-monad opts
+    let exprMap' = opts modExprMap
+    -- run monad-opts
+    ((exprMap'', freeIds'), _) <- runStateT (runSupplyT (optsM exprMap') [modFreeId ..]) $ mkOptState modTMap
+    -- return the updated module
+    return $ LitMod $ (updateModData2 modData exprMap'') { modFreeId = head freeIds' }
+  where
+    -- TODO - need to create generalised handler for multiple optimisations
+    opts :: ExprMap Id -> ExprMap Id
+    opts exprMap = if _optShortCircuit then fmap optSCETop exprMap else exprMap
+
+
+    optsM :: ExprMap Id -> OptM (ExprMap Id)
+    optsM exprMap = if _mathModel == Sys.Fast && _optPowerExpan then DT.mapM optPowerTop exprMap else return modExprMap
 
 
 -- Perform Short-Circuit Evaluation ------------------------------------------------------------------------------------
 
-optSCETop :: AC.TopLet Id -> AC.TopLet Id
-optSCETop (AC.TopLet isInit t bs tE) = AC.TopLet isInit t bs $ optSCEExpr tE
+optSCETop :: ACR.TopLet Id -> ACR.TopLet Id
+optSCETop (ACR.TopLet isInit t bs tE) = ACR.TopLet isInit t bs $ optSCEExpr tE
 
-optSCEExpr :: AC.Expr Id -> AC.Expr Id
+optSCEExpr :: ACR.Expr Id -> ACR.Expr Id
 -- e1 AND e2 => if (e1) then e2 else False
-optSCEExpr e@(AC.Op (ACO.BasicOp (ACO.And)) (AC.Tuple (e1:e2:[]))) = trace' [MkSB e, MkSB e'] "SC AND Expr" $ e'
+optSCEExpr e@(ACR.Op (AC.BasicOp (AC.And)) (ACR.Tuple (e1:e2:[]))) = trace' [MkSB e, MkSB e'] "SC AND Expr" $ e'
   where
-    e' = AC.If e1 e2 (AC.Lit $ AC.Boolean False)
+    e' = ACR.If e1 e2 (ACR.Lit $ ACR.Boolean False)
 
 -- e1 OR e2 => if (e1) then True else (e2)
-optSCEExpr e@(AC.Op (ACO.BasicOp (ACO.Or)) (AC.Tuple (e1:e2:[]))) = trace' [MkSB e, MkSB e'] "SC OR Expr" $ e'
+optSCEExpr e@(ACR.Op (AC.BasicOp (AC.Or)) (ACR.Tuple (e1:e2:[]))) = trace' [MkSB e, MkSB e'] "SC OR Expr" $ e'
   where
-    e' = AC.If e1 (AC.Lit $ AC.Boolean True) e2
+    e' = ACR.If e1 (ACR.Lit $ ACR.Boolean True) e2
 -- don't care about the rest, pass on to mapExprM
-optSCEExpr e = AC.mapExpr optSCEExpr e
+optSCEExpr e = ACR.mapExpr optSCEExpr e
+
+-- Perform Pow() Expansion ---------------------------------------------------------------------------------------------
+-- TODO - expand UPow Op too
+optPowerTop :: ACR.TopLet Id -> OptM (ACR.TopLet Id)
+optPowerTop (ACR.TopLet isInit t bs tE) = do
+    setInit isInit
+    ACR.TopLet isInit t bs <$> optPowerExpr tE
+
+optPowerExpr :: ACR.Expr Id -> OptM (ACR.Expr Id)
+optPowerExpr (ACR.Let isInit t bs e1 e2) = do
+    oldInit <- modInit isInit
+    e1' <- optPowerExpr e1
+    setInit oldInit
+    e2' <- optPowerExpr e2
+    return $ ACR.Let isInit t bs e1' e2'
+
+-- pow(x, +n) => expand to n multiplications of x
+optPowerExpr e@(ACR.Op (AC.MathOp (AC.Pow)) (ACR.Tuple (e1:(ACR.Lit (ACR.Num n _)):[]))) | n >= 0 && isWholeNumber n = do
+    e' <- expandPow e1 n
+    trace' [MkSB e, MkSB e'] "Pow Expansion" $ return e'
+
+-- don't care about the rest, pass on to mapExprM
+optPowerExpr e = ACR.mapExprM optPowerExpr e
+
+-- | Expand a x^n depending on n
+-- This is part handled by LLVM's SimplfyLibCalls, including cases
+-- * pow(1.0, x) -> 1.0
+-- * pow(2.0, x) -> exp2(x)
+-- * pow(x, 0.0) -> 1.0
+-- * pow(x, 0.5) -> sqrt
+-- * pow(x, 1.0) -> x
+-- * pow(x, 2.0) -> x*x
+-- * pow(x, -1.0) -> 1.0/x
+expandPow :: ACR.Expr Id -> Double -> OptM (ACR.Expr Id)
+expandPow e 0 = return $ ACR.Lit (ACR.Num 1 U.NoUnit)
+expandPow e 1 = return e
+-- is n > 1 and a whole number?
+-- then create a new let to hold the expr, and a subexpr that handles the pow expansion
+expandPow e n  = do
+    trace' [MkSB n] "Expanding Pow func" $ return ()
+    id <- supply
+    -- create an id to hold the val
+    s@OptState{..} <- lift get
+    -- get the type - tho it should (always?) be a TFloat
+    t <- lift . lift $ T.calcTypeExpr tMap e
+    return $ ACR.Let inInit t [id] e $ createMultExpr id (floor n) (eRef id)
+  where
+    createMultExpr id 1 mE = mE
+    createMultExpr id acc mE = createMultExpr id (acc-1) $
+        ACR.Op (AC.BasicOp (AC.Mul)) (ACR.Tuple [mE, eRef id])
+
+    eRef id = ACR.Var (ACR.LocalVar id) Nothing
+
+-- anything else we leave alone
+expandPow e _ = return e
 
 -- Other Opts - TODO ---------------------------------------------------------------------------------------------------
