@@ -74,7 +74,7 @@ llvmLinkScript p@(Sys.SimParams{..}) = do
                     run_ "opt" $ ["-load", llvmVecMath, "-o", modelVec2 ] ++
                         ["-liftvecmath", "-bb-vectorize", "-lowervecmath", "-std-compile-opts"
                         ,"-bb-vectorize-vecmath-pass=1", "-bb-vectorize-req-chain-depth=2", "-bb-vectorize-pow2-len-only=1"
-                        ,"-bb-vectorize-no-floats=0", "-bb-vectorize-no-math=1", "-bb-vectorize-no-vecmath=0", "-bb-vectorize-no-fma=0"
+                        ,"-bb-vectorize-no-floats=1", "-bb-vectorize-no-math=1", "-bb-vectorize-no-vecmath=0", "-bb-vectorize-no-fma=0"
                         ,"-bb-vectorize-aligned-only=1", "-bb-vectorize-no-mem-op-boost=0"
                         ,"-bb-vectorize-debug-instruction-examination=0", "-bb-vectorize-debug-candidate-selection=1", "-bb-vectorize-debug-pair-selection=0", "-bb-vectorize-debug-cycle-check=0"
                         ,"-stats", modelBC ] --LT.append modelBC "vec1"]
@@ -142,7 +142,7 @@ llvmAOTScript p@(Sys.SimParams{..}) = do
                 then case _mathLib of
                     Sys.GNU     -> ["-lm", crtFastMath]
                     Sys.AMD     -> ["-lamdlibm", "-lm", crtFastMath]
-                    Sys.Intel   -> ["-lsvml", "-limf", "-lm", crtFastMath]
+                    Sys.Intel   -> ["-lsvml", "-limf", "-lirc", "-lm", crtFastMath]
                 else ["-lm"]
 
     -- odeVecMathLib = toTextIgnore $ odeLibPath </> odeVecMathFile

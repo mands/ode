@@ -20,7 +20,7 @@ import SimTests.HodHux.*
 // sim backend params
 :solver "euler"
 // linker - dynamic, static
-:linker "dynamic"
+:linker "static"
 // disable exe
 :disableExecute
 // disable opts
@@ -28,12 +28,12 @@ import SimTests.HodHux.*
 // disable short-circuiting
 :disableShortCircuit
 // disable power expan
-:disablePowerExpan
+//:disablePowerExpan
 // math model - strict, fast
 :mathModel "fast"
 // vecmath enable?
-:vecMath
-:mathLib "intel"
+//:vecMath
+:mathLib "amd"
 // backend to use - interpreter, jitcompiler, aotcompiler, obj
 :backend "aotcompiler"
 
