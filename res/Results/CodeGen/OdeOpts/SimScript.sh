@@ -84,7 +84,7 @@ OPT="
 :output \"./OutputOde_PowerExpan.bin\"
 :mathModel \"fast\"
 "
-call_ode "$OPT" "Sim_PowerExpan.exe"
+#call_ode "$OPT" "Sim_PowerExpan.exe"
 
 # STATIC LINKING
 OPT="
@@ -93,6 +93,19 @@ OPT="
 :linker \"static\"
 "
 #call_ode "$OPT" "Sim_Static.exe"
+
+
+# VECMATH1 - FAST MATH - VecMath Lifting/Lowering
+OPT="
+:output \"./OutputOde_VecMath1.bin\"
+:mathModel \"fast\"
+"
+call_ode "$OPT" "Sim_VecMath1.exe"
+
+
+
+
+
 
 
 echo "done"

@@ -19,7 +19,7 @@ BuildSims:
 # Test errs in pow expansion
 # 1 - x^4 opt expanded
 ManualSims: Sim_PowerExpa1.ll
-	$(CC) $(CFLAGS) -O3 -o Sim_PowerExpa1.exe Sim_PowerExpa1.ll $(ODE_LIB_OBJ) $(LIBS) $(CRTFAST)
+	$(CC) $(CFLAGS) -O3 -o Sim_PowerExpa1.exe Sim_PowerExpa1.ll $(LIBS) $(CRTFAST)
 
 bench:
 	dumbbench -vv ./Sim_Unopt.exe > bench.out
@@ -32,7 +32,7 @@ bench:
 
 
 clean:
-	rm -f *.exe *.bc *.o
+	rm -f *.bc *.o
 	rm -f *.bin
 	rm -f callgrind.* perf.data llvmprof.out bench.out
 	rm -f *~
