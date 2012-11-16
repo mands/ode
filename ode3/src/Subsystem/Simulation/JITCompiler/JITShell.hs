@@ -40,11 +40,13 @@ default (LT.Text)
 -- TODO - fix these hardcoded paths
 rootPath    = "/home/mandeep/DPhil/Projects/root"
 libPath     = rootPath </> "lib"
-modelBC   = "./Model.bc"
-simBC     = "./Sim.bc"
+modelBC     = "./Model.bc"
+simBC       = "./Sim.bc"
 exeOutput   = "./Sim.exe"
 odeLibPath  = "../res/StdLib"
 
+
+-- | Embedded script to optimise the model, and link to the simulation library
 llvmLinkScript :: Sys.SimParams -> Sh ()
 llvmLinkScript p@(Sys.SimParams{..}) = do
     liftIO $ debugM "ode3.sim" $ "Starting LLVM Linker Script"

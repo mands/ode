@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE language SYSTEM "language.dtd">
-<language id="ode3" _name="ODE3" version="2.0" _section="Scientific">		
+<language id="llvm" _name="LLVM" version="2.0" _section="Sources">
   <metadata>
-    <property name="mimetypes">text/x-ode3;text/x-ode3src</property>
-    <property name="globs">*.od3;*.od3s</property>
+    <property name="mimetypes">text/x-llvm;text/x-ll</property>
+    <property name="globs">*.ll</property>
   </metadata>
 
   <styles>
@@ -21,10 +21,10 @@
   </styles>
 
   <definitions>
-    <context id="ode3">
+    <context id="llvm">
       <include>
         <context id="comment" style-ref="comment" end-at-line-end="true" class="comment" >
-          <start>//</start>
+          <start>;</start>
         </context>
 
         <context id="comment-multiline" style-ref="comment" class="comment" >
@@ -37,35 +37,25 @@
         <context ref="def:string"/>
 
         <context id="keywords" style-ref="keyword">
-          <keyword>import</keyword>
-          <keyword>as</keyword>
-          <keyword>module</keyword>
+          <keyword>declare</keyword>
+          <keyword>define</keyword>
+          <keyword>load</keyword>
+          <keyword>store</keyword>
+          <keyword>ret</keyword>
+          <keyword>call</keyword>
+          <keyword>br</keyword>
+          <keyword>label</keyword>
 
-          <keyword>component</keyword>
-          <keyword>val</keyword>
-          <!-- <keyword>init</keyword> -->
-          <keyword>return</keyword>
-          <keyword>piecewise</keyword>
-
-          <keyword>ode</keyword>          
-          <keyword>rre</keyword>
-          <keyword>sde</keyword>
         </context>
 
         <context id="types" style-ref="type">
-          <keyword>init</keyword>
-          <keyword>delta</keyword>
-          <keyword>unit</keyword>
-          <keyword>rate</keyword>
-
-          <keyword>time</keyword>
-          <keyword>default</keyword>
-<!--
-
-          <keyword>reaction</keyword>
-          <keyword>default</keyword>
           <keyword>double</keyword>
--->
+          <keyword>float</keyword>
+          <keyword>i1</keyword>
+          <keyword>i8</keyword>
+          <keyword>i32</keyword>
+          <keyword>i64</keyword>
+          <keyword>void</keyword>
         </context>
       </include>
     </context>
