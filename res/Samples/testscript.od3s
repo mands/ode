@@ -2,7 +2,7 @@
 :disableUnits
 
 // setup the repo
-:addRepo ../res/samples/repo
+:addRepo ../res/Samples/repo
 
 // import our modules
 import SimTests.BasicCalcNoUnits.*
@@ -19,16 +19,20 @@ import SimTests.BasicCalcNoUnits.*
 
 // sim backend params
 :solver "euler"
-//:linker "static"
+// linker - dynamic, static
+:linker "dynamic"
 // disable exe
 :disableExecute
 // disable opts
-//:disableOptimise
+:disableOptimise
 // disable short-circuiting
-//:disableShortCircuit
+:disableShortCircuit
+// disable power expan
+:disablePowerExpan
+// math model - strict, fast
 :mathModel "fast"
+// backend to use - interpreter, jitcompiler, aotcompiler, obj
 :backend "aotcompiler"
-//:backend "interpreter"
 
 // all done
 //:simulate HodHux

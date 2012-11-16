@@ -189,9 +189,6 @@ constGEP :: LLVM.Value -> [LLVM.Value] -> IO LLVM.Value
 constGEP v llVs = withArrayLen llVs $ \len ptr ->
     return $ LFFI.constGEP v ptr (fromIntegral len)
 
-buildAlloca builder lType str = withCString str $ \cStr ->
-    LFFI.buildAlloca builder lType cStr
-
 buildAllocaWithInit builder initV lType str = do
     allocaV <- buildAlloca builder lType str
     buildStore builder initV allocaV

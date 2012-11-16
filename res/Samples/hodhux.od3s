@@ -2,10 +2,10 @@
 :disableUnits
 
 // setup the repo
-:addRepo ../res/Results/CodeGen
+:addRepo ../res/Samples/repo
 
 // import our modules
-import HodHux.HodHux
+import SimTests.HodHux.*
 
 // :show all
 //:show modState
@@ -15,7 +15,7 @@ import HodHux.HodHux
 :endTime 60
 :timestep 0.00001
 :period 100000
-:output "./OutputOde.bin"
+:output "./output.bin"
 
 // sim backend params
 :solver "euler"
@@ -24,13 +24,16 @@ import HodHux.HodHux
 // disable exe
 :disableExecute
 // disable opts
-:disableOptimise
+//:disableOptimise
 // disable short-circuiting
 :disableShortCircuit
 // disable power expan
 :disablePowerExpan
 // math model - strict, fast
-:mathModel "strict"
+:mathModel "fast"
+// vecmath enable?
+:vecMath
+:mathLib "intel"
 // backend to use - interpreter, jitcompiler, aotcompiler, obj
 :backend "aotcompiler"
 

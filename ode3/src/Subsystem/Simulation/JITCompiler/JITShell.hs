@@ -61,32 +61,40 @@ llvmLinkScript p@(Sys.SimParams{..}) = do
                 -- fastmath & vecmath then run full vecmath opts
                 then do
                     -- 1st pass - std-compile-opts, liftvecmath, bb-vectorise1 (pick up all std chains (length 4+))
-                    run_ "opt" $ ["-load", llvmVecMath, "-o", LT.append modelBC "vec1" ] ++
-                        ["-liftvecmath", "-std-compile-opts", "-bb-vectorize"
-                        ,"-bb-vectorize-vecmath-pass=0", "-bb-vectorize-req-chain-depth=4", "-bb-vectorize-pow2-len-only=1"
-                        ,"-bb-vectorize-no-floats=0", "-bb-vectorize-no-math=1", "-bb-vectorize-no-vecmath=0", "-bb-vectorize-no-fma=0"
-                        ,"-bb-vectorize-aligned-only=1", "-bb-vectorize-no-mem-op-boost=0"
-                        ,"-bb-vectorize-debug-instruction-examination=0", "-bb-vectorize-debug-candidate-selection=1", "-bb-vectorize-debug-pair-selection=0", "-bb-vectorize-debug-cycle-check=0"
-                        ,"-stats", modelBC]
+                    -- TODO - we don't run this pass yet until LLVM 3.2 released
+--                    run_ "opt" $ ["-load", llvmVecMath, "-o", LT.append modelBC "vec2" ] ++
+--                        ["-liftvecmath", "-std-compile-opts", "-bb-vectorize", "-lowervecmath" -- lift and lower
+--                        ,"-bb-vectorize-vecmath-pass=0", "-bb-vectorize-req-chain-depth=7", "-bb-vectorize-pow2-len-only=0"
+--                        ,"-bb-vectorize-no-floats=0", "-bb-vectorize-no-math=1", "-bb-vectorize-no-vecmath=1", "-bb-vectorize-no-fma=0"
+--                        ,"-bb-vectorize-aligned-only=1", "-bb-vectorize-no-mem-op-boost=0"
+--                        ,"-bb-vectorize-debug-instruction-examination=0", "-bb-vectorize-debug-candidate-selection=0", "-bb-vectorize-debug-pair-selection=0", "-bb-vectorize-debug-cycle-check=0"
+--                        ,"-stats", modelBC]
                     -- 2nd pass - bb-vectorise2 (pick up all short vecmath-only chains (length 1-2)), lowervecmath, std-compile-opts
-                    run_ "opt" $ ["-load", llvmVecMath, "-o", LT.append modelBC "vec2" ] ++
-                        ["-bb-vectorize", "-lowervecmath", "-std-compile-opts"
+                    let modelVec2 = "./Model.vec2.bc"
+                    run_ "opt" $ ["-load", llvmVecMath, "-o", modelVec2 ] ++
+                        ["-liftvecmath", "-bb-vectorize", "-lowervecmath", "-std-compile-opts"
                         ,"-bb-vectorize-vecmath-pass=1", "-bb-vectorize-req-chain-depth=2", "-bb-vectorize-pow2-len-only=1"
                         ,"-bb-vectorize-no-floats=0", "-bb-vectorize-no-math=1", "-bb-vectorize-no-vecmath=0", "-bb-vectorize-no-fma=0"
                         ,"-bb-vectorize-aligned-only=1", "-bb-vectorize-no-mem-op-boost=0"
                         ,"-bb-vectorize-debug-instruction-examination=0", "-bb-vectorize-debug-candidate-selection=1", "-bb-vectorize-debug-pair-selection=0", "-bb-vectorize-debug-cycle-check=0"
-                        ,"-stats", LT.append modelBC "vec1"]
-                    return $ LT.append modelBC "vec2"
+                        ,"-stats", modelBC ] --LT.append modelBC "vec1"]
+                    run_ "llvm-dis" [modelVec2]
+                    return modelVec2
                 -- just fastmath, run lift and lowering (as implies linking to finite-funcs)
-                else
-                    run_ "opt" (["-load", llvmVecMath, "-o", LT.append modelBC "lift" ] ++
-                        ["-liftvecmath", "-lowervecmath", "-std-compile-opts", "-stats", modelBC]) >> return (LT.append modelBC "lift")
+                else do
+                    let modelLift = "./Model.lift.bc"
+                    run_ "opt" (["-load", llvmVecMath, "-o", modelLift ] ++
+                        ["-liftvecmath", "-lowervecmath", "-std-compile-opts", "-stats", modelBC])
+                    run_ "llvm-dis" [modelLift]
+                    return modelLift
+
             -- no fastmath - just optimise
             else run_ "opt" (["-o", modelBC] ++ modelOpts ++ [modelBC]) >> return modelBC
         else return modelBC
 
-    -- link the model to stdlib
-    run_ "llvm-link" ["-o", simBC, modelBC', odeStdLib]
+    -- link the model to stdlib (& vecmath)
+    run_ "llvm-link" $ ["-o", simBC] ++ [modelBC', odeStdLib, odeVecMathLib]
+
     -- perform LTO
     when (L.get Sys.lOptimise p) $
         run_ "opt" (["-o", simBC] ++ linkOpts ++ [simBC])
@@ -97,10 +105,18 @@ llvmLinkScript p@(Sys.SimParams{..}) = do
 
     return ()
   where
-    odeStdLib  = toTextIgnore $ odeLibPath </> "OdeLibrary.bc" -- change to opt
+    odeStdLib  = toTextIgnore $ odeLibPath </> "OdeLibrary.bc" -- change to opt stdlib
     modelOpts   = ["-std-compile-opts"]
     linkOpts    = ["-std-link-opts", "-std-compile-opts"]
     llvmVecMath = toTextIgnore $ libPath </> "LLVMVecMath.so"
+
+    -- need to switch depending on the mathmodel
+    odeVecMathLib = toTextIgnore $  if _optimise && (L.get Sys.lMathModel p == Sys.Fast)
+                                        then case _mathLib of
+                                            Sys.GNU     -> odeLibPath </> "VecMath_GNU.bc"
+                                            Sys.AMD     -> odeLibPath </> "VecMath_AMD.bc"
+                                            Sys.Intel   -> odeLibPath </> "VecMath_Intel.bc"
+                                        else ""
 
 -- | Embedded script to executre a static simulation, utilising static linking to all libs
 -- and no call-back to Ode run-time (requires use of Clang and system linker)
@@ -111,7 +127,7 @@ llvmAOTScript p@(Sys.SimParams{..}) = do
     rm_f exeOutput
 
     -- use clang to link our llvm-linked sim module to the system
-    run "clang" $ ["-integrated-as", linkType, "-o", toTextIgnore exeOutput, optLevel, fastMath, simBC, odeVecMathLib]
+    run "clang" $ ["-integrated-as", linkType, "-o", toTextIgnore exeOutput, optLevel, fastMath, simBC]
         ++ ["-L", toTextIgnore libPath] ++ libs
 
     -- execute (as ext. process) if specified
@@ -122,18 +138,18 @@ llvmAOTScript p@(Sys.SimParams{..}) = do
     -- aotStubPath = "" -- "../res/StdLib/AOTStub.bc"
 
     -- need to switch depending on the mathmodel
-    (libs, odeVecMathFile)  = if (L.get Sys.lMathModel p == Sys.Fast)
-                                then case _mathLib of
-                                    Sys.GNU     -> (["-lm", crtFastMath], "VecMath_GNU.bc")
-                                    Sys.AMD     -> (["-lamdlibm", "-lm", crtFastMath], "VecMath_AMD.bc")
-                                    Sys.Intel   -> (["-lsvml", "-limf", "-lm", crtFastMath], "VecMath_Intel.bc")
-                                else (["-lm"], "")
+    libs  = if _optimise && (L.get Sys.lMathModel p == Sys.Fast)
+                then case _mathLib of
+                    Sys.GNU     -> ["-lm", crtFastMath]
+                    Sys.AMD     -> ["-lamdlibm", "-lm", crtFastMath]
+                    Sys.Intel   -> ["-lsvml", "-limf", "-lm", crtFastMath]
+                else ["-lm"]
 
-    odeVecMathLib = toTextIgnore $ odeLibPath </> odeVecMathFile
+    -- odeVecMathLib = toTextIgnore $ odeLibPath </> odeVecMathFile
     crtFastMath = "-Wl,--no-as-needed,../res/StdLib/crtfastmath.o"
 
     optLevel    = if (L.get Sys.lOptimise p) then "-O3" else "-O0"
-    fastMath    = if (L.get Sys.lMathModel p == Sys.Fast) then "-ffast-math" else ""
+    fastMath    = if _optimise &&  (L.get Sys.lMathModel p == Sys.Fast) then "-ffast-math" else ""
     -- check dyn/static linking
     linkType    = case (L.get Sys.lLinker p) of
         Sys.Static -> "-static"

@@ -21,7 +21,7 @@ executable ode3
     build-depends: Shellac -any, Shellac-readline -any, base -any,
                    bimap -any, binary -any, bytestring -any, cond -any,
                    containers -any, data-binary-ieee754 -any, directory -any,
-                   fclabels -any, fgl -any, filepath -any, hslogger -any, llvm -any,
+                   fclabels -any, fgl -any, filepath -any, hslogger -any,
                    llvm-base -any, llvm-wrapper -any, mtl -any, parsec -any,
                    pretty-show -any, shelly -any, split -any, text -any, unix -any
     main-is: Main.hs
@@ -32,9 +32,8 @@ executable ode3
                 OverloadedStrings GADTs GADTSyntax DeriveFunctor DeriveTraversable
                 DeriveFoldable
     hs-source-dirs: src
-    other-modules: Process.Flatten.OptimiseCoreFlatAST
-                   Process.Flatten.OptimiseAST Parser.Ode Parser.Common Parser.Module
-                   Parser.Ion Utils.CommonImports Utils.Utils Utils.ShellHandleBackend
+    other-modules: Parser.Ode Parser.Common Parser.Module Parser.Ion
+                   Utils.CommonImports Utils.Utils Utils.ShellHandleBackend
                    Utils.OrdMap Utils.OrdSet Utils.MonadSupply Utils.Graph
                    Subsystem.ShellUI Subsystem.Types Subsystem.ModDriver
                    Subsystem.Units Subsystem.SysState Subsystem.Units.UnitsDims
@@ -49,9 +48,10 @@ executable ode3
                    Process.Desugarer Process.Validator Process.Flatten Process.Renamer
                    Process.Reorderer Process.TypeChecker.Unification
                    Process.TypeChecker.ConstraintGen Process.TypeChecker.Common
-                   Process.Flatten.ConvertAST Process.Flatten.UnpackTuples
-                   Process.Flatten.ConvertTypes Process.Flatten.InlineComps
-                   Process.Flatten.InlineMods AST.Core AST.Ode AST.Common AST.Module
-                   AST.Ion AST.CoreFlat
+                   Process.Flatten.OptimiseAST Process.Flatten.ConvertAST
+                   Process.Flatten.UnpackTuples Process.Flatten.ConvertTypes
+                   Process.Flatten.InlineComps Process.Flatten.InlineMods
+                   Process.Flatten.OptimiseCoreFlatAST AST.Core AST.Ode AST.Common
+                   AST.Module AST.Ion AST.CoreFlat
     ghc-options: -w
  

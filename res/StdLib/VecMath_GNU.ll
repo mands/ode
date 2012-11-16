@@ -1,3 +1,5 @@
+target triple = "x86_64-unknown-linux-gnu"
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; VecMath Wrapper onto GNU libM library
 ;; - (this doesnt apply any vectorisation)
