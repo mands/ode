@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
     compare program that takes two sets of results files, and calculates the maximum error value

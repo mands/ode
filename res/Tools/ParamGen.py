@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
     paramGen takes a list of key-value pairs on the command-line and geneates an Ode module based on these constants

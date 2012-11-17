@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 # test client that opens a pipe - on command line, and continously writes line input into it
 import os
 import readline
