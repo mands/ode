@@ -29,16 +29,19 @@ import os
 import logging
 import pylab
 import argparse
-import scipy as sp
 
-from OdeSupport.FileReader import openFile
+from Common import openFile, getCols
 
 if __name__ == '__main__':
+
     logging.basicConfig(level=logging.DEBUG)
-    logging.debug("In main python script")
+
 
     # arg parsing
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description = 'Plot takes an Ode output file and plots as a graph against time', # main description for help
+        epilog = 'Tested on Linux only' # displayed after help
+    )
     parser.add_argument("file", help="File to plot")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose mode")
     parser.add_argument("--title", type=str, help="Title to use for graph")
@@ -52,29 +55,23 @@ if __name__ == '__main__':
     filename = os.path.abspath(args.file)
     (data, num_cols) = openFile(filename)
 
-    # setup the cols
-    cols = range(1, num_cols)
-    if args.cols:
-      cols = [int(c) for c in args.cols.split(',') if int(c) > 0 and int(c) < num_cols]
-    
     # plot the data
     logging.debug("Setting up a plot")
-    # add each specified column to the plot
-    for col in cols:
-        pylab.plot(data[:,0], data[:,col])
+    # get and plot the specified columns
+    cols = getCols(num_cols, args.cols)
+    pylab.plot(data[:,0], data[:,cols])
 
     # add the labels
     pylab.xlabel(args.xlabel)
     pylab.ylabel(args.ylabel)
     if args.title:
-      pylab.title(args.title)
+        pylab.title(args.title)
 
     # save or display the graph
     if args.save:
         pylab.savefig(args.save, format='pdf')
     else:
-      pylab.grid(True)
-      pylab.show()
+        pylab.grid(True)
+        pylab.show()
 
     logging.debug("Done")
-

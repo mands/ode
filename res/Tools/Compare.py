@@ -10,13 +10,15 @@ import argparse
 import scipy as sp
 import sys
 
-from OdeSupport.FileReader import openFile
+from Common import openFile
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
-    logging.debug("In main python script")
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description = 'Compare takes two Ode output files and determines the FP difference between them', # main description for help
+        epilog = 'Tested on Linux only' # displayed after help
+    )
     parser.add_argument("file1", help="First file to compare")
     parser.add_argument("file2", help="Second file to compare")
     parser.add_argument("--col1", type=int, help="Column of File1 to use")
@@ -32,13 +34,13 @@ if __name__ == '__main__':
     (b, colsB) = openFile(filename2)
 
     # get columns (if needed)
-    if (args.col1 != None) and (args.col2 != None):
+    if (args.col1 is not None) and (args.col2 is not None):
         logging.debug("In column mode")
         if args.col1 < 0 or args.col1 >= colsA:
             raise Exception("Col1 index not contained within File1")
         if args.col2 < 0 or args.col2 >= colsB:
             raise Exception("Col2 index not contained within File2")
-        logging.debug("Got col args {0} and {1}".format(args.col1, args.col2))
+        logging.debug("Got col args {} and {}".format(args.col1, args.col2))
         # destructively update a and b
         a = a[:,args.col1]
         b = b[:,args.col2]
@@ -57,4 +59,3 @@ if __name__ == '__main__':
         sp.set_printoptions(edgeitems=3, linewidth=400, precision=16,suppress=False, threshold=10000)
         print (diffAbs)
     logging.debug("Done")
-

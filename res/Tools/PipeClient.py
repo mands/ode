@@ -1,12 +1,27 @@
 #!/usr/bin/env python3
-# test client that opens a pipe - on command line, and continously writes line input into it
-import os
-import readline
-import argparse
+"""
+    Test client that opens a pipe and continuously writes command-line input into it
+"""
 
-def main(pipename):
-    print("Simple pipe console")
-    print("Using pipe", pipename, "- waiting for reader...")
+import os
+import argparse
+import logging
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
+
+    # cmd line parser
+    parser = argparse.ArgumentParser(
+        description = 'Echos input into named pipe', # main description for help
+        epilog = 'Tested on Linux only' # displayed after help
+    )
+    parser.add_argument('name', type=str, nargs='?', default='./pypipe', help="Pipe name")
+    args = parser.parse_args()
+
+    pipename = args.name
+
+    logging.debug("Simple pipe console")
+    print("Using pipe {} - waiting for reader...".format(pipename))
 
     # create and open the pipe
     if not os.path.exists(pipename):
@@ -23,18 +38,8 @@ def main(pipename):
             except (EOFError, KeyboardInterrupt):
                 print("Connection closed by this side")
                 break
-            except (IOError):
+            except IOError:
                 print("Connection closed by other side")
                 break
 
-    print("Exiting")
-
-if __name__ == "__main__":
-    # cmd line parser
-    parser = argparse.ArgumentParser(
-        description = 'Echos input into named pipe', # main description for help
-        epilog = 'Tested on Linux only') # displayed after help
-    parser.add_argument('name', type=str, nargs='?', default='./pypipe', help="The name of the pipe to write to")
-    args = parser.parse_args()
-
-    main(args.name)
+    logging.debug("Done")
