@@ -95,6 +95,8 @@ instance OdeSolver EulerSolver where
         deltaValRefMap <- createVals ids "DeltaRef"
         return $ EulerSolver stateValRefMap deltaValRefMap
 
+    getStateVals e = eulerStateVals e
+
     genSolver (EulerSolver stateValRefMap deltaValRefMap) loopF curTimeRef simOps = do
         GenState {builder, curFunc, simParams} <- get
         -- call the modelLoop func
@@ -111,26 +113,95 @@ instance OdeSolver EulerSolver where
             -- get state val
             updatePtrVal builder (stateValRefMap OrdMap.! i) $ \stateVal -> do
                 withPtrVal builder (deltaValRefMap OrdMap.! i) $ \dVal -> do
+                    -- y' = y + h*dy
                     dValTime <- buildFMul builder dVal (constDouble $ L.get Sys.lTimestep simParams) "deltaTime"
                     buildFAdd builder stateVal dValTime "newState"
 
-    getStateVals e = eulerStateVals e
-
 -- RK4 Solver ----------------------------------------------------------------------------------------------------------
 
-data RK4Solver = RK4Solver  { rk4StateVals :: ParamMap
-                            , rk4DeltaVals :: ParamMap}
-
+data RK4Solver = RK4Solver  { rk4StateVals :: ParamMap, rk4Delta1Vals :: ParamMap, rk4Delta2Vals :: ParamMap
+                            , rk4Delta3Vals :: ParamMap, rk4Delta4Vals :: ParamMap}
 
 instance OdeSolver RK4Solver where
     genVals ids = do    -- create the vals
         stateValRefMap <- createVals ids "StateRef"
-        deltaValRefMap <- createVals ids "DeltaRef"
-        return $ RK4Solver stateValRefMap deltaValRefMap
-
-    genSolver = undefined
+        deltaVal1RefMap <- createVals ids "DeltaRef1"
+        deltaVal2RefMap <- createVals ids "DeltaRef2"
+        deltaVal3RefMap <- createVals ids "DeltaRef3"
+        deltaVal4RefMap <- createVals ids "DeltaRef4"
+        return $ RK4Solver stateValRefMap deltaVal1RefMap deltaVal2RefMap deltaVal3RefMap deltaVal4RefMap
 
     getStateVals e = rk4StateVals e
+
+    genSolver (RK4Solver stateValRefMap deltaVal1RefMap deltaVal2RefMap deltaVal3RefMap deltaVal4RefMap) loopF curTimeRef simOps = do
+        GenState {builder, curFunc, simParams} <- get
+
+        -- deref the state vals and time - these are static during main RK4 body
+        stateVals <- mapM (\ref -> liftIO $ buildLoad builder ref "stateVal") $ OrdMap.elems stateValRefMap
+
+        -- time constants
+        let h = constDouble $ L.get Sys.lTimestep simParams
+        let hHalf = constFMul h $ constDouble 0.5
+        t <- liftIO $ buildLoad builder curTimeRef "curTime"
+        tPlusHHalf <- liftIO $ buildFAdd builder t hHalf "tPlusHHalf"
+        tPlusH <- liftIO $ buildFAdd builder t h "tPlusH"
+
+        -- GEN K1
+        -- call the modelLoop func
+        callLoopF builder t stateVals deltaVal1RefMap
+        k1State <- multDeltasTimeStep builder deltaVal1RefMap h
+
+        -- GEN K2
+        stateVals2 <- liftIO $ forM (zip stateVals k1State) $ \(sv, k1v) -> do
+            i <- buildFMul builder k1v (constDouble 0.5) ""
+            buildFAdd builder sv i "sv"
+
+        callLoopF builder tPlusHHalf stateVals2 deltaVal2RefMap
+        k2State <- multDeltasTimeStep builder deltaVal2RefMap h
+
+        -- GEN K3 (same as K2)
+        stateVals3 <- liftIO $ forM (zip stateVals k2State) $ \(sv, k2v) -> do
+            i <- buildFMul builder k2v (constDouble 0.5) ""
+            buildFAdd builder sv i "sv"
+
+        callLoopF builder tPlusHHalf stateVals3 deltaVal3RefMap
+        k3State <- multDeltasTimeStep builder deltaVal3RefMap h
+
+        -- GEN K4 (similar to K3)
+        stateVals4 <- liftIO $ forM (zip stateVals k3State) $ \(sv, k3v) -> do
+            buildFAdd builder sv k3v "sv"
+
+        callLoopF builder tPlusH stateVals3 deltaVal3RefMap
+        k4State <- multDeltasTimeStep builder deltaVal3RefMap h
+
+        -- update the states/calc avg. dy and adjust y for all SimOps
+        let idMap = Map.fromList $ zip (OrdMap.keys stateValRefMap) [0..]
+        liftIO $ forM_ simOps $ updateState builder k1State k2State k3State k4State idMap
+        return ()
+      where
+        callLoopF builder timeVal stateVals deltaValRefMap = liftIO $
+            buildCall builder loopF (timeVal : stateVals  ++ (OrdMap.elems deltaValRefMap)) ""
+
+        multDeltasTimeStep builder deltaValRefMap timeStep = liftIO $ mapM multTimeStep (OrdMap.elems deltaValRefMap)
+          where
+            multTimeStep deltaRef = withPtrVal builder deltaRef $ \deltaVal -> buildFMul builder deltaVal timeStep "deltaTime"
+
+        -- updateState :: Builder -> Sys.SimParams -> SimOps -> IO ()
+        updateState builder k1State k2State k3State k4State idMap (Ode i dV) = do
+            -- get & updatestate val
+            updatePtrVal builder (stateValRefMap OrdMap.! i) $ \stateVal -> do
+                let idx = idMap Map.! i
+                -- y' = y + 1/6*(k1 + 2*k2 + 2*k3 + k4)
+                -- muls -- TODO - replace muls with adds?
+                kTmpMul <- buildFMul builder (k2State !! idx) (constDouble 2.0) "kTmpMul"
+                kTmpMul1 <- buildFMul builder (k3State !! idx) (constDouble 2.0) "kTmpMul1"
+                -- adds
+                kTmpAdd <- buildFAdd builder (k1State !! idx) kTmpMul "kTmpAdd"
+                kTmpAdd1 <- buildFAdd builder kTmpAdd kTmpMul1 "kTmpAdd1"
+                kTmpAdd2 <- buildFAdd builder (k4State !! idx) kTmpAdd1 "kTmpAdd2"
+                -- update state val
+                kTmpTotal  <- buildFDiv builder kTmpAdd2 (constDouble $ 6.0) "kTmpTotal"
+                buildFAdd builder stateVal kTmpTotal "newState"
 
 
 -- | Generate the forward euler solver, also including much of the machinary to setup variables, write to disk, etc.
@@ -152,21 +223,18 @@ genModelSolver CF.Module{..} initsF loopF = do
         Sys.FEuler  -> MkSolver <$> (genVals $ (OrdMap.keys initExprs) :: GenM EulerSolver)
         Sys.RK4     -> MkSolver <$> (genVals $ (OrdMap.keys initExprs) :: GenM RK4Solver)
 
-    let stateValRefMap = getStateVals solver
-
-    -- create variable sim params (static sim params embeedded as constants)
+    -- create mutable sim params (static sim params embeedded as constants)
     simParamVs@(curPeriodRef, curLoopRef, curTimeRef, outDataRef) <- createSimParams outDataSize
 
     -- call the init funcs
     _ <- liftIO $ withPtrVal builder curTimeRef $ \curTime -> do
-        buildCall builder initsF (curTime : OrdMap.elems stateValRefMap) ""
+        buildCall builder initsF (curTime : OrdMap.elems (getStateVals solver)) ""
     -- write initial data
-    writeOutData outDataSize outDataRef curTimeRef $ OrdMap.elems stateValRefMap
+    writeOutData outDataSize outDataRef curTimeRef $ OrdMap.elems (getStateVals solver)
 
     -- create the main solver loop
     doWhileStmt builder curFunc
         -- doBody
-        --(\builder ->  createSolverLoopBody loopF stateValRefMap deltaValRefMap simParamVs >> (liftIO $ buildNoOp builder))
         (\builder ->  createSolverLoopBody loopF solver simParamVs >> (liftIO $ buildNoOp builder))
         -- doCond
         (\builder _ ->  do
@@ -181,9 +249,9 @@ genModelSolver CF.Module{..} initsF loopF = do
     liftIO $ disposeBuilder builder
     return curFunc
   where
-
     outDataSize = OrdMap.size initExprs + 1
 
+    -- | Create the main body of the solver loop
     createSolverLoopBody  :: (OdeSolver a) => LLVM.Value -> a -> (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value) -> GenM ()
     createSolverLoopBody  loopF solver (curPeriodRef, curLoopRef, curTimeRef, outDataRef) = do
         GenState {builder, curFunc, simParams} <- get

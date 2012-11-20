@@ -83,7 +83,7 @@ genModelInitials CF.Module{..} = do
         (curTimeVal : params) <- liftIO $ LLVM.getParams curFunc
         modify (\st -> st { curTimeVal })
         -- zip the ids (from toplets) with the params (the ordering will be the same)
-        let outVals = zip (map fst (OrdMap.toList initExprs)) params
+        let outVals = zip (OrdMap.keys initExprs) params
         -- for each val, gen the store thru the pointer
         forM_ outVals $ \(i, outVal) -> do
             initVal <- lookupId i
@@ -93,7 +93,7 @@ genModelInitials CF.Module{..} = do
 -- odeModelLoop(time, STATE) -> DELTA
 genModelLoop :: CF.Module -> GenM LLVM.Value
 genModelLoop CF.Module{..} = do
-    (curFunc, builder) <- genFunction  "modelLoop" voidType createArgsList
+    (curFunc, builder) <- genFunction "modelLoop" voidType createArgsList
     liftIO $ setLinkage curFunc PrivateLinkage
     -- set func params
     _ <- liftIO $ addFuncAttributes curFunc [AlwaysInlineAttribute, NoUnwindAttribute]

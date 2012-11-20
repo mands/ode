@@ -78,6 +78,7 @@ mkGenState = GenState Map.empty Map.empty Map.empty nullPtr nullPtr nullPtr null
 
 -- Helper Funcs --------------------------------------------------------------------------------------------------------
 
+-- lookup an id both within current env, then global env
 lookupId :: Id -> GenM LLVM.Value
 lookupId i = do
     -- first look in local env

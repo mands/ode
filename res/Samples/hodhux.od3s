@@ -13,12 +13,12 @@ import SimTests.HodHux.*
 // set sim params
 :startTime 0
 :endTime 60
-:timestep 0.00001
-:period 100000
+:timestep 0.1
+:period 10
 :output "./output.bin"
 
 // sim backend params
-:solver "euler"
+:solver "rk4"
 // linker - dynamic, static
 :linker "static"
 // disable exe
