@@ -28,6 +28,7 @@ import Prelude hiding ((.), id)
 import Shelly
 import Data.Text.Lazy as LT
 
+import Data.Maybe (catMaybes, maybeToList)
 import Utils.CommonImports
 import Subsystem.Simulation.Common
 import Subsystem.Simulation.JITCompiler.JITCommon
@@ -51,8 +52,8 @@ llvmLinkScript :: Sys.SimParams -> Sh ()
 llvmLinkScript p@(Sys.SimParams{..}) = do
     liftIO $ debugM "ode3.sim" $ "Starting LLVM Linker Script"
     -- delete the old sim file
-    rm_f "./Sim.bc"
-    rm_f "./Sim.ll"
+    rm_f "Sim.bc"
+    rm_f "Sim.ll"
     -- rm_f "./*.dot"
 
     -- optimise the model
@@ -95,7 +96,7 @@ llvmLinkScript p@(Sys.SimParams{..}) = do
         else return modelBC
 
     -- link the model to stdlib (& vecmath)
-    run_ "llvm-link" $ ["-o", simBC] ++ [modelBC', odeStdLib, odeVecMathLib]
+    run_ "llvm-link" $ ["-o", simBC] ++ [modelBC', odeStdLib] ++ (maybeToList odeVecMathLib)
 
     -- perform LTO
     when (L.get Sys.lOptimise p) $
@@ -113,12 +114,12 @@ llvmLinkScript p@(Sys.SimParams{..}) = do
     llvmVecMath = toTextIgnore $ libPath </> "LLVMVecMath.so"
 
     -- need to switch depending on the mathmodel
-    odeVecMathLib = toTextIgnore $  if _optimise && (L.get Sys.lMathModel p == Sys.Fast)
-                                        then case _mathLib of
-                                            Sys.GNU     -> odeLibPath </> "VecMath_GNU.bc"
-                                            Sys.AMD     -> odeLibPath </> "VecMath_AMD.bc"
-                                            Sys.Intel   -> odeLibPath </> "VecMath_Intel.bc"
-                                        else ""
+    odeVecMathLib = if _optimise && (L.get Sys.lMathModel p == Sys.Fast)
+                                        then Just . toTextIgnore $ odeLibPath </> case _mathLib of
+                                            Sys.GNU     -> "VecMath_GNU.bc"
+                                            Sys.AMD     -> "VecMath_AMD.bc"
+                                            Sys.Intel   -> "VecMath_Intel.bc"
+                                        else Nothing
 
 -- | Embedded script to executre a static simulation, utilising static linking to all libs
 -- and no call-back to Ode run-time (requires use of Clang and system linker)
@@ -129,7 +130,7 @@ llvmAOTScript p@(Sys.SimParams{..}) = do
     rm_f exeOutput
 
     -- use clang to link our llvm-linked sim module to the system
-    run "clang" $ ["-integrated-as", linkType, "-o", toTextIgnore exeOutput, optLevel, fastMath, simBC]
+    run "clang" $ (maybeToList linkType) ++ ["-integrated-as", "-o", toTextIgnore exeOutput, optLevel] ++ maybeToList fastMath ++ [simBC]
         ++ ["-L", toTextIgnore libPath] ++ libs
 
     -- execute (as ext. process) if specified
@@ -151,8 +152,8 @@ llvmAOTScript p@(Sys.SimParams{..}) = do
     crtFastMath = "-Wl,--no-as-needed,../res/StdLib/crtfastmath.o"
 
     optLevel    = if (L.get Sys.lOptimise p) then "-O3" else "-O0"
-    fastMath    = if _optimise &&  (L.get Sys.lMathModel p == Sys.Fast) then "-ffast-math" else ""
+    fastMath    = if _optimise &&  (L.get Sys.lMathModel p == Sys.Fast) then Just "-ffast-math" else Nothing
     -- check dyn/static linking
     linkType    = case (L.get Sys.lLinker p) of
-        Sys.Static -> "-static"
-        Sys.Dynamic -> ""
+        Sys.Static -> Just "-static"
+        Sys.Dynamic -> Nothing

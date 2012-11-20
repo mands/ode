@@ -36,6 +36,6 @@ import SimTests.BasicCalcNoUnits.*
 
 // all done
 //:simulate HodHux
-:simulate BasicCalc1c
+:simulate BasicCalc6
 :quit
 

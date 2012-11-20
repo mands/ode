@@ -172,6 +172,23 @@ defineExtOps p llvmMod = do
                                 )
         ]
 
+
+
+-- | A helper function that performs much of the boiler-plate code in creating a function
+genFunction :: String -> LLVM.Type -> [LLVM.Type] -> GenM (LLVM.Value, LLVM.Builder)
+genFunction fName fRetType fArgTypes = do
+    -- define the func
+    GenState {llvmMod} <- get
+    curFunc <- liftIO $ addFunction llvmMod fName (functionType fRetType fArgTypes False)
+    builder <- liftIO $ createBuilder
+    -- create the entry block & pos the builder
+    entryBB <- liftIO $ appendBasicBlock curFunc "entry"
+    liftIO $ positionAtEnd builder entryBB
+    -- store and return the func & builder
+    modify (\st -> st { builder, curFunc, localMap = Map.empty })
+    return (curFunc, builder)
+
+
 -- LLVM Funcs ----------------------------------------------------------------------------------------------------------
 -- TODO - move these into LLVM.Wrapper at some point
 buildExtractValue builder val idx str = withCString str $ \cStr ->

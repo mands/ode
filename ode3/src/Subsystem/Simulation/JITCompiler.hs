@@ -55,6 +55,7 @@ import AST.CoreFlat as CF
 import Subsystem.Simulation.JITCompiler.JITCommon
 import Subsystem.Simulation.JITCompiler.JITSolver
 import Subsystem.Simulation.JITCompiler.JITShell
+import Subsystem.Simulation.JITCompiler.JITModel(genModelInitials, genModelLoop)
 
 
 -- Entry ---------------------------------------------------------------------------------------------------------------
