@@ -36,7 +36,7 @@ import SimTests.Odes.*
 //:vecMath
 :mathLib "gnu"
 // backend to use - interpreter, jitcompiler, aotcompiler, obj
-:backend "aotcompiler"
+:backend "objectfile"
 
 // all done
 //:simulate HodHux

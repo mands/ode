@@ -15,7 +15,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Subsystem.Simulation.JITCompiler.JITSolver (
-genModelSolver, genAOTMain
+genModelSolver, genAOTMain, genFFIParams, genFFIModelInitials, genFFIModelLoop
 ) where
 
 -- Labels
@@ -55,7 +55,7 @@ import Subsystem.Simulation.JITCompiler.JITModel
 
 -- Code Generation -----------------------------------------------------------------------------------------------------
 -- This code generates the custom solvers implemented in Ode, inlcuding a FEuler and RK4, plus extra code for generating
--- a standalone object file
+-- a standalone object file and the FFI
 
 -- | A stub main function used for AOT compilation
 genAOTMain :: LLVM.Value -> GenM ()
@@ -65,6 +65,64 @@ genAOTMain simF = do
     _ <- liftIO $ buildCall builder simF [] ""
     liftIO $ buildRet builder $ constInt32 0
     return ()
+
+
+-- | Write sim param constant to global vals within the module
+genFFIParams numParams = do
+    GenState {builder, simParams, llvmMod} <- get
+    liftIO $ addGlobalWithInit llvmMod (constDouble $ Sys._startTime simParams) doubleType True "OdeParamStartTime"
+    liftIO $ addGlobalWithInit llvmMod (constDouble $ Sys._endTime simParams) doubleType True "OdeParamEndTime"
+    liftIO $ addGlobalWithInit llvmMod (constDouble $ Sys._timestep simParams) doubleType True "OdeParamTimestep"
+    liftIO $ addGlobalWithInit llvmMod (constInt64 $ Sys._outputPeriod simParams) int64Type True "OdeParamPeriod"
+
+    -- HACK to build global string outside of a func (as buildGlobalString fails)
+    let outFile = Sys._filename simParams
+    liftIO $ addGlobalWithInit llvmMod (constString outFile False) (arrayType int8Type (fromIntegral $ length outFile + 1)) True "OdeParamOutput"
+    -- liftIO $ buildGlobalString builder "test" "test" -- (Sys._filename  simParams) "OdeParamOutput"
+    liftIO $ addGlobalWithInit llvmMod (constInt64 $ numParams) int64Type True "OdeParamNumParams"
+
+
+genFFIModelInitials initsF numParams = do
+    (curFunc, builder) <- genFunction "OdeModelInitials" voidType createArgsList
+
+    (curTimeVal : stateArrayRef : []) <- liftIO $ LLVM.getParams curFunc
+
+    -- use GEP to build list of ptrs into stateVals array, can pass direct into modelInits
+    args <- liftIO $ forM [0..(numParams-1)] $ \idx ->
+        buildInBoundsGEP builder stateArrayRef [constInt64 0, constInt64 idx] "stateValRef"
+
+    -- call the internal inits functions
+    liftIO $ buildCall builder initsF (curTimeVal : args ) ""
+    liftIO $ buildRetVoid builder
+    return ()
+  where
+    -- create the input args
+    createArgsList = [doubleType, pointerType (arrayType doubleType (fromIntegral numParams)) 0]
+
+genFFIModelLoop loopF numParams = do
+    (curFunc, builder) <- genFunction "OdeModelLoop" voidType createArgsList
+
+    (curTimeVal : stateArrayRef : deltaArrayRef : []) <- liftIO $ LLVM.getParams curFunc
+
+    -- use GEP to build list of ptrs into stateVals array, need to deref each one
+    stateArgs <- liftIO $ forM [0..(numParams-1)] $ \idx -> do
+        stateRef <- buildInBoundsGEP builder stateArrayRef [constInt64 0, constInt64 idx] "stateValRef"
+        buildLoad builder stateRef "stateVal"
+
+    -- use GEP to build list of ptrs into deltaVals array, can pass direct into modelLoop
+    deltaArgs <- liftIO $ forM [0..(numParams-1)] $ \idx ->
+        buildInBoundsGEP builder deltaArrayRef [constInt64 0, constInt64 idx] "deltaValRef"
+
+    -- call the internal inits functions
+    liftIO $ buildCall builder loopF (curTimeVal : stateArgs ++ deltaArgs) ""
+    liftIO $ buildRetVoid builder
+    return ()
+
+    return ()
+  where
+    -- create the input args
+    createArgsList = [doubleType, pointerType (arrayType doubleType (fromIntegral numParams)) 0
+                                , pointerType (arrayType doubleType (fromIntegral numParams)) 0]
 
 
 -- A solver class for abstracting over the differing code-gen requriements
@@ -294,7 +352,7 @@ createVals ids suffix = foldM createVal OrdMap.empty ids
   where
     createVal idMap i = do
         GenState {builder, llvmMod} <- get
-        llV <- liftIO $ addGlobalWithInit llvmMod (constDouble 0.0) doubleType (getName i)
+        llV <- liftIO $ addGlobalWithInit llvmMod (constDouble 0.0) doubleType False (getName i)
         liftIO $ setLinkage llV PrivateLinkage
         return $ OrdMap.insert i llV idMap
     getName i = (getValidIdName i) ++ suffix
@@ -303,14 +361,14 @@ createVals ids suffix = foldM createVal OrdMap.empty ids
 createSimParams :: Int -> GenM (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value)
 createSimParams outDataSize = do
     GenState {builder, simParams, llvmMod} <- get
-    curPeriodRef <- liftIO $ addGlobalWithInit llvmMod (constInt64 1) int64Type "simCurPeriod"
-    curLoopRef <- liftIO $ addGlobalWithInit llvmMod (constInt64 0) int64Type "simCurLoop"
+    curPeriodRef <- liftIO $ addGlobalWithInit llvmMod (constInt64 1) int64Type False "simCurPeriod"
+    curLoopRef <- liftIO $ addGlobalWithInit llvmMod (constInt64 0) int64Type False "simCurLoop"
     -- set inital time
-    curTimeRef <- liftIO $ addGlobalWithInit llvmMod (constDouble $ L.get Sys.lStartTime simParams) doubleType "simCurTime"
+    curTimeRef <- liftIO $ addGlobalWithInit llvmMod (constDouble $ L.get Sys.lStartTime simParams) doubleType False "simCurTime"
     -- set output vector
     -- outDataRef <- liftIO $ buildAlloca builder (LFFI.arrayType doubleType $ fromIntegral outDataSize) "simOutData"
     initOutData <- liftIO $ constArray doubleType $ replicate outDataSize (constDouble 0.0)
-    outDataRef <- liftIO $ addGlobalWithInit llvmMod initOutData (LFFI.arrayType doubleType $ fromIntegral outDataSize) "simOutData"
+    outDataRef <- liftIO $ addGlobalWithInit llvmMod initOutData (LFFI.arrayType doubleType $ fromIntegral outDataSize) False "simOutData"
     -- set linkages
     liftIO $ mapM_ (\v -> setLinkage v PrivateLinkage) [curPeriodRef, curLoopRef, curTimeRef, outDataRef]
     return (curPeriodRef, curLoopRef, curTimeRef, outDataRef)
@@ -329,3 +387,4 @@ writeOutData outDataSize simOutData curTimeRef stateValRefs = do
     callInst <- liftIO $ buildCall builder (libOps Map.! "writeDbls") [simOutDataPtr, constInt64 outDataSize] ""
     -- liftIO $ setInstructionCallConv callInst Fast
     return ()
+

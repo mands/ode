@@ -154,6 +154,8 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnits
         f str | map toLower str == "interpreter"     = modifyShellSt $ set (lBackend . lSimParams) Interpreter
         f str | map toLower str == "jitcompiler"     = modifyShellSt $ set (lBackend . lSimParams) JITCompiler
         f str | map toLower str == "aotcompiler"     = modifyShellSt $ set (lBackend . lSimParams) AOTCompiler
+        f str | map toLower str == "objectfile"      = modifyShellSt $ set (lBackend . lSimParams) ObjectFile
+        f str | map toLower str == "cvode"           = modifyShellSt $ set (lBackend . lSimParams) CVODE
         f _ = shellPutInfoLn "Possible options <interpreter, jitcompiler, aotcompiler>"
 
     simLinkerCmd = cmd "linker" f "System linker to use when compiling <dynamic, static>"

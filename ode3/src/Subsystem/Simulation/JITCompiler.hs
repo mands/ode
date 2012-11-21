@@ -64,18 +64,20 @@ compileAndSimulate :: CF.Module -> Sys.SysExceptIO ()
 compileAndSimulate mod = do
     p <- Sys.getSysState Sys.lSimParams
 
-    -- Compiler stage
-    liftIO $ debugM "ode3.sim" $ "Compiling and linking Model and Sim code"
+    -- Compiler/CodeGen stage
+    liftIO $ debugM "ode3.sim" $ "Compiling Model code"
     -- all code that runs in the GenM monad
-    lift $ runStateT (runGenM $ genLLVMModule p mod >> linkLLVMModule p) $ mkGenState p
+    lift $ runStateT (runGenM $ genLLVMModule p mod) $ mkGenState p
 
-    -- Simulate stage - assumes presence of a sim.bc file
-    liftIO $ debugM "ode3.sim" $ "Starting (Compiled) Simulation"
+    -- Simulate/External Link stage
+    liftIO $ debugM "ode3.sim" $ "Starting Simulation/External Linking"
     -- determine the correct compile/simulate options
     case (L.get Sys.lBackend p) of
         -- only dynamic-linking, w/execution allowed in JITCompiler
-        Sys.JITCompiler -> liftIO $ runJITSimulation p
-        Sys.AOTCompiler -> liftIO $ runAOTScript p
+        Sys.JITCompiler -> liftIO $ linkLLVMModule p >> runJITSimulation p
+        Sys.AOTCompiler -> liftIO $ linkLLVMModule p >> runAOTScript p
+        Sys.CVODE -> undefined
+        Sys.ObjectFile -> return ()
 
     -- close any output files? (handle within LLVM code)
     liftIO $ debugM "ode3.sim" $ "(Compiled) Simulation Complete"
@@ -94,10 +96,25 @@ genLLVMModule p odeMod = do
     -- generate & insert the funcs into the module
     initsF <-   genModelInitials odeMod
     loopF <-    genModelLoop odeMod
-    simF <-     genModelSolver odeMod initsF loopF
 
-    -- gen a main func if standalone AOT compiling
-    when (L.get Sys.lBackend p == Sys.AOTCompiler) $ genAOTMain simF
+    -- modify the module depedning on the chosen backeng
+    case (L.get Sys.lBackend p) of
+        Sys.JITCompiler -> genModelSolver odeMod initsF loopF >> return ()
+        -- gen a main func if standalone AOT compiling
+        Sys.AOTCompiler -> do
+            simF <- genModelSolver odeMod initsF loopF
+            genAOTMain simF
+
+        -- generate wrappers and static values used when linking to external/C-solver
+        Sys.ObjectFile  -> do
+            let numParams = OrdMap.size $ initExprs odeMod
+            genFFIParams numParams
+            genFFIModelInitials initsF numParams
+            genFFIModelLoop loopF numParams
+
+        Sys.CVODE  -> undefined
+
+        _               -> return ()
 
     -- save the module to disk
     liftIO $ printModuleToFile llvmMod "Model.ll"
@@ -105,7 +122,7 @@ genLLVMModule p odeMod = do
     return ()
 
 -- | Calls out to our linker script
-linkLLVMModule :: Sys.SimParams -> GenM ()
+linkLLVMModule :: Sys.SimParams -> IO ()
 linkLLVMModule p = Sh.shelly . Sh.verbosely $ llvmLinkScript p
 
 -- | Load our compiled module and run a simulation

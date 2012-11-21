@@ -71,7 +71,7 @@ genModelInitials CF.Module{..} = do
     liftIO $ disposeBuilder builder
     return curFunc
   where
-    -- create the input args
+    -- create the input args - TODO - why do we include all types here?
     createArgsList = doubleType : (OrdMap.elems . fmap (\(ExprData _ t) -> (pointerType (convertType t) 0)) $ initExprs)
 
     setParamAttribs res@(t:outParams) = do

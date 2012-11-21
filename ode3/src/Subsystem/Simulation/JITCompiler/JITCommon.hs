@@ -225,10 +225,12 @@ constArray t llVs = withArrayLen llVs $ \len ptr ->
 buildNoOp :: Builder -> IO LLVM.Value
 buildNoOp builder = buildBitCast builder (constInt64 0) int64Type "noop"
 
-addGlobalWithInit :: LLVM.Module -> LLVM.Value -> LLVM.Type -> String -> IO LLVM.Value
-addGlobalWithInit mod initVal typ name = do
+-- | Add a global value, with initial value, to the module that may be set as constant
+addGlobalWithInit :: LLVM.Module -> LLVM.Value -> LLVM.Type -> Bool -> String -> IO LLVM.Value
+addGlobalWithInit mod initVal typ isConst name = do
     gVal <- addGlobal mod typ name
     LFFI.setInitializer gVal initVal
+    LFFI.setGlobalConstant gVal isConst
     return gVal
 
 updatePtrVal :: Builder -> LLVM.Value -> (LLVM.Value -> IO LLVM.Value) -> IO ()

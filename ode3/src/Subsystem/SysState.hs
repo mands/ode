@@ -89,7 +89,7 @@ defSysState = SysState
 
 -- Simulation Datatypes
 data OdeSolver  = FEuler | RK4 deriving (Show, Eq)
-data OdeBackend = Interpreter | JITCompiler | AOTCompiler deriving (Show, Eq)
+data OdeBackend = Interpreter | JITCompiler | AOTCompiler | ObjectFile | CVODE deriving (Show, Eq)
 data OdeLinker  = Static | Dynamic deriving (Show, Eq)
 data OdeMathModel = Strict | Fast deriving (Show, Eq)
 data OdeMathLib = GNU | AMD | Intel deriving (Show, Eq)

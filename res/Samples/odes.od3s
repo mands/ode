@@ -18,7 +18,7 @@
 // vecmath enable?
 //:vecMath
 :mathLib "gnu"
-// backend to use - interpreter, jitcompiler, aotcompiler, obj
+// backend to use - interpreter, jitcompiler, aotcompiler, obj, cvode
 :backend "jitcompiler"
 
 // setup the repo
