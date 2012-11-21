@@ -133,6 +133,7 @@ instance OdeSolver RK4Solver where
 
     getStateVals e = rk4StateVals e
 
+    -- TODO - we can reuse the same deltaVals for each step, as the final staate fot the step is held within kStates
     genSolver (RK4Solver stateValRefMap deltaVal1RefMap deltaVal2RefMap deltaVal3RefMap deltaVal4RefMap) loopF curTimeRef simOps = do
         GenState {builder, curFunc, simParams} <- get
 
@@ -147,51 +148,55 @@ instance OdeSolver RK4Solver where
         tPlusH <- liftIO $ buildFAdd builder t h "tPlusH"
 
         -- GEN K1
-        -- call the modelLoop func
+        -- call the modelLoop func manually
         callLoopF builder t stateVals deltaVal1RefMap
-        k1State <- multDeltasTimeStep builder deltaVal1RefMap h
+        k1State <- multByTimeStep builder deltaVal1RefMap h
 
         -- GEN K2
-        stateVals2 <- liftIO $ forM (zip stateVals k1State) $ \(sv, k1v) -> do
+        k2State <- genKState builder stateVals k1State deltaVal2RefMap tPlusHHalf h $ \(sv, k1v) -> do
             i <- buildFMul builder k1v (constDouble 0.5) ""
             buildFAdd builder sv i "sv"
 
-        callLoopF builder tPlusHHalf stateVals2 deltaVal2RefMap
-        k2State <- multDeltasTimeStep builder deltaVal2RefMap h
-
         -- GEN K3 (same as K2)
-        stateVals3 <- liftIO $ forM (zip stateVals k2State) $ \(sv, k2v) -> do
+        k3State <- genKState builder stateVals k2State deltaVal3RefMap tPlusHHalf h $ \(sv, k2v) -> do
             i <- buildFMul builder k2v (constDouble 0.5) ""
             buildFAdd builder sv i "sv"
 
-        callLoopF builder tPlusHHalf stateVals3 deltaVal3RefMap
-        k3State <- multDeltasTimeStep builder deltaVal3RefMap h
-
         -- GEN K4 (similar to K3)
-        stateVals4 <- liftIO $ forM (zip stateVals k3State) $ \(sv, k3v) -> do
+        k4State <- genKState builder stateVals k3State deltaVal4RefMap tPlusH h $ \(sv, k3v) -> do
             buildFAdd builder sv k3v "sv"
-
-        callLoopF builder tPlusH stateVals3 deltaVal3RefMap
-        k4State <- multDeltasTimeStep builder deltaVal3RefMap h
 
         -- update the states/calc avg. dy and adjust y for all SimOps
         let idMap = Map.fromList $ zip (OrdMap.keys stateValRefMap) [0..]
-        liftIO $ forM_ simOps $ updateState builder k1State k2State k3State k4State idMap
+        forM_ simOps $ updateState builder k1State k2State k3State k4State idMap
         return ()
       where
+        -- | generate each of the k vals for RK4
+        genKState :: Builder -> [Value] -> [Value] -> ParamMap -> Value -> Value -> ((Value, Value) -> IO Value) -> GenM [Value]
+        genKState builder stateVals inKState deltaRefs timeDelta h stateF = do
+            -- generate the modified statevals
+            stateVals' <- liftIO $ forM (zip stateVals inKState) stateF
+            -- call the loop func f(t,y')
+            callLoopF builder timeDelta stateVals' deltaRefs
+            -- k' = h * f(t,y')
+            kState' <- multByTimeStep builder deltaRefs h
+            return kState'
+
+        -- | wrapper to call the acutal mdoel loop function f(t,y)
+        callLoopF :: Builder -> Value -> [Value] -> ParamMap -> GenM Value
         callLoopF builder timeVal stateVals deltaValRefMap = liftIO $
             buildCall builder loopF (timeVal : stateVals  ++ (OrdMap.elems deltaValRefMap)) ""
 
-        multDeltasTimeStep builder deltaValRefMap timeStep = liftIO $ mapM multTimeStep (OrdMap.elems deltaValRefMap)
-          where
-            multTimeStep deltaRef = withPtrVal builder deltaRef $ \deltaVal -> buildFMul builder deltaVal timeStep "deltaTime"
+        -- | multiply a vector of refs by the timestep, i.e. h*f(t,y)
+        multByTimeStep :: Builder -> ParamMap -> Value -> GenM [Value]
+        multByTimeStep builder deltaValRefMap timeStep = liftIO $ forM (OrdMap.elems deltaValRefMap) $ \deltaRef ->
+            withPtrVal builder deltaRef $ \deltaVal -> buildFMul builder deltaVal timeStep "deltaTime"
 
-        -- updateState :: Builder -> Sys.SimParams -> SimOps -> IO ()
-        updateState builder k1State k2State k3State k4State idMap (Ode i dV) = do
-            -- get & updatestate val
+        -- | get & updatestate val using RK4 algo for y' = y + 1/6*(k1 + 2*k2 + 2*k3 + k4)
+        updateState :: Builder -> [Value] -> [Value] -> [Value] -> [Value] -> Map.Map Id Int -> SimOps -> GenM ()
+        updateState builder k1State k2State k3State k4State idMap (Ode i dV) = liftIO $
             updatePtrVal builder (stateValRefMap OrdMap.! i) $ \stateVal -> do
                 let idx = idMap Map.! i
-                -- y' = y + 1/6*(k1 + 2*k2 + 2*k3 + k4)
                 -- muls -- TODO - replace muls with adds?
                 kTmpMul <- buildFMul builder (k2State !! idx) (constDouble 2.0) "kTmpMul"
                 kTmpMul1 <- buildFMul builder (k3State !! idx) (constDouble 2.0) "kTmpMul1"
