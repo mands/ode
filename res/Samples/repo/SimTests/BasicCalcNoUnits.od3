@@ -97,7 +97,7 @@ module BasicCalc7 {
     val b = (1, x)
 
     val c,d = b
-    ode {init: x, delta : dx } = c
+    ode {init: x, delta : dx } = c // dx = 1
 }
 
 // tuples - returing and passing around - OK and optimised
@@ -116,7 +116,7 @@ module BasicCalc7a {
 module BasicCalc8 {
     init x = 0
     val b = { rec1: 1, rec2 : x }
-    ode {init: x, delta : dx } = b#rec1
+    ode {init: x, delta : dx } = b#rec1 // dx = 1
 }
 
 // components
@@ -126,7 +126,7 @@ module BasicCalc9 {
     component comp(x) {
         return (x+1)
     }
-    ode {init: x, delta : dx } = comp(4)
+    ode {init: x, delta : dx } = comp(4) // dx = 5
 }
 
 // stateful
@@ -136,8 +136,8 @@ module BasicCalc10 {
         ode {init: x, delta : dx } = i
         return dx
     }
-    val _ = mkOde(5)
-    val _ = mkOde(10)
+    val _ = mkOde(5) // dx = 5
+    val _ = mkOde(10) // dx = 10
 }
 
 
@@ -149,13 +149,13 @@ module BasicCalc11a {
 module BasicCalc11b {
     import SimTests.BasicCalcNoUnits.BasicCalc11a as A
     init x = 0 { unit : m }
-    ode {init: x, delta : dx } = A.a
+    ode {init: x, delta : dx } = A.a // dx = 5
 }
 
 // module functor
 module BasicCalc11c(A) {
     init x = 0 { unit : m }
-    ode {init: x, delta : dx } = A.a
+    ode {init: x, delta : dx } = A.a // dx 5
 }
 
 module BasicCalc11d = BasicCalc11c(BasicCalc11a)
@@ -194,7 +194,7 @@ module BasicCalc13a {
         return (x+3)
     }
 
-    val _ = o(1)
+    val _ = o(1) // init=4, dx=3
 }
 
 

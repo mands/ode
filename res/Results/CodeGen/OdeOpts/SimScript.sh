@@ -5,7 +5,7 @@
 RES_DIR=`pwd`
 SIM=
 ODE_DIR=$HOME/ode/ode3/
-ODE_EXE=./dist/build/ode3/ode3
+ODE_EXE=./ode3
 cd $ODE_DIR
 
 # common setup

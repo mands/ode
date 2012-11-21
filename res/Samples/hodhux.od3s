@@ -20,20 +20,20 @@ import SimTests.HodHux.*
 // sim backend params
 :solver "rk4"
 // linker - dynamic, static
-:linker "static"
+:linker "dynamic"
 // disable exe
 :disableExecute
 // disable opts
 //:disableOptimise
 // disable short-circuiting
-:disableShortCircuit
+//:disableShortCircuit
 // disable power expan
 //:disablePowerExpan
 // math model - strict, fast
 :mathModel "fast"
 // vecmath enable?
 //:vecMath
-:mathLib "amd"
+:mathLib "gnu"
 // backend to use - interpreter, jitcompiler, aotcompiler, obj
 :backend "aotcompiler"
 

@@ -5,7 +5,8 @@
 :addRepo ../res/Samples/repo
 
 // import our modules
-import SimTests.BasicCalcNoUnits.*
+// import SimTests.BasicCalcNoUnits.*
+import SimTests.Odes.*
 
 // :show all
 //:show modState
@@ -24,18 +25,21 @@ import SimTests.BasicCalcNoUnits.*
 // disable exe
 :disableExecute
 // disable opts
-:disableOptimise
+//:disableOptimise
 // disable short-circuiting
-:disableShortCircuit
+//:disableShortCircuit
 // disable power expan
-:disablePowerExpan
+//:disablePowerExpan
 // math model - strict, fast
 :mathModel "fast"
+// vecmath enable?
+//:vecMath
+:mathLib "gnu"
 // backend to use - interpreter, jitcompiler, aotcompiler, obj
 :backend "aotcompiler"
 
 // all done
 //:simulate HodHux
-:simulate BasicCalc6
+:simulate PredPreyNoUnits
 :quit
 

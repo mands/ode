@@ -104,7 +104,7 @@ llvmLinkScript p@(Sys.SimParams{..}) = do
 
     -- DEBUG - dis-assemble sim.bc and gen graphs
     run_ "llvm-dis" [simBC]
-    run_ "opt" ["-analyze", "-dot-callgraph", "-dot-cfg", "-dot-dom", simBC]
+    -- run_ "opt" ["-analyze", "-dot-callgraph", "-dot-cfg", "-dot-dom", simBC]
 
     return ()
   where
