@@ -74,10 +74,10 @@ compileAndSimulate mod = do
     -- determine the correct compile/simulate options
     case (L.get Sys.lBackend p) of
         -- only dynamic-linking, w/execution allowed in JITCompiler
-        Sys.JITCompiler -> liftIO $ linkLLVMModule p >> runJITSimulation p
-        Sys.AOTCompiler -> liftIO $ linkLLVMModule p >> runAOTScript p
-        Sys.CVODE -> undefined
-        Sys.ObjectFile -> return ()
+        Sys.JITCompiler -> liftIO $ optLLVMModule p >> linkLLVMModule p >> runJITSimulation p
+        Sys.AOTCompiler -> liftIO $ optLLVMModule p >> linkLLVMModule p >> compileLLVMModule p >> executeAOTSim p
+        Sys.CVODE       -> undefined
+        Sys.ObjectFile  -> liftIO $ optLLVMModule p >> compileLLVMModule p
 
     -- close any output files? (handle within LLVM code)
     liftIO $ debugM "ode3.sim" $ "(Compiled) Simulation Complete"
@@ -116,14 +116,13 @@ genLLVMModule p odeMod = do
 
         _               -> return ()
 
+    -- add the target
+    liftIO $ setTarget llvmMod "x86_64-unknown-linux-gnu"
+
     -- save the module to disk
     liftIO $ printModuleToFile llvmMod "Model.ll"
     liftIO $ writeBitcodeToFile llvmMod "Model.bc"
     return ()
-
--- | Calls out to our linker script
-linkLLVMModule :: Sys.SimParams -> IO ()
-linkLLVMModule p = Sh.shelly . Sh.verbosely $ llvmLinkScript p
 
 -- | Load our compiled module and run a simulation
 runJITSimulation :: Sys.SimParams -> IO ()
@@ -149,7 +148,20 @@ runJITSimulation p = do
     --runAOTScript $ p { Sys._linker = Sys.DynamicLink, Sys._execute = False }
     return ()
 
--- | Calls out to our AOT script
-runAOTScript :: Sys.SimParams -> IO ()
-runAOTScript p = Sh.shelly . Sh.verbosely $ llvmAOTScript p
+-- Wrappers around Shell scripts
 
+-- | Calls out to our linker script
+optLLVMModule :: Sys.SimParams -> IO ()
+optLLVMModule p = Sh.shelly . Sh.verbosely $ llvmOptScript p
+
+-- | Calls out to our clang compile script
+linkLLVMModule :: Sys.SimParams -> IO ()
+linkLLVMModule p = Sh.shelly . Sh.verbosely $ llvmLinkScript p
+
+-- | Calls out to our clang compile script
+compileLLVMModule :: Sys.SimParams -> IO ()
+compileLLVMModule p = Sh.shelly . Sh.verbosely $ llvmCompileScript p
+
+-- | Calls out to our AOT script
+executeAOTSim :: Sys.SimParams -> IO ()
+executeAOTSim p = Sh.shelly . Sh.verbosely $ executeSimScript p

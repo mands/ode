@@ -192,6 +192,9 @@ genFunction fName fRetType fArgTypes = do
 
 -- LLVM Funcs ----------------------------------------------------------------------------------------------------------
 -- TODO - move these into LLVM.Wrapper at some point
+setTarget mod str = withCString str $ \cStr ->
+    LFFI.setTarget mod cStr
+
 buildExtractValue builder val idx str = withCString str $ \cStr ->
     LFFI.buildExtractValue builder val idx cStr
 

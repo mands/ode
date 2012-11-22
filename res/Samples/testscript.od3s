@@ -32,7 +32,7 @@ import SimTests.Odes.*
 //:disablePowerExpan
 // math model - strict, fast
 :mathModel "fast"
-// vecmath enable?
+// vecmath enable?A||
 //:vecMath
 :mathLib "gnu"
 // backend to use - interpreter, jitcompiler, aotcompiler, obj

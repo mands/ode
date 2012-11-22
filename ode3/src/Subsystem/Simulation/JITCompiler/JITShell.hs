@@ -16,7 +16,7 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Subsystem.Simulation.JITCompiler.JITShell (
-llvmLinkScript, llvmAOTScript
+llvmOptScript, llvmLinkScript, llvmCompileScript, executeSimScript
 ) where
 
 -- Labels
@@ -42,19 +42,17 @@ default (LT.Text)
 rootPath    = "/home/mandeep/DPhil/Projects/root"
 libPath     = rootPath </> "lib"
 modelBC     = "./Model.bc"
+modelOptBC  = "./Model.opt.bc"
 simBC       = "./Sim.bc"
 exeOutput   = "./Sim.exe"
 odeLibPath  = "../res/StdLib"
+odeObjFile  = "./OdeModel.o"
 
 
--- | Embedded script to optimise the model, and link to the simulation library
-llvmLinkScript :: Sys.SimParams -> Sh ()
-llvmLinkScript p@(Sys.SimParams{..}) = do
-    liftIO $ debugM "ode3.sim" $ "Starting LLVM Linker Script"
-    -- delete the old sim file
-    rm_f "Sim.bc"
-    rm_f "Sim.ll"
-    -- rm_f "./*.dot"
+llvmOptScript :: Sys.SimParams -> Sh ()
+llvmOptScript p@(Sys.SimParams{..}) = do
+    liftIO $ debugM "ode3.sim" $ "Starting LLVM Opt Script"
+    -- delete the old opt file?
 
     -- optimise the model
     modelBC' <- if (_optimise)
@@ -95,8 +93,26 @@ llvmLinkScript p@(Sys.SimParams{..}) = do
             else run_ "opt" (["-o", modelBC] ++ modelOpts ++ [modelBC]) >> return modelBC
         else return modelBC
 
+    -- copy the opt file to final location
+    cp (fromText modelBC') (fromText modelOptBC)
+    run_ "llvm-dis" [modelBC]
+    run_ "llvm-dis" [modelOptBC]
+    return ()
+  where
+    llvmVecMath = toTextIgnore $ libPath </> "LLVMVecMath.so"
+    modelOpts   = ["-std-compile-opts"]
+
+-- | Embedded script to optimise the model, and link to the simulation library
+llvmLinkScript :: Sys.SimParams -> Sh ()
+llvmLinkScript p@(Sys.SimParams{..}) = do
+    liftIO $ debugM "ode3.sim" $ "Starting LLVM Linker Script"
+    -- delete the old sim file
+    rm_f "Sim.bc"
+    rm_f "Sim.ll"
+    -- rm_f "./*.dot"
+
     -- link the model to stdlib (& vecmath)
-    run_ "llvm-link" $ ["-o", simBC] ++ [modelBC', odeStdLib] ++ (maybeToList odeVecMathLib)
+    run_ "llvm-link" $ ["-o", simBC] ++ [modelOptBC, odeStdLib] ++ (maybeToList odeVecMathLib)
 
     -- perform LTO
     when (L.get Sys.lOptimise p) $
@@ -105,14 +121,10 @@ llvmLinkScript p@(Sys.SimParams{..}) = do
     -- DEBUG - dis-assemble sim.bc and gen graphs
     run_ "llvm-dis" [simBC]
     -- run_ "opt" ["-analyze", "-dot-callgraph", "-dot-cfg", "-dot-dom", simBC]
-
     return ()
   where
     odeStdLib  = toTextIgnore $ odeLibPath </> "OdeLibrary.bc" -- change to opt stdlib
-    modelOpts   = ["-std-compile-opts"]
     linkOpts    = ["-std-link-opts", "-std-compile-opts"]
-    llvmVecMath = toTextIgnore $ libPath </> "LLVMVecMath.so"
-
     -- need to switch depending on the mathmodel
     odeVecMathLib = if _optimise && (L.get Sys.lMathModel p == Sys.Fast)
                                         then Just . toTextIgnore $ odeLibPath </> case _mathLib of
@@ -121,20 +133,22 @@ llvmLinkScript p@(Sys.SimParams{..}) = do
                                             Sys.Intel   -> "VecMath_Intel.bc"
                                         else Nothing
 
--- | Embedded script to executre a static simulation, utilising static linking to all libs
--- and no call-back to Ode run-time (requires use of Clang and system linker)
-llvmAOTScript :: Sys.SimParams -> Sh ()
-llvmAOTScript p@(Sys.SimParams{..}) = do
-    liftIO $ debugM "ode3.sim" $ "Starting AOT Script"
+-- | Embedded script to compile a native AOT represetnation of the model (& optional simulation)
+-- with no call-back to Ode run-time (requires use of Clang and system linker)
+llvmCompileScript :: Sys.SimParams -> Sh ()
+llvmCompileScript p@(Sys.SimParams{..}) = do
+    liftIO $ debugM "ode3.sim" $ "Starting AOT/Compile Script"
     -- delete the old sim file
     rm_f exeOutput
+    rm_f odeObjFile
 
-    -- use clang to link our llvm-linked sim module to the system
-    run "clang" $ (maybeToList linkType) ++ ["-integrated-as", "-o", toTextIgnore exeOutput, optLevel] ++ maybeToList fastMath ++ [simBC]
-        ++ ["-L", toTextIgnore libPath] ++ libs
-
-    -- execute (as ext. process) if specified
-    when (L.get Sys.lExecute p) $ run_ exeOutput []
+    if (L.get Sys.lBackend p == Sys.ObjectFile)
+        -- use clang to create a object file
+        then run "clang" $ ["-integrated-as", "-c", "-o", toTextIgnore odeObjFile, optLevel]
+                ++ maybeToList fastMath ++ [modelOptBC]
+        -- use clang to link our llvm-linked sim module to the system
+        else run "clang" $ (maybeToList linkType) ++ ["-integrated-as", "-o", toTextIgnore exeOutput, optLevel]
+            ++ maybeToList fastMath ++ [simBC] ++ ["-L", toTextIgnore libPath] ++ libs
 
     return ()
   where
@@ -157,3 +171,11 @@ llvmAOTScript p@(Sys.SimParams{..}) = do
     linkType    = case (L.get Sys.lLinker p) of
         Sys.Static -> Just "-static"
         Sys.Dynamic -> Nothing
+
+
+-- | Executes simulation of stnadalone executable in sub-process
+executeSimScript ::  Sys.SimParams -> Sh ()
+executeSimScript p@(Sys.SimParams{..}) = do
+    -- execute (as ext. process) if specified
+    when (L.get Sys.lExecute p) $ run_ exeOutput []
+
