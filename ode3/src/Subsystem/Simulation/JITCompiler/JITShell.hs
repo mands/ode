@@ -16,7 +16,7 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Subsystem.Simulation.JITCompiler.JITShell (
-llvmOptScript, llvmLinkScript, llvmCompileScript, executeSimScript
+optScript, linkStdlibScript, compileScript, executeSimScript
 ) where
 
 -- Labels
@@ -49,8 +49,8 @@ odeLibPath  = "../res/StdLib"
 odeObjFile  = "./OdeModel.o"
 
 
-llvmOptScript :: Sys.SimParams -> Sh ()
-llvmOptScript p@(Sys.SimParams{..}) = do
+optScript :: Sys.SimParams -> Sh ()
+optScript p@(Sys.SimParams{..}) = do
     liftIO $ debugM "ode3.sim" $ "Starting LLVM Opt Script"
     -- delete the old opt file?
 
@@ -80,14 +80,15 @@ llvmOptScript p@(Sys.SimParams{..}) = do
                         ,"-bb-vectorize-debug-instruction-examination=0", "-bb-vectorize-debug-candidate-selection=1", "-bb-vectorize-debug-pair-selection=0", "-bb-vectorize-debug-cycle-check=0"
                         ,"-stats", modelBC ] --LT.append modelBC "vec1"]
                     run_ "llvm-dis" [modelVec2]
-                    return modelVec2
+                    linkVecMath modelVec2
+                    -- return modelVec2
                 -- just fastmath, run lift and lowering (as implies linking to finite-funcs)
                 else do
                     let modelLift = "./Model.lift.bc"
                     run_ "opt" (["-load", llvmVecMath, "-o", modelLift ] ++
                         ["-liftvecmath", "-lowervecmath", "-std-compile-opts", "-stats", modelBC])
                     run_ "llvm-dis" [modelLift]
-                    return modelLift
+                    linkVecMath modelLift
 
             -- no fastmath - just optimise
             else run_ "opt" (["-o", modelBC] ++ modelOpts ++ [modelBC]) >> return modelBC
@@ -102,45 +103,51 @@ llvmOptScript p@(Sys.SimParams{..}) = do
     llvmVecMath = toTextIgnore $ libPath </> "LLVMVecMath.so"
     modelOpts   = ["-std-compile-opts"]
 
--- | Embedded script to optimise the model, and link to the simulation library
-llvmLinkScript :: Sys.SimParams -> Sh ()
-llvmLinkScript p@(Sys.SimParams{..}) = do
+    -- link the model to the vecmath implementation, and perfomrm LTO/opts
+    linkVecMath modelBC' = do
+        -- link the model to stdlib (& vecmath)
+        run_ "llvm-link" $ ["-o", modelVecBC, modelBC', odeVecMathLib]
+        run_ "opt" $ ["-o", modelVecBC] ++ linkOpts ++ [modelVecBC]
+        run_ "llvm-dis" [modelVecBC]
+        return modelVecBC
+      where
+        modelVecBC  = "Model.vecmath.bc"
+        linkOpts    = ["-std-link-opts", "-std-compile-opts"]
+        -- need to switch depending on the mathmodel
+        odeVecMathLib = toTextIgnore $ odeLibPath </> case _mathLib of
+                                                        Sys.GNU     -> "VecMath_GNU.bc"
+                                                        Sys.AMD     -> "VecMath_AMD.bc"
+                                                        Sys.Intel   -> "VecMath_Intel.bc"
+
+-- | Embedded script to link to the Ode stdlib
+linkStdlibScript :: Sys.SimParams -> Sh ()
+linkStdlibScript p@(Sys.SimParams{..}) = do
     liftIO $ debugM "ode3.sim" $ "Starting LLVM Linker Script"
     -- delete the old sim file
     rm_f "Sim.bc"
     rm_f "Sim.ll"
     -- rm_f "./*.dot"
-
-    -- link the model to stdlib (& vecmath)
-    run_ "llvm-link" $ ["-o", simBC] ++ [modelOptBC, odeStdLib] ++ (maybeToList odeVecMathLib)
-
+    -- link the model to stdlib
+    run_ "llvm-link" ["-o", simBC, modelOptBC, odeStdLib]
     -- perform LTO
     when (L.get Sys.lOptimise p) $
         run_ "opt" (["-o", simBC] ++ linkOpts ++ [simBC])
-
     -- DEBUG - dis-assemble sim.bc and gen graphs
     run_ "llvm-dis" [simBC]
     -- run_ "opt" ["-analyze", "-dot-callgraph", "-dot-cfg", "-dot-dom", simBC]
     return ()
   where
-    odeStdLib  = toTextIgnore $ odeLibPath </> "OdeLibrary.bc" -- change to opt stdlib
+    odeStdLib  = toTextIgnore $ odeLibPath </> "OdeLibrary.bc" -- TODO - change to opt stdlib?
     linkOpts    = ["-std-link-opts", "-std-compile-opts"]
-    -- need to switch depending on the mathmodel
-    odeVecMathLib = if _optimise && (L.get Sys.lMathModel p == Sys.Fast)
-                                        then Just . toTextIgnore $ odeLibPath </> case _mathLib of
-                                            Sys.GNU     -> "VecMath_GNU.bc"
-                                            Sys.AMD     -> "VecMath_AMD.bc"
-                                            Sys.Intel   -> "VecMath_Intel.bc"
-                                        else Nothing
 
 -- | Embedded script to compile a native AOT represetnation of the model (& optional simulation)
 -- with no call-back to Ode run-time (requires use of Clang and system linker)
-llvmCompileScript :: Sys.SimParams -> Sh ()
-llvmCompileScript p@(Sys.SimParams{..}) = do
+compileScript :: Sys.SimParams -> Sh ()
+compileScript p@(Sys.SimParams{..}) = do
     liftIO $ debugM "ode3.sim" $ "Starting AOT/Compile Script"
     -- delete the old sim file
-    rm_f exeOutput
-    rm_f odeObjFile
+    -- rm_f exeOutput
+    -- rm_f odeObjFile
 
     if (L.get Sys.lBackend p == Sys.ObjectFile)
         -- use clang to create a object file
@@ -166,7 +173,7 @@ llvmCompileScript p@(Sys.SimParams{..}) = do
     crtFastMath = "-Wl,--no-as-needed,../res/StdLib/crtfastmath.o"
 
     optLevel    = if (L.get Sys.lOptimise p) then "-O3" else "-O0"
-    fastMath    = if _optimise &&  (L.get Sys.lMathModel p == Sys.Fast) then Just "-ffast-math" else Nothing
+    fastMath    = if _optimise && (L.get Sys.lMathModel p == Sys.Fast) then Just "-ffast-math" else Nothing
     -- check dyn/static linking
     linkType    = case (L.get Sys.lLinker p) of
         Sys.Static -> Just "-static"

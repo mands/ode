@@ -30,7 +30,7 @@ void shutdown(void) {
 // holds the block of data to output
 static FILE* outFile;
 
-void startSim(const char* restrict filename, const uint64_t nArgs) {
+void startSim(const char* const restrict filename, const uint64_t nArgs) {
   printf("Starting simulation with output to %s\n", filename);
   //char* filename = "outfile.bin";
   outFile = fopen(filename, "wb");
@@ -45,7 +45,7 @@ void endSim(void) {
   puts("Finished simulation");
 }
 
-void writeDbls(const double* restrict dbls, const uint64_t nArgs) {
+void writeDbls(const double* const restrict dbls, const uint64_t nArgs) {
   // we use fwrite rather than write syscall as want buffering as the data byte-count is small
   fwrite(dbls, sizeof(double), nArgs, outFile);  
 }

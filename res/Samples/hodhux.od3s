@@ -13,12 +13,12 @@ import SimTests.HodHux.*
 // set sim params
 :startTime 0
 :endTime 60
-:timestep 0.1
-:period 10
+:timestep 0.00001
+:period 100000
 :output "./output.bin"
 
 // sim backend params
-:solver "rk4"
+:solver "euler"
 // linker - dynamic, static
 :linker "dynamic"
 // disable exe
@@ -34,8 +34,8 @@ import SimTests.HodHux.*
 // vecmath enable?
 //:vecMath
 :mathLib "gnu"
-// backend to use - interpreter, jitcompiler, aotcompiler, obj
-:backend "aotcompiler"
+// backend to use - interpreter, jitcompiler, aotcompiler, objectfile
+:backend "objectfile"
 
 // all done
 :simulate HodHux

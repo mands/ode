@@ -15,6 +15,9 @@ OdeLibraryOpt.bc: OdeLibraryOpt.ll
 OdeLibrary.o: OdeLibrary.c OdeLibrary.h
 	$(CC) $(CFLAGS) -O3 -c -o $@ $<
 
+OdeSolver.exe: OdeSolver.c OdeLibrary.o OdeModel.h OdeModel.o
+	$(CC) $(CFLAGS) -O3 -o $@ OdeSolver.c OdeLibrary.o OdeModel.o -lm
+
 AOTStub.bc: AOTStub.ll
 	llvm-as -o $@ $<
 

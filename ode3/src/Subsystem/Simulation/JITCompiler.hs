@@ -116,7 +116,7 @@ genLLVMModule p odeMod = do
 
         _               -> return ()
 
-    -- add the target
+    -- add the target - NOTE - bit hacky, hardcoded to amd64 platform
     liftIO $ setTarget llvmMod "x86_64-unknown-linux-gnu"
 
     -- save the module to disk
@@ -152,15 +152,15 @@ runJITSimulation p = do
 
 -- | Calls out to our linker script
 optLLVMModule :: Sys.SimParams -> IO ()
-optLLVMModule p = Sh.shelly . Sh.verbosely $ llvmOptScript p
+optLLVMModule p = Sh.shelly . Sh.verbosely $ optScript p
 
 -- | Calls out to our clang compile script
 linkLLVMModule :: Sys.SimParams -> IO ()
-linkLLVMModule p = Sh.shelly . Sh.verbosely $ llvmLinkScript p
+linkLLVMModule p = Sh.shelly . Sh.verbosely $ linkStdlibScript p
 
 -- | Calls out to our clang compile script
 compileLLVMModule :: Sys.SimParams -> IO ()
-compileLLVMModule p = Sh.shelly . Sh.verbosely $ llvmCompileScript p
+compileLLVMModule p = Sh.shelly . Sh.verbosely $ compileScript p
 
 -- | Calls out to our AOT script
 executeAOTSim :: Sys.SimParams -> IO ()

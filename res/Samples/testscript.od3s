@@ -19,11 +19,12 @@ import SimTests.Odes.*
 :output "./output.bin"
 
 // sim backend params
-:solver "rk4"
+// solver - euler, rk4
+:solver "euler"
 // linker - dynamic, static
 :linker "dynamic"
 // disable exe
-:disableExecute
+//:disableExecute
 // disable opts
 //:disableOptimise
 // disable short-circuiting
@@ -32,14 +33,14 @@ import SimTests.Odes.*
 //:disablePowerExpan
 // math model - strict, fast
 :mathModel "fast"
-// vecmath enable?A||
+// vecmath enable?
 //:vecMath
 :mathLib "gnu"
-// backend to use - interpreter, jitcompiler, aotcompiler, obj
+// backend to use - interpreter, jitcompiler, aotcompiler, objectfile
 :backend "objectfile"
 
 // all done
 //:simulate HodHux
-:simulate PredPreyNoUnits
+:simulate Ode1 
 :quit
 

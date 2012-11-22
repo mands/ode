@@ -21,7 +21,7 @@ void modelSolver(const uint64_t num, double* restrict STATE, double* restrict DE
     init();
     // setup file output
     uint64_t out_num = num+1;
-    // alloc the buffer of doubles
+    // alloc the buffer of doubles - using C99 VLA
     double out_data[out_num];
     startSim("HodHuxCGen.bin", out_num);
 
