@@ -1,5 +1,4 @@
-// This dummy peice of code both acts as a test for the OdeModel object file plus implements a basic
-// euler solver using OdeLibrary
+// This program plus implements a basic euler solver using OdeLibrary and OdeModel.o
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,39 +10,11 @@
 #include "OdeLibrary.h"
 #include "OdeModel.h"
 
-void dumpParams(void);
 void modelSolver(void);
 
-int main(int argc, char** argv) {
-    switch(argc) {
-        case 2:            
-            // we actually don't care what the arg value is, just that it exists
-            dumpParams();
-            break;
-        case 1:
-            modelSolver();
-            break;
-        default:
-    		fprintf(stderr, "Usage - OdeSolver [DUMP]\n");
-            return(1);
-    }
+int main(void) {
+    modelSolver();
     return(0);
-}
-
-void dumpParams(void) {
-    puts("Dumping Ode Model Params\n");
-    puts("Ode Model Timing");
-    printf("OdeParamStartTime\t- %g\n", OdeParamStartTime);
-    printf("OdeParamEndTime\t\t- %g\n", OdeParamEndTime);
-    printf("OdeParamTimeStep\t- %g\n\n", OdeParamTimestep);
-
-    puts("Ode Model Output");
-    printf("OdeParamPeriod\t\t- %" PRIu64 "\n", OdeParamPeriod);
-    printf("OdeParamOutput\t\t- %s\n\n", &OdeParamOutput);
-
-    puts("Ode Model Num Params");
-    printf("OdeParamNumParams\t- %" PRIu64 "\n", OdeParamNumParams);
-
 }
 
 void modelSolver(void) {
