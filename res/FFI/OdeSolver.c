@@ -8,7 +8,6 @@
 #include <string.h>
 #include <math.h>
 
-
 #include "OdeLibrary.h"
 #include "OdeModel.h"
 
@@ -105,4 +104,3 @@ void modelSolver(void) {
     endSim();
     shutdown();
 }
-
