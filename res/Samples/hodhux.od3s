@@ -37,9 +37,11 @@ import SimTests.HodHux.*
 // backend to use - interpreter, jitcompiler, aotcompiler, objectfile
 :backend "objectfile"
 
-
-// TODO - adaptive params
-
+// adaptive params
+:relError 1e-6
+:absError 1e-9
+:modelType "stiff"
+:maxTimestep 0.05
 
 // all done
 :simulate HodHux

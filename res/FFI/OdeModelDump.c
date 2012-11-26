@@ -30,12 +30,12 @@ void dumpParams(void) {
     printf("OdeParamAbsoluteError\t- %g\n", OdeParamAbsoluteError);
 
     switch (OdeParamModelType) {
-        case Stiff:
-            printf("OdeParamModelType\t- %s\n", "Stiff");
-            break;
-        case NonStiff:
-            printf("OdeParamModelType\t- %s\n", "NonStiff");
-            break;
+    case Stiff:
+        printf("OdeParamModelType\t- %s\n", "Stiff");
+        break;
+    case NonStiff:
+        printf("OdeParamModelType\t- %s\n", "NonStiff");
+        break;
     }
 
     puts("\nOde Model Output");

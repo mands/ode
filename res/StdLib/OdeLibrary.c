@@ -51,7 +51,6 @@ void OdeStopSim(void) {
     puts("Finished simulation");
 }
 
-
 void OdeWriteState(const double time, const double* const restrict state) {
     // build the output buffer
     outData[0] = time;

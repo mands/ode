@@ -72,6 +72,6 @@ void solverRun(void) {
 
 // shutdown simulation - free mem, etc.
 void solverShutdown(void) {
-    OdeEndSim();
+    OdeStopSim();
     OdeShutdown();
 }
