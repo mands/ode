@@ -51,11 +51,11 @@ extern const uint64_t OdeParamStateSize;
 
 // This function sets up the initial values for the problem
 // i.e. y0 = y(t), where y0=STATE
-extern void OdeModelInitials(const double time, double* const State);
+extern void OdeModelInitials(const double time, double* const restrict state);
 
 // This function calculates the delta, based on the current time and STATE values
 // i.e. y' = f(t, y), where y'=DELTA and y=STATE
-extern void OdeModelLoop(const double time, const double* const restrict State,
-                         double* const restrict Delta);
+extern void OdeModelLoop(const double time, const double* const state,
+                         double* const restrict delta);
 
 #endif // ODE_MODEL_H

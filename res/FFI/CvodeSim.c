@@ -112,10 +112,12 @@ void solverInit(double* const state, void** const cvodeMemOut, N_Vector* const y
     checkFlag(flag, "CVodeSetMinStep");
     flag = CVodeSetMaxStep(cvodeMem, OdeParamMaxTimestep);
     checkFlag(flag, "CVodeSetMaxStep");
-    flag = CVodeSetStopTime(cvodeMem, OdeParamStopTime);
+    // adjust stop time to account for period, round up to next mult of period
+    const double adjustedStopTime = ceil(OdeParamStopTime / OdeParamPeriod) * OdeParamPeriod;
+    flag = CVodeSetStopTime(cvodeMem, adjustedStopTime);
     checkFlag(flag, "CVodeSetStopTime");
 
-    // setup the linear sovler module for newton iteration - we choose CVDense
+    // setup the linear solver module for newton iteration - we choose CVDense
     flag = CVDense(cvodeMem, N);
     checkFlag(flag, "CVDense");
 
@@ -132,11 +134,12 @@ void solverRun(void* cvodeMem, N_Vector yOut) {
 
     // main solver loop
     while (true) {
-        curLoop++;
+        ++curLoop;
         tNext = OdeParamStartTime + curLoop * OdeParamPeriod;
         // call CVode to solve ODE upto time=t_ret
         flag = CVode(cvodeMem, tNext, yOut, &tRet, CV_NORMAL);
-        // check flag manually here
+
+        // check ret flag manually here
         if (flag == CV_TSTOP_RETURN) break;
         if (flag < 0) {
             fprintf(stderr, "\nSUNDIALS_ERROR: CVode solving failed with flag = %d\n\n", flag);

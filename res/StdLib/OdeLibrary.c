@@ -51,11 +51,13 @@ void OdeStopSim(void) {
     puts("Finished simulation");
 }
 
+// write state to disk
+static uint64_t outIdx;
 void OdeWriteState(const double time, const double* const restrict state) {
     // build the output buffer
     outData[0] = time;
-    for (uint64_t i = 1; i < outSize; ++i) {
-        outData[i] = state[i-1];
+    for (outIdx = 1; outIdx < outSize; ++outIdx) {
+        outData[outIdx] = state[outIdx-1];
     }
     // we use fwrite rather than write syscall as want buffering due to small data byte-count
     fwrite(outData, sizeof(double), outSize, outFile);  

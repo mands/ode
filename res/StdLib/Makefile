@@ -1,11 +1,11 @@
 ####### Compiler, tools and options
 CC            = clang
-CFLAGS        = -std=c11 -pedantic -Weverything -ffast-math -integrated-as
+CFLAGS        = -std=c11 -O3 -pedantic -Weverything -ffast-math -integrated-as
 
 all: OdeLibrary.bc OdeLibrary.o AOTStub.bc
 
 OdeLibrary.bc: OdeLibrary.c OdeLibrary.h
-	$(CC) $(CFLAGS) -O3 -emit-llvm -c -o $@ $<
+	$(CC) $(CFLAGS) -emit-llvm -c -o $@ $<
 	llvm-dis $@
 
 # generate an optimised version of the odelibrary
@@ -13,10 +13,10 @@ OdeLibraryOpt.bc: OdeLibraryOpt.ll
 	llvm-as -o $@ $<
 
 OdeLibrary.o: OdeLibrary.c OdeLibrary.h
-	$(CC) $(CFLAGS) -O3 -c -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 OdeSolver.exe: OdeSolver.c OdeLibrary.o OdeModel.h OdeModel.o
-	$(CC) $(CFLAGS) -O3 -o $@ OdeSolver.c OdeLibrary.o OdeModel.o -lm
+	$(CC) $(CFLAGS) -o $@ OdeSolver.c OdeLibrary.o OdeModel.o -lm
 
 AOTStub.bc: AOTStub.ll
 	llvm-as -o $@ $<

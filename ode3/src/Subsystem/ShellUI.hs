@@ -295,12 +295,13 @@ shSimulate :: String -> Sh SysState ()
 shSimulate initMod = do
     shellPutInfoLn $ printf "Simulation Params"
     (ppShow <$> get lSimParams <$> getShellSt) >>= shellPutInfoLn
+
     shellPutInfoLn $ printf "Starting simulation for module %s" (show initMod)
 
     st <- getShellSt
     eSt <- liftIO $ runErrorT (runSysExceptIO simulate' st)
     case eSt of
-        Left err -> shellPutErrLn err
+        Left err -> shellPutErrLn $ "Simulation Error - " ++ err
         -- update state and PRINT res
         Right (_, st') -> putShellSt st' >> shellPutInfoLn "Simulation complete"
     -- return, setting up new LOOP
@@ -309,6 +310,10 @@ shSimulate initMod = do
   where
     simulate' :: SysExceptIO ()
     simulate' = do
+        -- first run a quick sanity check of the simulation params
+        params <- getSysState lSimParams
+        liftExSys $ checkParams params
+
         -- now call the flatten function
         flatAST <- mkSysExceptIO $ flatten initMod
         -- optimise flatAST
@@ -321,3 +326,24 @@ shSimulate initMod = do
             _ -> compileAndSimulate flatAST
         -- all done
         return ()
+
+    -- basic sanity checks over simulation parameters
+    checkParams :: SimParams -> MExcept ()
+    checkParams SimParams{..} = do
+        when (_outputPeriod < _timestep)
+            (throwError $ printf "Output period (%g) must be equal or greater to timestep (%g)\n" _outputPeriod _timestep)
+        when ((_backend == ObjectFile || _backend == CVODE) && _maxTimestep < _timestep)
+            (throwError $ printf "Max timestep (%g) must be equal or greater to timestep (%g)\n" _maxTimestep _timestep)
+        when (_stopTime <= _startTime)
+            (throwError $ printf "Stop time (%g) must be greater than start time (%g)\n" _stopTime _startTime)
+        when (_timestep > (_stopTime - _startTime))
+            (throwError $ printf "Timestep (%g) must be smaller or equal to simulation time interval (%g)\n" _timestep (_stopTime - _startTime))
+        when (_startTime < 0)
+            (throwError $ printf "Start time (%g) cannot be negative \n" _startTime)
+
+        return ()
+
+
+
+
+

@@ -10,54 +10,57 @@
 #include "OdeLibrary.h"
 #include "OdeModel.h"
 
-void solverInit(void);
-void solverRun(void);
+void solverInit(double* const restrict state);
+void solverRun(double* const restrict state);
 void solverShutdown(void);
 
 int main(void) {
     // main code to setup, run, and shutdown the simulation
+    // main data structs passed around solver
+    double state[OdeParamStateSize];
     // initialise Solver and Ode StdLib
-    solverInit();
+    solverInit(state);
     // main solver loop
-    solverRun();
+    solverRun(state);
     // shutdown solvers
     solverShutdown();
     return 0;
 }
 
 // initialise Ode StdLib
-void solverInit(void) {
+void solverInit(double* const restrict state) {
     // Ode Stdlib init & setup file output
     OdeInit();
     OdeStartSim(OdeParamOutput, OdeParamStateSize);
     // populate the initial vals and write to disk
-    double state[OdeParamStateSize];
     OdeModelInitials(OdeParamStartTime, state);
     OdeWriteState(OdeParamStartTime, state);
 }
 
-void solverRun(void) {
-    // alloc state vals - using C99 VLA
-    double state[OdeParamStateSize];
+void solverRun(double* const restrict state) {
+    // alloc delta vals - using C99 VLA
     double delta[OdeParamStateSize];
     // euler loop params
-    double time = OdeParamStartTime;
+    double time;
     const uint64_t periodInterval = (uint64_t)(floor(OdeParamPeriod / OdeParamTimestep));
+    //const uint64_t periodInterval = 1;
+
+    printf("periodInterval  - %" PRIu64 ", %g\n", periodInterval, OdeParamPeriod / OdeParamTimestep);
     uint64_t curPeriod = 1;
     uint64_t curLoop = 0;
-
+    uint64_t stateIdx;
     // main forward euler loop
     do {
         // set the time
-        curLoop++;
+        ++curLoop;
         time = OdeParamStartTime + curLoop * OdeParamTimestep;
 
         // update the deltas
         OdeModelLoop(time, state, delta);
 
         // update the state
-        for (uint64_t i = 0; i < OdeParamStateSize; ++i) {
-            state[i] += delta[i] * OdeParamTimestep;
+        for (stateIdx = 0; stateIdx < OdeParamStateSize; ++stateIdx) {
+            state[stateIdx] += delta[stateIdx] * OdeParamTimestep;
         }
 
         // write out at sample period
@@ -65,7 +68,7 @@ void solverRun(void) {
             OdeWriteState(time, state);
             curPeriod = 1;
         } else {
-            curPeriod ++;
+            ++curPeriod;
         }
     } while (time < OdeParamStopTime);
 }
