@@ -15,7 +15,7 @@ import SimTests.Odes.*
 :startTime 0
 :stopTime 10
 :timestep 1
-:period 1
+:period 3
 :output "./output.bin"
 
 // sim backend params
@@ -26,7 +26,7 @@ import SimTests.Odes.*
 // disable exe
 //:disableExecute
 // disable opts
-//:disableOptimise
+:disableOptimise
 // disable short-circuiting
 //:disableShortCircuit
 // disable power expan
@@ -37,13 +37,13 @@ import SimTests.Odes.*
 //:vecMath
 :mathLib "gnu"
 // backend to use - interpreter, jitcompiler, aotcompiler, objectfile
-:backend "objectfile"
+:backend "jitcompiler"
 
 
 // adaptive params
 :relError 1e-4
 :absError 1e-6
-:modelType "nonstiff"
+:modelType "stiff"
 :maxTimestep 2
 
 // all done

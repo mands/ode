@@ -313,4 +313,4 @@ clearModState st = st'
 -- Other Helper functions ----------------------------------------------------------------------------------------------
 -- | Calculate the integer interval to output data for fixed timestep simulations
 calcOutputInterval :: SimParams -> Integer
-calcOutputInterval SimParams{..} = floor $ _timestep / _outputPeriod
+calcOutputInterval SimParams{..} = floor $ _outputPeriod / _timestep

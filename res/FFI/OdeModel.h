@@ -25,7 +25,7 @@ extern const double OdeParamMaxTimestep;
 extern const double OdeParamRelativeError;
 extern const double OdeParamAbsoluteError;
 
-// model type - Note, this is of type int
+// model type - note, this is of type int
 enum OdeParamModelTypes {
     Stiff = 0,
     NonStiff = 1
@@ -51,10 +51,11 @@ extern const uint64_t OdeParamStateSize;
 
 // This function sets up the initial values for the problem
 // i.e. y0 = y(t), where y0=STATE
-extern void OdeModelInitials(double time, double* STATE);
+extern void OdeModelInitials(const double time, double* const State);
 
 // This function calculates the delta, based on the current time and STATE values
 // i.e. y' = f(t, y), where y'=DELTA and y=STATE
-extern void OdeModelLoop(double time, double* const restrict STATE, double* const restrict DELTA);
+extern void OdeModelLoop(const double time, const double* const restrict State,
+                         double* const restrict Delta);
 
 #endif // ODE_MODEL_H

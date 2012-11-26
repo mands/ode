@@ -17,36 +17,48 @@
 // 
 
 // sets up the global enviornment for all simluations
-void init(void) {
-  puts("Initialising the Ode Solver environment");
-  // any other global initialisation
+void OdeInit(void) {
+    puts("Initialising the Ode Solver environment");
+    // any other global initialisation
 }
 
-void shutdown(void) {
-  puts("Shutting down the Ode Solver environment");
+void OdeShutdown(void) {
+    puts("Shutting down the Ode Solver environment");
 }
 
 // data for individual simluations
 // holds the block of data to output
 static FILE* outFile;
+static double* outData;
+static uint64_t outSize;
 
-void startSim(const char* const restrict filename, const uint64_t nArgs) {
-  printf("Starting simulation with output to %s\n", filename);
-  //char* filename = "outfile.bin";
-  outFile = fopen(filename, "wb");
+void OdeStartSim(const char* const restrict filename, const uint64_t numArgs) {
+    printf("Starting simulation with output to %s\n", filename);
+    outFile = fopen(filename, "wb");
 
-  // setup file header/first_run init here
-  // write the num of cols as the header of the output file
-  fwrite(&nArgs, sizeof(uint64_t), 1, outFile);
+    // allocate the outData buffer
+    outSize = numArgs+1;
+    outData = calloc(sizeof(double), outSize);
+
+    // setup file header/first_run init here
+    // write the num of cols as the header of the output file
+    fwrite(&outSize, sizeof(uint64_t), 1, outFile);
 }
 
-void endSim(void) {
-  fclose(outFile);
-  puts("Finished simulation");
+void OdeStopSim(void) {
+    fclose(outFile);
+    free(outData);
+    puts("Finished simulation");
 }
 
-void writeDbls(const double* const restrict dbls, const uint64_t nArgs) {
-  // we use fwrite rather than write syscall as want buffering as the data byte-count is small
-  fwrite(dbls, sizeof(double), nArgs, outFile);  
+
+void OdeWriteState(const double time, const double* const restrict state) {
+    // build the output buffer
+    outData[0] = time;
+    for (uint64_t i = 1; i < outSize; ++i) {
+        outData[i] = state[i-1];
+    }
+    // we use fwrite rather than write syscall as want buffering due to small data byte-count
+    fwrite(outData, sizeof(double), outSize, outFile);  
 }
 

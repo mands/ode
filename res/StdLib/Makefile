@@ -5,7 +5,7 @@ CFLAGS        = -std=c11 -pedantic -Weverything -ffast-math -integrated-as
 all: OdeLibrary.bc OdeLibrary.o AOTStub.bc
 
 OdeLibrary.bc: OdeLibrary.c OdeLibrary.h
-	$(CC) $(CFLAGS) -emit-llvm -c -o $@ $<
+	$(CC) $(CFLAGS) -O3 -emit-llvm -c -o $@ $<
 	llvm-dis $@
 
 # generate an optimised version of the odelibrary

@@ -10,68 +10,68 @@
 #include "OdeLibrary.h"
 #include "OdeModel.h"
 
-void modelSolver(void);
+void solverInit(void);
+void solverRun(void);
+void solverShutdown(void);
 
 int main(void) {
-    modelSolver();
-    return(0);
+    // main code to setup, run, and shutdown the simulation
+    // initialise Solver and Ode StdLib
+    solverInit();
+    // main solver loop
+    solverRun();
+    // shutdown solvers
+    solverShutdown();
+    return 0;
 }
 
-void modelSolver(void) {
-    init();
-    // setup file output
-    uint64_t out_num = OdeParamStateSize+1;
-    startSim(&OdeParamOutput, out_num);
-    // statically alloc the buffer of doubles
-    double out_data[out_num]; // [OdeParamNumParams+1];
+// initialise Ode StdLib
+void solverInit(void) {
+    // Ode Stdlib init & setup file output
+    OdeInit();
+    OdeStartSim(OdeParamOutput, OdeParamStateSize);
+    // populate the initial vals and write to disk
+    double state[OdeParamStateSize];
+    OdeModelInitials(OdeParamStartTime, state);
+    OdeWriteState(OdeParamStartTime, state);
+}
 
+void solverRun(void) {
     // alloc state vals - using C99 VLA
-    double STATE[OdeParamStateSize];
-    double DELTA[OdeParamStateSize];
-
+    double state[OdeParamStateSize];
+    double delta[OdeParamStateSize];
     // euler loop params
-    static double time;
-    time = OdeParamStartTime;
-    static uint64_t cur_period = 1;
-    static uint64_t cur_loop = 0;
-
-    // setup the initial vals
-    OdeModelInitials(time, STATE);
-
-    // copy data into output buffer
-    out_data[0] = time;
-    for (uint64_t i = 1; i < out_num; ++i) {
-        out_data[i] = STATE[i-1];
-    }
-    writeDbls(out_data, out_num);
+    double time = OdeParamStartTime;
+    const uint64_t periodInterval = (uint64_t)(floor(OdeParamPeriod / OdeParamTimestep));
+    uint64_t curPeriod = 1;
+    uint64_t curLoop = 0;
 
     // main forward euler loop
     do {
         // set the time
-        cur_loop++;
-        time = OdeParamStartTime + cur_loop * OdeParamTimestep;
+        curLoop++;
+        time = OdeParamStartTime + curLoop * OdeParamTimestep;
 
         // update the deltas
-        OdeModelLoop(time, STATE, DELTA);
+        OdeModelLoop(time, state, delta);
 
         // update the state
         for (uint64_t i = 0; i < OdeParamStateSize; ++i) {
-            STATE[i] += DELTA[i] * OdeParamTimestep;
+            state[i] += delta[i] * OdeParamTimestep;
         }
 
         // write out at sample period
-        if (cur_period == OdeParamPeriod) {
-            // copy data into output buffer
-            out_data[0] = time;
-            for (uint64_t i = 1; i < out_num; ++i) {
-                out_data[i] = STATE[i-1];
-            }
-            writeDbls(out_data, out_num);
-            cur_period = 1;
+        if (curPeriod == periodInterval) {
+            OdeWriteState(time, state);
+            curPeriod = 1;
         } else {
-            cur_period ++;
+            curPeriod ++;
         }
     } while (time < OdeParamStopTime);
-    endSim();
-    shutdown();
+}
+
+// shutdown simulation - free mem, etc.
+void solverShutdown(void) {
+    OdeEndSim();
+    OdeShutdown();
 }

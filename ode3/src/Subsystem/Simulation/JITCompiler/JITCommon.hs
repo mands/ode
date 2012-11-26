@@ -158,21 +158,20 @@ defineExtOps p llvmMod = do
     -- hardcoded interface to the Ode Stdlib
     libOps :: [(String, IO LLVM.Value)]
     libOps =
-        [ ("init",          addFunction llvmMod "init" (functionType voidType [] False))
-        , ("shutdown",      addFunction llvmMod "shutdown" (functionType voidType [] False))
-        , ("startSim",     do
-                                f <- addFunction llvmMod "startSim" (functionType voidType [pointerType int8Type 0, int64Type] False)
+        [ ("OdeInit",       addFunction llvmMod "OdeInit" (functionType voidType [] False))
+        , ("OdeShutdown",   addFunction llvmMod "OdeShutdown" (functionType voidType [] False))
+        , ("OdeStartSim",   do
+                                f <- addFunction llvmMod "OdeStartSim" (functionType voidType [pointerType int8Type 0, int64Type] False)
                                 setFuncParam f 0 [NoAliasAttribute, NoCaptureAttribute]
                                 return f
                                 )
-        , ("endSim",       addFunction llvmMod "endSim" (functionType voidType [] False))
-        , ("writeDbls",    do
-                                f <- addFunction llvmMod "writeDbls" (functionType voidType [pointerType doubleType 0, int64Type] False)
-                                setFuncParam f 0 [NoAliasAttribute, NoCaptureAttribute]
+        , ("OdeStopSim",     addFunction llvmMod "OdeStopSim" (functionType voidType [] False))
+        , ("OdeWriteState", do
+                                f <- addFunction llvmMod "OdeWriteState" (functionType voidType [doubleType, pointerType doubleType 0] False)
+                                setFuncParam f 1 [NoAliasAttribute, NoCaptureAttribute]
                                 return f
                                 )
         ]
-
 
 
 -- | A helper function that performs much of the boiler-plate code in creating a function
@@ -258,7 +257,7 @@ addInstrAttributes v attrs = mapM_ (\a -> LFFI.addInstrAttribute v (fromIntegral
 setFuncParam :: LLVM.Value -> Int -> [Attribute] -> IO ()
 setFuncParam f idx attrs = do
     ps <- getParams f
-    _ <- addParamAttributes (ps !! 0) attrs
+    _ <- addParamAttributes (ps !! idx) attrs
     return ()
 
 

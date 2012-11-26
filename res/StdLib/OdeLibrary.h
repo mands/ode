@@ -4,15 +4,15 @@
 #include <stdint.h>
 
 // system specific
-void init(void);
-void shutdown(void);
+extern void OdeInit(void);
+extern void OdeShutdown(void);
 
 // individual iteration specific
-void startSim(const char* const restrict filename, const uint64_t nArgs);
-void endSim(void);
+extern void OdeStartSim(const char* const restrict filename, const uint64_t numArgs);
+extern void OdeStopSim(void);
 
 // iteration output
-void writeDbls(const double* const restrict dbls, const uint64_t nArgs);
+extern void OdeWriteState(const double time, const double* const restrict state);
 
 #endif // ODE_LIBRARY_H
 

@@ -287,10 +287,10 @@ genModelSolver CF.Module{..} initsF loopF = do
     _ <- liftIO $ addFuncAttributes curFunc [NoUnwindAttribute]-- [NoInlineAttribute, NoUnwindAttribute]
     GenState {libOps, llvmMod, simParams} <- get
     -- call the startSim func
-    _ <- liftIO $ buildCall builder (libOps Map.! "init") [] ""
+    _ <- liftIO $ buildCall builder (libOps Map.! "OdeInit") [] ""
     fileStr <- liftIO $ buildGlobalString builder (L.get Sys.lFilename simParams) "simFilename"
     fileStrPtr <- liftIO $ buildInBoundsGEP builder fileStr [constInt64 0, constInt64 0] ""
-    _ <- liftIO $ buildCall builder (libOps Map.! "startSim") [fileStrPtr, constInt64 $ OrdMap.size initExprs + 1] ""
+    _ <- liftIO $ buildCall builder (libOps Map.! "OdeStartSim") [fileStrPtr, constInt64 $ OrdMap.size initExprs] ""
 
     -- create the vals (and indirectly choose the solver)
     solver <- case (L.get Sys.lSolver simParams) of
@@ -298,13 +298,13 @@ genModelSolver CF.Module{..} initsF loopF = do
         Sys.RK4     -> MkSolver <$> (genVals $ (OrdMap.keys initExprs) :: GenM RK4Solver)
 
     -- create mutable sim params (static sim params embeedded as constants)
-    simParamVs@(curPeriodRef, curLoopRef, curTimeRef, outDataRef) <- createSimParams outDataSize
+    simParamVs@(curPeriodRef, curLoopRef, curTimeRef, outStateArray) <- createSimParams outDataSize
 
     -- call the init funcs
     _ <- liftIO $ withPtrVal builder curTimeRef $ \curTime -> do
         buildCall builder initsF (curTime : OrdMap.elems (getStateVals solver)) ""
     -- write initial data
-    writeOutData outDataSize outDataRef curTimeRef $ OrdMap.elems (getStateVals solver)
+    writeOutData outStateArray curTimeRef $ OrdMap.elems (getStateVals solver)
 
     -- create the main solver loop
     doWhileStmt builder curFunc
@@ -316,8 +316,8 @@ genModelSolver CF.Module{..} initsF loopF = do
                 liftIO $ buildFCmp builder FPOLT curTime (constDouble $ L.get Sys.lStopTime simParams) "bWhileTime")
 
     -- end sim
-    _ <- liftIO $ buildCall builder (libOps Map.! "endSim") [] ""
-    _ <- liftIO $ buildCall builder (libOps Map.! "shutdown") [] ""
+    _ <- liftIO $ buildCall builder (libOps Map.! "OdeStopSim") [] ""
+    _ <- liftIO $ buildCall builder (libOps Map.! "OdeShutdown") [] ""
     -- return void
     r <- liftIO $ buildRetVoid builder
     liftIO $ disposeBuilder builder
@@ -327,7 +327,7 @@ genModelSolver CF.Module{..} initsF loopF = do
 
     -- | Create the main body of the solver loop
     createSolverLoopBody  :: (OdeSolver a) => LLVM.Value -> a -> (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value) -> GenM ()
-    createSolverLoopBody  loopF solver (curPeriodRef, curLoopRef, curTimeRef, outDataRef) = do
+    createSolverLoopBody  loopF solver (curPeriodRef, curLoopRef, curTimeRef, outStateArray) = do
         GenState {builder, curFunc, simParams} <- get
         let stateValRefMap = getStateVals solver
         -- inc loop counter & calc the time
@@ -348,7 +348,7 @@ genModelSolver CF.Module{..} initsF loopF = do
         _ <- ifStmt builder curFunc bWriteOut
             -- ifTrue
             (\builder -> do
-                _ <- writeOutData outDataSize outDataRef curTimeRef $ OrdMap.elems stateValRefMap
+                _ <- writeOutData outStateArray curTimeRef $ OrdMap.elems (getStateVals solver)
                 liftIO $ buildStore builder (constInt64 1) curPeriodRef)
             -- ifFalse
             (\builder -> do
@@ -379,23 +379,22 @@ createSimParams outDataSize = do
     -- set output vector
     -- outDataRef <- liftIO $ buildAlloca builder (LFFI.arrayType doubleType $ fromIntegral outDataSize) "simOutData"
     initOutData <- liftIO $ constArray doubleType $ replicate outDataSize (constDouble 0.0)
-    outDataRef <- liftIO $ addGlobalWithInit llvmMod initOutData (LFFI.arrayType doubleType $ fromIntegral outDataSize) False "simOutData"
+    outStateArray <- liftIO $ addGlobalWithInit llvmMod initOutData (LFFI.arrayType doubleType $ fromIntegral outDataSize) False "simOutData"
     -- set linkages
-    liftIO $ mapM_ (\v -> setLinkage v PrivateLinkage) [curPeriodRef, curLoopRef, curTimeRef, outDataRef]
-    return (curPeriodRef, curLoopRef, curTimeRef, outDataRef)
+    liftIO $ mapM_ (\v -> setLinkage v PrivateLinkage) [curPeriodRef, curLoopRef, curTimeRef, outStateArray]
+    return (curPeriodRef, curLoopRef, curTimeRef, outStateArray)
 
 -- | Write the current time and STATE to disk
-writeOutData :: Int -> LLVM.Value -> LLVM.Value -> [LLVM.Value] -> GenM ()
-writeOutData outDataSize simOutData curTimeRef stateValRefs = do
+writeOutData :: LLVM.Value -> LLVM.Value -> [LLVM.Value] -> GenM ()
+writeOutData outStateArray curTimeRef stateValRefs = do
     GenState {builder, libOps} <- get
-    -- fill the output array (inc curTime)
-    forM_ (zip [0..] (curTimeRef:stateValRefs)) $ \(i, ptrVal) -> do
-        outV <- liftIO $ buildInBoundsGEP builder simOutData [constInt64 0, constInt64 i] $ "storeOutPtr" ++ (show i)
-        liftIO $ withPtrVal builder ptrVal $ \loadV -> liftIO $ buildStore builder loadV outV
-        return ()
+    -- fill the state array
+    forM_ (zip [0..] stateValRefs) $ \(i, ptrVal) -> liftIO $ do
+        outV <- buildInBoundsGEP builder outStateArray [constInt64 0, constInt64 i] $ "stateArrayPtr" ++ (show i)
+        withPtrVal builder ptrVal $ \loadV -> liftIO $ buildStore builder loadV outV
     -- write to output func
-    simOutDataPtr <- liftIO $ buildInBoundsGEP builder simOutData [constInt64 0, constInt64 0] $ "storeOutPtr"
-    callInst <- liftIO $ buildCall builder (libOps Map.! "writeDbls") [simOutDataPtr, constInt64 outDataSize] ""
+    simStateArrayPtr <- liftIO $ buildInBoundsGEP builder outStateArray [constInt64 0, constInt64 0] $ "storeOutPtr"
+    liftIO $ withPtrVal builder curTimeRef $ \curTimeVal ->
+        buildCall builder (libOps Map.! "OdeWriteState") [curTimeVal, simStateArrayPtr] ""
     -- liftIO $ setInstructionCallConv callInst Fast
     return ()
-
