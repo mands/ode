@@ -12,9 +12,9 @@ import SimTests.HodHux.*
 
 // set sim params
 :startTime 0
-:endTime 60
+:stopTime 60
 :timestep 0.00001
-:period 100000
+:period 1
 :output "./output.bin"
 
 // sim backend params
@@ -36,6 +36,10 @@ import SimTests.HodHux.*
 :mathLib "gnu"
 // backend to use - interpreter, jitcompiler, aotcompiler, objectfile
 :backend "objectfile"
+
+
+// TODO - adaptive params
+
 
 // all done
 :simulate HodHux

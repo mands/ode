@@ -14,9 +14,9 @@ INIT="
 :addRepo ../res/Results/CodeGen
 import HodHux.HodHux
 :startTime 0
-:endTime 60
+:stopTime 60
 :timestep 0.00001
-:period 100000
+:period 1
 :disableExecute
 :backend \"aotcompiler\"
 :mathModel \"fast\"

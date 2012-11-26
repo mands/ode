@@ -39,4 +39,3 @@ writeMetadata simMetadata filename = writeFile filename outData
     outData = printf "Metadata from simulation run - %s\n\n%s"
         (Sys._filename (simParams simMetadata)) (ppShow simMetadata)
 
-

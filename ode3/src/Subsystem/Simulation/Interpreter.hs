@@ -61,7 +61,7 @@ interpret Module{..} = do
     -- write file header
     liftIO $ writeColumnHeader (OrdMap.size $ initExprs) [] outHandle
     -- run the simulation
-    lift $ runStateT runSimulation $ mkSimState (Sys._outputPeriod p) outHandle p
+    lift $ runStateT runSimulation $ mkSimState (Sys.calcOutputInterval p) outHandle p
     -- close the output file
     liftIO $ hClose outHandle
     liftIO $ debugM "ode3.sim" $ "(Interpreted) Simulation Complete"
@@ -78,7 +78,7 @@ interpret Module{..} = do
     runLoop :: Integer -> ExprMap -> Sys.SimParams -> SimM ()
     runLoop curLoop eM p = do
         runIter eM False time -- run an iteration
-        if time < (Sys._endTime p) then runLoop (inc curLoop) eM p else return () -- only loop again is time is less than endtime, break if equal/greater
+        if time < (Sys._stopTime p) then runLoop (inc curLoop) eM p else return () -- only loop again is time is less than endtime, break if equal/greater
       where
         time = (Sys._startTime p) + (fromInteger curLoop) * (Sys._timestep p)
 
@@ -103,7 +103,7 @@ interpret Module{..} = do
 
         st <- get
         -- handle output period
-        if ((_curPeriod st) == (Sys._outputPeriod $ _simParams st))
+        if ((_curPeriod st) == (Sys.calcOutputInterval $ _simParams st))
             then do
                 -- write state env to disk
                 liftIO $ writeRow t (Map.elems $ _stateEnv st) (_outputHandle st)

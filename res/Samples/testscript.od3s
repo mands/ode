@@ -13,7 +13,7 @@ import SimTests.Odes.*
 
 // set sim params
 :startTime 0
-:endTime 10
+:stopTime 10
 :timestep 1
 :period 1
 :output "./output.bin"
@@ -38,6 +38,13 @@ import SimTests.Odes.*
 :mathLib "gnu"
 // backend to use - interpreter, jitcompiler, aotcompiler, objectfile
 :backend "objectfile"
+
+
+// adaptive params
+:relError 1e-4
+:absError 1e-6
+:modelType "nonstiff"
+:maxTimestep 2
 
 // all done
 //:simulate HodHux

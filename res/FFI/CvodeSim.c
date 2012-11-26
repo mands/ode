@@ -21,14 +21,13 @@
 #include "OdeModel.h"
 
 // prototypes
-void modelSolver(void);
+int odeWrapperF(double time, N_Vector y, N_Vector ydot, void* user_data);
+void checkFlag(int flagvalue, const char *funcname);
+void checkAlloc(void* ptr, const char *funcname);
+void writeOutData(double* out_data, uint64_t out_num, double time, const double* restrict STATE);
 void solverInit(double* STATE, void** cvode_mem_out, N_Vector* y0_out);
 void solverRun(void* cvode_mem, N_Vector yout);
 void solverShutdown(void* cvode_mem, N_Vector y0);
-int cvodeOdeWrapperF(double time, N_Vector y, N_Vector ydot, void* user_data);
-void check_flag(int flagvalue, const char *funcname);
-void check_alloc(void* ptr, const char *funcname);
-void writeOutData(double* out_data, uint64_t out_num, double time, const double* restrict STATE);
 
 // globals - should be consts only
 
@@ -36,21 +35,21 @@ void writeOutData(double* out_data, uint64_t out_num, double time, const double*
 // CVODE Helper Functions ///////////////////////////////////////////////////////
 // this function is pass to Cvode to solve the ODE, and is a wrapper around the OdeModelLoop function that
 // computes the RHS, i.e. y' = f(t, y)
-int cvodeOdeWrapperF(double time, N_Vector y, N_Vector ydot, void* user_data) {
+int odeWrapperF(double time, N_Vector y, N_Vector ydot, void* user_data) {
     // we use NV_DATA_S macro to accress the internal arrays
     OdeModelLoop(time, NV_DATA_S(y), NV_DATA_S(ydot));
     return 0;
 }
 
 // code to check the flags values return by various CVODE functions
-void check_flag(int flag, const char *funcname) {
+void checkFlag(int flag, const char *funcname) {
     if (flag < 0) {
         fprintf(stderr, "\nSUNDIALS_ERROR: %s() failed with flag = %d\n\n", funcname, flag);
         exit(EXIT_FAILURE);
     }
 }
 
-void check_alloc(void* ptr, const char *funcname) {
+void checkAlloc(void* ptr, const char *funcname) {
     if (ptr == NULL) {
         fprintf(stderr, "\nSUNDIALS_ERROR: %s() failed - returned NULL pointer\n\n", funcname);
         exit(EXIT_FAILURE);
@@ -71,36 +70,30 @@ void writeOutData(double* out_data, uint64_t out_num, double time, const double*
 
 
 int main(int argc, char** argv) {
-    puts("Hello World from CVODE");
-
-    // parse command-line args
+    // parse command-line args ?
     // allows setting some dynamic cvode features
     // thse include, error tolerances, timestep min/max, stiff/non-stiff
 
-    // solve the model
-    modelSolver();
-    return 0;
-}
-
-// main code to setup, run, and shutdown the simulation
-void modelSolver(void) {
     // main data structs passed around solver
     void* cvode_mem = NULL;
     N_Vector y0 = NULL;
-    double STATE[OdeParamNumParams];     // stack alloc the buffer of doubles
+    double STATE[OdeParamStateSize];     // stack alloc the buffer of doubles
+
+    // main code to setup, run, and shutdown the simulation
     // initialise CVODE and Ode StdLib
     solverInit(STATE, &cvode_mem, &y0);
     // main solver loop
     solverRun(cvode_mem, y0);
     // shutdown solvers
     solverShutdown(cvode_mem, y0);
+    return 0;
 }
 
 
 // initialise CVODE and Ode StdLib
 void solverInit(double* STATE, void** cvode_mem_out, N_Vector* y0_out) {
     // Ode Stdlib init & setup file output
-    const uint64_t out_num = OdeParamNumParams+1;
+    const uint64_t out_num = OdeParamStateSize+1;
     double out_data[out_num];     // stack alloc the buffer of doubles
     init();
     startSim(&OdeParamOutput, out_num);
@@ -111,30 +104,30 @@ void solverInit(double* STATE, void** cvode_mem_out, N_Vector* y0_out) {
 
     // Setup CVODE
     int32_t flag;
-    const int64_t N = (int64_t)OdeParamNumParams; // number of state params
+    const int64_t N = (int64_t)OdeParamStateSize; // number of state params
     // setup y here - this func doesn't copy the data array!
     N_Vector y0 = N_VMake_Serial(N, STATE);
     // create Cvode solver
     void *cvode_mem = CVodeCreate(CV_BDF, CV_NEWTON);
-    check_alloc(cvode_mem, "CVodeCreate");
+    checkAlloc(cvode_mem, "CVodeCreate");
 
     // set user data?? - unused
     // init the CVode solver
-    flag = CVodeInit(cvode_mem, &cvodeOdeWrapperF, OdeParamStartTime, y0);
-    check_flag(flag, "CVodeInit");
+    flag = CVodeInit(cvode_mem, &odeWrapperF, OdeParamStartTime, y0);
+    checkFlag(flag, "CVodeInit");
 
     // setup error tolerances and timestep params
     static const double reltol = 1e-7;
     static const double abstol = 1e-9;
     flag = CVodeSStolerances(cvode_mem, reltol, abstol);
-    check_flag(flag, "CVodeSStolerances");
+    checkFlag(flag, "CVodeSStolerances");
     flag = CVodeSetMinStep(cvode_mem, OdeParamTimestep);
-    check_flag(flag, "CVodeSetMinStep");
+    checkFlag(flag, "CVodeSetMinStep");
     // need to set max step - OdeParamMaxTimestep
     // todo - set end time
     // setup the linear sovler module for newton iteration - we choose CVDense
     flag = CVDense(cvode_mem, N);
-    check_flag(flag, "CVDense");
+    checkFlag(flag, "CVDense");
 
     // write thru the outputs
     *cvode_mem_out = cvode_mem;
@@ -150,7 +143,7 @@ void solverShutdown(void* cvode_mem, N_Vector y0) {
 }
 
 void solverRun(void* cvode_mem, N_Vector yout) {
-    const uint64_t out_num = OdeParamNumParams+1;
+    const uint64_t out_num = OdeParamStateSize+1;
     double out_data[out_num]; // [OdeParamNumParams+1];
 
     static uint64_t cur_loop = 0;
@@ -176,6 +169,6 @@ void solverRun(void* cvode_mem, N_Vector yout) {
 
         // next_time == t_ret ?
         writeOutData(out_data, out_num, t_ret, NV_DATA_S(yout));
-        if (t_ret >= OdeParamEndTime) break;
+        if (t_ret >= OdeParamStopTime) break;
     }
 }

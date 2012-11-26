@@ -93,12 +93,20 @@ data OdeBackend = Interpreter | JITCompiler | AOTCompiler | ObjectFile | CVODE d
 data OdeLinker  = Static | Dynamic deriving (Show, Eq)
 data OdeMathModel = Strict | Fast deriving (Show, Eq)
 data OdeMathLib = GNU | AMD | Intel deriving (Show, Eq)
+data OdeModelType = Stiff | NonStiff deriving (Show, Eq)
 
 data SimParams = SimParams
     { _startTime    :: Double
-    , _endTime      :: Double
+    , _stopTime      :: Double
     , _timestep     :: Double           -- simulation timestep
-    , _outputPeriod :: Integer          -- period with which to save simulation state to outfile, wrt timestep
+    , _outputPeriod :: Double           -- period interval with which to save simulation state to outfile, should be multiple of timestep
+
+    -- adaptive solver params
+    , _maxTimestep  :: Double
+    , _relError     :: Double
+    , _absError     :: Double
+    , _modelType    :: OdeModelType
+
     , _filename     :: FilePath         -- output filename to save data to
     , _solver       :: OdeSolver
     , _backend      :: OdeBackend
@@ -116,10 +124,16 @@ data SimParams = SimParams
 
 defSimParams = SimParams
     { _startTime    = 0
-    , _endTime      = 60
+    , _stopTime     = 60
     , _timestep     = 0.001             -- 1ms
-    , _outputPeriod = 500               -- 0.5s
-    , _filename     = "Output.bin"      -- default output file
+    , _outputPeriod = 0.5               -- 0.5s
+
+    , _maxTimestep  = 1                 -- 1s
+    , _relError     = 1e-6              -- recommended by cvode (0.1 of 0.1%)
+    , _absError     = 1e-9              -- is model dependent, and should specific to each state val
+    , _modelType    = Stiff             -- default model type for adaptive solver
+
+    , _filename     = "output.bin"      -- default output file
     , _solver       = FEuler            -- default solver
     , _backend      = Interpreter       -- default backend
     , _linker       = Dynamic           -- always dyn link (not used for Interpreter & JIT)
@@ -185,11 +199,13 @@ def genLens(recName, fields):
     cog.outl("{0} = lens ({1}) (\\x rec -> rec {{ {1} = x }})".format(lName, field))
 
 genLens("SysState", ['_debug', '_unitsCheck', '_simParams', '_modState', '_unitsState'])
-genLens("SimParams",    ['_startTime', '_endTime', '_timestep', '_outputPeriod', '_filename', '_solver', '_backend',
-                        '_linker', '_execute', '_mathModel', '_mathLib', '_vecMath',
-                        '_optimise', '_optShortCircuit', '_optPowerExpan'])
+genLens("SimParams",    ['_startTime', '_stopTime', '_timestep', '_outputPeriod', '_maxTimestep', '_relError'
+                        , '_absError', '_modelType', '_filename', '_solver', '_backend', '_linker', '_execute'
+                        , '_mathModel', '_mathLib', '_vecMath', '_optimise', '_optShortCircuit', '_optPowerExpan'])
 genLens("ModState", ['_repos', '_modEnv', '_parsedFiles', '_replFile'])
 genLens("UnitsState", ['_quantities', '_unitDimEnv', '_convEnv'])
+
+
 
 ]]]--}
 
@@ -202,9 +218,13 @@ lUnitsState = lens (_unitsState) (\x rec -> rec { _unitsState = x })
 
 -- SimParams
 lStartTime = lens (_startTime) (\x rec -> rec { _startTime = x })
-lEndTime = lens (_endTime) (\x rec -> rec { _endTime = x })
+lStopTime = lens (_stopTime) (\x rec -> rec { _stopTime = x })
 lTimestep = lens (_timestep) (\x rec -> rec { _timestep = x })
 lOutputPeriod = lens (_outputPeriod) (\x rec -> rec { _outputPeriod = x })
+lMaxTimestep = lens (_maxTimestep) (\x rec -> rec { _maxTimestep = x })
+lRelError = lens (_relError) (\x rec -> rec { _relError = x })
+lAbsError = lens (_absError) (\x rec -> rec { _absError = x })
+lModelType = lens (_modelType) (\x rec -> rec { _modelType = x })
 lFilename = lens (_filename) (\x rec -> rec { _filename = x })
 lSolver = lens (_solver) (\x rec -> rec { _solver = x })
 lBackend = lens (_backend) (\x rec -> rec { _backend = x })
@@ -227,7 +247,7 @@ lReplFile = lens (_replFile) (\x rec -> rec { _replFile = x })
 lQuantities = lens (_quantities) (\x rec -> rec { _quantities = x })
 lUnitDimEnv = lens (_unitDimEnv) (\x rec -> rec { _unitDimEnv = x })
 lConvEnv = lens (_convEnv) (\x rec -> rec { _convEnv = x })
---[[[end]]] (checksum: 49c6ffef5c1e308dd66760b201ff60c5)
+--[[[end]]] (checksum: f9cd5cace8b9ac5c4bc40e35a2e88249)
 
 -- a few useful views from top SysState into nested labels
 vModEnv :: SysState :-> MA.GlobalModEnv
@@ -289,3 +309,8 @@ clearModState st = st'
 
 -- testS :: SysState
 -- testS =
+
+-- Other Helper functions ----------------------------------------------------------------------------------------------
+-- | Calculate the integer interval to output data for fixed timestep simulations
+calcOutputInterval :: SimParams -> Integer
+calcOutputInterval SimParams{..} = floor $ _timestep / _outputPeriod

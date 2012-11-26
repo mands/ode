@@ -110,6 +110,7 @@ defaultCmds :: [ShellCommand SysState]
 defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnitsCmd
                 , simStartCmd
                 , startTimeCmd, stopTimeCmd, simTimestepCmd, simSolverCmd
+                , simMaxTimestepCmd, simRelErrorCmd, simAbsErrorCmd, simModelType
                 , simBackendCmd, simLinkerCmd, simExecuteCmd
                 , simMathModelCmd, simMathLibCmd, simVecMathCmd
                 , simOptimiseCmd, simShortCircuitCmd, simPowerExpanCmd
@@ -121,25 +122,36 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnits
   where
     -- debug toggle, need to update the logger too
     debugCmd = toggle "debug" "Toggle Debug Mode" (get lDebug) (set lDebug)
-
     disableUnitsCmd = toggle "disableUnits" "Toggle Units Checking" (get lUnitsCheck) (set lUnitsCheck)
 
     -- basic cmds
     -- damn record update syntax!
-    startTimeCmd = cmd "startTime" f "Initial simulation time"
-      where
-        f :: Double -> Sh SysState ()
-        f x = modifyShellSt $ set (lStartTime . lSimParams) x
+    -- helper func to set a type-safe double val
+    setDouble :: (:->) SysState Double -> Double -> Sh SysState ()
+    setDouble lbl val = modifyShellSt $ set lbl val
 
-    stopTimeCmd = cmd "endTime" f "Final simulation time"
-      where
-        f :: Double -> Sh SysState ()
-        f x = modifyShellSt $ set (lEndTime . lSimParams) x
+    -- basic params
+    startTimeCmd = cmd "startTime" (setDouble $ lStartTime . lSimParams) "Initial simulation time"
+    stopTimeCmd = cmd "stopTime" (setDouble $ lStopTime . lSimParams) "Final simulation time"
+    simTimestepCmd = cmd "timestep" (setDouble $ lTimestep . lSimParams) "Timestep to use for simulation"
+    outPeriodCmd = cmd "period" (setDouble $ lOutputPeriod . lSimParams) "Interval period to save simulation state to disk (seconds)"
 
-    simTimestepCmd = cmd "timestep" f "Timestep to use for simulation"
+    -- adaptive params
+    simMaxTimestepCmd = cmd "maxTimestep" (setDouble $ lMaxTimestep . lSimParams) "Max timestep to use for simulation"
+    simRelErrorCmd = cmd "relError" (setDouble $ lRelError . lSimParams) "Relative error for adaptive simulation"
+    simAbsErrorCmd = cmd "absError" (setDouble $ lAbsError . lSimParams) "Absolute error for adaptive simulation"
+    simModelType = cmd "modelType" f "Model Type to use for adaptive simulation <stiff, nonstiff>"
       where
-        f :: Double -> Sh SysState ()
-        f x = modifyShellSt $ set (lTimestep . lSimParams) x
+        f :: String -> Sh SysState ()
+        f str | map toLower str == "stiff"       = modifyShellSt $ set (lModelType . lSimParams) Stiff
+        f str | map toLower str == "nonstiff"    = modifyShellSt $ set (lModelType . lSimParams) NonStiff
+        f _ = shellPutInfoLn "Possible options <stiff, nonstiff>"
+
+    -- output params
+    outFilenameCmd = cmd "output" f "Filename to save simulation results"
+      where
+        f :: File -> Sh SysState ()
+        f (File x) = modifyShellSt $ set (lFilename . lSimParams) x
 
     simSolverCmd = cmd "solver" f "ODE Solver to use for simulation <euler, rk4>"
       where
@@ -165,12 +177,12 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnits
         f str | map toLower str == "dynamic" = modifyShellSt $ set (lLinker . lSimParams) Dynamic
         f _ = shellPutInfoLn "Possible options <dynamic, static>"
 
-    -- Sim Params Toggles
     simExecuteCmd       = toggle "disableExecute" "Toggle Execution of Simulations" (get $ lExecute . lSimParams) (set $ lExecute . lSimParams)
+
+    -- opt params
     simOptimiseCmd      = toggle "disableOptimise" "Toggle LLVM Optimisation of Simulations" (get $ lOptimise . lSimParams) (set $ lOptimise . lSimParams)
     simShortCircuitCmd  = toggle "disableShortCircuit" "Toggle Short-circuiting of boolean operators (N.B. may change simulation semantics) " (get $ lOptShortCircuit . lSimParams) (set $ lOptShortCircuit . lSimParams)
     simPowerExpanCmd    = toggle "disablePowerExpan" "Toggle Expansion of pow() calls (requires mathModel = fast)" (get $ lOptPowerExpan . lSimParams) (set $ lOptPowerExpan . lSimParams)
-    simVecMathCmd       = toggle "vecMath" "Toggle Vectorisation Optimisation" (get $ lVecMath . lSimParams) (set $ lVecMath . lSimParams)
 
     simMathModelCmd = cmd "mathModel" f "Compilation Math model to utilise <strict, fast>"
       where
@@ -187,16 +199,9 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnits
         f str | map toLower str == "intel"    = modifyShellSt $ set (lMathLib . lSimParams) Intel
         f _ = shellPutInfoLn "Possible options <gnu, amd, intel>"
 
-    outPeriodCmd = cmd "period" f "Period iterations to save simulation state to disk"
-      where
-        f :: Integer -> Sh SysState ()
-        f x = modifyShellSt $ set (lOutputPeriod . lSimParams) x
+    simVecMathCmd       = toggle "vecMath" "Toggle Vectorisation Optimisation" (get $ lVecMath . lSimParams) (set $ lVecMath . lSimParams)
 
-    outFilenameCmd = cmd "output" f "Filename to save simulation results"
-      where
-        f :: File -> Sh SysState ()
-        f (File x) = modifyShellSt $ set (lFilename . lSimParams) x
-
+-- Start Simulation ----------------------------------------------------------------------------------------------------
     simStartCmd = cmd "simulate" f "Start a simulation"
       where
         f :: String -> Sh SysState ()

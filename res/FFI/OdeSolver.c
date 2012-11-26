@@ -20,14 +20,14 @@ int main(void) {
 void modelSolver(void) {
     init();
     // setup file output
-    uint64_t out_num = OdeParamNumParams+1;
+    uint64_t out_num = OdeParamStateSize+1;
     startSim(&OdeParamOutput, out_num);
     // statically alloc the buffer of doubles
     double out_data[out_num]; // [OdeParamNumParams+1];
 
     // alloc state vals - using C99 VLA
-    double STATE[OdeParamNumParams];
-    double DELTA[OdeParamNumParams];
+    double STATE[OdeParamStateSize];
+    double DELTA[OdeParamStateSize];
 
     // euler loop params
     static double time;
@@ -55,7 +55,7 @@ void modelSolver(void) {
         OdeModelLoop(time, STATE, DELTA);
 
         // update the state
-        for (uint64_t i = 0; i < OdeParamNumParams; ++i) {
+        for (uint64_t i = 0; i < OdeParamStateSize; ++i) {
             STATE[i] += DELTA[i] * OdeParamTimestep;
         }
 
@@ -71,7 +71,7 @@ void modelSolver(void) {
         } else {
             cur_period ++;
         }
-    } while (time < OdeParamEndTime);
+    } while (time < OdeParamStopTime);
     endSim();
     shutdown();
 }

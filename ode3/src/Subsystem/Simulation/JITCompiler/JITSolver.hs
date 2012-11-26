@@ -67,19 +67,30 @@ genAOTMain simF = do
     return ()
 
 
--- | Write sim param constant to global vals within the module
+-- | Write sim param constant to global vals within the module - look at OdeModel.h for interface details
 genFFIParams numParams = do
     GenState {builder, simParams, llvmMod} <- get
-    liftIO $ addGlobalWithInit llvmMod (constDouble $ Sys._startTime simParams) doubleType True "OdeParamStartTime"
-    liftIO $ addGlobalWithInit llvmMod (constDouble $ Sys._endTime simParams) doubleType True "OdeParamEndTime"
-    liftIO $ addGlobalWithInit llvmMod (constDouble $ Sys._timestep simParams) doubleType True "OdeParamTimestep"
-    liftIO $ addGlobalWithInit llvmMod (constInt64 $ Sys._outputPeriod simParams) int64Type True "OdeParamPeriod"
+    let Sys.SimParams{..} = simParams
+    liftIO $ addGlobalWithInit llvmMod (constDouble $ _startTime) doubleType True "OdeParamStartTime"
+    liftIO $ addGlobalWithInit llvmMod (constDouble $ _stopTime) doubleType True "OdeParamStopTime"
+    liftIO $ addGlobalWithInit llvmMod (constDouble $ _timestep) doubleType True "OdeParamTimestep"
 
-    -- HACK to build global string outside of a func (as buildGlobalString fails)
-    let outFile = Sys._filename simParams
-    liftIO $ addGlobalWithInit llvmMod (constString outFile False) (arrayType int8Type (fromIntegral $ length outFile + 1)) True "OdeParamOutput"
+    -- adaptive params
+    liftIO $ addGlobalWithInit llvmMod (constDouble $ _maxTimestep) doubleType True "OdeParamMaxTimestep"
+    liftIO $ addGlobalWithInit llvmMod (constDouble $ _relError) doubleType True "OdeParamRelativeError"
+    liftIO $ addGlobalWithInit llvmMod (constDouble $ _absError) doubleType True "OdeParamAbsoluteError"
+    case _modelType of
+        Sys.Stiff       -> liftIO $ addGlobalWithInit llvmMod (constInt32 $ 0) int32Type True "OdeParamModelType"
+        Sys.NonStiff    -> liftIO $ addGlobalWithInit llvmMod (constInt32 $ 1) int32Type True "OdeParamModelType"
+
+    -- output params
+    liftIO $ addGlobalWithInit llvmMod (constDouble $ _outputPeriod) doubleType True "OdeParamPeriod"
+    -- HACK to build global string outside of a func (as buildGlob alString fails)
+    liftIO $ addGlobalWithInit llvmMod (constString _filename False) (arrayType int8Type (fromIntegral $ length _filename + 1)) True "OdeParamOutput"
     -- liftIO $ buildGlobalString builder "test" "test" -- (Sys._filename  simParams) "OdeParamOutput"
-    liftIO $ addGlobalWithInit llvmMod (constInt64 $ numParams) int64Type True "OdeParamNumParams"
+
+    -- model size
+    liftIO $ addGlobalWithInit llvmMod (constInt64 $ numParams) int64Type True "OdeParamStateSize"
 
 
 genFFIModelInitials initsF numParams = do
@@ -302,7 +313,7 @@ genModelSolver CF.Module{..} initsF loopF = do
         -- doCond
         (\builder _ ->  do
             liftIO $ withPtrVal builder curTimeRef $ \curTime -> do
-                liftIO $ buildFCmp builder FPOLT curTime (constDouble $ L.get Sys.lEndTime simParams) "bWhileTime")
+                liftIO $ buildFCmp builder FPOLT curTime (constDouble $ L.get Sys.lStopTime simParams) "bWhileTime")
 
     -- end sim
     _ <- liftIO $ buildCall builder (libOps Map.! "endSim") [] ""
@@ -331,7 +342,7 @@ genModelSolver CF.Module{..} initsF loopF = do
         genSolver solver loopF curTimeRef simOps
 
         bWriteOut <- liftIO $ withPtrVal builder curPeriodRef $ \curPeriod -> do
-            buildICmp builder IntEQ curPeriod (constInt64 $ L.get Sys.lOutputPeriod simParams) "bWriteOut"
+            buildICmp builder IntEQ curPeriod (constInt64 $ Sys.calcOutputInterval simParams) "bWriteOut"
 
         -- check period and writeOutData if needed
         _ <- ifStmt builder curFunc bWriteOut
