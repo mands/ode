@@ -27,7 +27,7 @@ void checkAlloc(const void* const ptr, const char* const restrict funcname);
 void solverInit(double* state, void** cvodeMemOut, N_Vector* y0Out);
 void solverRun(void* cvodeMem, N_Vector yOut);
 void solverShutdown(void* cvodeMem, N_Vector y0);
-
+void modelSolver(void);
 // globals - should be consts only
 
 
@@ -55,8 +55,13 @@ void checkAlloc(const void* const ptr, const char* const restrict funcname) {
     }
 }
 
-// Main function
-int main(void) {
+//// Main function
+//int main(void) {
+//    return 0;
+//}
+
+// main entry point
+void modelSolver(void) {
     // TODO - parse command-line args ?
     // main data structs passed around solver
     void* cvodeMem;
@@ -70,7 +75,6 @@ int main(void) {
     solverRun(cvodeMem, y0);
     // shutdown solvers
     solverShutdown(cvodeMem, y0);
-    return 0;
 }
 
 

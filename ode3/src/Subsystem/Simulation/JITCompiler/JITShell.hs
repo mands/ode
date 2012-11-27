@@ -47,7 +47,7 @@ simBC       = "./Sim.bc"
 exeOutput   = "./Sim.exe"
 odeLibPath  = "../res/StdLib"
 odeObjFile  = "./OdeModel.o"
-
+odeFFIPath  = "../res/FFI"
 
 optScript :: Sys.SimParams -> Sh ()
 optScript p@(Sys.SimParams{..}) = do
@@ -112,12 +112,14 @@ optScript p@(Sys.SimParams{..}) = do
         return modelVecBC
       where
         modelVecBC  = "Model.vecmath.bc"
-        linkOpts    = ["-std-link-opts", "-std-compile-opts"]
+        -- linkOpts    = ["-std-link-opts", "-std-compile-opts"]
+        linkOpts    = ["-std-compile-opts"]
         -- need to switch depending on the mathmodel
         odeVecMathLib = toTextIgnore $ odeLibPath </> case _mathLib of
                                                         Sys.GNU     -> "VecMath_GNU.bc"
                                                         Sys.AMD     -> "VecMath_AMD.bc"
                                                         Sys.Intel   -> "VecMath_Intel.bc"
+
 
 -- | Embedded script to link to the Ode stdlib
 linkStdlibScript :: Sys.SimParams -> Sh ()
@@ -127,8 +129,10 @@ linkStdlibScript p@(Sys.SimParams{..}) = do
     rm_f "Sim.bc"
     rm_f "Sim.ll"
     -- rm_f "./*.dot"
-    -- link the model to stdlib
-    run_ "llvm-link" ["-o", simBC, modelOptBC, odeStdLib]
+    -- link the model to stdlib and cvodeSim
+    if (_solver == Sys.Adaptive)
+        then run_ "llvm-link" ["-o", simBC, modelOptBC, odeStdLib, odeCvodeSim]
+        else run_ "llvm-link" ["-o", simBC, modelOptBC, odeStdLib]
     -- perform LTO
     when (L.get Sys.lOptimise p) $
         run_ "opt" (["-o", simBC] ++ linkOpts ++ [simBC])
@@ -137,8 +141,10 @@ linkStdlibScript p@(Sys.SimParams{..}) = do
     -- run_ "opt" ["-analyze", "-dot-callgraph", "-dot-cfg", "-dot-dom", simBC]
     return ()
   where
-    odeStdLib  = toTextIgnore $ odeLibPath </> "OdeLibrary.bc" -- TODO - change to opt stdlib?
+    odeStdLib   = toTextIgnore $ odeLibPath </> "OdeLibrary.bc" -- TODO - change to opt stdlib?
+    odeCvodeSim = toTextIgnore $ odeFFIPath </> "CvodeSim.bc" -- TODO - change to opt stdlib?
     linkOpts    = ["-std-link-opts", "-std-compile-opts"]
+
 
 -- | Embedded script to compile a native AOT represetnation of the model (& optional simulation)
 -- with no call-back to Ode run-time (requires use of Clang and system linker)
@@ -155,19 +161,23 @@ compileScript p@(Sys.SimParams{..}) = do
                 ++ maybeToList fastMath ++ [modelOptBC]
         -- use clang to link our llvm-linked sim module to the system
         else run "clang" $ (maybeToList linkType) ++ ["-integrated-as", "-o", toTextIgnore exeOutput, optLevel]
-            ++ maybeToList fastMath ++ [simBC] ++ ["-L", toTextIgnore libPath] ++ libs
+            ++ maybeToList fastMath ++ [simBC] ++ ["-L", toTextIgnore libPath] ++ cvodeLibs ++ mathLibs
 
     return ()
   where
     -- aotStubPath = "" -- "../res/StdLib/AOTStub.bc"
 
     -- need to switch depending on the mathmodel
-    libs  = if _optimise && (L.get Sys.lMathModel p == Sys.Fast)
-                then case _mathLib of
-                    Sys.GNU     -> ["-lm", crtFastMath]
-                    Sys.AMD     -> ["-lamdlibm", "-lm", crtFastMath]
-                    Sys.Intel   -> ["-lsvml", "-limf", "-lirc", "-lm", crtFastMath]
-                else ["-lm"]
+    mathLibs    = if _optimise && (L.get Sys.lMathModel p == Sys.Fast)
+                    then case _mathLib of
+                        Sys.GNU     -> ["-lm", crtFastMath]
+                        Sys.AMD     -> ["-lamdlibm", "-lm", crtFastMath]
+                        Sys.Intel   -> ["-lsvml", "-limf", "-lirc", "-lm", crtFastMath]
+                    else ["-lm"]
+
+    cvodeLibs   = if (_solver == Sys.Adaptive)
+                    then ["-lsundials_cvode", "-lsundials_nvecserial"]
+                    else []
 
     -- odeVecMathLib = toTextIgnore $ odeLibPath </> odeVecMathFile
     crtFastMath = "-Wl,--no-as-needed,../res/StdLib/crtfastmath.o"
@@ -180,7 +190,7 @@ compileScript p@(Sys.SimParams{..}) = do
         Sys.Dynamic -> Nothing
 
 
--- | Executes simulation of stnadalone executable in sub-process
+-- | Executes simulation of standalone executable in sub-process (any required libs must be on LD_LIBRARY_PATH)
 executeSimScript ::  Sys.SimParams -> Sh ()
 executeSimScript p@(Sys.SimParams{..}) = do
     -- execute (as ext. process) if specified

@@ -76,7 +76,6 @@ compileAndSimulate mod = do
         -- only dynamic-linking, w/execution allowed in JITCompiler
         Sys.JITCompiler -> liftIO $ optLLVMModule p >> linkLLVMModule p >> runJITSimulation p
         Sys.AOTCompiler -> liftIO $ optLLVMModule p >> linkLLVMModule p >> compileLLVMModule p >> executeAOTSim p
-        Sys.CVODE       -> undefined
         Sys.ObjectFile  -> liftIO $ optLLVMModule p >> compileLLVMModule p
 
     -- close any output files? (handle within LLVM code)
@@ -93,28 +92,28 @@ genLLVMModule p odeMod = do
     (mathOps, libOps) <- liftIO $ defineExtOps p llvmMod
     modify (\st -> st { llvmMod, mathOps, libOps })
 
-    -- generate & insert the funcs into the module
+    -- generate & insert the low-level funcs into the module
     initsF <-   genModelInitials odeMod
     rhsF <-    genModelRHS odeMod
 
-    -- modify the module depedning on the chosen backeng
-    case (L.get Sys.lBackend p) of
-        Sys.JITCompiler -> genModelSolver odeMod initsF rhsF >> return ()
-        -- gen a main func if standalone AOT compiling
-        Sys.AOTCompiler -> do
-            simF <- genModelSolver odeMod initsF rhsF
-            genAOTMain simF
+    -- modify the module depedning on the chosen backend and solver
+    if (L.get Sys.lBackend p == Sys.ObjectFile)
+        then genFFI initsF rhsF
+        else case (L.get Sys.lSolver p) of
+            Sys.Adaptive    -> do
+                -- generate the FFI for linking to C-based CVODE solver
+                genFFI initsF rhsF
+                -- declare the modelSolver func entry-point
+                simF <- liftIO $ addFunction llvmMod "modelSolver" (functionType voidType [] False)
+                -- gen a main func if AOT-compiling
+                when (L.get Sys.lBackend p == Sys.AOTCompiler) $ genAOTMain simF
 
-        -- generate wrappers and static values used when linking to external/C-solver
-        Sys.ObjectFile  -> do
-            let numParams = OrdMap.size $ initExprs odeMod
-            genFFIParams numParams
-            genFFIModelInitials initsF numParams
-            genFFIModelRHS rhsF numParams
-
-        Sys.CVODE  -> undefined
-
-        _               -> return ()
+            -- default - built-in solvers - euler & rk4
+            _               -> do
+                simF <- genModelSolver odeMod initsF rhsF
+                -- gen a main func if AOT-compiling
+                when (L.get Sys.lBackend p == Sys.AOTCompiler) $ genAOTMain simF
+                return ()
 
     -- add the target - NOTE - bit hacky, hardcoded to amd64 platform
     liftIO $ setTarget llvmMod "x86_64-unknown-linux-gnu"
@@ -123,6 +122,14 @@ genLLVMModule p odeMod = do
     liftIO $ printModuleToFile llvmMod "Model.ll"
     liftIO $ writeBitcodeToFile llvmMod "Model.bc"
     return ()
+  where
+    -- generate the C-interface, wrappers and static values to be used when linking to external/C-solver
+    genFFI :: LLVM.Value -> LLVM.Value -> GenM ()
+    genFFI initsF rhsF = do
+        let numParams = OrdMap.size $ initExprs odeMod
+        genFFIParams numParams
+        genFFIModelInitials initsF numParams
+        genFFIModelRHS rhsF numParams
 
 -- | Load our compiled module and run a simulation
 runJITSimulation :: Sys.SimParams -> IO ()

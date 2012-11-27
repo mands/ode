@@ -153,12 +153,13 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnits
         f :: File -> Sh SysState ()
         f (File x) = modifyShellSt $ set (lFilename . lSimParams) x
 
-    simSolverCmd = cmd "solver" f "ODE Solver to use for simulation <euler, rk4>"
+    simSolverCmd = cmd "solver" f "ODE Solver to use for simulation <euler, rk4, adaptive>"
       where
         f :: String -> Sh SysState ()
-        f str | map toLower str == "euler"   = modifyShellSt $ set (lSolver . lSimParams) FEuler
-        f str | map toLower str == "rk4"     = modifyShellSt $ set (lSolver . lSimParams) RK4
-        f _ = shellPutInfoLn "Possible options <euler, rk4>"
+        f str | map toLower str == "euler"       = modifyShellSt $ set (lSolver . lSimParams) FEuler
+        f str | map toLower str == "rk4"         = modifyShellSt $ set (lSolver . lSimParams) RK4
+        f str | map toLower str == "adaptive"    = modifyShellSt $ set (lSolver . lSimParams) Adaptive
+        f _ = shellPutInfoLn "Possible options <euler, rk4, adaptive>"
 
     simBackendCmd = cmd "backend" f "Simulation backend to use <interpreter, jitcompiler, aotcompiler>"
       where
@@ -167,7 +168,6 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnits
         f str | map toLower str == "jitcompiler"     = modifyShellSt $ set (lBackend . lSimParams) JITCompiler
         f str | map toLower str == "aotcompiler"     = modifyShellSt $ set (lBackend . lSimParams) AOTCompiler
         f str | map toLower str == "objectfile"      = modifyShellSt $ set (lBackend . lSimParams) ObjectFile
-        f str | map toLower str == "cvode"           = modifyShellSt $ set (lBackend . lSimParams) CVODE
         f _ = shellPutInfoLn "Possible options <interpreter, jitcompiler, aotcompiler>"
 
     simLinkerCmd = cmd "linker" f "System linker to use when compiling <dynamic, static>"
@@ -332,7 +332,7 @@ shSimulate initMod = do
     checkParams SimParams{..} = do
         when (_outputPeriod < _timestep)
             (throwError $ printf "Output period (%g) must be equal or greater to timestep (%g)\n" _outputPeriod _timestep)
-        when ((_backend == ObjectFile || _backend == CVODE) && _maxTimestep < _timestep)
+        when ((_backend == ObjectFile || _solver == Adaptive) && _maxTimestep < _timestep)
             (throwError $ printf "Max timestep (%g) must be equal or greater to timestep (%g)\n" _maxTimestep _timestep)
         when (_stopTime <= _startTime)
             (throwError $ printf "Stop time (%g) must be greater than start time (%g)\n" _stopTime _startTime)

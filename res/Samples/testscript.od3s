@@ -19,14 +19,14 @@ import SimTests.Odes.*
 :output "./output.bin"
 
 // sim backend params
-// solver - euler, rk4
-:solver "euler"
+// solver - euler, rk4, adaptive
+:solver "adaptive"
 // linker - dynamic, static
 :linker "dynamic"
 // disable exe
 //:disableExecute
 // disable opts
-:disableOptimise
+//:disableOptimise
 // disable short-circuiting
 //:disableShortCircuit
 // disable power expan
@@ -37,7 +37,7 @@ import SimTests.Odes.*
 //:vecMath
 :mathLib "gnu"
 // backend to use - interpreter, jitcompiler, aotcompiler, objectfile
-:backend "jitcompiler"
+:backend "aotcompiler"
 
 
 // adaptive params

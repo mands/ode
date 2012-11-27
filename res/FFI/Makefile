@@ -1,6 +1,6 @@
 # Simple makefile for Ode Tools
 CC            = clang
-CFLAGS        = -std=c11 -O3 -pedantic -Weverything -integrated-as -fno-math-errno -ffast-math
+CFLAGS        = -std=c11 -O3 -pedantic -Weverything -ffast-math -integrated-as
 LDLIBS        = -lm
 INC_DIRS      = -I$(ODE_LIB_DIR) -I$(PROJ_INC_DIR)
 LIB_DIRS      = -L$(PROJ_LIB_DIR)
@@ -24,7 +24,8 @@ all: CvodeSim.bc OdeSolver.exe OdeModelDump.exe
 #	$(CC) $(CFLAGS) -o $@ $(INC_DIRS) CvodeSim.c OdeModel.o $(ODE_LIB_OBJ) $(LIB_DIRS) $(CVODE_LIBS) $(CRTFAST)
 
 CvodeSim.bc: CvodeSim.c OdeModel.h
-	$(CC) $(CFLAGS) -o $@ $(INC_DIRS) CvodeSim.c OdeModel.o $(ODE_LIB_OBJ) $(LIB_DIRS) $(CVODE_LIBS) $(CRTFAST)
+	$(CC) $(CFLAGS) -emit-llvm -c -o $@ $(INC_DIRS) CvodeSim.c
+	llvm-dis $@
 
 OdeSolver.exe: OdeSolver.c OdeModel.o OdeModel.h
 	$(CC) $(CFLAGS) -o $@ $(INC_DIRS) OdeSolver.c OdeModel.o $(ODE_LIB_OBJ) $(LIB_DIRS) -lm $(CRTFAST)

@@ -67,7 +67,8 @@ genAOTMain simF = do
     return ()
 
 
--- | Write sim param constant to global vals within the module - look at OdeModel.h for interface details
+-- | C-compatible wrapper for all important simulation parameters - look at OdeModel.h for interface details
+-- Write sim param constant to global vals within the module
 genFFIParams numParams = do
     GenState {builder, simParams, llvmMod} <- get
     let Sys.SimParams{..} = simParams
@@ -96,6 +97,7 @@ genFFIParams numParams = do
     liftIO $ addGlobalWithInit llvmMod (constInt64 $ numParams) int64Type True "OdeParamStateSize"
 
 
+-- | C-compatible wrapper for the initial values function
 genFFIModelInitials initsF numParams = do
     (curFunc, builder) <- genFunction "OdeModelInitials" voidType createArgsList
 
@@ -113,6 +115,8 @@ genFFIModelInitials initsF numParams = do
     -- create the input args
     createArgsList = [doubleType, pointerType (arrayType doubleType (fromIntegral numParams)) 0]
 
+
+-- | C-compatible wrapper for the RHS function
 genFFIModelRHS rhsF numParams = do
     (curFunc, builder) <- genFunction "OdeModelRHS" voidType createArgsList
 
@@ -138,6 +142,8 @@ genFFIModelRHS rhsF numParams = do
     createArgsList = [doubleType, pointerType (arrayType doubleType (fromIntegral numParams)) 0
                                 , pointerType (arrayType doubleType (fromIntegral numParams)) 0]
 
+
+-- Solvers -------------------------------------------------------------------------------------------------------------
 
 -- A solver class for abstracting over the differing code-gen requriements
 class OdeSolver a where
