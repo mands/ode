@@ -114,6 +114,7 @@ void solverInit(double* const state, void** const cvodeMemOut, N_Vector* const y
     checkFlag(flag, "CVodeSetMaxStep");
     // adjust stop time to account for period, round up to next mult of period
     const double adjustedStopTime = ceil(OdeParamStopTime / OdeParamPeriod) * OdeParamPeriod;
+    printf("Adjusted stoptime - %g\n", adjustedStopTime);
     flag = CVodeSetStopTime(cvodeMem, adjustedStopTime);
     checkFlag(flag, "CVodeSetStopTime");
 

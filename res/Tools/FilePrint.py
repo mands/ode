@@ -9,7 +9,7 @@ import logging
 import argparse
 import scipy as sp
 
-from Common import openFile, getCols
+from Common import *
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
@@ -28,7 +28,7 @@ if __name__ == '__main__':
     ## get the files
     (data, num_cols) = openFile(filename)
     # set print ops
-    sp.set_printoptions(edgeitems=3, linewidth=400, precision=16,suppress=False, threshold=10000)
+    setupPrint()
     # get and print the specified columns
     cols = getCols(num_cols, args.cols, True)
     print (data[:,cols])

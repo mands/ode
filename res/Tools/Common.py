@@ -27,3 +27,6 @@ def getCols(num_cols, col_list=None, add_zero=False):
         return cols
     else:
         return cols
+
+def setupPrint():
+    sp.set_printoptions(edgeitems=3, linewidth=400, precision=16,suppress=False, threshold=10000)

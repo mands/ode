@@ -74,6 +74,7 @@ genFFIParams numParams = do
     liftIO $ addGlobalWithInit llvmMod (constDouble $ _startTime) doubleType True "OdeParamStartTime"
     liftIO $ addGlobalWithInit llvmMod (constDouble $ _stopTime) doubleType True "OdeParamStopTime"
     liftIO $ addGlobalWithInit llvmMod (constDouble $ _timestep) doubleType True "OdeParamTimestep"
+    liftIO $ addGlobalWithInit llvmMod (constDouble $ Sys.calcAdjustedStopTime simParams) doubleType True "OdeParamAdjustedStopTime"
 
     -- adaptive params
     liftIO $ addGlobalWithInit llvmMod (constDouble $ _maxTimestep) doubleType True "OdeParamMaxTimestep"
@@ -85,6 +86,8 @@ genFFIParams numParams = do
 
     -- output params
     liftIO $ addGlobalWithInit llvmMod (constDouble $ _outputPeriod) doubleType True "OdeParamPeriod"
+    liftIO $ addGlobalWithInit llvmMod (constInt64 $ Sys.calcOutputInterval simParams) int64Type True "OdeParamPeriodInterval"
+
     -- HACK to build global string outside of a func (as buildGlob alString fails)
     liftIO $ addGlobalWithInit llvmMod (constString _filename False) (arrayType int8Type (fromIntegral $ length _filename + 1)) True "OdeParamOutput"
     -- liftIO $ buildGlobalString builder "test" "test" -- (Sys._filename  simParams) "OdeParamOutput"
@@ -313,7 +316,7 @@ genModelSolver CF.Module{..} initsF loopF = do
         -- doCond
         (\builder _ ->  do
             liftIO $ withPtrVal builder curTimeRef $ \curTime -> do
-                liftIO $ buildFCmp builder FPOLT curTime (constDouble $ L.get Sys.lStopTime simParams) "bWhileTime")
+                liftIO $ buildFCmp builder FPOLT curTime (constDouble $ Sys.calcAdjustedStopTime simParams) "bWhileTime")
 
     -- end sim
     _ <- liftIO $ buildCall builder (libOps Map.! "OdeStopSim") [] ""

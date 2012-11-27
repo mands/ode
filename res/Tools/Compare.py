@@ -10,7 +10,7 @@ import argparse
 import scipy as sp
 import sys
 
-from Common import openFile
+from Common import *
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
@@ -56,6 +56,6 @@ if __name__ == '__main__':
     print("Max difference is {:+.16g} ({:+.16g} machine epsilons)".format(diffMax, diffEps))
 
     if args.verbose:
-        sp.set_printoptions(edgeitems=3, linewidth=400, precision=16,suppress=False, threshold=10000)
+        setupPrint()
         print (diffAbs)
     logging.debug("Done")

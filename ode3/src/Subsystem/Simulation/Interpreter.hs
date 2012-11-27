@@ -78,7 +78,7 @@ interpret Module{..} = do
     runLoop :: Integer -> ExprMap -> Sys.SimParams -> SimM ()
     runLoop curLoop eM p = do
         runIter eM False time -- run an iteration
-        if time < (Sys._stopTime p) then runLoop (inc curLoop) eM p else return () -- only loop again is time is less than endtime, break if equal/greater
+        if time < (Sys.calcAdjustedStopTime p) then runLoop (inc curLoop) eM p else return () -- only loop again is time is less than endtime, break if equal/greater
       where
         time = (Sys._startTime p) + (fromInteger curLoop) * (Sys._timestep p)
 

@@ -20,28 +20,30 @@ int main(void) {
 void dumpParams(void) {
     puts("Dumping Ode Model Params");
     puts("\nOde Model Timing");
-    printf("OdeParamStartTime\t- %g\n", OdeParamStartTime);
-    printf("OdeParamStopTime\t- %g\n", OdeParamStopTime);
-    printf("OdeParamTimeStep\t- %g\n", OdeParamTimestep);
+    printf("OdeParamStartTime (s)\t\t- %g\n", OdeParamStartTime);
+    printf("OdeParamStopTime (s)\t\t- %g\n", OdeParamStopTime);
+    printf("OdeParamAdjustedStopTime (s)\t- %g\n", OdeParamAdjustedStopTime);
+    printf("OdeParamTimeStep (s)\t\t- %g\n", OdeParamTimestep);
 
     puts("\nOde Adaptive Params");
-    printf("OdeParamMaxTimestep\t- %g\n", OdeParamMaxTimestep);
-    printf("OdeParamRelativeError\t- %g\n", OdeParamRelativeError);
-    printf("OdeParamAbsoluteError\t- %g\n", OdeParamAbsoluteError);
+    printf("OdeParamMaxTimestep (s)\t\t- %g\n", OdeParamMaxTimestep);
+    printf("OdeParamRelativeError\t\t- %g\n", OdeParamRelativeError);
+    printf("OdeParamAbsoluteError\t\t- %g\n", OdeParamAbsoluteError);
 
     switch (OdeParamModelType) {
     case Stiff:
-        printf("OdeParamModelType\t- %s\n", "Stiff");
+        printf("OdeParamModelType\t\t- %s\n", "Stiff");
         break;
     case NonStiff:
-        printf("OdeParamModelType\t- %s\n", "NonStiff");
+        printf("OdeParamModelType\t\t- %s\n", "NonStiff");
         break;
     }
 
     puts("\nOde Model Output");
-    printf("OdeParamPeriod\t\t- %g\n", OdeParamPeriod);
-    printf("OdeParamOutput\t\t- %s\n", OdeParamOutput);
+    printf("OdeParamPeriod (s)\t\t- %g\n", OdeParamPeriod);
+    printf("OdeParamPeriodInterval\t\t- %" PRIu64 "\n", OdeParamPeriodInterval);
+    printf("OdeParamOutput\t\t\t- %s\n", OdeParamOutput);
 
     puts("\nOde Model Num Params");
-    printf("OdeParamStateSize\t- %" PRIu64 "\n", OdeParamStateSize);
+    printf("OdeParamStateSize\t\t- %" PRIu64 "\n", OdeParamStateSize);
 }

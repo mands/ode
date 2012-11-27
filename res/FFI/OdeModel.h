@@ -13,6 +13,9 @@
 // They may be ignored if required within the external solver
 extern const double OdeParamStartTime;
 extern const double OdeParamStopTime;
+// an adjusted stop time that is a rounded-up multiple of the output period
+extern const double OdeParamAdjustedStopTime;
+
 // the timestep to be used for a fixed solver, or the minimum timestep within an adaptive solver
 extern const double OdeParamTimestep;
 
@@ -37,6 +40,10 @@ extern const enum OdeParamModelTypes OdeParamModelType;
 // this incdiates the time period at which output should create, ideally should be an
 // integer multiple of the timestep for fixed solvers
 extern const double OdeParamPeriod;
+
+// pre-calculated period interval in terms of multiples of the timestep
+extern const uint64_t OdeParamPeriodInterval;
+
 // this is actually statically alloc'd string literal, need to take the address to use it as a string
 extern const char OdeParamOutput[];
 
