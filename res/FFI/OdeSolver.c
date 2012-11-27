@@ -1,5 +1,5 @@
 // This program plus implements a basic euler solver using OdeLibrary and OdeModel.o
-
+// Acts as a test for the OdeModel.h FFI
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -53,7 +53,7 @@ void solverRun(double* const restrict state) {
         time = OdeParamStartTime + curLoop * OdeParamTimestep;
 
         // update the deltas
-        OdeModelLoop(time, state, delta);
+        OdeModelRHS(time, state, delta);
 
         // update the state
         for (stateIdx = 0; stateIdx < OdeParamStateSize; ++stateIdx) {

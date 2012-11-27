@@ -36,7 +36,7 @@ void solverShutdown(void* cvodeMem, N_Vector y0);
 // computes the RHS, i.e. y' = f(t, y)
 int odeWrapperF(double time, N_Vector y, N_Vector yDot, void* userData) {
     // we use NV_DATA_S macro to accress the internal arrays
-    OdeModelLoop(time, NV_DATA_S(y), NV_DATA_S(yDot));
+    OdeModelRHS(time, NV_DATA_S(y), NV_DATA_S(yDot));
     return 0;
 }
 

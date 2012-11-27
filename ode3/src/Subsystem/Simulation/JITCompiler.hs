@@ -55,7 +55,7 @@ import AST.CoreFlat as CF
 import Subsystem.Simulation.JITCompiler.JITCommon
 import Subsystem.Simulation.JITCompiler.JITSolver
 import Subsystem.Simulation.JITCompiler.JITShell
-import Subsystem.Simulation.JITCompiler.JITModel(genModelInitials, genModelLoop)
+import Subsystem.Simulation.JITCompiler.JITModel(genModelInitials, genModelRHS)
 
 
 -- Entry ---------------------------------------------------------------------------------------------------------------
@@ -95,14 +95,14 @@ genLLVMModule p odeMod = do
 
     -- generate & insert the funcs into the module
     initsF <-   genModelInitials odeMod
-    loopF <-    genModelLoop odeMod
+    rhsF <-    genModelRHS odeMod
 
     -- modify the module depedning on the chosen backeng
     case (L.get Sys.lBackend p) of
-        Sys.JITCompiler -> genModelSolver odeMod initsF loopF >> return ()
+        Sys.JITCompiler -> genModelSolver odeMod initsF rhsF >> return ()
         -- gen a main func if standalone AOT compiling
         Sys.AOTCompiler -> do
-            simF <- genModelSolver odeMod initsF loopF
+            simF <- genModelSolver odeMod initsF rhsF
             genAOTMain simF
 
         -- generate wrappers and static values used when linking to external/C-solver
@@ -110,7 +110,7 @@ genLLVMModule p odeMod = do
             let numParams = OrdMap.size $ initExprs odeMod
             genFFIParams numParams
             genFFIModelInitials initsF numParams
-            genFFIModelLoop loopF numParams
+            genFFIModelRHS rhsF numParams
 
         Sys.CVODE  -> undefined
 

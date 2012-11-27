@@ -15,7 +15,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Subsystem.Simulation.JITCompiler.JITSolver (
-genModelSolver, genAOTMain, genFFIParams, genFFIModelInitials, genFFIModelLoop
+genModelSolver, genAOTMain, genFFIParams, genFFIModelInitials, genFFIModelRHS
 ) where
 
 -- Labels
@@ -113,8 +113,8 @@ genFFIModelInitials initsF numParams = do
     -- create the input args
     createArgsList = [doubleType, pointerType (arrayType doubleType (fromIntegral numParams)) 0]
 
-genFFIModelLoop loopF numParams = do
-    (curFunc, builder) <- genFunction "OdeModelLoop" voidType createArgsList
+genFFIModelRHS rhsF numParams = do
+    (curFunc, builder) <- genFunction "OdeModelRHS" voidType createArgsList
 
     (curTimeVal : stateArrayRef : deltaArrayRef : []) <- liftIO $ LLVM.getParams curFunc
 
@@ -128,7 +128,7 @@ genFFIModelLoop loopF numParams = do
         buildInBoundsGEP builder deltaArrayRef [constInt64 0, constInt64 idx] "deltaValRef"
 
     -- call the internal inits functions
-    liftIO $ buildCall builder loopF (curTimeVal : stateArgs ++ deltaArgs) ""
+    liftIO $ buildCall builder rhsF (curTimeVal : stateArgs ++ deltaArgs) ""
     liftIO $ buildRetVoid builder
     return ()
 
@@ -151,7 +151,7 @@ data Solver :: * where
 
 instance OdeSolver Solver where
     genVals ids = genVals ids
-    genSolver (MkSolver s) loopF curTimeRef = genSolver s loopF curTimeRef
+    genSolver (MkSolver s) rhsF curTimeRef = genSolver s rhsF curTimeRef
     getStateVals (MkSolver s) = getStateVals s
 
 
@@ -169,12 +169,12 @@ instance OdeSolver EulerSolver where
 
     getStateVals e = eulerStateVals e
 
-    genSolver (EulerSolver stateValRefMap deltaValRefMap) loopF curTimeRef simOps = do
+    genSolver (EulerSolver stateValRefMap deltaValRefMap) rhsF curTimeRef simOps = do
         GenState {builder, curFunc, simParams} <- get
-        -- call the modelLoop func
+        -- call the modelRHS func
         stateVals <- mapM (\v -> liftIO $ buildLoad builder v "odeValx") $ OrdMap.elems stateValRefMap
         _ <- liftIO $ withPtrVal builder curTimeRef $ \curTime -> do
-            buildCall builder loopF (curTime : stateVals  ++ OrdMap.elems deltaValRefMap) ""
+            buildCall builder rhsF (curTime : stateVals  ++ OrdMap.elems deltaValRefMap) ""
 
         -- update the states/run the forward euler
         liftIO $ mapM_ (updateState builder simParams) simOps
@@ -206,7 +206,7 @@ instance OdeSolver RK4Solver where
     getStateVals e = rk4StateVals e
 
     -- TODO - we can reuse the same deltaVals for each step, as the final staate fot the step is held within kStates
-    genSolver (RK4Solver stateValRefMap deltaVal1RefMap deltaVal2RefMap deltaVal3RefMap deltaVal4RefMap) loopF curTimeRef simOps = do
+    genSolver (RK4Solver stateValRefMap deltaVal1RefMap deltaVal2RefMap deltaVal3RefMap deltaVal4RefMap) rhsF curTimeRef simOps = do
         GenState {builder, curFunc, simParams} <- get
 
         -- deref the state vals and time - these are static during main RK4 body
@@ -220,8 +220,8 @@ instance OdeSolver RK4Solver where
         tPlusH <- liftIO $ buildFAdd builder t h "tPlusH"
 
         -- GEN K1
-        -- call the modelLoop func manually
-        callLoopF builder t stateVals deltaVal1RefMap
+        -- call the modelRHS func manually
+        callRHSF builder t stateVals deltaVal1RefMap
         k1State <- multByTimeStep builder deltaVal1RefMap h
 
         -- GEN K2
@@ -249,15 +249,15 @@ instance OdeSolver RK4Solver where
             -- generate the modified statevals
             stateVals' <- liftIO $ forM (zip stateVals inKState) stateF
             -- call the loop func f(t,y')
-            callLoopF builder timeDelta stateVals' deltaRefs
+            callRHSF builder timeDelta stateVals' deltaRefs
             -- k' = h * f(t,y')
             kState' <- multByTimeStep builder deltaRefs h
             return kState'
 
-        -- | wrapper to call the acutal mdoel loop function f(t,y)
-        callLoopF :: Builder -> Value -> [Value] -> ParamMap -> GenM Value
-        callLoopF builder timeVal stateVals deltaValRefMap = liftIO $
-            buildCall builder loopF (timeVal : stateVals  ++ (OrdMap.elems deltaValRefMap)) ""
+        -- | wrapper to call the acutal model rhs function f(t,y)
+        callRHSF :: Builder -> Value -> [Value] -> ParamMap -> GenM Value
+        callRHSF builder timeVal stateVals deltaValRefMap = liftIO $
+            buildCall builder rhsF (timeVal : stateVals  ++ (OrdMap.elems deltaValRefMap)) ""
 
         -- | multiply a vector of refs by the timestep, i.e. h*f(t,y)
         multByTimeStep :: Builder -> ParamMap -> Value -> GenM [Value]
@@ -283,7 +283,7 @@ instance OdeSolver RK4Solver where
 
 -- | Generate the forward euler solver, also including much of the machinary to setup variables, write to disk, etc.
 genModelSolver :: CF.Module -> LLVM.Value -> LLVM.Value -> GenM LLVM.Value
-genModelSolver CF.Module{..} initsF loopF = do
+genModelSolver CF.Module{..} initsF rhsF = do
     (curFunc, builder) <- genFunction  "modelSolver" voidType []
     -- need external linkage to generate a aot executable
     liftIO $ setLinkage curFunc ExternalLinkage
@@ -312,7 +312,7 @@ genModelSolver CF.Module{..} initsF loopF = do
     -- create the main solver loop
     doWhileStmt builder curFunc
         -- doBody
-        (\builder ->  createSolverLoopBody loopF solver simParamVs >> (liftIO $ buildNoOp builder))
+        (\builder ->  createSolverLoopBody rhsF solver simParamVs >> (liftIO $ buildNoOp builder))
         -- doCond
         (\builder _ ->  do
             liftIO $ withPtrVal builder curTimeRef $ \curTime -> do
@@ -330,7 +330,7 @@ genModelSolver CF.Module{..} initsF loopF = do
 
     -- | Create the main body of the solver loop
     createSolverLoopBody  :: (OdeSolver a) => LLVM.Value -> a -> (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value) -> GenM ()
-    createSolverLoopBody  loopF solver (curPeriodRef, curLoopRef, curTimeRef, outStateArray) = do
+    createSolverLoopBody  rhsF solver (curPeriodRef, curLoopRef, curTimeRef, outStateArray) = do
         GenState {builder, curFunc, simParams} <- get
         let stateValRefMap = getStateVals solver
         -- inc loop counter & calc the time
@@ -342,7 +342,7 @@ genModelSolver CF.Module{..} initsF loopF = do
             buildStore builder curTime curTimeRef
 
         -- call the solver
-        genSolver solver loopF curTimeRef simOps
+        genSolver solver rhsF curTimeRef simOps
 
         bWriteOut <- liftIO $ withPtrVal builder curPeriodRef $ \curPeriod -> do
             buildICmp builder IntEQ curPeriod (constInt64 $ Sys.calcOutputInterval simParams) "bWriteOut"

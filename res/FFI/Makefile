@@ -18,9 +18,12 @@ PROJ_INC_DIR    = $(PROJ_ROOT_DIR)/include
 # CVODE Libs
 CVODE_LIBS      = -lsundials_cvode -lsundials_nvecserial -lm
 
-all: CvodeSim.exe OdeSolver.exe OdeModelDump.exe
+all: CvodeSim.bc OdeSolver.exe OdeModelDump.exe
 
-CvodeSim.exe: CvodeSim.c OdeModel.o OdeModel.h
+#CvodeSim.exe: CvodeSim.c OdeModel.o OdeModel.h
+#	$(CC) $(CFLAGS) -o $@ $(INC_DIRS) CvodeSim.c OdeModel.o $(ODE_LIB_OBJ) $(LIB_DIRS) $(CVODE_LIBS) $(CRTFAST)
+
+CvodeSim.bc: CvodeSim.c OdeModel.h
 	$(CC) $(CFLAGS) -o $@ $(INC_DIRS) CvodeSim.c OdeModel.o $(ODE_LIB_OBJ) $(LIB_DIRS) $(CVODE_LIBS) $(CRTFAST)
 
 OdeSolver.exe: OdeSolver.c OdeModel.o OdeModel.h

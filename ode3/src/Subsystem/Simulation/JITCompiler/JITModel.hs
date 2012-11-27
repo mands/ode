@@ -13,7 +13,7 @@
 -----------------------------------------------------------------------------
 
 module Subsystem.Simulation.JITCompiler.JITModel (
-genModelInitials, genModelLoop,
+genModelInitials, genModelRHS,
 genExprMap, genExpr, genVar
 ) where
 
@@ -90,10 +90,10 @@ genModelInitials CF.Module{..} = do
             liftIO $ buildStore builder initVal outVal
 
 -- | Generate the function that calculates the DELTA variables based on the current time and STATE
--- odeModelLoop(time, STATE) -> DELTA
-genModelLoop :: CF.Module -> GenM LLVM.Value
-genModelLoop CF.Module{..} = do
-    (curFunc, builder) <- genFunction "modelLoop" voidType createArgsList
+-- odeModelRHS(time, STATE) -> DELTA, i.e. y' = f(t, y)
+genModelRHS :: CF.Module -> GenM LLVM.Value
+genModelRHS CF.Module{..} = do
+    (curFunc, builder) <- genFunction "modelRHS" voidType createArgsList
     liftIO $ setLinkage curFunc PrivateLinkage
     -- set func params
     _ <- liftIO $ addFuncAttributes curFunc [AlwaysInlineAttribute, NoUnwindAttribute]
