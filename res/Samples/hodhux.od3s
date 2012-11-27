@@ -18,7 +18,7 @@ import SimTests.HodHux.*
 :output "./output.bin"
 
 // sim backend params
-:solver "euler"
+:solver "adaptive"
 // linker - dynamic, static
 :linker "dynamic"
 // disable exe
@@ -35,7 +35,7 @@ import SimTests.HodHux.*
 //:vecMath
 :mathLib "gnu"
 // backend to use - interpreter, jitcompiler, aotcompiler, objectfile
-:backend "objectfile"
+:backend "aotcompiler"
 
 // adaptive params
 :relError 1e-4

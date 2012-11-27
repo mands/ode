@@ -21,12 +21,13 @@
 #include "OdeModel.h"
 
 // prototypes
-int odeWrapperF(double time, N_Vector y, N_Vector yDot, void* userData);
+int odeWrapperF(double time, N_Vector const restrict y, N_Vector const restrict yDot, void* userData);
 void checkFlag(const int flag, const char* const restrict funcname);
 void checkAlloc(const void* const ptr, const char* const restrict funcname);
-void solverInit(double* state, void** cvodeMemOut, N_Vector* y0Out);
-void solverRun(void* cvodeMem, N_Vector yOut);
-void solverShutdown(void* cvodeMem, N_Vector y0);
+void solverInit(double* const restrict state, void** const restrict cvodeMemOut,
+                N_Vector* const restrict y0Out);
+void solverRun(void* const restrict cvodeMem, N_Vector const restrict yOut);
+void solverShutdown(void* cvodeMem, N_Vector const restrict y0);
 void modelSolver(void);
 // globals - should be consts only
 
@@ -34,7 +35,7 @@ void modelSolver(void);
 // CVODE Helper Functions ///////////////////////////////////////////////////////
 // this function is pass to Cvode to solve the ODE, and is a wrapper around the OdeModelLoop function that
 // computes the RHS, i.e. y' = f(t, y)
-int odeWrapperF(double time, N_Vector y, N_Vector yDot, void* userData) {
+int odeWrapperF(double time, N_Vector const restrict y, N_Vector const restrict yDot, void* userData){
     // we use NV_DATA_S macro to accress the internal arrays
     OdeModelRHS(time, NV_DATA_S(y), NV_DATA_S(yDot));
     return 0;
@@ -79,7 +80,8 @@ void modelSolver(void) {
 
 
 // initialise CVODE and Ode StdLib
-void solverInit(double* const state, void** const cvodeMemOut, N_Vector* const y0Out) {
+void solverInit(double* const restrict state, void** const restrict cvodeMemOut,
+                N_Vector* const restrict y0Out) {
     // Ode Stdlib init & setup file output
     OdeInit();
     OdeStartSim(OdeParamOutput, OdeParamStateSize);
@@ -133,7 +135,7 @@ void solverInit(double* const state, void** const cvodeMemOut, N_Vector* const y
     *y0Out = y0;
 }
 
-void solverRun(void* cvodeMem, N_Vector yOut) {
+void solverRun(void* const restrict cvodeMem, N_Vector const restrict yOut) {
     uint64_t curLoop = 0;
     double tNext;
     double tRet;
@@ -159,7 +161,7 @@ void solverRun(void* cvodeMem, N_Vector yOut) {
 }
 
 // shutdown simulation - free mem, etc.
-void solverShutdown(void* cvodeMem, N_Vector y0) {
+void solverShutdown(void* cvodeMem, N_Vector const restrict y0) {
     N_VDestroy_Serial(y0);
     CVodeFree(&cvodeMem);
     OdeStopSim();

@@ -100,6 +100,7 @@ genFFIParams numParams = do
 -- | C-compatible wrapper for the initial values function
 genFFIModelInitials initsF numParams = do
     (curFunc, builder) <- genFunction "OdeModelInitials" voidType createArgsList
+    liftIO $ setFuncParam curFunc 1 [NoAliasAttribute, NoCaptureAttribute]
 
     (curTimeVal : stateArrayRef : []) <- liftIO $ LLVM.getParams curFunc
 
@@ -119,6 +120,8 @@ genFFIModelInitials initsF numParams = do
 -- | C-compatible wrapper for the RHS function
 genFFIModelRHS rhsF numParams = do
     (curFunc, builder) <- genFunction "OdeModelRHS" voidType createArgsList
+    liftIO $ setFuncParam curFunc 1 [NoAliasAttribute, NoCaptureAttribute]
+    liftIO $ setFuncParam curFunc 2 [NoAliasAttribute, NoCaptureAttribute]
 
     (curTimeVal : stateArrayRef : deltaArrayRef : []) <- liftIO $ LLVM.getParams curFunc
 

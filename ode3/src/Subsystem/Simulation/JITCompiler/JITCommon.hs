@@ -138,7 +138,7 @@ defineExtOps p llvmMod = do
 
     createPureFunc name funcType = do
         f <- addFunction llvmMod name funcType
-        setFunctionCallConv f Fast
+        -- setFunctionCallConv f Fast -- we shouldn't use fastcc as they are external funcs
         addFuncAttributes f [NoUnwindAttribute, ReadNoneAttribute]
         return f
 

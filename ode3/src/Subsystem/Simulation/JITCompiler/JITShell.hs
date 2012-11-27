@@ -112,8 +112,8 @@ optScript p@(Sys.SimParams{..}) = do
         return modelVecBC
       where
         modelVecBC  = "Model.vecmath.bc"
-        -- linkOpts    = ["-std-link-opts", "-std-compile-opts"]
-        linkOpts    = ["-std-compile-opts"]
+        -- we can't use link-opts here, as ends up removing everything (assumes full program)
+        linkOpts    = ["-std-compile-opts"] -- ["-std-link-opts", "-std-compile-opts"]
         -- need to switch depending on the mathmodel
         odeVecMathLib = toTextIgnore $ odeLibPath </> case _mathLib of
                                                         Sys.GNU     -> "VecMath_GNU.bc"
@@ -134,7 +134,8 @@ linkStdlibScript p@(Sys.SimParams{..}) = do
         then run_ "llvm-link" ["-o", simBC, modelOptBC, odeStdLib, odeCvodeSim]
         else run_ "llvm-link" ["-o", simBC, modelOptBC, odeStdLib]
     -- perform LTO
-    when (L.get Sys.lOptimise p) $
+    when (L.get Sys.lOptimise p) $ do
+        run_ "llvm-dis" ["-o", simLtoBC, simBC]
         run_ "opt" (["-o", simBC] ++ linkOpts ++ [simBC])
     -- DEBUG - dis-assemble sim.bc and gen graphs
     run_ "llvm-dis" [simBC]
@@ -144,6 +145,7 @@ linkStdlibScript p@(Sys.SimParams{..}) = do
     odeStdLib   = toTextIgnore $ odeLibPath </> "OdeLibrary.bc" -- TODO - change to opt stdlib?
     odeCvodeSim = toTextIgnore $ odeFFIPath </> "CvodeSim.bc" -- TODO - change to opt stdlib?
     linkOpts    = ["-std-link-opts", "-std-compile-opts"]
+    simLtoBC    = "sim.pre-lto.ll"
 
 
 -- | Embedded script to compile a native AOT represetnation of the model (& optional simulation)

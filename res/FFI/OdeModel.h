@@ -62,7 +62,7 @@ extern void OdeModelInitials(const double time, double* const restrict state);
 
 // This function calculates the delta, based on the current time and STATE values
 // i.e. y' = f(t, y), where y'=DELTA and y=STATE
-extern void OdeModelRHS(const double time, const double* const state,
+extern void OdeModelRHS(const double time, const double* const restrict state,
                          double* const restrict delta);
 
 #endif // ODE_MODEL_H
