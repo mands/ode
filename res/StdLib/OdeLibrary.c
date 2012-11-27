@@ -46,9 +46,9 @@ void OdeStartSim(const char* const restrict filename, const uint64_t numArgs) {
 }
 
 void OdeStopSim(void) {
+    printf("Finished simulation, final stored time - %g\n", outData[0]);
     fclose(outFile);
     free(outData);
-    puts("Finished simulation");
 }
 
 // write state to disk

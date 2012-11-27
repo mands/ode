@@ -315,5 +315,6 @@ clearModState st = st'
 calcOutputInterval :: SimParams -> Integer
 calcOutputInterval SimParams{..} = floor $ _outputPeriod / _timestep
 
+-- | adjust stop time to account for period, round up to next mult of period
 calcAdjustedStopTime :: SimParams -> Double
 calcAdjustedStopTime SimParams{..} = (fromIntegral . ceiling $ _stopTime / _outputPeriod) * _outputPeriod

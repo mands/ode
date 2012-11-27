@@ -21,12 +21,12 @@
 #include "OdeModel.h"
 
 // prototypes
-int odeWrapperF(double time, N_Vector y, N_Vector ydot, void* user_data);
+int odeWrapperF(double time, N_Vector y, N_Vector yDot, void* userData);
 void checkFlag(const int flag, const char* const restrict funcname);
 void checkAlloc(const void* const ptr, const char* const restrict funcname);
-void solverInit(double* STATE, void** cvode_mem_out, N_Vector* y0_out);
-void solverRun(void* cvode_mem, N_Vector yout);
-void solverShutdown(void* cvode_mem, N_Vector y0);
+void solverInit(double* state, void** cvodeMemOut, N_Vector* y0Out);
+void solverRun(void* cvodeMem, N_Vector yOut);
+void solverShutdown(void* cvodeMem, N_Vector y0);
 
 // globals - should be consts only
 
@@ -34,9 +34,9 @@ void solverShutdown(void* cvode_mem, N_Vector y0);
 // CVODE Helper Functions ///////////////////////////////////////////////////////
 // this function is pass to Cvode to solve the ODE, and is a wrapper around the OdeModelLoop function that
 // computes the RHS, i.e. y' = f(t, y)
-int odeWrapperF(double time, N_Vector y, N_Vector ydot, void* user_data) {
+int odeWrapperF(double time, N_Vector y, N_Vector yDot, void* userData) {
     // we use NV_DATA_S macro to accress the internal arrays
-    OdeModelLoop(time, NV_DATA_S(y), NV_DATA_S(ydot));
+    OdeModelLoop(time, NV_DATA_S(y), NV_DATA_S(yDot));
     return 0;
 }
 
@@ -105,22 +105,24 @@ void solverInit(double* const state, void** const cvodeMemOut, N_Vector* const y
     flag = CVodeInit(cvodeMem, &odeWrapperF, OdeParamStartTime, y0);
     checkFlag(flag, "CVodeInit");
 
-    // setup error tolerances and timestep params
+    // setup (scalar) error tolerances
     flag = CVodeSStolerances(cvodeMem, OdeParamRelativeError, OdeParamAbsoluteError);
     checkFlag(flag, "CVodeSStolerances");
+
+    // optional inputs (see CVODE user guide) - inc timestep params
     flag = CVodeSetMinStep(cvodeMem, OdeParamTimestep);
     checkFlag(flag, "CVodeSetMinStep");
     flag = CVodeSetMaxStep(cvodeMem, OdeParamMaxTimestep);
     checkFlag(flag, "CVodeSetMaxStep");
-    // adjust stop time to account for period, round up to next mult of period
-    const double adjustedStopTime = ceil(OdeParamStopTime / OdeParamPeriod) * OdeParamPeriod;
-    printf("Adjusted stoptime - %g\n", adjustedStopTime);
-    flag = CVodeSetStopTime(cvodeMem, adjustedStopTime);
+    flag = CVodeSetStopTime(cvodeMem, OdeParamAdjustedStopTime);
     checkFlag(flag, "CVodeSetStopTime");
 
-    // setup the linear solver module for newton iteration - we choose CVDense
-    flag = CVDense(cvodeMem, N);
-    checkFlag(flag, "CVDense");
+    // if newtonian iteration, attach linear solver
+    // we choose CVDense with default dense Jacobian approx func, could also use CVDiag or CVBand
+    if (OdeParamModelType == Stiff) {
+        flag = CVDense(cvodeMem, N);
+        checkFlag(flag, "CVDense");
+    }
 
     // write thru the outputs
     *cvodeMemOut = cvodeMem;
@@ -149,6 +151,7 @@ void solverRun(void* cvodeMem, N_Vector yOut) {
         // save state to disk
         OdeWriteState(tRet, NV_DATA_S(yOut));
     }
+    printf("Simulation stop time - %g, OdeParamAdjustedStopTime - %g\n", tRet, OdeParamAdjustedStopTime);
 }
 
 // shutdown simulation - free mem, etc.

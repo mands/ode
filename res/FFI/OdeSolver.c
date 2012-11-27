@@ -42,16 +42,10 @@ void solverRun(double* const restrict state) {
     double delta[OdeParamStateSize];
     // euler loop params
     double time;
-    //const uint64_t periodInterval = (uint64_t)(floor(OdeParamPeriod / OdeParamTimestep));
-    //const uint64_t periodInterval = 1;
-
-    //printf("periodInterval  - %" PRIu64 ", %g\n", periodInterval, OdeParamPeriod / OdeParamTimestep);
-    // adjust stop time to account for period, round up to next mult of period
-    //const double adjustedStopTime = ceil(OdeParamStopTime / OdeParamPeriod) * OdeParamPeriod;
-
     uint64_t curPeriod = 1;
     uint64_t curLoop = 0;
     uint64_t stateIdx;
+
     // main forward euler loop
     do {
         // set the time
@@ -74,7 +68,7 @@ void solverRun(double* const restrict state) {
             ++curPeriod;
         }
     } while (time < OdeParamAdjustedStopTime);
-    printf("final stop time %g, adjusted stop time %g\n", time, OdeParamAdjustedStopTime);
+    printf("Simulation stop time %g, OdeParamAdjustedStopTime - %g\n", time, OdeParamAdjustedStopTime);
 }
 
 // shutdown simulation - free mem, etc.
