@@ -134,6 +134,11 @@ defineExtOps p llvmMod = do
         , (AC.Sqrt,     createPureFunc "sqrt" (functionType doubleType [doubleType] False))
         , (AC.Cbrt,     createPureFunc "cbrt" (functionType doubleType [doubleType] False))
         , (AC.Hypot,    createPureFunc "hypot" (functionType doubleType [doubleType, doubleType] False))
+        -- basic floating point ops
+        , (AC.FAbs,     createPureFunc "fabs" (functionType doubleType [doubleType] False))
+        , (AC.Floor,    createPureFunc "floor" (functionType doubleType [doubleType] False))
+        , (AC.Ceil,     createPureFunc "ceil" (functionType doubleType [doubleType] False))
+        , (AC.Round,    createPureFunc "round" (functionType doubleType [doubleType] False))
         ]
 
     createPureFunc name funcType = do

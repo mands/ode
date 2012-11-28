@@ -1,0 +1,49 @@
+// disable unit checking
+:disableUnits
+
+// setup the repo
+:addRepo ../res/Samples/repo
+
+// import our modules
+import SimTests.Mahajan.*
+
+// :show all
+//:show modState
+
+// set sim params
+:startTime 0
+:stopTime 60.015
+:timestep 0.0001
+:period 0.01
+:output "./output.bin"
+
+// sim backend params
+:solver "adaptive"
+// linker - dynamic, static
+:linker "dynamic"
+// disable exe
+:disableExecute
+// disable opts
+//:disableOptimise
+// disable short-circuiting
+//:disableShortCircuit
+// disable power expan
+//:disablePowerExpan
+// math model - strict, fast
+:mathModel "fast"
+// vecmath enable?
+//:vecMath
+:mathLib "gnu"
+// backend to use - interpreter, jitcompiler, aotcompiler, objectfile
+:backend "aotcompiler"
+
+// adaptive params
+:relError 1e-9
+:absError 1e-11
+:modelType "stiff"
+:maxTimestep 3.0
+
+// all done
+:simulate Mahajan
+:quit
+

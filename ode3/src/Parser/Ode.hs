@@ -318,7 +318,11 @@ builtinOpParser =   reserved "sin"      *> pure (AC.MathOp AC.Sin)
                 <|> reserved "lgamma"   *> pure (AC.MathOp AC.LGamma)
                 <|> reserved "gamma"    *> pure (AC.MathOp AC.TGamma)
                 <|> reserved "tgamma"   *> pure (AC.MathOp AC.TGamma)
-                -- other ops
+                -- basic fp ops
+                <|> reserved "abs"      *> pure (AC.MathOp AC.FAbs)
+                <|> reserved "floor"    *> pure (AC.MathOp AC.Floor)
+                <|> reserved "ceil"     *> pure (AC.MathOp AC.Ceil)
+                <|> reserved "round"    *> pure (AC.MathOp AC.Round)
 
 
 -- bit of a hack to handle certain op calls that are not supported explciity within the language semantics,

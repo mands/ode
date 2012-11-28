@@ -87,7 +87,7 @@ opReservedNames = [
                 , "sinh", "cosh", "tanh", "asinh", "acosh", "atanh"
                 , "erf", "erfc", "lgamma", "gamma", "tgamma"
                 -- other ops
-                , "upow", "uroot" -- "rand", "abs", "round", "floor", "ceil"
+                , "upow", "uroot", "abs", "floor", "ceil", "round"  -- "rand"
                 ]
 
 lexer :: T.TokenParser ()

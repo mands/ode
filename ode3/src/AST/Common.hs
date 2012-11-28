@@ -132,7 +132,7 @@ data BasicOp    =
                 | Neg           -- Only used within frontend
                 deriving (Show, Eq, Ord)
 
--- these ops copied direct from GNU Math library (libm)
+-- these (transcential) ops copied direct from GNU Math library (libm)
 data MathOp     =
                 -- basic trig
                   Sin           -- f -> f
@@ -175,6 +175,11 @@ data MathOp     =
                 | LGamma        -- f -> f
                 -- Gamma        -- f -> f -- not needed, instead both "gamma" and "tgamma" resovle to TGamma
                 | TGamma        -- f -> f
+                -- basic floating point ops
+                | FAbs                   -- f -> f
+                | Floor                 -- f -> f
+                | Ceil                  -- f -> f
+                | Round                 -- f -> f
                 deriving (Show, Eq, Ord)
 
 -- custom operations
@@ -183,11 +188,5 @@ data OtherOp    =
                 Rand                    -- None -> f (0 < f < 1)
                 | UPow Integer          -- f -> f
                 | URoot Integer         -- f -> f
-                -- Abs                   -- f -> f
-                -- Floor                 -- f -> f
-                -- Ceil                  -- f -> f
-                -- Round                 -- f -> f
                 deriving (Show, Eq, Ord)
-
-
 

@@ -385,6 +385,7 @@ getOpType op = case op of
     -- MathOp SinCos                                   -> typeFtoFF         -- f -> (f,f)
     MathOp x | x `elem` [ATan2, Pow]                -> typeFFtoF         -- (f,f) -> f
     MathOp Hypot                                    -> typeFFtoF_USame   -- (f u1, f u1) -> f u1
+    MathOp x | x `elem` [FAbs, Floor, Ceil, Round]  -> typeFtoF_USame    -- f u1 -> f u1
     -- Other Ops
     OtherOp (UPow _)                                -> typeFtoF_UMul     -- f u1 -> f u2
     OtherOp (URoot _)                               -> typeFtoF_UMul     -- f u1 -> f u2
