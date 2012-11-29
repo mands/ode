@@ -182,6 +182,7 @@ exprStmt    = compDef
             <?> "component, value or simulation defintion"
 
 -- |parse a sval/initial condition def
+-- TODO - do we allowed blockStmt for inits?
 sValueDef :: Parser AO.Stmt
 sValueDef = AO.SValue <$> (reserved "init" *> commaSep1 identifier) <*> (reservedOp "=" *> compExpr)
 
@@ -199,7 +200,7 @@ blockStmt = braces $ (,) <$> (option [] (many exprStmt)) <*> (reserved "return" 
 
 -- | parser for defining a component
 compDef :: Parser AO.Stmt
-compDef = AO.Component   <$> (reserved "component" *> identifier)
+compDef = AO.Component  <$> (reserved "component" *> identifier)
                         <*> singOrList valIdentifier
                         <*> blockStmt
                         <?> "component definition"
@@ -217,6 +218,7 @@ rreDef :: Parser AO.Stmt
 rreDef = AO.RreDef <$> (reserved "rre" *> braces rreAttribs) <*> (reservedOp "=" *> identifier) <*> (reservedOp "->" *> identifier)
   where
     -- | parse a rre attribute definition
+    -- TODO - this could/should be an expression
     rreAttribs = attrib "rate" number
 
 
@@ -233,6 +235,7 @@ compTerm = do
                     <|> try (AO.UnwrapType <$> pure e <*> singAttrib "unwrap" typeIdentifier)
 
 -- | parse a term - the value on either side of an operator
+-- these should not be stateful, however we could call a component that in turn creates state/init values
 compTerm' :: Parser AO.Expr
 compTerm' = try (parens compExpr)
             <|> AO.Number <$> number <*> optionMaybe (try unitAttrib)
@@ -261,6 +264,7 @@ numSeqTerm = createSeq <$> number <*> (comma *> number) <*> (symbol ".." *> numb
     createSeq a b c = AO.NumSeq a b c
 
 -- | a basic numeric expression, using parsec expression builder
+-- i.e. the value on the rhs of an expression
 compExpr  :: Parser AO.Expr
 compExpr  =  buildExpressionParser exprOpTable compTerm <?> "expression"
 
@@ -326,7 +330,7 @@ builtinOpParser =   reserved "sin"      *> pure (AC.MathOp AC.Sin)
 
 
 -- bit of a hack to handle certain op calls that are not supported explciity within the language semantics,
--- for instace, ops with integer params
+-- for instace, ops with integer (or string) params
 hardcodedOps :: Parser AO.Expr
 hardcodedOps =  upow
                 <|> uroot

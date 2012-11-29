@@ -242,6 +242,12 @@ simOp (AC.MathOp AC.ATanH) ((Num n1):[])   = Num (atanh n1)
 --simOp (AC.MathOp AC.LGamma) ((Num n1):[])   = Num (lgamma n1)
 --simOp (AC.MathOp AC.TGamma) ((Num n1):[])   = Num (tgamma n1)
 
+simOp (AC.MathOp AC.FAbs)   ((Num n1):[])   = Num (abs n1)
+simOp (AC.MathOp AC.Floor)  ((Num n1):[])   = Num (fromIntegral $ floor n1)
+simOp (AC.MathOp AC.Ceil)   ((Num n1):[])   = Num (fromIntegral $ ceiling n1)
+simOp (AC.MathOp AC.Round)  ((Num n1):[])   = Num (fromIntegral $ round n1)
+
+
 -- NOT YET IMPLEMENTED
 simOp op vs = errorDump [MkSB op, MkSB vs] "Operator not supported in interpreter" assert
 

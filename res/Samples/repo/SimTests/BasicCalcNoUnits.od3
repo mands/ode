@@ -57,6 +57,13 @@ module BasicCalc4b {
     val c = piecewise { a < 5 { unit : s} : a > 1, default : a < 1 } 
 }
 
+// piecewise - OK
+module BasicCalc4c {
+    val a = time
+    val b = piecewise { a > 5 { unit : s} : a + 1 + 2 + 3, default : a - 1 } 
+}
+
+
 // svals - OK
 module BasicCalc5a {
     init a = 0.1 + 1
@@ -110,6 +117,13 @@ module BasicCalc7a {
     val b,c = a
 }
 
+// tuple return from a piecewise (i.e. a separate basic-block)
+module BasicCalc7b {
+    val a = time
+    val b, c = piecewise  { a > 5 { unit : s} : (a + 1, a - 1)
+                          , default : (a + 2, a - 2)
+                          } 
+}
 
 
 // records - OK

@@ -84,10 +84,10 @@ flatten initModStr = do
 
     -- convert to CoreFlat
     core1 <- lift $ convertAST mod4
-    --trace' [MkSB core1] "CoreFlat AST output" $ return ()
+    trace' [MkSB core1] "CoreFlat AST output" $ return ()
     -- unpack tuples (in CoreFlat)
     core2 <- lift $ unpackTuples core1
-    --trace' [MkSB core2] "(Unpacked) CoreFlat AST output" $ return ()
+    trace' [MkSB core2] "(Unpacked) CoreFlat AST output" $ return ()
 
 --    core3 <- ifM (getSysState $ lOptimise . lSimParams)
 --                (lift $ optimiseCoreFlatAST core2)

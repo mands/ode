@@ -207,6 +207,8 @@ liftVarExpr e@(AC.Var (AC.LocalVar v) Nothing) = return $ Just $ ACF.VarRef v
 liftVarExpr e@(AC.Var (AC.LocalVar v) (Just recId)) = Just <$> convertRecId v recId
 liftVarExpr e = return Nothing
 
+
+-- TODO - this is incorrect - need to insert into _curExprs
 -- | Wrapper function to insert a given expression into the correct exprmap under a given Id
 insertExpr :: Id -> ACF.Expr -> ACF.Type -> ConvM ()
 insertExpr id fE fT = do

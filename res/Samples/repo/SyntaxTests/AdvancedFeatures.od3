@@ -1,0 +1,113 @@
+// modules include tests for some of the more unused/adavanced functionality of ode that utilise knoweldge of its functional core
+
+// Nested blocks - only allowed on the RHS of a val expression
+
+// nested blocks - OK, generates nested lets
+module Adv1a {
+  val a = { val b = 0
+            return b
+          }
+}
+
+/*
+// passing and returning nested blocks - FAIL
+module Adv1b {
+  component comp1(x) {
+    return ({ val y = x
+              return y})
+  }
+
+  val a = comp1({ val b = 0
+                  return b })
+}
+*/
+
+
+/*
+// nested block inside a piecewise - FAIL
+module Adv1c {
+  component comp1(x) { return(x+1) }
+
+  val a = piecewise { time < 5 : 3                    // OK
+                    , time > 5 : sin(2) + comp1(1)    // OK
+                    , default : { val b = 0           // Parser Fail
+                                  return b}
+                    }
+}
+*/
+
+// Adv2 - Stateful (sub-)components - inits from non-inits
+// call init from piecewise non-init
+// OK
+module Adv2a {
+  component comp1(x) {
+    init y = 1 // +x // Validator picks up invalid model when using x here, is this wrong?
+    return x
+  }
+
+  val a = piecewise { time < 5 : 3          // OK
+                    , default : comp1(1)    // OK
+                    }
+}
+
+
+// call init and ode from piecewise non-init
+module Adv2b {
+  component comp1(x) {
+    init y = 1
+    ode { init : y, delta : dy } = x
+    return x
+  }
+
+  val a = piecewise { time < 5 : 3          // OK
+                    , default : comp1(1)    // OK
+                    }
+}
+
+
+
+// Adv3 - inits from inits
+// OK - no prob
+module Adv3a {
+  init y = 1
+  ode { init : y, delta : dy } = 2
+  init a = y
+}
+
+/*
+// init from non-init
+// OK - validator picks up invalid model
+module Adv3b {
+  val y = 1
+  init a = y
+}
+*/
+
+// indirect init from init
+// FAIL? - if y is either init or val, model compiles - as during component inlining the vals are promoted as necessary
+module Adv3c {
+  component comp1(x) {
+    val y = 1
+    return y
+  }
+
+  init a = comp1(1)
+  val b = comp1(1)
+}
+
+
+// Adv4 - auto val copy-promotion within inits
+
+// FAIL - y should be duplicated and promoted as necessary
+module Adv3d {
+  val y = 1
+  init a = y
+  val b = y
+}
+
+
+// TODO,
+// stateful sub-components from init
+// differing sub-comopnents
+// HOFs
+

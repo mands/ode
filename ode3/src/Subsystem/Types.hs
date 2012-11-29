@@ -80,22 +80,23 @@ calcTypeExpr tMap (AC.Op op e) = do
     eT <- calcTypeExpr tMap e
     case op of
        -- Basic Ops
-        BasicOp x | x `elem` [Add, Sub]                 -> typeFFtoF_USame eT   -- (f u1, f u1) -> f u1
-        BasicOp x | x `elem` [Mul, Div]                 -> typeFFtoF_UAdd eT         -- (f u1, f u2) -> f u3
+        BasicOp x | x `elem` [Add, Sub]                 -> typeFFtoF_USame eT    -- (f u1, f u1) -> f u1
+        BasicOp x | x `elem` [Mul, Div]                 -> typeFFtoF_UAdd eT     -- (f u1, f u2) -> f u3
         BasicOp x | x `elem` [ACO.LT, LE, ACO.GT, GE, ACO.EQ, NEQ]  -> typeFFtoB_USame eT     -- (f u1, f u1) -> b
-        BasicOp x | x `elem` [And, Or]                  -> typeBBtoB         -- (b, b) -> b
-        BasicOp Not                                     -> typeBtoB          -- b -> b
+        BasicOp x | x `elem` [And, Or]                  -> typeBBtoB             -- (b, b) -> b
+        BasicOp Not                                     -> typeBtoB              -- b -> b
         -- Math Ops
         MathOp x | x `elem` [ Sin, Cos, Tan, ASin, ACos, ATan, Exp, Exp2, Exp10, Pow10
                             , Log, Log2, Log10, LogB, Sqrt, Cbrt, ExpM1, Log1P
                             , SinH, CosH, TanH, ASinH, ACosH, ATanH
-                            , Erf, ErfC, LGamma, TGamma] -> typeFtoF         -- f -> f
+                            , Erf, ErfC, LGamma, TGamma] -> typeFtoF             -- f -> f
         -- MathOp SinCos                                   -> typeFtoFF         -- f -> (f,f)
-        MathOp x | x `elem` [ATan2, Pow]                -> typeFFtoF         -- (f,f) -> f
-        MathOp Hypot                                    -> typeFFtoF_USame eT   -- (f u1, f u1) -> f u1
+        MathOp x | x `elem` [ATan2, Pow]                -> typeFFtoF             -- (f,f) -> f
+        MathOp Hypot                                    -> typeFFtoF_USame eT    -- (f u1, f u1) -> f u1
+        MathOp x | x `elem` [FAbs, Floor, Ceil, Round]  -> typeFtoF_USame eT     -- f u1 -> f u1
         -- Other Ops
-        OtherOp (UPow _)                                -> typeFtoF_UMul eT     -- f u1 -> f u2
-        OtherOp (URoot _)                               -> typeFtoF_UMul eT     -- f u1 -> f u2
+        OtherOp (UPow _)                                -> typeFtoF_UMul eT      -- f u1 -> f u2
+        OtherOp (URoot _)                               -> typeFtoF_UMul eT      -- f u1 -> f u2
   where
 
     typeFFtoF   = return $ AC.TFloat U.NoUnit

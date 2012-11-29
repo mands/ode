@@ -70,6 +70,8 @@ addBinding isSVal st b = case Set.member b (curBinds st) of
     False -> return $ st { curBinds = Set.insert b (curBinds st)
                         , sValSet = if isSVal then Set.insert b (sValSet st) else (sValSet st) }
 
+-- | ensure that we only ever reference another init value from an init value, assumes all bindings are vals unless explicity init within scope
+-- TODO - this may be too strict
 checkSVal :: E.DesId -> ValidState -> MExcept ()
 checkSVal v st = unless (Set.member v (sValSet st)) $ throwError $ printf "(VL07) Value %s must be an init value" (show v)
 
