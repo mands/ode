@@ -170,9 +170,9 @@ dsStmt (O.Value ids (body, value)) = do
     ids' <- DT.mapM subDontCares ids
     return $ (ids', v')
 
-dsStmt (O.SValue ids expr) = do
+dsStmt (O.SValue id expr) = do
     sExpr <- dsExpr expr
-    return $ (ids, sExpr)
+    return $ ([id], sExpr)
 
 -- TODO - need to add the correct unit for the delta expr here
 dsStmt (O.OdeDef initRef deltaName expr) = do

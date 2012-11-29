@@ -73,7 +73,8 @@ addBinding isSVal st b = case Set.member b (curBinds st) of
 -- | ensure that we only ever reference another init value from an init value, assumes all bindings are vals unless explicity init within scope
 -- TODO - this may be too strict
 checkSVal :: E.DesId -> ValidState -> MExcept ()
-checkSVal v st = unless (Set.member v (sValSet st)) $ throwError $ printf "(VL07) Value %s must be an init value" (show v)
+-- checkSVal v st = unless (Set.member v (sValSet st)) $ throwError $ printf "(VL07) Value %s must be an init value" (show v)
+checkSVal v st = return ()
 
 -- Top Level Exprs -----------------------------------------------------------------------------------------------------
 -- create the expression map and check for duplicated top-level bindings
@@ -92,6 +93,7 @@ createTopExprs exprList exports = do
         -- reset the curBinds and update the SVal state flag
         validExpr expr (st { curBinds = Set.empty, inSVal = sv })
         addTopBinding sv st bs topExpr
+
     t st topExpr@(E.TopType tName) = addTopBinding False st [tName] topExpr
 
     addTopBinding sv st bs expr = do

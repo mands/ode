@@ -109,6 +109,7 @@ data VarId a =  LocalVar a
 -- TODO - could we use the Bind type to unify both b and [b], or use GADTs and type-classes for extra type-safety
 -- |Main model elements - maybe move these into a Map indexed by Id
 data TopLet b   = TopLet Bool Type (BindList b) (Expr b)   -- binding, expr
+--                | TopInitVal Type b (Expr b)
                 | TopType b    -- typeid
                 deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
 
@@ -132,6 +133,9 @@ data Expr b = Var (VarId b) (Maybe RecId)             -- a reference to any let-
                                         -- test to try multi-lets within an expressino - handles unpacking with context
                                          -- can be stateful bindings that are held between time-steps if 1st param=True
                                          -- Type param holds the type of the bindings created by e1
+
+--            | InitVal Type b (Expr b) (Expr b)  -- a new type to represent initial expressions,
+--                                                -- type should always be a double, but may have a unit attached
 
             | Lit Literal               -- basic built-in constant literals
 

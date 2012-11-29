@@ -24,7 +24,7 @@ import qualified Data.Map as Map
 import AST.Common
 
 -- | SrcIdentifier that may be reference a local or module parameter
-data RefId =   LocalId SrcId | ModId SrcId SrcId deriving (Show, Eq, Ord)
+data RefId = LocalId SrcId | ModId SrcId SrcId deriving (Show, Eq, Ord)
 
 -- | used for creating new bindings that may differntiatin between actual ids and _ vals
 data BindId = BindId SrcId | DontCare deriving (Show, Ord, Eq)
@@ -46,8 +46,8 @@ data Stmt = -- each independent component, is basically function abstraction
             -- value defintion
             -- they are constant, at least during single timestep
             | Value { vName :: [BindId], vValue :: ([Stmt], Expr) }
-            -- state value defintion - indirectly mutable, stateful, values
-            | SValue { svName :: [SrcId], svValue :: Expr }
+            -- state value defintion - indirectly mutable, stateful, values - only single bind name
+            | SValue { svName :: SrcId, svValue :: Expr }
             -- ODE - a SValue and ODE def combined
             | OdeDef { odeInit :: SrcId, odeDeltaName :: BindId, odeExpr :: Expr}
             -- RRE - takes two SValues and a rate parameter

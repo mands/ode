@@ -127,6 +127,15 @@ getMVarType mv@(E.ModVar m v) gModEnv modData mFuncArgs =
 
 
 -- Binding Helper Functions --------------------------------------------------------------------------------------------
+processInitValBind :: Integer -> E.Type -> TypeConsM ()
+processInitValBind b eT = do
+    trace' [MkSB b, MkSB eT] "Init - types" $ return ()
+    -- need to setup a constraint of eT == TFloat u1
+    uV1 <- newUnitVar
+    addConsType $ ConEqual eT (E.TFloat uV1)
+    -- update the tEnv
+    modify (\tEnvs@(TypeEnvs tEnv _ _) -> tEnvs { typeEnv = Map.insert (E.LocalVar b) eT tEnv })
+
 
 processLetBind :: E.BindList Integer -> E.Type -> TypeConsM ()
 processLetBind bs eT = do
@@ -183,7 +192,7 @@ constrain gModEnv modData mFuncArgs unitsCheck = runStateT (evalSupplyT (execSta
 
     consTop (E.TopLet s t bs e) = do
         eT <- consExpr e
-        processLetBind bs eT
+        if s then processInitValBind (head bs) eT else processLetBind bs eT
 
     -- is this right?
     consTop (E.TopType tName) = do
@@ -245,7 +254,7 @@ constrain gModEnv modData mFuncArgs unitsCheck = runStateT (evalSupplyT (execSta
     -- NOTE - do we need to return the new tEnv here?
     consExpr (E.Let s t bs e1 e2) = do
         e1T <- consExpr e1
-        processLetBind bs e1T
+        if s then processInitValBind (head bs) e1T else processLetBind bs e1T
         consExpr e2
 
     -- Mapping from literal -> type

@@ -46,6 +46,6 @@ import SyntaxTests.AdvancedFeatures.*
 :maxTimestep 2
 
 // all done
-:simulate Adv3c
+:simulate Adv4a
 :quit
 

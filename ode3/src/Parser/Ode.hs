@@ -184,7 +184,7 @@ exprStmt    = compDef
 -- |parse a sval/initial condition def
 -- TODO - do we allowed blockStmt for inits?
 sValueDef :: Parser AO.Stmt
-sValueDef = AO.SValue <$> (reserved "init" *> commaSep1 identifier) <*> (reservedOp "=" *> compExpr)
+sValueDef = AO.SValue <$> (reserved "init" *> identifier) <*> (reservedOp "=" *> compExpr)
 
 -- | parse a value definition
 -- e.g., val x = expr
