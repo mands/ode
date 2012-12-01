@@ -39,37 +39,23 @@ import qualified Subsystem.SysState as Sys
 -- Monad and Helper Funcs -----------------------------------------------------------------------------------------------------
 
 type OptM = SupplyT Id (StateT OptState MExcept)
+data OptState = OptState { tMap :: TypeMap } deriving (Show)
 
-data OptState = OptState { inInit :: Bool, tMap :: TypeMap } deriving (Show)
-
-mkOptState = OptState False
-
-modInit :: Bool -> OptM Bool
-modInit inInit' = do
-    s@OptState{..} <- lift get
-    lift $ put (s { inInit = inInit || inInit' }) --  modify (\st -> st { _inInit = isInit || (_inInit st) } ) -- set Init flag
-    return inInit
-
-setInit :: Bool -> OptM ()
-setInit inInit = lift $ modify (\st -> st { inInit } ) -- set Init flag
 
 -- Entry Point ---------------------------------------------------------------------------------------------------------
-
-
 -- we pass SimParams direct as need access to variety of opt options
-optimiseCoreAST :: Module Id -> Sys.SimParams -> MExcept (Module Id)
-optimiseCoreAST (LitMod modData@ModData{..}) Sys.SimParams{..} = do
+optimiseCoreAST :: Sys.SimParams -> Module Id -> MExcept (Module Id)
+optimiseCoreAST Sys.SimParams{..} (LitMod modData@ModData{..}) = do
     -- run non-monad opts
     let exprMap' = opts modExprMap
     -- run monad-opts
-    ((exprMap'', freeIds'), _) <- runStateT (runSupplyT (optsM exprMap') [modFreeId ..]) $ mkOptState modTMap
+    ((exprMap'', freeIds'), _) <- runStateT (runSupplyT (optsM exprMap') [modFreeId ..]) $ OptState modTMap
     -- return the updated module
     return $ LitMod $ (updateModData2 modData exprMap'') { modFreeId = head freeIds' }
   where
     -- TODO - need to create generalised handler for multiple optimisations
     opts :: ExprMap Id -> ExprMap Id
     opts exprMap = if _optShortCircuit then fmap optSCETop exprMap else exprMap
-
 
     optsM :: ExprMap Id -> OptM (ExprMap Id)
     optsM exprMap = if _mathModel == Sys.Fast && _optPowerExpan then DT.mapM optPowerTop exprMap else return modExprMap
@@ -97,16 +83,11 @@ optSCEExpr e = ACR.mapExpr optSCEExpr e
 -- TODO - expand UPow Op too
 optPowerTop :: ACR.TopLet Id -> OptM (ACR.TopLet Id)
 optPowerTop (ACR.TopLet isInit t bs tE) = do
-    setInit isInit
     ACR.TopLet isInit t bs <$> optPowerExpr tE
 
 optPowerExpr :: ACR.Expr Id -> OptM (ACR.Expr Id)
 optPowerExpr (ACR.Let isInit t bs e1 e2) = do
-    oldInit <- modInit isInit
-    e1' <- optPowerExpr e1
-    setInit oldInit
-    e2' <- optPowerExpr e2
-    return $ ACR.Let isInit t bs e1' e2'
+    ACR.Let isInit t bs <$> optPowerExpr e1 <*> optPowerExpr e2
 
 -- pow(x, +n) => expand to n multiplications of x
 optPowerExpr e@(ACR.Op (AC.MathOp (AC.Pow)) (ACR.Tuple (e1:(ACR.Lit (ACR.Num n _)):[]))) | n >= 0 && isWholeNumber n = do
@@ -137,7 +118,7 @@ expandPow e n  = do
     s@OptState{..} <- lift get
     -- get the type - tho it should (always?) be a TFloat
     t <- lift . lift $ T.calcTypeExpr tMap e
-    return $ ACR.Let inInit t [id] e $ createMultExpr id (floor n) (eRef id)
+    return $ ACR.Let False t [id] e $ createMultExpr id (floor n) (eRef id)
   where
     createMultExpr id 1 mE = mE
     createMultExpr id acc mE = createMultExpr id (acc-1) $

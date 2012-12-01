@@ -54,43 +54,24 @@ import Process.Flatten.ConvertTypes
 import Process.Flatten.UnpackTuples
 import Process.Flatten.OptimiseAST
 import Process.Flatten.OptimiseCoreFlatAST
+import Process.Flatten.InitialValueGen
 
+
+-- TODO - should really clean this up, is so verbose simply so can get debugging output
 flatten :: String -> SysExcept ACF.Module
 flatten initModStr = do
     sysSt <- S.get
-    -- lookup the refmod in repl filedata
+    -- lookup the refmod in REPL filedata
     replFD <- getSysState vLocalFile
     initMod <- lift $  maybeToExcept (Map.lookup (ModName initModStr) (fileModEnv replFD))
                         (printf "Cannot find module %s loaded to simulate" (show initModStr))
-    --trace' [MkSB initMod] "CoreFlat AST input" $ return ()
-    -- inline mods
-    gModEnv <- getSysState vModEnv
-    mod1 <- lift $ inlineMod gModEnv initMod
-    --trace' [MkSB mod1] "Inline Mods output" $ return ()
-    -- inline components
-    mod2 <- lift $ inlineComps mod1
-    --trace' [MkSB mod2] "Inline Comps output" $ return ()
-    -- convert units and types
-    unitsState <- getSysState lUnitsState
-    mod3 <- lift $ convertTypes mod2 unitsState
-    trace' [MkSB mod3] "Convert units output" $ return ()
-    -- perform Core AST micro-opts
+    trace' [MkSB initMod] "Flatten - Initial Core AST input" $ return ()
+    -- now run the flatten pipeline in the MExcept monad
+    let gModEnv = _modEnv . _modState $ sysSt
+    let simParams = _simParams sysSt
+    let unitsState = _unitsState sysSt
+    coreFlatMod <- lift $ inlineMod gModEnv initMod >>= inlineComps >>= convertTypes unitsState >>= optimiseCoreAST simParams
+        >>= initialValueGen >>= convertAST >>= unpackTuples
+    -- TODO - add the optimiseCoreFlatAST?
+    trace' [MkSB coreFlatMod] "Flatten - Final CoreFlat AST output" $ return coreFlatMod
 
-    shortCircuit <- getSysState $ lOptShortCircuit . lSimParams
-    ops <- getSysState $ lOptimise . lSimParams
-    simParams <- getSysState $ lSimParams
-    mod4 <- lift $ optimiseCoreAST mod3 simParams
-    -- trace' [MkSB mod4] "Optimised Core AST" $ return ()
-
-    -- convert to CoreFlat
-    core1 <- lift $ convertAST mod4
-    trace' [MkSB core1] "CoreFlat AST output" $ return ()
-    -- unpack tuples (in CoreFlat)
-    core2 <- lift $ unpackTuples core1
-    trace' [MkSB core2] "(Unpacked) CoreFlat AST output" $ return ()
-
---    core3 <- ifM (getSysState $ lOptimise . lSimParams)
---                (lift $ optimiseCoreFlatAST core2)
---                (return core2)
-
-    return core2

@@ -60,10 +60,10 @@ type ParamMap = OrdMap.OrdMap Id LLVM.Value
 newtype GenM a = GenM { runGenM :: (StateT GenState (MExceptIO)) a }
     deriving (Monad, MonadError String, MonadIO, MonadState GenState, Functor) -- , MonadTrans)
 
-data GenState = GenState    { -- stateMap :: Map.Map Id String     -- a mapping from (state) ids to global vals in bitcode
+data GenState = GenState    { -- stateMap :: Map.Map Id String  -- a mapping from (state) ids to global vals in bitcode
                               localMap :: Map.Map Id LLVM.Value -- a mapping from local-def'd ids to their LLVM vals
-                            , mathOps :: MathOps -- a mapping to all externally defined funcs
-                            , libOps :: LibOps -- a mapping to all externally defined funcs
+                            , mathOps :: MathOps                -- a mapping to all externally defined funcs
+                            , libOps :: LibOps                  -- a mapping to all externally defined funcs
                             , builder :: LLVM.Builder           -- the current inst. builder
                             , llvmMod :: LLVM.Module
                             , curFunc :: LLVM.Value
@@ -71,10 +71,8 @@ data GenState = GenState    { -- stateMap :: Map.Map Id String     -- a mapping 
                             , simParams :: Sys.SimParams
                             } deriving (Show)
 
-
 -- this is a bit hacky as we use a null pointer to represent the initial builder
 mkGenState = GenState Map.empty Map.empty Map.empty nullPtr nullPtr nullPtr nullPtr
-
 
 -- Helper Funcs --------------------------------------------------------------------------------------------------------
 

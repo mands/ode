@@ -45,15 +45,16 @@ data UnpackState = UnpackState  { unpackedIds :: Map.Map Id RefMap
                                 } deriving (Show, Eq, Ord)
 mkUnpackState = UnpackState Map.empty -- Map.empty
 
--- Process Entry -------------------------------------------------------------------------------------------------------
+-- Entry Point ---------------------------------------------------------------------------------------------------------
 
 unpackTuples :: Module -> MExcept Module
 unpackTuples Module{..} = do
     -- run over both the init and loop exprs, using the same state
+    -- NOTE - do we need to run unpack over initExprs ??
     ((initExprs', freeIds), st')   <- runStateT (runSupplyT (unpackM initExprs) [freeId..]) $ mkUnpackState
     ((loopExprs', freeIds'), _)    <- runStateT (runSupplyT (unpackM loopExprs) freeIds) $ st'
 
-    return $ Module loopExprs' initExprs' (simOps) (head freeIds')
+    return $ Module initExprs' loopExprs' initVals simOps (head freeIds')
   where
     unpackM :: ExprMap -> UnpackM ExprMap
     unpackM exprMap = unpackTop (OrdMap.toList exprMap) OrdMap.empty

@@ -69,6 +69,7 @@ genAOTMain simF = do
 
 -- | C-compatible wrapper for all important simulation parameters - look at OdeModel.h for interface details
 -- Write sim param constant to global vals within the module
+genFFIParams :: Int -> GenM ()
 genFFIParams numParams = do
     GenState {builder, simParams, llvmMod} <- get
     let Sys.SimParams{..} = simParams
@@ -95,9 +96,11 @@ genFFIParams numParams = do
 
     -- model size
     liftIO $ addGlobalWithInit llvmMod (constInt64 $ numParams) int64Type True "OdeParamStateSize"
+    return ()
 
 
 -- | C-compatible wrapper for the initial values function
+genFFIModelInitials :: LLVM.Value -> Int -> GenM ()
 genFFIModelInitials initsF numParams = do
     (curFunc, builder) <- genFunction "OdeModelInitials" voidType createArgsList
     liftIO $ setFuncParam curFunc 1 [NoAliasAttribute, NoCaptureAttribute]
@@ -118,6 +121,7 @@ genFFIModelInitials initsF numParams = do
 
 
 -- | C-compatible wrapper for the RHS function
+genFFIModelRHS :: LLVM.Value -> Int -> GenM ()
 genFFIModelRHS rhsF numParams = do
     (curFunc, builder) <- genFunction "OdeModelRHS" voidType createArgsList
     liftIO $ setFuncParam curFunc 1 [NoAliasAttribute, NoCaptureAttribute]

@@ -47,7 +47,7 @@ type InlineModsM = StateT InlineState MExcept
 data InlineState = InlineState { stInModMap :: Map.Map ModFullName IdMap, stBaseMod :: Module Id, stGModEnv :: GlobalModEnv }
 mkInlineState = InlineState Map.empty (LitMod mkModData)
 
--- top-level entry point
+-- Entry Point ---------------------------------------------------------------------------------------------------------
 inlineMod :: GlobalModEnv -> Module Id -> MExcept (Module Id)
 inlineMod gModEnv mod = do
     (_ , st') <- runStateT (inlineRefMod mod) (mkInlineState gModEnv)

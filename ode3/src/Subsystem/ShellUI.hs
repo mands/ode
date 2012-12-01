@@ -328,6 +328,7 @@ shSimulate initMod = do
         return ()
 
     -- basic sanity checks over simulation parameters
+    -- TODO - should this be placed elsewhere?
     checkParams :: SimParams -> MExcept ()
     checkParams SimParams{..} = do
         when (_outputPeriod < _timestep)
@@ -342,8 +343,4 @@ shSimulate initMod = do
             (throwError $ printf "Start time (%g) cannot be negative \n" _startTime)
 
         return ()
-
-
-
-
 

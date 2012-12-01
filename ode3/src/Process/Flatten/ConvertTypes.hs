@@ -47,23 +47,14 @@ import Subsystem.SysState
 
 type UnitConvM = SupplyT Id (StateT UnitConvState MExcept)
 
-data UnitConvState = UnitConvState { _inInit :: Bool, _uState :: UnitsState, _tMap :: TypeMap } deriving (Show)
+data UnitConvState = UnitConvState { _uState :: UnitsState, _tMap :: TypeMap } deriving (Show)
 -- type UnitConvState = (UnitsState, TypeMap)
-mkUnitConvState = UnitConvState False
-
-modInit :: Bool -> UnitConvM Bool
-modInit isInit = do
-    oldInit <- lift $ _inInit <$> get
-    lift $ modify (\st -> st { _inInit = isInit || (_inInit st) } ) -- set Init flag
-    return oldInit
-
-setInit :: Bool -> UnitConvM ()
-setInit isInit = lift $ modify (\st -> st { _inInit = isInit } ) -- set Init flag
+mkUnitConvState = UnitConvState
 
 -- Entry Point ---------------------------------------------------------------------------------------------------------
 
-convertTypes :: Module Id -> UnitsState -> MExcept (Module Id)
-convertTypes (LitMod modData) uState = do
+convertTypes :: UnitsState -> Module Id -> MExcept (Module Id)
+convertTypes uState (LitMod modData) = do
     ((exprMap', freeIds'), _) <- runStateT (runSupplyT convTypesM [freeId ..]) $ mkUnitConvState uState (modTMap modData)
     -- update modData and return new module
     let exprMap'' = OrdMap.filter (\topLet -> case topLet of (AC.TopLet _ _ _ _) -> True; (AC.TopType _) -> False) exprMap'
@@ -76,18 +67,13 @@ convertTypes (LitMod modData) uState = do
 
 convertTypesTop :: AC.TopLet Id -> UnitConvM (AC.TopLet Id)
 convertTypesTop (AC.TopLet isInit t bs tE) = do
-    setInit isInit
     AC.TopLet isInit (removeTypeUnits t) bs <$> convertTypesExpr tE
 convertTypesTop tLet = return tLet
 
 
 convertTypesExpr :: AC.Expr Id -> UnitConvM (AC.Expr Id)
 convertTypesExpr (AC.Let isInit t bs e1 e2) = do
-    oldInit <- modInit isInit
-    e1' <- convertTypesExpr e1
-    setInit oldInit
-    e2' <- convertTypesExpr e2
-    return $ AC.Let isInit (removeTypeUnits t) bs e1' e2'
+    AC.Let isInit (removeTypeUnits t) bs <$> convertTypesExpr e1 <*> convertTypesExpr e2
 
 -- drop units from lit nums
 convertTypesExpr (AC.Lit (AC.Num n u)) = return $ AC.Lit (AC.Num n U.NoUnit)
@@ -103,8 +89,7 @@ convertTypesExpr et@(AC.TypeCast e (AC.UnitCast toU)) = do
     tMap <- _tMap <$> lift get
     -- get the type of the orig expression
     AC.TFloat fromU <- lift . lift $ T.calcTypeExpr tMap e
-    isInit <- _inInit <$> lift get
-    AC.Let isInit (AC.TFloat U.NoUnit) [id] e' <$> (convertUnitCast id fromU toU)
+    AC.Let False (AC.TFloat U.NoUnit) [id] e' <$> (convertUnitCast id fromU toU)
 
 -- don't care about the rest, pass on to mapExprM
 convertTypesExpr e = AC.mapExprM convertTypesExpr e

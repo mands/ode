@@ -9,7 +9,8 @@
 -- Portability :
 --
 -- | This module inlines components within a module
---
+-- NOTE - this does handle recursion at all
+-- - should either throw an erro on recursive component, or only expand upto a limit (aka C++ templates)
 -----------------------------------------------------------------------------
 
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances, PatternGuards #-}
@@ -18,16 +19,11 @@ module Process.Flatten.InlineComps (
 inlineComps
 ) where
 
-
-
-
 import Control.Category
 import qualified Data.Label as L
 import Prelude hiding ((.), id)
 
-
 import Control.Monad.State
-
 import qualified Data.Map as Map
 import qualified Data.Bimap as Bimap
 import qualified Data.Foldable as DF
@@ -44,14 +40,15 @@ import qualified Subsystem.Units as U
 
 import Subsystem.SysState
 
--- State Monads -----------------------------------------------------------------------------------------------------
+-- State Monads --------------------------------------------------------------------------------------------------------
 
 type InlineCompsM = SupplyT Id (StateT InlineState MExcept)
 
 -- holds the current map of (let-bound) abs-expressions within scope
-data InlineState = InlineState { absMap :: Map.Map Id (AC.Expr Id), rebindsMap :: Map.Map Id Id, inInit :: Bool, tMap :: TypeMap }
-mkInlineState = InlineState Map.empty Map.empty False
+data InlineState = InlineState { absMap :: Map.Map Id (AC.Expr Id), rebindsMap :: Map.Map Id Id, tMap :: TypeMap }
+mkInlineState = InlineState Map.empty Map.empty
 
+-- Entry Point ---------------------------------------------------------------------------------------------------------
 inlineComps :: Module Id -> MExcept (Module Id)
 inlineComps (LitMod modData) = do
     ((exprMap', freeIds'), _) <- runStateT (runSupplyT inlineCompsM [(modFreeId modData)..]) (mkInlineState $ modTMap modData)
@@ -70,17 +67,14 @@ inlineComps (LitMod modData) = do
 
 inlineCompsTop :: AC.TopLet Id -> InlineCompsM (AC.TopLet Id)
 inlineCompsTop (AC.TopLet isInit t (b:[]) absE@(AC.Abs arg e)) = do
-    setInit isInit
     -- first inline the abs
     absE' <-  AC.Abs arg <$> inlineCompsExpr e
     -- now store the inlined expr
     lift $ modify (\st -> st { absMap = Map.insert b absE' (absMap st) })
-    return (AC.TopLet isInit t (b:[]) absE')
+    return $ AC.TopLet isInit t (b:[]) absE'
 
 -- inline any applications
-inlineCompsTop (AC.TopLet isInit t bs e) = do
-    setInit isInit
-    AC.TopLet isInit t bs <$> inlineCompsExpr e
+inlineCompsTop (AC.TopLet isInit t bs e) = AC.TopLet isInit t bs <$> inlineCompsExpr e
 
 -- anything else, i.e TopType, keep going
 inlineCompsTop e = return e
@@ -88,24 +82,17 @@ inlineCompsTop e = return e
 
 inlineCompsExpr :: AC.Expr Id -> InlineCompsM (AC.Expr Id)
 inlineCompsExpr abs@(AC.Let isInit t (b:[]) absE@(AC.Abs arg e) e2) = do
-    oldInit <- modInit isInit
     -- first inline the abs
     absE' <-  AC.Abs arg <$> inlineCompsExpr e
     -- now store the inlined expr
     lift $ modify (\st -> st { absMap = Map.insert b absE' (absMap st) })
-    setInit oldInit
     e2' <- inlineCompsExpr e2
     -- remove the inlied expr here
     lift $ modify (\st -> st { absMap = Map.delete b (absMap st) })
     -- drop the abs (as we've already saved it), and return the rest of the let expr
     return e2' -- (AC.Let isInit t (b:[]) absE' e2')
 
-inlineCompsExpr (AC.Let isInit t bs e1 e2) = do
-    oldInit <- modInit isInit
-    e1' <- inlineCompsExpr e1
-    setInit oldInit
-    e2' <- inlineCompsExpr e2
-    return $ AC.Let isInit t bs e1' e2'
+inlineCompsExpr (AC.Let isInit t bs e1 e2) = AC.Let isInit t bs <$> inlineCompsExpr e1 <*> inlineCompsExpr e2
 
 -- now inline any applications
 inlineCompsExpr appE@(AC.App (AC.LocalVar f) e) = inlineApp f e
@@ -127,7 +114,6 @@ inlineApp f appE = do
     reboundAbsE <- shiftExprIds absE
     lift $ modify (\st -> st { rebindsMap = Map.delete arg (rebindsMap st) })
     -- finally create a nested let to hold the inlined expr
-    isInit <- inInit <$> lift get
     return $ AC.Let False fromT [arg'] appE reboundAbsE
 
 -- | shift all variables within a sub-expression, creating new tmp vars to hold lets and rebinding any refs
@@ -145,7 +131,6 @@ shiftExprIds (AC.Let isInit t (b:[]) e1 e2) = do
     lift $ modify (\st -> st { rebindsMap = Map.insert b b' (rebindsMap st) })
     e2' <- shiftExprIds e2
     lift $ modify (\st -> st { rebindsMap = Map.delete b (rebindsMap st) })
-    -- isInit' <- inInit <$> lift get -- we get the init state, rather the use the existing value
     return $ AC.Let isInit t [b'] e1' e2'
 
 -- anything else, keep going
@@ -157,13 +142,3 @@ calcReboundVar (AC.LocalVar v) = do
     -- if the var has been rebound then replace it
     let v' = maybe v id $ Map.lookup v rbMap
     return $ AC.LocalVar v'
-
-
-modInit :: Bool -> InlineCompsM Bool
-modInit isInit = do
-    oldInit <- lift $ inInit <$> get
-    lift $ modify (\st -> st { inInit = isInit || (inInit st) } ) -- set Init flag
-    return oldInit
-
-setInit :: Bool -> InlineCompsM ()
-setInit isInit = lift $ modify (\st -> st { inInit = isInit } ) -- set Init flag

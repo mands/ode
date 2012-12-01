@@ -119,20 +119,62 @@ module Adv3d {
 // top init
 module Adv4a {
   init a = 1
-  
   // OK - multiple inits not allowed
   // init b,c = (1,2)
   
   // OK - don't allow tuples for inits, inits must be a single float w/ optional unit
-  init b = (1,2)
+  //init b = (1,2)
   //val b = a
 }
 
-/*
-// nested init
+// combinations of inits and vals
 module Adv4b {
+  init a = 1
+  val b = 2
+}
+
+module Adv4c {
+  init a = 1
+  val b = 2 + a
+}
+
+module Adv4d {
+  val c = 2
+  init a = 1 + c
+}
+
+module Adv4e {
+  val c = 2
+  init a = 1 + c
+  val b = c + 3
+}
+
+module Adv4f {
+  val c = 2
+  init a = 1 + c
+  val b = c + a
+}
+
+// nested inits
+module Adv5a {
   val a = { init b = 1
             return b }
-  //val b = a
+  val b = a
 }
-*/
+
+module Adv5b {
+  component compA(_) {
+    init b = 1
+    return b  
+  } 
+
+  component compB(_) {
+    init b = 2
+    return b  
+  } 
+
+  init a = piecewise { time < 5 : compA(None)
+                     , default : compB(None)
+                     }
+}
+

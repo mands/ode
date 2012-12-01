@@ -19,13 +19,13 @@ mapExpr
 
 -- import Data.IntMap as IM
 import qualified Utils.OrdMap as OrdMap
+import qualified Data.Set as Set
 import AST.Common as AC
 
 -- not really a module, but datatype to hold both the exeutable simulation expressions and related metadata
-data Module = Module    { loopExprs :: ExprMap,  initExprs :: ExprMap, simOps :: [SimOps]
-                        , freeId :: Id
-                        }
-            deriving (Show, Eq, Ord)
+data Module = Module    { initExprs :: ExprMap, loopExprs :: ExprMap, initVals :: Set.Set Id
+                        , simOps :: [SimOps], freeId :: Id }
+                        deriving (Show, Eq, Ord)
 
 -- this becomes our 'let' now - both toplevel and 'nested', creates a new binding for the expression
 -- ordering is maintained as ids are ascending -- TODO, check??

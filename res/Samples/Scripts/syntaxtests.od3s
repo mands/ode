@@ -38,7 +38,6 @@ import SyntaxTests.AdvancedFeatures.*
 // backend to use - interpreter, jitcompiler, aotcompiler, objectfile
 :backend "interpreter"
 
-
 // adaptive params
 :relError 1e-4
 :absError 1e-6
@@ -46,6 +45,6 @@ import SyntaxTests.AdvancedFeatures.*
 :maxTimestep 2
 
 // all done
-:simulate Adv4a
+:simulate Adv4c
 :quit
 
