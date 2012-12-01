@@ -56,14 +56,15 @@ interpret Module{..} = do
     liftIO $ debugM "ode3.sim" $ "Starting (Interpreted) Simulation"
     -- create the output file handle
     outHandle <- liftIO $ openBinaryFile (Sys._filename p) WriteMode
-    -- write file header
+    -- write file header and initial data
     liftIO $ writeColumnHeader (Map.size $ initVals) [] outHandle
+    liftIO $ writeRow (Sys._startTime p) (Map.elems $ Num <$> initVals) outHandle
     -- setup the initial data, wrap doubles into Var (Num d)
     let initState = SimState Map.empty (Num <$> initVals) (Sys._startTime p) (Sys.calcOutputInterval p) outHandle p
     -- simulate the loop exprs over the time period
     lift $ runStateT (unless (OrdMap.null loopExprs) $ runLoop 1 p) initState
     -- close the output file
-    liftIO $ hClose outHandle
+    liftIO $ hFlush outHandle >> hClose outHandle
     liftIO $ debugM "ode3.sim" $ "(Interpreted) Simulation Complete"
     return ()
   where
@@ -274,7 +275,7 @@ writeRow t vs handle = do
     let outBS  = runPut $ mapM_ putFloat64le ns
     -- write BS to handle
     BL.hPut handle outBS
-    hFlush handle
+    -- hFlush handle
     return ()
 
 

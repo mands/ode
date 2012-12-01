@@ -12,8 +12,8 @@ import SimTests.Mahajantest.*
 
 // set sim params
 :startTime 0
-:stopTime 60.015
-:timestep 0.01
+:stopTime 1000.0
+:timestep 0.001
 :period 0.01
 :output "./output.bin"
 
@@ -41,8 +41,7 @@ import SimTests.Mahajantest.*
 :relError 1e-9
 :absError 1e-11
 :modelType "stiff"
-:maxTimestep 3.0
-
+:maxTimestep 0.003
 // all done
 :simulate Mahajan
 :quit

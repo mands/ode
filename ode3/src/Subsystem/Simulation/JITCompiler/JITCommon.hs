@@ -208,6 +208,9 @@ setTarget mod str = withCString str $ \cStr ->
 buildExtractValue builder val idx str = withCString str $ \cStr ->
     LFFI.buildExtractValue builder val idx cStr
 
+buildInsertValue builder aggVal eleVal idx str = withCString str $ \cStr ->
+    LFFI.buildInsertValue builder aggVal eleVal idx cStr
+
 constStruct :: [LLVM.Value] -> Bool -> IO LLVM.Value
 constStruct llVs b = withArrayLen llVs $ \len ptr ->
     return $ LFFI.constStruct ptr (fromIntegral len) b

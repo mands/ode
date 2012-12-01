@@ -273,7 +273,7 @@ module Mahajan {
 
 	val bm = 0.08*exp(-y26/11.0)
 
-/*
+
   val ah, bh, aj, bj = piecewise  { y26 < -40.0 : ( 0.135*exp((80.0+y26)/-6.8)
                                                         	, 3.56*exp(0.079*y26)+310000.0*exp(0.35*y26)
 		                                                      , (-127140.0*exp(0.2444*y26)-0.00003474*exp(-0.04391*y26))*1.0*(y26+37.78)/(1.0+exp(0.311*(y26+79.23)))
@@ -285,14 +285,15 @@ module Mahajan {
                                                 , 0.3*exp(-0.0000002535*y26)/(1.0+exp(-0.1*(y26+32.0)))
                                                 )
                                     }
-*/
+
 
   // val (ah, bh, aj, bj) = (1,2,3,4)
+  /*
   val ah = 1
   val bh = 2
   val aj = 3
   val bj = 4
-
+  */
 	ode { init : y16, delta : ydot16 } = ah*(1.0-y16)-bh*y16
 	ode { init : y17, delta : ydot17 } = aj*(1.0-y17)-bj*y17
 	ode { init : y18, delta : ydot18 } = am*(1.0-y18)-bm*y18
@@ -330,9 +331,9 @@ module Mahajan {
 	val xito = ScaleFactorGto*gto*(xitos+xitof)
 	//y33 = xito
 	ode { init : y25, delta : ydot25 } = -(xina+3.0*xiNaK+3.0*xiNaCa)/(wca*1000.0)
-	val past = floor(time/stim_period)*stim_period
-
-  val i_Stim = piecewise  { (time-past >= stim_offset) and (time-past <= stim_offset+stim_duration) : stim_amplitude
+  val time_ms = time * 1000 // need to operate in ms
+	val past = floor(time_ms/stim_period)*stim_period
+  val i_Stim = piecewise  { (time_ms-past >= stim_offset) and (time_ms-past <= stim_offset+stim_duration) : stim_amplitude
                           , default : 0.0
                           }
 

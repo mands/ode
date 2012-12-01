@@ -200,12 +200,17 @@ genVar (TupleRef i tupIdx) = do
     GenState {builder} <- get
     liftIO $ buildExtractValue builder llTupleV (fromIntegral $ tupIdx - 1) ""
 
--- simple map over the vars
--- can use const structs as only have pure values - no need to alloca the struct on the stack and store/load
+-- simple map over the vars and dynamically build a struct from the vals
 genVar (Tuple vs) = do
     trace' [MkSB vs] "Building a const tuple" $ return ()
     llVs <- mapM genVar vs
-    liftIO $ constStruct llVs False
+    -- get the llvm types and create a struct
+    types <- liftIO $ mapM LFFI.typeOf llVs
+    let sType = structType types False
+    trace' [MkSB llVs, MkSB types, MkSB sType] "tuple vals" $ return ()
+    GenState {builder} <- get
+    -- get a undef and populate with vals
+    liftIO $ DF.foldlM (\sVal (llV, idx) -> buildInsertValue builder sVal llV idx "insertTuple") (LFFI.getUndef sType) (zip llVs [0..])
 
 -- Basic vars
 genVar (Num n) = return $ constReal doubleType (FFI.CDouble n)

@@ -24,13 +24,13 @@ import SimTests.BasicCalcNoUnits.*
 // linker - dynamic, static
 :linker "dynamic"
 // disable exe
-//:disableExecute
+:disableExecute
 // disable opts
 //:disableOptimise
 // disable short-circuiting
-//:disableShortCircuit
+:disableShortCircuit
 // disable power expan
-//:disablePowerExpan
+:disablePowerExpan
 // math model - strict, fast
 :mathModel "fast"
 // vecmath enable?
@@ -48,6 +48,6 @@ import SimTests.BasicCalcNoUnits.*
 
 // all done
 //:simulate HodHux
-:simulate BasicCalc4c
+:simulate BasicCalc7f
 :quit
 
