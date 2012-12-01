@@ -61,10 +61,7 @@ genModelInitials CF.Module{..} = do
     -- set func params
     _ <- liftIO $ addFuncAttributes curFunc [AlwaysInlineAttribute, NoUnwindAttribute]
     liftIO $ getParams curFunc >>= \params -> setParamAttribs params
-
-    -- add the insts (if exprMap not empty)
-    unless (OrdMap.null initExprs) (void $ genExprMap initExprs)
-    -- store the outputs
+    -- store the (const) outputs directly
     storeOutputs curFunc builder
     -- return void
     r <- liftIO $ buildRetVoid builder
@@ -72,7 +69,7 @@ genModelInitials CF.Module{..} = do
     return curFunc
   where
     -- create the input args - TODO - why do we include all types here?
-    createArgsList = doubleType : (OrdMap.elems . fmap (\(ExprData _ t) -> (pointerType (convertType t) 0)) $ initExprs)
+    createArgsList = doubleType : (replicate (Map.size initVals) (pointerType doubleType 0))
 
     setParamAttribs res@(t:outParams) = do
         forM_ outParams $ \param -> addParamAttributes param [NoAliasAttribute, NoCaptureAttribute]
@@ -83,11 +80,12 @@ genModelInitials CF.Module{..} = do
         (curTimeVal : params) <- liftIO $ LLVM.getParams curFunc
         modify (\st -> st { curTimeVal })
         -- zip the ids (from toplets) with the params (the ordering will be the same)
-        let outVals = zip (OrdMap.keys initExprs) params
+        let outVals = zip (Map.keys initVals) params
         -- for each val, gen the store thru the pointer
         forM_ outVals $ \(i, outVal) -> do
-            initVal <- lookupId i
-            liftIO $ buildStore builder initVal outVal
+            let initVal = initVals Map.! i
+            liftIO $ buildStore builder (constDouble initVal) outVal
+
 
 -- | Generate the function that calculates the DELTA variables based on the current time and STATE
 -- odeModelRHS(time, STATE) -> DELTA, i.e. y' = f(t, y)
@@ -109,8 +107,7 @@ genModelRHS CF.Module{..} = do
     liftIO $ disposeBuilder builder
     return curFunc
   where
-    createArgsList =    doubleType : (OrdMap.elems . fmap (\(ExprData _ t) -> convertType t) $ initExprs) ++
-                        (OrdMap.elems . fmap (\(ExprData _ t) -> pointerType (convertType t) 0) $ initExprs)
+    createArgsList = doubleType : (replicate (Map.size initVals) doubleType) ++ (replicate (Map.size initVals) (pointerType doubleType 0))
 
     setParamAttribs res@(t:params) = do
         let outParams = drop (length params `div` 2) params
@@ -121,14 +118,14 @@ genModelRHS CF.Module{..} = do
         (curTimeVal : params) <- liftIO $ LLVM.getParams curFunc
         modify (\st -> st { curTimeVal })
         let inParams = take (length params `div` 2) params
-        let localMap = Map.fromList $ zip (OrdMap.keys initExprs) inParams
+        let localMap = Map.fromList $ zip (Map.keys initVals) inParams
         modify (\st -> st { localMap })
 
     -- need map over simops
     storeOutputs curFunc builder = do
         (_ : params) <- liftIO $ LLVM.getParams curFunc
         let outParams = drop (length params `div` 2) params
-        let outMap = Map.fromList $ zip (OrdMap.keys initExprs) outParams
+        let outMap = Map.fromList $ zip (Map.keys initVals) outParams
         -- map over simops
         forM_ simOps $ storeDelta outMap builder
       where

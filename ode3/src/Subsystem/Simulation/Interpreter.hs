@@ -49,8 +49,6 @@ data SimState = SimState    { _simEnv :: Map.Map Id Var, _stateEnv :: Map.Map Id
                             , _simParams :: Sys.SimParams
                             }
 
-mkSimState = SimState Map.empty Map.empty 0
-
 interpret :: Module -> Sys.SysExceptIO ()
 interpret Module{..} = do
     -- setup the default simulation state
@@ -59,48 +57,35 @@ interpret Module{..} = do
     -- create the output file handle
     outHandle <- liftIO $ openBinaryFile (Sys._filename p) WriteMode
     -- write file header
-    liftIO $ writeColumnHeader (OrdMap.size $ initExprs) [] outHandle
-    -- run the simulation
-    lift $ runStateT runSimulation $ mkSimState (Sys.calcOutputInterval p) outHandle p
+    liftIO $ writeColumnHeader (Map.size $ initVals) [] outHandle
+    -- setup the initial data, wrap doubles into Var (Num d)
+    let initState = SimState Map.empty (Num <$> initVals) (Sys._startTime p) (Sys.calcOutputInterval p) outHandle p
+    -- simulate the loop exprs over the time period
+    lift $ runStateT (unless (OrdMap.null loopExprs) $ runLoop 1 p) initState
     -- close the output file
     liftIO $ hClose outHandle
     liftIO $ debugM "ode3.sim" $ "(Interpreted) Simulation Complete"
     return ()
   where
-    runSimulation :: SimM ()
-    runSimulation = do
-        p <- _simParams <$> get
-        -- simulate the initial data
-        unless (OrdMap.null initExprs) $ runIter initExprs True (Sys._startTime p)
-        -- simulate the loop exprs over the time period
-        unless (OrdMap.null loopExprs) $ runLoop 1 loopExprs p
-
-    runLoop :: Integer -> ExprMap -> Sys.SimParams -> SimM ()
-    runLoop curLoop eM p = do
-        runIter eM False time -- run an iteration
-        if time < (Sys.calcAdjustedStopTime p) then runLoop (inc curLoop) eM p else return () -- only loop again is time is less than endtime, break if equal/greater
+    runLoop :: Integer -> Sys.SimParams -> SimM ()
+    runLoop curLoop p = do
+        runIter time -- run an iteration
+        if time < (Sys.calcAdjustedStopTime p) then runLoop (inc curLoop) p else return () -- only loop again is time is less than endtime, break if equal/greater
       where
         time = (Sys._startTime p) + (fromInteger curLoop) * (Sys._timestep p)
 
     -- wrapper function to configure the cur time
     -- (equiv to simulate func in jitcompile/odelibrary)
-    runIter :: ExprMap -> Bool -> Double -> SimM ()
-    runIter exprMap isInit t = do
+    runIter :: Double -> SimM ()
+    runIter t = do
         -- set the time
         modify (\st -> st { _curTime = t } )
         -- simulate the expr
-        _ <- simExprMap exprMap
-
-        if isInit
-            then do
-                -- reset the sim envs, switch the maps from sim to state
-                modify (\st -> st { _stateEnv = _simEnv st, _simEnv = Map.empty } )
-            else do
-                -- run the sim ops
-                mapM_ simSimOp simOps
-                -- reset sim envs
-                modify (\st -> st { _simEnv = Map.empty })
-
+        _ <- simExprMap loopExprs
+        -- run the sim ops
+        mapM_ simSimOp simOps
+        -- reset sim envs
+        modify (\st -> st { _simEnv = Map.empty })
         st <- get
         -- handle output period
         if ((_curPeriod st) == (Sys.calcOutputInterval $ _simParams st))
@@ -246,7 +231,6 @@ simOp (AC.MathOp AC.FAbs)   ((Num n1):[])   = Num (abs n1)
 simOp (AC.MathOp AC.Floor)  ((Num n1):[])   = Num (fromIntegral $ floor n1)
 simOp (AC.MathOp AC.Ceil)   ((Num n1):[])   = Num (fromIntegral $ ceiling n1)
 simOp (AC.MathOp AC.Round)  ((Num n1):[])   = Num (fromIntegral $ round n1)
-
 
 -- NOT YET IMPLEMENTED
 simOp op vs = errorDump [MkSB op, MkSB vs] "Operator not supported in interpreter" assert

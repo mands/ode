@@ -126,7 +126,7 @@ genLLVMModule p odeMod = do
     -- generate the C-interface, wrappers and static values to be used when linking to external/C-solver
     genFFI :: LLVM.Value -> LLVM.Value -> GenM ()
     genFFI initsF rhsF = do
-        let numParams = OrdMap.size $ initExprs odeMod
+        let numParams = Map.size $ initVals odeMod
         genFFIParams numParams
         genFFIModelInitials initsF numParams
         genFFIModelRHS rhsF numParams

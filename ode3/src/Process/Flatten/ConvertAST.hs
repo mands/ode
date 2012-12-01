@@ -19,23 +19,22 @@ convertAST
 ) where
 
 import Control.Monad.State
-import Control.Conditional
-
-import Utils.CommonImports
-import Subsystem.SysState
-
-import AST.Common
-import AST.Module
-
 import qualified Data.Map as Map
 import qualified Data.List as List
 import qualified Data.Set as Set
 import qualified Utils.OrdMap as OrdMap
-import qualified AST.Core as AC
-import qualified AST.CoreFlat as ACF
+
+
+import Utils.CommonImports
 import Utils.MonadSupply
+import Subsystem.SysState
 import qualified Subsystem.Units as U
 import qualified Subsystem.Types as T
+import qualified AST.Core as AC
+import qualified AST.CoreFlat as ACF
+import AST.Common
+import AST.Module
+
 
 -- Types ---------------------------------------------------------------------------------------------------------------
 -- Same monad as renamer
@@ -44,9 +43,7 @@ type ConvM = SupplyT Id (StateT FlatState MExcept)
 
 data FlatState = FlatState  { _curExprs :: ACF.ExprMap
                             , _simOps :: [ACF.SimOps]
-                            , _initVals :: Set.Set Id         -- actual init vals
                             , _curTMap :: TypeMap
-                            , _initMode :: Bool
                             } deriving (Show, Eq, Ord)
 mkFlatState = FlatState OrdMap.empty []
 
@@ -58,10 +55,8 @@ type InitMap = Map.Map Id Double
 convertAST :: (Module Id, InitMap) -> MExcept ACF.Module
 convertAST (LitMod modData, initMap) = do
     trace' [MkSB modData] "Flatten - Final Core AST input" $ return ()
-    ((_, freeIds'), fSt') <- runStateT (runSupplyT flatExprM freeIds) $ mkFlatState Set.empty (modTMap modData) True
-    ((_, freeIds''), fSt'') <- runStateT (runSupplyT flatExprM freeIds') $ mkFlatState (_initVals fSt') (modTMap modData) False
-
-    return $ ACF.Module (_curExprs fSt') (_curExprs fSt'') (_initVals fSt') (reverse $ _simOps fSt') (head freeIds'')
+    ((_, freeIds'), fSt') <- runStateT (runSupplyT flatExprM freeIds) $ mkFlatState (modTMap modData)
+    return $ ACF.Module (_curExprs fSt') initMap (reverse $ _simOps fSt') (head freeIds')
   where
     freeIds = [modFreeId modData..]
     flatExprM :: ConvM ()
@@ -69,9 +64,9 @@ convertAST (LitMod modData, initMap) = do
 
 -- convert the toplet - we ensure that only TopLets with exist at this point
 convertTop :: () -> ([Id], AC.TopLet Id) -> ConvM ()
-convertTop _ (ids, AC.TopLet isInit t (ids') cE) = do
+convertTop _ (ids, AC.TopLet isInit t ids' e) = do
     assert (ids == ids') $ return ()
-    if isInit then convertInitVal t (head ids) cE else convertLet t ids cE
+    unless isInit $ convertLet t ids e
 
 convertTop _ coreExpr = errorDump [MkSB coreExpr] "Cannot convert top expression to CoreFlat" assert
 
@@ -86,7 +81,7 @@ convertExpr e@(AC.Var (AC.LocalVar v) (Just recId)) = ACF.Var <$> convertRecId v
 
 -- directly store the nested let bindings within the flattened exprMap
 convertExpr e@(AC.Let isInit t bs e1 e2) = do
-    if isInit then convertInitVal t (head bs) e1 else convertLet t bs e1
+    unless isInit $ convertLet t bs e1
     convertExpr e2
 
 -- Literals
@@ -153,21 +148,21 @@ convertExpr expr = errorDump [MkSB expr] "Cannot convert expression to CoreFlat"
 
 -- Conversion Helper Functions -----------------------------------------------------------------------------------------
 
-convertInitVal :: AC.Type -> Id -> AC.Expr Id -> ConvM ()
-convertInitVal t id e1 = do
-    FlatState{_initMode} <- lift get
-
-    if _initMode
-        then do
-            -- convert the expr and type
-            fE <- convertExpr e1
-            let fT = convertType t
-            -- insert expr and add to initVals set
-            insertExpr id fE fT
-            lift $ modify (\st -> st { _initVals = Set.insert id (_initVals st) })
-        -- ignore the expression, it will already exist within initExprs
-        else return ()
-
+--convertInitVal :: AC.Type -> Id -> AC.Expr Id -> ConvM ()
+--convertInitVal t id e1 = do
+--    FlatState{_initMode} <- lift get
+--
+--    if _initMode
+--        then do
+--            -- convert the expr and type
+--            fE <- convertExpr e1
+--            let fT = convertType t
+--            -- insert expr and add to initVals set
+--            insertExpr id fE fT
+--            lift $ modify (\st -> st { _initVals = Set.insert id (_initVals st) })
+--        -- ignore the expression, it will already exist within initExprs
+--        else return ()
+--
 
 -- convert a let-binding (both top and nested) into a global-let, handles unpacking a tuple references,
 convertLet :: AC.Type -> AC.BindList Id -> AC.Expr Id -> ConvM ()

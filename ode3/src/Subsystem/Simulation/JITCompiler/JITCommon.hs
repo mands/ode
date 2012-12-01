@@ -68,13 +68,21 @@ data GenState = GenState    { -- stateMap :: Map.Map Id String  -- a mapping fro
                             , llvmMod :: LLVM.Module
                             , curFunc :: LLVM.Value
                             , curTimeVal :: LLVM.Value
+                            , curBB :: LLVM.BasicBlock
                             , simParams :: Sys.SimParams
                             } deriving (Show)
 
 -- this is a bit hacky as we use a null pointer to represent the initial builder
-mkGenState = GenState Map.empty Map.empty Map.empty nullPtr nullPtr nullPtr nullPtr
+mkGenState = GenState Map.empty Map.empty Map.empty nullPtr nullPtr nullPtr nullPtr nullPtr
 
 -- Helper Funcs --------------------------------------------------------------------------------------------------------
+
+setBB :: BasicBlock -> GenM ()
+setBB bb = modify (\st -> st { curBB = bb })
+
+getBB :: GenM BasicBlock
+getBB = curBB <$> get
+
 
 -- lookup an id both within current env, then global env
 lookupId :: Id -> GenM LLVM.Value
@@ -185,10 +193,10 @@ genFunction fName fRetType fArgTypes = do
     curFunc <- liftIO $ addFunction llvmMod fName (functionType fRetType fArgTypes False)
     builder <- liftIO $ createBuilder
     -- create the entry block & pos the builder
-    entryBB <- liftIO $ appendBasicBlock curFunc "entry"
-    liftIO $ positionAtEnd builder entryBB
-    -- store and return the func & builder
-    modify (\st -> st { builder, curFunc, localMap = Map.empty })
+    curBB <- liftIO $ appendBasicBlock curFunc "entry"
+    liftIO $ positionAtEnd builder curBB
+    -- setup state and return (func, builder)
+    modify (\st -> st { builder, curFunc, localMap = Map.empty, curBB })
     return (curFunc, builder)
 
 
@@ -291,8 +299,9 @@ readBitcodeFromFile name =
 -- LLVM Higher-Level Control Structures (limited power, useful for FP langs) -------------------------------------------
 
 -- | An FP-style If-stmt, ie. requires both branches to be present, return types of each must be equal
-ifStmt :: (MonadIO m) => Builder -> LLVM.Value -> LLVM.Value -> (Builder -> m LLVM.Value) -> (Builder -> m LLVM.Value)
-    -> m [(LLVM.Value, LLVM.BasicBlock)]
+-- fixed to handle sub-BBs in each branch, needs to use GenM monad for now
+ifStmt :: Builder -> LLVM.Value -> LLVM.Value -> (Builder -> GenM LLVM.Value) -> (Builder -> GenM LLVM.Value)
+    -> GenM [(LLVM.Value, LLVM.BasicBlock)]
 ifStmt builder curFunc condVal trueF falseF = do
     -- build the BBs
     trueBB  <- liftIO $ appendBasicBlock curFunc "if.true"
@@ -304,22 +313,27 @@ ifStmt builder curFunc condVal trueF falseF = do
 
     -- create a bb for true
     liftIO $ positionAtEnd builder trueBB
+    setBB trueBB
     trueV <- trueF builder
+    trueBB' <- getBB
     liftIO $ buildBr builder endBB
 
     -- create a bb for false
     liftIO $ positionAtEnd builder falseBB
+    setBB falseBB
     falseV <- falseF builder
+    falseBB' <- getBB
     liftIO $ buildBr builder endBB
 
     -- create a bb for the end of the if
     liftIO $ positionAtEnd builder endBB
+    setBB endBB
     -- let the caller deal with the phis
-    return [(trueV, trueBB), (falseV, falseBB)]
+    return [(trueV, trueBB'), (falseV, falseBB')]
 
 -- | A basic do-While loop
 -- TODO - are phis correct for loopStart - yes, think so
-doWhileStmt :: (MonadIO m) => Builder -> LLVM.Value -> (Builder -> m LLVM.Value) -> (Builder -> LLVM.Value -> m LLVM.Value) -> m ()
+doWhileStmt :: Builder -> LLVM.Value -> (Builder -> GenM LLVM.Value) -> (Builder -> LLVM.Value -> GenM LLVM.Value) -> GenM ()
 doWhileStmt builder curFunc doBodyF doCondF = do
     -- create do-loop bb's
     doBodyBB <- liftIO $ appendBasicBlock curFunc "do.body"
@@ -329,14 +343,17 @@ doWhileStmt builder curFunc doBodyF doCondF = do
     -- create and br to loop body
     liftIO $ buildBr builder doBodyBB
     liftIO $ positionAtEnd builder doBodyBB
+    setBB doBodyBB
     bodyV <- doBodyF builder
 
     -- while loop test
     liftIO $ buildBr builder doCondBB
     liftIO $ positionAtEnd builder doCondBB
+    setBB doCondBB
     condV <- doCondF builder bodyV
     liftIO $ buildCondBr builder condV doBodyBB doEndBB
 
     -- leave loop
     liftIO $ positionAtEnd builder doEndBB
+    setBB doEndBB
 

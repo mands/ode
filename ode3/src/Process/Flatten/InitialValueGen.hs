@@ -19,7 +19,7 @@ module Process.Flatten.InitialValueGen (
 initialValueGen
 ) where
 
-import Control.Monad.Writer
+import Control.Monad.State
 import qualified Data.Map as Map
 import qualified Data.List as List
 import qualified Data.Foldable as DF
@@ -29,34 +29,27 @@ import qualified Utils.OrdMap as OrdMap
 import Utils.CommonImports
 import qualified Subsystem.Units as U
 import qualified Subsystem.Types as T
+import qualified Subsystem.SysState as Sys
 import qualified AST.Core as AC
 import AST.Common as ACO
 import AST.Module
+import AST.CoreFlat (InitMap)
 
 -- Types ---------------------------------------------------------------------------------------------------------------
 -- Same monad as renamer
-type InitM = WriterT InitMap MExcept
--- type ConvM = Supply Id
-
-type InitMap = Map.Map Id Double
+type InitM = StateT InitState MExcept
 type InitEnv = Map.Map Id (AC.Expr Id)
 
---data InitState = InitState  { initMap :: InitMap
---                            , env :: Map.Map Id (AC.Expr Id)
---
---                            } deriving (Show, Eq, Ord)
--- mkInitState = InitState Map.empty Map.empty
+data InitState = InitState { initMap :: InitMap, startTime :: Double } deriving (Show, Eq)
 
--- Do we need typeMap too?
--- type InitData = (InitMap, InitEnv)
 
 -- Entry Point ---------------------------------------------------------------------------------------------------------
-initialValueGen :: Module Id -> MExcept (Module Id, InitMap)
-initialValueGen mod@(LitMod modData) = do
+initialValueGen :: Sys.SimParams -> Module Id -> MExcept (Module Id, InitMap)
+initialValueGen p mod@(LitMod modData) = do
 
-    (env', initMap) <- runWriterT initGenM
-    trace' [MkSB initMap, MkSB env'] "Flatten - Calculated init vals" $ return ()
-    return (mod, initMap)
+    (env', st) <- runStateT initGenM $ InitState Map.empty (Sys._startTime p)
+    trace' [MkSB st, MkSB env'] "Flatten - Calculated init vals" $ return ()
+    return (mod, (initMap st))
   where
     initGenM :: InitM InitEnv
     initGenM = DF.foldlM initTop Map.empty (modExprMap modData)
@@ -70,7 +63,7 @@ initTop env (AC.TopLet isInit t (ids) cE) = do
         insertInit (head ids) d
     return $ updateEnv ids cE' env
 
-initTop _ coreExpr = errorDump [MkSB coreExpr] "Cannot interpret top expression" assert
+initTop _ coreExpr = errorDump [MkSB coreExpr] "InitValGen - Cannot interpret top expression" assert
 
 
 -- | Interpret a restricted subset of the Core AST
@@ -92,12 +85,14 @@ initIntExpr e@(AC.Let isInit t ids e1 e2) env = do
     (e2', _) <- initIntExpr e2 $ updateEnv ids e1' env
     return (e2', env)
 
-
 -- Literals
 initIntExpr e@(AC.Lit (AC.Num n U.NoUnit)) env = return (e, env)
 initIntExpr e@(AC.Lit (AC.Boolean b)) env = return (e, env)
 initIntExpr e@(AC.Lit (AC.Unit)) env = return (e, env)
-initIntExpr e@(AC.Lit (AC.Time)) env = return (e, env)
+-- TODO - fix time
+initIntExpr e@(AC.Lit (AC.Time)) env = do
+    time <- startTime <$> get
+    return (AC.Lit (AC.Num time U.NoUnit), env)
 
 -- Ops
 initIntExpr e@(AC.Op op (AC.Tuple es)) env = do
@@ -126,8 +121,13 @@ initIntExpr e@(AC.Record nEs) env = do
     nVs  <- fmap fst <$> DT.mapM (\e -> initIntExpr e env) nEs
     return (AC.Record nVs, env)
 
+-- Odes
+initIntExpr e@(AC.Ode (AC.LocalVar v) e1) env = do
+    (e1', _) <- initIntExpr e1 env
+    return (e1', env)
 
-initIntExpr e env = errorDump [MkSB e, MkSB env] "Cannot interpret expression" assert
+
+initIntExpr e env = errorDump [MkSB e, MkSB env] "InitValGen - Cannot interpret expression" assert
 
 -- Helper Functions ----------------------------------------------------------------------------------------------------
 
@@ -138,10 +138,10 @@ updateEnv ids (AC.Tuple es) env = foldl (\env (id, e) ->  Map.insert id e env) e
 lookupVar :: Id -> InitEnv -> (AC.Expr Id)
 lookupVar id env = case (Map.lookup id env) of
                     Just v -> v
-                    Nothing ->  errorDump [MkSB id, MkSB env] "Cannot find value in environment" assert
+                    Nothing ->  errorDump [MkSB id, MkSB env] "InitValGen - Cannot find value in environment" assert
 
 insertInit :: Id -> Double -> InitM ()
-insertInit id v = tell $ Map.singleton id v
+insertInit id v = modify (\st -> st { initMap = Map.insert id v (initMap st) })
 
 runOp :: AC.Op -> [AC.Expr Id] -> AC.Expr Id
 runOp op es = case op of

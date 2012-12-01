@@ -306,12 +306,12 @@ genModelSolver CF.Module{..} initsF rhsF = do
     _ <- liftIO $ buildCall builder (libOps Map.! "OdeInit") [] ""
     fileStr <- liftIO $ buildGlobalString builder (L.get Sys.lFilename simParams) "simFilename"
     fileStrPtr <- liftIO $ buildInBoundsGEP builder fileStr [constInt64 0, constInt64 0] ""
-    _ <- liftIO $ buildCall builder (libOps Map.! "OdeStartSim") [fileStrPtr, constInt64 $ OrdMap.size initExprs] ""
+    _ <- liftIO $ buildCall builder (libOps Map.! "OdeStartSim") [fileStrPtr, constInt64 $ Map.size initVals] ""
 
     -- create the vals (and indirectly choose the solver)
     solver <- case (L.get Sys.lSolver simParams) of
-        Sys.FEuler  -> MkSolver <$> (genVals $ (OrdMap.keys initExprs) :: GenM EulerSolver)
-        Sys.RK4     -> MkSolver <$> (genVals $ (OrdMap.keys initExprs) :: GenM RK4Solver)
+        Sys.FEuler  -> MkSolver <$> (genVals $ (Map.keys initVals) :: GenM EulerSolver)
+        Sys.RK4     -> MkSolver <$> (genVals $ (Map.keys initVals) :: GenM RK4Solver)
 
     -- create mutable sim params (static sim params embeedded as constants)
     simParamVs@(curPeriodRef, curLoopRef, curTimeRef, outStateArray) <- createSimParams outDataSize
@@ -339,7 +339,7 @@ genModelSolver CF.Module{..} initsF rhsF = do
     liftIO $ disposeBuilder builder
     return curFunc
   where
-    outDataSize = OrdMap.size initExprs + 1
+    outDataSize = Map.size initVals + 1
 
     -- | Create the main body of the solver loop
     createSolverLoopBody  :: (OdeSolver a) => LLVM.Value -> a -> (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value) -> GenM ()

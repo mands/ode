@@ -178,3 +178,25 @@ module Adv5b {
                      }
 }
 
+
+// nested piecewises/ifs
+module Adv6a {
+  val a = piecewise { time < 3 : 1
+                    , time < 5 : 2
+                    , default : 3
+                    }
+}
+
+module Adv6b {
+  component compA(_) {
+    val b = piecewise { time > 3 : 2
+              , default : 1
+              }
+    return b
+  } 
+
+  val a = piecewise { time < 5 : compA(None)
+                    , default : 3
+                    }
+}
+

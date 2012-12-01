@@ -23,7 +23,7 @@ import SyntaxTests.AdvancedFeatures.*
 // linker - dynamic, static
 :linker "dynamic"
 // disable exe
-//:disableExecute
+:disableExecute
 // disable opts
 //:disableOptimise
 // disable short-circuiting
@@ -36,7 +36,7 @@ import SyntaxTests.AdvancedFeatures.*
 //:vecMath
 :mathLib "gnu"
 // backend to use - interpreter, jitcompiler, aotcompiler, objectfile
-:backend "interpreter"
+:backend "aotcompiler"
 
 // adaptive params
 :relError 1e-4
@@ -45,6 +45,6 @@ import SyntaxTests.AdvancedFeatures.*
 :maxTimestep 2
 
 // all done
-:simulate Adv4c
+:simulate Adv6a
 :quit
 

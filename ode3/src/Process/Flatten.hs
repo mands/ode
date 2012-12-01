@@ -71,7 +71,7 @@ flatten initModStr = do
     let simParams = _simParams sysSt
     let unitsState = _unitsState sysSt
     coreFlatMod <- lift $ inlineMod gModEnv initMod >>= inlineComps >>= convertTypes unitsState >>= optimiseCoreAST simParams
-        >>= initialValueGen >>= convertAST >>= unpackTuples
+        >>= initialValueGen simParams >>= convertAST >>= unpackTuples
     -- TODO - add the optimiseCoreFlatAST?
     trace' [MkSB coreFlatMod] "Flatten - Final CoreFlat AST output" $ return coreFlatMod
 

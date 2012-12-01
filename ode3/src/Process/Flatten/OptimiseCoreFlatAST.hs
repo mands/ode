@@ -41,9 +41,7 @@ import AST.CoreFlat
 -- Process Entry -------------------------------------------------------------------------------------------------------
 optimiseCoreFlatAST :: Module -> MExcept Module
 optimiseCoreFlatAST Module{..} = do
-    let initExprs' = runOps initExprs
-    let loopExprs' = runOps loopExprs
-    return $ Module initExprs' loopExprs' initVals simOps freeId
+    return $ Module (runOps loopExprs) initVals simOps freeId
   where
     runOps exprMap = fmap optPowerTop exprMap
 

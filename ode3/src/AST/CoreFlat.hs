@@ -13,17 +13,19 @@
 -----------------------------------------------------------------------------
 
 module AST.CoreFlat (
-Module(..), ExprMap, TopLet, Expr(..), Var(..), ExprData(..), Type(..), SimOps(..),
+Module(..), ExprMap, InitMap, TopLet, Expr(..), Var(..), ExprData(..), Type(..), SimOps(..),
 mapExpr
 ) where
 
 -- import Data.IntMap as IM
+import qualified Data.Map as Map
 import qualified Utils.OrdMap as OrdMap
 import qualified Data.Set as Set
 import AST.Common as AC
 
--- not really a module, but datatype to hold both the exeutable simulation expressions and related metadata
-data Module = Module    { initExprs :: ExprMap, loopExprs :: ExprMap, initVals :: Set.Set Id
+
+-- not really a module, but datatype to hold the exeutable simulation expressions and related metadata
+data Module = Module    { loopExprs :: ExprMap, initVals :: InitMap
                         , simOps :: [SimOps], freeId :: Id }
                         deriving (Show, Eq, Ord)
 
@@ -31,6 +33,9 @@ data Module = Module    { initExprs :: ExprMap, loopExprs :: ExprMap, initVals :
 -- ordering is maintained as ids are ascending -- TODO, check??
 -- is essentiallaly a list of const-val bindings within a program
 type ExprMap = OrdMap.OrdMap TopLet ExprData
+
+-- A map of all pre-caluculauted initial values for the simulation
+type InitMap = Map.Map Id Double
 
 -- we can change this later to handle both single and multibind variables
 -- (need for Ops returning multiple vals)
