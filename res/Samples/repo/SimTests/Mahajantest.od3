@@ -116,10 +116,6 @@ module Mahajan {
 	val gto = 1.0		/* dimensionless (in Ito) */		
 	val gtof = 0.11		/* uS_per_nF (in Ito) */
 	val gtos = 0.04		/* uS_per_nF (in Ito) */
-	val stim_amplitude = -15.0	/* nA_per_nF (in cell) */	
-	val stim_duration = 3.0		/* ms (in cell) */
-	val stim_offset = 0.0		/* ms (in cell) */			
-	val stim_period = 400.0		/* ms (in cell) */
 	val wca = 8.0		/* mV_per_uM (in cell) */
 	val prNaK = 0.01833	/* dimensionless (in reversal_potentials) */
 
@@ -285,15 +281,6 @@ module Mahajan {
                                                 , 0.3*exp(-0.0000002535*y26)/(1.0+exp(-0.1*(y26+32.0)))
                                                 )
                                     }
-
-
-  // val (ah, bh, aj, bj) = (1,2,3,4)
-  /*
-  val ah = 1
-  val bh = 2
-  val aj = 3
-  val bj = 4
-  */
 	ode { init : y16, delta : ydot16 } = ah*(1.0-y16)-bh*y16
 	ode { init : y17, delta : ydot17 } = aj*(1.0-y17)-bj*y17
 	ode { init : y18, delta : ydot18 } = am*(1.0-y18)-bm*y18
@@ -331,7 +318,13 @@ module Mahajan {
 	val xito = ScaleFactorGto*gto*(xitos+xitof)
 	//y33 = xito
 	ode { init : y25, delta : ydot25 } = -(xina+3.0*xiNaK+3.0*xiNaCa)/(wca*1000.0)
-  val time_ms = time * 1000 // need to operate in ms
+
+  // stimulus current
+	val stim_amplitude = -15.0	/* nA_per_nF (in cell) */	
+	val stim_duration = 3.0		/* ms (in cell) */
+	val stim_offset = 0.0		/* ms (in cell) */			
+	val stim_period = 400.0		/* ms (in cell) */
+  val time_ms = time // need to operate in ms
 	val past = floor(time_ms/stim_period)*stim_period
   val i_Stim = piecewise  { (time_ms-past >= stim_offset) and (time_ms-past <= stim_offset+stim_duration) : stim_amplitude
                           , default : 0.0
