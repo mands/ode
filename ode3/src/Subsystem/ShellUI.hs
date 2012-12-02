@@ -138,6 +138,7 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnits
 
     -- adaptive params
     simMaxTimestepCmd = cmd "maxTimestep" (setDouble $ lMaxTimestep . lSimParams) "Max timestep to use for simulation"
+    simMaxNumStepsCmd = cmd "maxNumSteps" (setDouble $ lMaxNumSteps . lSimParams) "Max number of steps to use from current to next output time"
     simRelErrorCmd = cmd "relError" (setDouble $ lRelError . lSimParams) "Relative error for adaptive simulation"
     simAbsErrorCmd = cmd "absError" (setDouble $ lAbsError . lSimParams) "Absolute error for adaptive simulation"
     simModelType = cmd "modelType" f "Model Type to use for adaptive simulation <stiff, nonstiff>"

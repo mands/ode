@@ -23,6 +23,8 @@ extern const double OdeParamTimestep;
 // the max timestep to be used for an adaptive solver, used to ensure we don't skip
 // pass the stimulus current - set to half the stimulus interval
 extern const double OdeParamMaxTimestep;
+// maximum num of steps to be taken in solving from curTime->tOut
+extern const double OdeParamMaxNumSteps;
 
 // error toleraances for adaptive solvers
 extern const double OdeParamRelativeError;

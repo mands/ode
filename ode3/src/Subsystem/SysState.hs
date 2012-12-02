@@ -103,6 +103,7 @@ data SimParams = SimParams
 
     -- adaptive solver params
     , _maxTimestep  :: Double
+    , _maxNumSteps  :: Double
     , _relError     :: Double
     , _absError     :: Double
     , _modelType    :: OdeModelType
@@ -129,6 +130,7 @@ defSimParams = SimParams
     , _outputPeriod = 0.5               -- 0.5s
 
     , _maxTimestep  = 1                 -- 1s
+    , _maxNumSteps  = 500               -- 1s
     , _relError     = 1e-6              -- recommended by cvode (0.1 of 0.1%)
     , _absError     = 1e-9              -- is model dependent, and should specific to each state val
     , _modelType    = Stiff             -- default model type for adaptive solver
@@ -199,7 +201,7 @@ def genLens(recName, fields):
     cog.outl("{0} = lens ({1}) (\\x rec -> rec {{ {1} = x }})".format(lName, field))
 
 genLens("SysState", ['_debug', '_unitsCheck', '_simParams', '_modState', '_unitsState'])
-genLens("SimParams",    ['_startTime', '_stopTime', '_timestep', '_outputPeriod', '_maxTimestep', '_relError'
+genLens("SimParams",    ['_startTime', '_stopTime', '_timestep', '_outputPeriod', '_maxTimestep', '_maxNumSteps', '_relError'
                         , '_absError', '_modelType', '_filename', '_solver', '_backend', '_linker', '_execute'
                         , '_mathModel', '_mathLib', '_vecMath', '_optimise', '_optShortCircuit', '_optPowerExpan'])
 genLens("ModState", ['_repos', '_modEnv', '_parsedFiles', '_replFile'])
@@ -222,6 +224,7 @@ lStopTime = lens (_stopTime) (\x rec -> rec { _stopTime = x })
 lTimestep = lens (_timestep) (\x rec -> rec { _timestep = x })
 lOutputPeriod = lens (_outputPeriod) (\x rec -> rec { _outputPeriod = x })
 lMaxTimestep = lens (_maxTimestep) (\x rec -> rec { _maxTimestep = x })
+lMaxNumSteps = lens (_maxNumSteps) (\x rec -> rec { _maxNumSteps = x })
 lRelError = lens (_relError) (\x rec -> rec { _relError = x })
 lAbsError = lens (_absError) (\x rec -> rec { _absError = x })
 lModelType = lens (_modelType) (\x rec -> rec { _modelType = x })
@@ -247,7 +250,7 @@ lReplFile = lens (_replFile) (\x rec -> rec { _replFile = x })
 lQuantities = lens (_quantities) (\x rec -> rec { _quantities = x })
 lUnitDimEnv = lens (_unitDimEnv) (\x rec -> rec { _unitDimEnv = x })
 lConvEnv = lens (_convEnv) (\x rec -> rec { _convEnv = x })
---[[[end]]] (checksum: f9cd5cace8b9ac5c4bc40e35a2e88249)
+--[[[end]]] (checksum: d0882f52a3268f6d367f4a8311440fcf)
 
 -- a few useful views from top SysState into nested labels
 vModEnv :: SysState :-> MA.GlobalModEnv

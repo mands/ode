@@ -117,11 +117,23 @@ void solverInit(double* const restrict state, void** const restrict cvodeMemOut,
 
     // optional inputs (see CVODE user guide) - inc timestep params
     flag = CVodeSetMinStep(cvodeMem, OdeParamTimestep);
-    checkFlag(flag, "CVodeSetMinStep");
+    //checkFlag(flag, "CVodeSetMinStep");
     flag = CVodeSetMaxStep(cvodeMem, OdeParamMaxTimestep);
     checkFlag(flag, "CVodeSetMaxStep");
     flag = CVodeSetStopTime(cvodeMem, OdeParamAdjustedStopTime);
     checkFlag(flag, "CVodeSetStopTime");
+
+    // Additional params (taken from PG Mahajan CVODE model)
+    /* Alter the number of maximum steps the solver can take before it reaches tout */
+    flag = CVodeSetMaxNumSteps(cvodeMem, OdeParamMaxNumSteps);
+    checkFlag(flag, "CVodeSetMaxNumSteps");
+
+    /* Set the maximum number of error test fails that may be taken (default = 7) */
+//    flag = CVodeSetMaxErrTestFails(cvodeMem, 25);
+    /* Set the number of error messages that t = t+h will be issued (default = 10, negative means no error messages will be given) */
+//    flag = CVodeSetMaxHnilWarns(cvodeMem, -1);
+    /* Set the maximum number of nonlinear solver convergence failures permitted during one step (default = 10) */
+//    flag = CVodeSetMaxConvFails(cvodeMem, 250);
 
     // if newtonian iteration, attach linear solver
     // we choose CVDense with default dense Jacobian approx func, could also use CVDiag or CVBand
