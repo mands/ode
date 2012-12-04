@@ -89,7 +89,7 @@ module OtherOps {
     val _ = uroot(9 { unit : m}, 1)      // root 1 - stays the same
 
     // negatives
-    // val _ = upow(1 {unit : m}, -9)  // Parse error, negative ints not allowed
+    //val _ = upow(1 {unit : m}, -9)  // Parse error, negative ints not allowed
     // val _ = uroot(1 {unit : m}, -9)  // Parse error, negative ints not allowed
     // val _ = 1/a -- ERROR! TO FIX
 }

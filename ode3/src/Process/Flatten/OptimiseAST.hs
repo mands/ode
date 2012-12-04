@@ -56,7 +56,7 @@ optimiseCoreAST Sys.SimParams{..} (LitMod modData@ModData{..}) = do
   where
     -- TODO - need to create generalised handler for multiple optimisations
     opts :: ExprMap Id -> ExprMap Id
-    opts exprMap = if _optShortCircuit then fmap optSCETop exprMap else exprMap |> fmap optLibSubTop
+    opts exprMap = (if _optShortCircuit then fmap optSCETop exprMap else exprMap) |> fmap optLibSubTop
 
     optsM :: ExprMap Id -> OptM (ExprMap Id)
     optsM exprMap = if _mathModel == Sys.Fast && _optPowerExpan then DT.mapM optPowerTop exprMap else return modExprMap
@@ -83,18 +83,18 @@ optSCEExpr e = ACR.mapExpr optSCEExpr e
 
 -- Perform Library substitions -----------------------------------------------------------------------------------------
 optLibSubTop :: ACR.TopLet Id -> ACR.TopLet Id
-optLibSubTop (ACR.TopLet isInit t bs tE) = ACR.TopLet isInit t bs $ optLibSubExpr tE
+optLibSubTop (ACR.TopLet isInit t bs tE) = trace' [] "In libsubtop" $ ACR.TopLet isInit t bs $ optLibSubExpr tE
 
 optLibSubExpr :: ACR.Expr Id -> ACR.Expr Id
 -- convert upow direct to pow (power opt will expand later anyway)
-optLibSubExpr e@(ACR.Op (AC.OtherOp (AC.UPow n)) (ACR.Tuple (e1:[]))) = trace' [MkSB e, MkSB e'] "UPow Sub" $ e'
+optLibSubExpr e@(ACR.Op (AC.OtherOp (AC.UPow n)) e1) = trace' [MkSB e, MkSB e'] "UPow Sub" $ e'
   where
     e' = ACR.Op (AC.MathOp (AC.Pow)) (ACR.Tuple (e1':e2:[]))
     e1' = optLibSubExpr e1
     e2 = ACR.Lit $ ACR.Num (fromInteger n) U.NoUnit
 
 -- convert uroot to either - sqrt, cbrt or pow calls
-optLibSubExpr e@(ACR.Op (AC.OtherOp (AC.URoot n)) (ACR.Tuple (e1:[]))) = trace' [MkSB e, MkSB e'] "URoot Sub" $ e'
+optLibSubExpr e@(ACR.Op (AC.OtherOp (AC.URoot n)) e1) = trace' [MkSB e, MkSB e'] "URoot Sub" $ e'
   where
     e' = case n of
             0 -> errorDump [MkSB e] "Should never occur, unit-checker should have caught earlier" assert
@@ -119,8 +119,8 @@ optPowerExpr :: ACR.Expr Id -> OptM (ACR.Expr Id)
 optPowerExpr (ACR.Let isInit t bs e1 e2) = do
     ACR.Let isInit t bs <$> optPowerExpr e1 <*> optPowerExpr e2
 
--- pow(x, +n) => expand to n multiplications of x
-optPowerExpr e@(ACR.Op (AC.MathOp (AC.Pow)) (ACR.Tuple (e1:(ACR.Lit (ACR.Num n _)):[]))) | n >= 0 && isWholeNumber n = do
+-- pow(x, +n) => expand to n multiplications of x, when 0 <= n <= 8
+optPowerExpr e@(ACR.Op (AC.MathOp (AC.Pow)) (ACR.Tuple (e1:(ACR.Lit (ACR.Num n _)):[]))) | n >= 0 && n <= 8 && isWholeNumber n = do
     e1' <- optPowerExpr e1
     e' <- expandPow e1' n
     trace' [MkSB e, MkSB e'] "Pow Expansion" $ return e'

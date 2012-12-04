@@ -5,8 +5,8 @@
 :addRepo ../res/Samples/repo
 
 // import our modules
-//import SyntaxTests.Ops.*
-import UnitsTests.UnitsOps.*
+import SyntaxTests.Ops.*
+//import UnitsTests.UnitsOps.*
 
 // :show all
 :show modState
@@ -24,7 +24,7 @@ import UnitsTests.UnitsOps.*
 // linker - dynamic, static
 :linker "dynamic"
 // disable exe
-:disableExecute
+//:disableExecute
 // disable opts
 //:disableOptimise
 // disable short-circuiting
@@ -46,6 +46,7 @@ import UnitsTests.UnitsOps.*
 :maxTimestep 2
 
 // all done
-:simulate Div8
+:simulate OtherOps 
+//Div8
 :quit
 
