@@ -134,14 +134,24 @@ convertExpr e@(AC.Tuple es) = ACF.Var <$> ACF.Tuple <$> mapM insertTmpVar es
 convertExpr e@(AC.Record nEs) = ACF.Var <$> ACF.Tuple <$> mapM insertTmpVar (AC.dropLabels nEs)
 
 -- Ode
-convertExpr e@(AC.Ode (AC.LocalVar v) e1) = do
+convertExpr e@(AC.Ode (AC.LocalVar v) eD) = do
     -- convert the delta expr - insert in as an tmp binding
-    vRef <- insertTmpVar e1
+    dRef <- insertTmpVar eD
     -- add the Ode to SimOps
-    lift $ modify (\st -> st { _simOps = (ACF.Ode v vRef) : (_simOps st) })
+    lift $ modify (\st -> st { _simOps = (ACF.Ode v dRef) : (_simOps st) })
     -- add the vRef to the delta Expr to the cur exprMap
-    return $ ACF.Var vRef
+    return $ ACF.Var dRef
 
+-- Sde
+convertExpr e@(AC.Sde (AC.LocalVar v) eW eD) = do
+    -- convert the weiner expr - insert in as an tmp binding
+    wRef <- insertTmpVar eW
+    -- convert the delta expr - insert in as an tmp binding
+    dRef <- insertTmpVar eD
+    -- add the Sde to SimOps
+    lift $ modify (\st -> st { _simOps = (ACF.Sde v wRef dRef) : (_simOps st) })
+    -- add the vRef to the delta Expr to the cur exprMap
+    return $ ACF.Var dRef
 
 -- anything else,
 convertExpr expr = errorDump [MkSB expr] "Cannot convert expression to CoreFlat" assert

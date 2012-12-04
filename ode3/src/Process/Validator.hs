@@ -126,7 +126,8 @@ validExpr (E.Tuple es) st = DF.mapM_ (\e -> validExpr e st) es >> return st
 validExpr (E.Record nEs) st = DF.mapM_ (\e -> validExpr e st) nEs >> return st
 
 -- add ode & rre checks
-validExpr (E.Ode (E.LocalVar initRef) e) st = checkSVal initRef st >> validExpr e st
+validExpr (E.Ode (E.LocalVar initRef) eD) st = checkSVal initRef st >> validExpr eD st
+validExpr (E.Sde (E.LocalVar initRef) eW eD) st = checkSVal initRef st >> validExpr eW st >> validExpr eD st
 validExpr (E.Rre (E.LocalVar src) (E.LocalVar dest) _) st = checkSVal src st >>  checkSVal dest st >> return st
 
 validExpr e st = return st

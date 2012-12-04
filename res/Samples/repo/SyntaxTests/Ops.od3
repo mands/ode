@@ -87,6 +87,7 @@ module OtherOps {
     val _ = uroot(9, 2)      // sqrt a NoUnit
     //val _ = uroot(9 { unit : m}, 0)      // root 0 - Unit Error (div by zero)
     val _ = uroot(9 { unit : m}, 1)      // root 1 - stays the same
+    val _ = uroot(9, 4)      // sqrt a NoUnit
 
     // negatives
     //val _ = upow(1 {unit : m}, -9)  // Parse error, negative ints not allowed

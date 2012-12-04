@@ -183,8 +183,8 @@ mapExpr f (Op op e1) = Op op (f e1)
 mapExpr f (If eB eT eF) = If (f eB) (f eT) (f eF)
 mapExpr f (Tuple es) = Tuple (map f es)
 mapExpr f (Record es) = Record (Map.map f es)
-mapExpr f (Ode v e1) = Ode v (f e1)
-mapExpr f (Sde v e1 e2) = Sde v (f e1) (f e2)
+mapExpr f (Ode v eD) = Ode v (f eD)
+mapExpr f (Sde v eW eD) = Sde v (f eW) (f eD)
 mapExpr f (TypeCast e1 t) = TypeCast (f e1) t
 mapExpr f e = e -- trace' [MkSB e] "Returing unhandled non-composite e" $ e
 
@@ -197,8 +197,8 @@ mapExprM f (Op op e1) = Op op <$> f e1
 mapExprM f (If eB eT eF) = If <$> f eB <*> f eT <*> f eF
 mapExprM f (Tuple es) = Tuple <$> mapM f es
 mapExprM f (Record es) = Record <$> DT.mapM f es
-mapExprM f (Ode v e1) = Ode v <$> f e1
-mapExprM f (Sde v e1 e2) = Sde v <$> f e1 <*> f e2
+mapExprM f (Ode v eD) = Ode v <$> f eD
+mapExprM f (Sde v eW eD) = Sde v <$> f eW <*> f eD
 mapExprM f (TypeCast e1 t) = TypeCast <$> f e1 <*> pure t
 mapExprM f e = return e -- trace' [MkSB e] "Returning unhandled non-composite e" $ return e
 
@@ -212,8 +212,8 @@ foldExpr f st (Op op e1) = f st e1
 foldExpr f st (If eB eT eF) = f st eB |> (\st -> f st eT) |> (\st -> f st eF)
 foldExpr f st (Tuple es) = foldl f st es
 foldExpr f st (Record es) = Map.foldl f st es
-foldExpr f st (Ode v e1) = f st e1
-foldExpr f st (Sde v e1 e2) = f st e1 |> (\st -> f st e2)
+foldExpr f st (Ode v eD) = f st eD
+foldExpr f st (Sde v eW eD) = f st eW |> (\st -> f st eD)
 foldExpr f st (TypeCast e1 t) = f st e1
 foldExpr f st e = st -- trace' [MkSB e, MkSB st] "Returning unchanged state" st
 
@@ -225,7 +225,7 @@ foldExprM f st (Op op e1) = f st e1
 foldExprM f st (If eB eT eF) = f st eB >>= (\st -> f st eT) >>= (\st -> f st eF)
 foldExprM f st (Tuple es) = DF.foldlM f st es
 foldExprM f st (Record es) = DF.foldlM f st es
-foldExprM f st (Ode v e1) = f st e1
-foldExprM f st (Sde v e1 e2) = f st e1 >>= (\st -> f st e2)
+foldExprM f st (Ode v eD) = f st eD
+foldExprM f st (Sde v eW eD) = f st eW >>= (\st -> f st eD)
 foldExprM f st (TypeCast e1 t) = f st e1
 foldExprM f st e = return st -- trace' [MkSB e, MkSB st] "Returning unchanged state" $ return st

@@ -179,9 +179,9 @@ renExpr (E.Tuple exprs) = E.Tuple <$> DT.mapM renExpr exprs
 
 renExpr (E.Record nExprs) = E.Record <$> DT.mapM renExpr nExprs
 
-renExpr (E.Ode (E.LocalVar v) expr) = E.Ode <$> (E.LocalVar <$> bLookup v) <*> renExpr expr
+renExpr (E.Ode (E.LocalVar v) eD) = E.Ode <$> (E.LocalVar <$> bLookup v) <*> renExpr eD
 
-renExpr (E.Sde (E.LocalVar v) e1 e2) = E.Sde <$> (E.LocalVar <$> bLookup v) <*> renExpr e1 <*> renExpr e2
+renExpr (E.Sde (E.LocalVar v) eW eD) = E.Sde <$> (E.LocalVar <$> bLookup v) <*> renExpr eW <*> renExpr eD
 
 renExpr (E.Rre (E.LocalVar src) (E.LocalVar dest) rate) =
     E.Rre <$> (E.LocalVar <$> bLookup src) <*> (E.LocalVar <$> bLookup dest) <*> pure rate

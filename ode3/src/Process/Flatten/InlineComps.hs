@@ -120,7 +120,9 @@ inlineApp f appE = do
 shiftExprIds :: AC.Expr Id -> InlineCompsM (AC.Expr Id)
 shiftExprIds (AC.Var v mRecId) = AC.Var <$> calcReboundVar v <*> pure mRecId
 
-shiftExprIds (AC.Ode v e) = AC.Ode <$> calcReboundVar v <*> shiftExprIds e
+shiftExprIds (AC.Ode v eD) = AC.Ode <$> calcReboundVar v <*> shiftExprIds eD
+
+shiftExprIds (AC.Sde v eW eD) = AC.Sde <$> calcReboundVar v <*> shiftExprIds eW <*> shiftExprIds eD
 
 shiftExprIds (AC.Rre v1 v2 rate) = AC.Rre <$> calcReboundVar v1 <*> calcReboundVar v2 <*> pure rate
 

@@ -125,6 +125,12 @@ initIntExpr e@(AC.Ode (AC.LocalVar v) e1) env = do
     (e1', _) <- initIntExpr e1 env
     return (e1', env)
 
+-- Sdes - only return the delta expr
+initIntExpr e@(AC.Sde (AC.LocalVar v) eW eD) env = do
+    (eW', _) <- initIntExpr eW env
+    (eD', _) <- initIntExpr eD env
+    return (eD', env)
+
 
 initIntExpr e env = errorDump [MkSB e, MkSB env] "InitValGen - Cannot interpret expression" assert
 

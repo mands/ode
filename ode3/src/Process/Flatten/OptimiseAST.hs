@@ -83,7 +83,7 @@ optSCEExpr e = ACR.mapExpr optSCEExpr e
 
 -- Perform Library substitions -----------------------------------------------------------------------------------------
 optLibSubTop :: ACR.TopLet Id -> ACR.TopLet Id
-optLibSubTop (ACR.TopLet isInit t bs tE) = trace' [] "In libsubtop" $ ACR.TopLet isInit t bs $ optLibSubExpr tE
+optLibSubTop (ACR.TopLet isInit t bs tE) = ACR.TopLet isInit t bs $ optLibSubExpr tE
 
 optLibSubExpr :: ACR.Expr Id -> ACR.Expr Id
 -- convert upow direct to pow (power opt will expand later anyway)

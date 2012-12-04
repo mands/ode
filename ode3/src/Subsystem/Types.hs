@@ -66,9 +66,9 @@ calcTypeExpr tMap (AC.Tuple es) = AC.TTuple <$> DT.mapM (calcTypeExpr tMap) es
 -- is a literal record, record this within the type
 calcTypeExpr tMap (AC.Record nEs) = AC.TRecord <$> DT.mapM (calcTypeExpr tMap) nEs
 
+-- sim ops - types of Odes & Sdes = type of eD, type of RRE = Unit
 calcTypeExpr tMap (AC.Ode lv@(AC.LocalVar _) eD) = calcTypeExpr tMap eD
-calcTypeExpr tMap (AC.Rre _ _ _) = return AC.TUnit
-
+calcTypeExpr tMap (AC.Sde lv@(AC.LocalVar _) eW eD) = calcTypeExpr tMap eD
 calcTypeExpr tMap (AC.Rre _ _ _) = return AC.TUnit
 
 -- direct casts
