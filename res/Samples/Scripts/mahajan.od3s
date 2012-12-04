@@ -13,7 +13,7 @@ import SimTests.Mahajantest.*
 // set sim params
 :startTime 0
 :stopTime 1000000.0
-:timestep 0.1
+:timestep 0.0
 :period 10
 :output "./output.bin"
 
@@ -34,7 +34,7 @@ import SimTests.Mahajantest.*
 :mathModel "fast"
 // vecmath enable?
 //:vecMath
-:mathLib "amd"
+:mathLib "gnu"
 // backend to use - interpreter, jitcompiler, aotcompiler, objectfile
 :backend "aotcompiler"
 
@@ -44,6 +44,8 @@ import SimTests.Mahajantest.*
 :absError 1e-11
 :modelType "stiff"
 :maxTimestep 1.5
+:maxNumSteps 10000
+//:maxNumSteps 10000000000
 // all done
 :simulate Mahajan
 :quit

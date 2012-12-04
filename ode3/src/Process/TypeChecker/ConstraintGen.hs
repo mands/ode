@@ -184,8 +184,8 @@ recordRefsCons gModEnv modData mFuncArgs = do
 
 -- Constraint Generation -----------------------------------------------------------------------------------------------
 
-constrain :: M.GlobalModEnv ->  M.ModData E.Id -> Maybe (M.FunArgs) -> Bool -> MExcept (TypeEnvs, TypeCons)
-constrain gModEnv modData mFuncArgs unitsCheck = runStateT (evalSupplyT (execStateT consM $ mkTypeEnvs unitsCheck) [1..]) mkTypeCons
+constrain :: M.GlobalModEnv ->  M.ModData E.Id -> Maybe (M.FunArgs) -> Bool -> U.Unit -> MExcept (TypeEnvs, TypeCons)
+constrain gModEnv modData mFuncArgs unitsCheck timeUnit = runStateT (evalSupplyT (execStateT consM $ mkTypeEnvs unitsCheck) [1..]) mkTypeCons
   where
     consM :: TypeConsM ()
     consM = DF.mapM_ consTop (OrdMap.elems (M.modExprMap modData)) >> recordRefsCons gModEnv modData mFuncArgs
@@ -265,7 +265,7 @@ constrain gModEnv modData mFuncArgs unitsCheck = runStateT (evalSupplyT (execSta
         -- process differently depending if units are enabled
         E.Num _ u       -> return $ if unitsCheck then E.TFloat u else E.TFloat U.NoUnit
         E.NumSeq _ u    -> return $ if unitsCheck then E.TFloat u else E.TFloat U.NoUnit
-        E.Time          -> return $ if unitsCheck then E.TFloat U.uSeconds else E.TFloat U.NoUnit-- should this be uFloat ??
+        E.Time          -> return $ if unitsCheck then E.TFloat timeUnit else E.TFloat U.NoUnit-- should this be uFloat ??
         E.Unit          -> return E.TUnit
 
     -- test add, same code for most ops (not mul/div)
@@ -308,7 +308,7 @@ constrain gModEnv modData mFuncArgs unitsCheck = runStateT (evalSupplyT (execSta
 
         -- process differently depending if units are enabled
         -- TODO - contrain both types wrt Time -- is this right?
-        when unitsCheck (addConsUnit $ ConSum uV2 U.uSeconds uV1)
+        when unitsCheck (addConsUnit $ ConSum uV2 timeUnit uV1)
         -- TODO - return the type of the dExpr
         return eDT
 
@@ -370,7 +370,6 @@ constrain gModEnv modData mFuncArgs unitsCheck = runStateT (evalSupplyT (execSta
 
     -- other exprs - not needed as match all
     consExpr e = errorDump [MkSB e] "(TC02) Unknown expr" assert
-
 
 
 -- TODOs- check units for math ops, esp Mod, Pow
@@ -452,4 +451,3 @@ getOpType op = case op of
             OtherOp (URoot exp) -> addConsUnit $ ConMul exp uV2 uV1 -- uV2**exp == uV1
 
         return $ E.TArr (E.TFloat uV1) (E.TFloat uV2)
-

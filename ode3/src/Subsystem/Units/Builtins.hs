@@ -16,7 +16,7 @@
 module Subsystem.Units.Builtins (
     createSIs,
     -- builtins
-    uSeconds, uMinutes, uHours,
+    uSeconds, uMinutes, uHours, uMilliSeconds, uNanoSeconds, getTimeUnit,
     defQuantities, defUnits, defConvs
 ) where
 
@@ -67,19 +67,35 @@ defQuantities = addQuantitiesToBimap Bimap.empty builtinQuantities
 
 -- base unit defs
 -- default units :: BaseUnit
-baseSeconds = "s"
-baseMinutes = "min"
-baseHours = "hr"
+-- this includes all basic time units, as these are required to have a unit-correct time parameter
+baseNanoSeconds     = "ns"
+baseMilliSeconds    = "ms"
+baseSeconds         = "s"
+baseMinutes         = "min"
+baseHours           = "hr"
 
-uSeconds = mkUnit [(baseSeconds, 1)]
-uMinutes = mkUnit [(baseMinutes, 1)]
-uHours = mkUnit [(baseHours, 1)]
+uNanoSeconds    = mkUnit [(baseNanoSeconds, 1)]
+uMilliSeconds   = mkUnit [(baseMilliSeconds, 1)]
+uSeconds        = mkUnit [(baseSeconds, 1)]
+uMinutes        = mkUnit [(baseMinutes, 1)]
+uHours          = mkUnit [(baseHours, 1)]
+
+-- hardcode parser for built in time units
+getTimeUnit :: String -> Maybe Unit
+getTimeUnit "ns"    = Just uNanoSeconds
+getTimeUnit "ms"    = Just uMilliSeconds
+getTimeUnit "s"     = Just uSeconds
+getTimeUnit "min"   = Just uMinutes
+getTimeUnit "hr"    = Just uHours
+getTimeUnit _       = Nothing
 
 -- default unit env
 (Right defUnits) = addUnitsToEnv Map.empty builtinUnits
   where
     builtinUnits :: [UnitDef]
-    builtinUnits =  [ UnitDef baseSeconds DimT
+    builtinUnits =  [ UnitDef baseNanoSeconds DimT
+                    , UnitDef baseMilliSeconds DimT
+                    , UnitDef baseSeconds DimT
                     , UnitDef baseMinutes DimT
                     , UnitDef baseHours DimT
                     ]
@@ -88,8 +104,15 @@ uHours = mkUnit [(baseHours, 1)]
 (Right defConvs) = addConvsToGraph Map.empty builtinConvs defUnits
   where
     builtinConvs :: [ConvDef]
-    builtinConvs =  [ ConvDef baseSeconds baseMinutes (CExpr CDiv CFromId (CNum 60)) -- s -> min = s / 60
+    builtinConvs =  [ ConvDef baseNanoSeconds baseMilliSeconds (CExpr CDiv CFromId (CNum 1000)) -- ns -> ms = s / 1000
+                    , ConvDef baseMilliSeconds baseNanoSeconds (CExpr CMul CFromId (CNum 1000)) -- inverse
+
+                    , ConvDef baseMilliSeconds baseSeconds (CExpr CDiv CFromId (CNum 1000)) -- ms -> s = s / 1000
+                    , ConvDef baseSeconds baseMilliSeconds (CExpr CMul CFromId (CNum 1000)) -- inverse
+
+                    , ConvDef baseSeconds baseMinutes (CExpr CDiv CFromId (CNum 60)) -- s -> min = s / 60
                     , ConvDef baseMinutes baseSeconds (CExpr CMul CFromId (CNum 60)) -- inverse
+
                     , ConvDef baseMinutes baseHours (CExpr CDiv CFromId (CNum 60)) -- min -> hr = min / 60
                     , ConvDef baseHours baseMinutes (CExpr CMul CFromId (CNum 60)) -- inverse
                     ]

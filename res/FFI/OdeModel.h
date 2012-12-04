@@ -24,7 +24,7 @@ extern const double OdeParamTimestep;
 // pass the stimulus current - set to half the stimulus interval
 extern const double OdeParamMaxTimestep;
 // maximum num of steps to be taken in solving from curTime->tOut
-extern const double OdeParamMaxNumSteps;
+extern const uint64_t OdeParamMaxNumSteps;
 
 // error toleraances for adaptive solvers
 extern const double OdeParamRelativeError;

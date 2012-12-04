@@ -117,7 +117,7 @@ void solverInit(double* const restrict state, void** const restrict cvodeMemOut,
 
     // optional inputs (see CVODE user guide) - inc timestep params
     flag = CVodeSetMinStep(cvodeMem, OdeParamTimestep);
-    //checkFlag(flag, "CVodeSetMinStep");
+    checkFlag(flag, "CVodeSetMinStep");
     flag = CVodeSetMaxStep(cvodeMem, OdeParamMaxTimestep);
     checkFlag(flag, "CVodeSetMaxStep");
     flag = CVodeSetStopTime(cvodeMem, OdeParamAdjustedStopTime);
@@ -125,7 +125,7 @@ void solverInit(double* const restrict state, void** const restrict cvodeMemOut,
 
     // Additional params (taken from PG Mahajan CVODE model)
     /* Alter the number of maximum steps the solver can take before it reaches tout */
-    flag = CVodeSetMaxNumSteps(cvodeMem, OdeParamMaxNumSteps);
+    flag = CVodeSetMaxNumSteps(cvodeMem, (int64_t)OdeParamMaxNumSteps);
     checkFlag(flag, "CVodeSetMaxNumSteps");
 
     /* Set the maximum number of error test fails that may be taken (default = 7) */

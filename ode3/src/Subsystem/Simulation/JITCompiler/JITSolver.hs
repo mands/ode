@@ -80,7 +80,7 @@ genFFIParams numParams = do
 
     -- adaptive params
     liftIO $ addGlobalWithInit llvmMod (constDouble $ _maxTimestep) doubleType True "OdeParamMaxTimestep"
-    liftIO $ addGlobalWithInit llvmMod (constDouble $ _maxNumSteps) doubleType True "OdeParamMaxNumSteps"
+    liftIO $ addGlobalWithInit llvmMod (constInt64 $ _maxNumSteps) int64Type True "OdeParamMaxNumSteps"
     liftIO $ addGlobalWithInit llvmMod (constDouble $ _relError) doubleType True "OdeParamRelativeError"
     liftIO $ addGlobalWithInit llvmMod (constDouble $ _absError) doubleType True "OdeParamAbsoluteError"
     case _modelType of

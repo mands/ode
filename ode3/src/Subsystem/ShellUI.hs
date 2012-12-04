@@ -59,6 +59,7 @@ import qualified Subsystem.ModDriver as MD
 import Process.Flatten (flatten)
 import Subsystem.Simulation.Interpreter
 import Subsystem.Simulation.JITCompiler
+import qualified Subsystem.Units as U
 
 
 shellEntry :: IO ()
@@ -110,7 +111,7 @@ defaultCmds :: [ShellCommand SysState]
 defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnitsCmd
                 , simStartCmd
                 , startTimeCmd, stopTimeCmd, simTimestepCmd, simSolverCmd
-                , simMaxTimestepCmd, simRelErrorCmd, simAbsErrorCmd, simModelType
+                , simMaxTimestepCmd, simMaxNumStepsCmd, simRelErrorCmd, simAbsErrorCmd, simModelType
                 , simBackendCmd, simLinkerCmd, simExecuteCmd
                 , simMathModelCmd, simMathLibCmd, simVecMathCmd
                 , simOptimiseCmd, simShortCircuitCmd, simPowerExpanCmd
@@ -122,7 +123,6 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnits
   where
     -- debug toggle, need to update the logger too
     debugCmd = toggle "debug" "Toggle Debug Mode" (get lDebug) (set lDebug)
-    disableUnitsCmd = toggle "disableUnits" "Toggle Units Checking" (get lUnitsCheck) (set lUnitsCheck)
 
     -- basic cmds
     -- damn record update syntax!
@@ -136,9 +136,24 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnits
     simTimestepCmd = cmd "timestep" (setDouble $ lTimestep . lSimParams) "Timestep to use for simulation"
     outPeriodCmd = cmd "period" (setDouble $ lOutputPeriod . lSimParams) "Interval period to save simulation state to disk (seconds)"
 
+    -- unit params
+    disableUnitsCmd = toggle "disableUnits" "Toggle Units Checking" (get $ lUnitsCheck . lSimParams) (set $ lUnitsCheck . lSimParams)
+    setTimeUnitCmd = cmd "timeUnit" f "Set the unit used for the independent time parameter"
+      where
+        f :: String -> Sh SysState ()
+        f str | map toLower str == "ns"  = modifyShellSt $ set (lTimeUnit . lSimParams) U.uNanoSeconds
+        f str | map toLower str == "ms"  = modifyShellSt $ set (lTimeUnit . lSimParams) U.uMilliSeconds
+        f str | map toLower str == "s"   = modifyShellSt $ set (lTimeUnit . lSimParams) U.uSeconds
+        f str | map toLower str == "min" = modifyShellSt $ set (lTimeUnit . lSimParams) U.uMinutes
+        f str | map toLower str == "hr"  = modifyShellSt $ set (lTimeUnit . lSimParams) U.uHours
+        f _  = shellPutInfoLn "Possible options <ns, ms, s, min, hr>"
+
     -- adaptive params
     simMaxTimestepCmd = cmd "maxTimestep" (setDouble $ lMaxTimestep . lSimParams) "Max timestep to use for simulation"
-    simMaxNumStepsCmd = cmd "maxNumSteps" (setDouble $ lMaxNumSteps . lSimParams) "Max number of steps to use from current to next output time"
+    simMaxNumStepsCmd = cmd "maxNumSteps" f "Max number of steps to use from current to next output time"
+      where
+        f :: Integer -> Sh SysState ()
+        f x = modifyShellSt $ set (lMaxNumSteps . lSimParams) x
     simRelErrorCmd = cmd "relError" (setDouble $ lRelError . lSimParams) "Relative error for adaptive simulation"
     simAbsErrorCmd = cmd "absError" (setDouble $ lAbsError . lSimParams) "Absolute error for adaptive simulation"
     simModelType = cmd "modelType" f "Model Type to use for adaptive simulation <stiff, nonstiff>"

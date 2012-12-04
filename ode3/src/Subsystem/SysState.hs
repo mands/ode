@@ -72,7 +72,6 @@ liftExSys = lift . mkExceptIO
 
 data SysState = SysState
     { _debug        :: Bool             -- do we enable debug mode
-    , _unitsCheck   :: Bool             -- disable type-checker units?
     , _simParams    :: SimParams        -- simulation params
     , _modState     :: ModState
     , _unitsState   :: UnitsState
@@ -81,7 +80,6 @@ data SysState = SysState
 
 defSysState = SysState
     { _debug        = False
-    , _unitsCheck   = True
     , _simParams    = defSimParams
     , _modState     = defModState
     , _unitsState   = defUnitsState
@@ -96,28 +94,39 @@ data OdeMathLib = GNU | AMD | Intel deriving (Show, Eq)
 data OdeModelType = Stiff | NonStiff deriving (Show, Eq)
 
 data SimParams = SimParams
-    { _startTime    :: Double
-    , _stopTime      :: Double
+    {
+    -- timing params
+      _startTime    :: Double
+    , _stopTime     :: Double
     , _timestep     :: Double           -- simulation timestep
-    , _outputPeriod :: Double           -- period interval with which to save simulation state to outfile, should be multiple of timestep
 
     -- adaptive solver params
     , _maxTimestep  :: Double
-    , _maxNumSteps  :: Double
+    , _maxNumSteps  :: Integer
     , _relError     :: Double
     , _absError     :: Double
     , _modelType    :: OdeModelType
 
+    -- unit params
+    , _unitsCheck   :: Bool             -- disable type-checker units?
+    , _timeUnit     :: U.Unit           -- default unit for time parameter
+
+    -- output params
+    , _outputPeriod :: Double           -- period interval with which to save simulation state to outfile, should be multiple of timestep
     , _filename     :: FilePath         -- output filename to save data to
+
+    -- compilation params
     , _solver       :: OdeSolver
     , _backend      :: OdeBackend
     , _linker       :: OdeLinker
     , _execute      :: Bool
 
+    -- fast math
     , _mathModel    :: OdeMathModel
     , _mathLib      :: OdeMathLib
     , _vecMath      :: Bool
 
+    -- optimisations
     , _optimise     :: Bool
     , _optShortCircuit  :: Bool         -- do we perform short-circuit evaluation of booleans?
     , _optPowerExpan    :: Bool         -- do we perform expansion of calls to pow()?
@@ -127,15 +136,19 @@ defSimParams = SimParams
     { _startTime    = 0
     , _stopTime     = 60
     , _timestep     = 0.001             -- 1ms
-    , _outputPeriod = 0.5               -- 0.5s
 
     , _maxTimestep  = 1                 -- 1s
-    , _maxNumSteps  = 500               -- 1s
-    , _relError     = 1e-6              -- recommended by cvode (0.1 of 0.1%)
+    , _maxNumSteps  = 500               -- CVODE default
+    , _relError     = 1e-6              -- recommended by CVODE (0.1 of 0.1%)
     , _absError     = 1e-9              -- is model dependent, and should specific to each state val
     , _modelType    = Stiff             -- default model type for adaptive solver
 
+    , _unitsCheck   = True              -- unit-checking enabled
+    , _timeUnit     = U.uSeconds        -- time set to seconds
+
+    , _outputPeriod = 0.5               -- 0.5s
     , _filename     = "output.bin"      -- default output file
+
     , _solver       = FEuler            -- default solver
     , _backend      = Interpreter       -- default backend
     , _linker       = Dynamic           -- always dyn link (not used for Interpreter & JIT)
@@ -200,12 +213,12 @@ def genLens(recName, fields):
     lName = "l" + field[1].upper() + field[2:]
     cog.outl("{0} = lens ({1}) (\\x rec -> rec {{ {1} = x }})".format(lName, field))
 
-genLens("SysState", ['_debug', '_unitsCheck', '_simParams', '_modState', '_unitsState'])
-genLens("SimParams",    ['_startTime', '_stopTime', '_timestep', '_outputPeriod', '_maxTimestep', '_maxNumSteps', '_relError'
-                        , '_absError', '_modelType', '_filename', '_solver', '_backend', '_linker', '_execute'
+genLens("SysState",     ['_debug', '_simParams', '_modState', '_unitsState'])
+genLens("SimParams",    ['_startTime', '_stopTime', '_timestep', '_maxTimestep', '_maxNumSteps', '_relError', '_absError', '_modelType'
+                        , '_unitsCheck', '_timeUnit', '_filename', '_outputPeriod', '_solver', '_backend', '_linker', '_execute'
                         , '_mathModel', '_mathLib', '_vecMath', '_optimise', '_optShortCircuit', '_optPowerExpan'])
-genLens("ModState", ['_repos', '_modEnv', '_parsedFiles', '_replFile'])
-genLens("UnitsState", ['_quantities', '_unitDimEnv', '_convEnv'])
+genLens("ModState",     ['_repos', '_modEnv', '_parsedFiles', '_replFile'])
+genLens("UnitsState",   ['_quantities', '_unitDimEnv', '_convEnv'])
 
 
 
@@ -213,7 +226,6 @@ genLens("UnitsState", ['_quantities', '_unitDimEnv', '_convEnv'])
 
 -- SysState
 lDebug = lens (_debug) (\x rec -> rec { _debug = x })
-lUnitsCheck = lens (_unitsCheck) (\x rec -> rec { _unitsCheck = x })
 lSimParams = lens (_simParams) (\x rec -> rec { _simParams = x })
 lModState = lens (_modState) (\x rec -> rec { _modState = x })
 lUnitsState = lens (_unitsState) (\x rec -> rec { _unitsState = x })
@@ -222,13 +234,15 @@ lUnitsState = lens (_unitsState) (\x rec -> rec { _unitsState = x })
 lStartTime = lens (_startTime) (\x rec -> rec { _startTime = x })
 lStopTime = lens (_stopTime) (\x rec -> rec { _stopTime = x })
 lTimestep = lens (_timestep) (\x rec -> rec { _timestep = x })
-lOutputPeriod = lens (_outputPeriod) (\x rec -> rec { _outputPeriod = x })
 lMaxTimestep = lens (_maxTimestep) (\x rec -> rec { _maxTimestep = x })
 lMaxNumSteps = lens (_maxNumSteps) (\x rec -> rec { _maxNumSteps = x })
 lRelError = lens (_relError) (\x rec -> rec { _relError = x })
 lAbsError = lens (_absError) (\x rec -> rec { _absError = x })
 lModelType = lens (_modelType) (\x rec -> rec { _modelType = x })
+lUnitsCheck = lens (_unitsCheck) (\x rec -> rec { _unitsCheck = x })
+lTimeUnit = lens (_timeUnit) (\x rec -> rec { _timeUnit = x })
 lFilename = lens (_filename) (\x rec -> rec { _filename = x })
+lOutputPeriod = lens (_outputPeriod) (\x rec -> rec { _outputPeriod = x })
 lSolver = lens (_solver) (\x rec -> rec { _solver = x })
 lBackend = lens (_backend) (\x rec -> rec { _backend = x })
 lLinker = lens (_linker) (\x rec -> rec { _linker = x })
@@ -250,7 +264,7 @@ lReplFile = lens (_replFile) (\x rec -> rec { _replFile = x })
 lQuantities = lens (_quantities) (\x rec -> rec { _quantities = x })
 lUnitDimEnv = lens (_unitDimEnv) (\x rec -> rec { _unitDimEnv = x })
 lConvEnv = lens (_convEnv) (\x rec -> rec { _convEnv = x })
---[[[end]]] (checksum: d0882f52a3268f6d367f4a8311440fcf)
+--[[[end]]] (checksum: 38e1bc7eaed9a5f89a7f7c8b9694782f)
 
 -- a few useful views from top SysState into nested labels
 vModEnv :: SysState :-> MA.GlobalModEnv

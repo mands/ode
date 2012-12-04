@@ -27,6 +27,7 @@ void dumpParams(void) {
 
     puts("\nOde Adaptive Params");
     printf("OdeParamMaxTimestep (s)\t\t- %g\n", OdeParamMaxTimestep);
+    printf("OdeParamMaxNumSteps\t\t- %" PRIu64 "\n", OdeParamMaxNumSteps);
     printf("OdeParamRelativeError\t\t- %g\n", OdeParamRelativeError);
     printf("OdeParamAbsoluteError\t\t- %g\n", OdeParamAbsoluteError);
 
