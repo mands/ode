@@ -46,7 +46,6 @@ data InitState = InitState { initMap :: InitMap, startTime :: Double } deriving 
 -- Entry Point ---------------------------------------------------------------------------------------------------------
 initialValueGen :: Sys.SimParams -> Module Id -> MExcept (Module Id, InitMap)
 initialValueGen p mod@(LitMod modData) = do
-
     (env', st) <- runStateT initGenM $ InitState Map.empty (Sys._startTime p)
     trace' [MkSB st, MkSB env'] "Flatten - Calculated init vals" $ return ()
     return (mod, (initMap st))

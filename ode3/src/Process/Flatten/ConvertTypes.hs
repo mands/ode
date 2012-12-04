@@ -82,7 +82,7 @@ convertTypesExpr (AC.TypeCast e (AC.WrapType _)) = convertTypesExpr e
 convertTypesExpr (AC.TypeCast e (AC.UnwrapType _)) = convertTypesExpr e
 -- convert the unit, create a new let binding with the conversion
 convertTypesExpr et@(AC.TypeCast e (AC.UnitCast toU)) = do
-    trace' [MkSB et] "in conv unit" $ return ()
+    -- trace' [MkSB et] "in conv unit" $ return ()
     -- first convert the subexpr
     e' <- convertTypesExpr e
     id <- supply

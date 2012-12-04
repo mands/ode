@@ -129,7 +129,7 @@ getMVarType mv@(E.ModVar m v) gModEnv modData mFuncArgs =
 -- Binding Helper Functions --------------------------------------------------------------------------------------------
 processInitValBind :: Integer -> E.Type -> TypeConsM ()
 processInitValBind b eT = do
-    trace' [MkSB b, MkSB eT] "Init - types" $ return ()
+    -- trace' [MkSB b, MkSB eT] "Init - types" $ return ()
     -- need to setup a constraint of eT == TFloat u1
     uV1 <- newUnitVar
     addConsType $ ConEqual eT (E.TFloat uV1)

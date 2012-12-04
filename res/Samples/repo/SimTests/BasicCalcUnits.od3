@@ -35,4 +35,12 @@ module BasicCalcUnits4 {
     ode { init : x, delta : dx } = 5 { unit : m.s^-1} + w { unit : m.s^-1 } // speed = 10m.s^-1
 }
 
+// module in differing unit type to solver
+// solver set to seconds
+module BasicCalcUnits5 {
+    // unit m { dim : L, SI : True }
+    init x = 0 { unit : m }
+
+    ode {init: x, delta : dx } = (5 { unit : m.ms^-1 }) { unit : m.s^-1 }
+}
 

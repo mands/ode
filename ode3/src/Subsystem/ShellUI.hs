@@ -108,17 +108,15 @@ initShellDesc = desc'
 -- we use commands to setup and control simulation
 -- TODO - change the toggle cmds to noun - not disableNoun
 defaultCmds :: [ShellCommand SysState]
-defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnitsCmd
-                , simStartCmd
-                , startTimeCmd, stopTimeCmd, simTimestepCmd, simSolverCmd
+defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, simStartCmd, typeCmd, exitCommand "quit"
+                , repoAddCmd, repoDelCmd
+                -- sim params
+                , simStartTimeCmd, simStopTimeCmd, simTimestepCmd
                 , simMaxTimestepCmd, simMaxNumStepsCmd, simRelErrorCmd, simAbsErrorCmd, simModelType
-                , simBackendCmd, simLinkerCmd, simExecuteCmd
+                , simDisableUnitsCmd, simTimeUnitCmd, simOutPeriodCmd, simOutFilenameCmd
+                , simSolverCmd, simBackendCmd, simLinkerCmd, simExecuteCmd
                 , simMathModelCmd, simMathLibCmd, simVecMathCmd
                 , simOptimiseCmd, simShortCircuitCmd, simPowerExpanCmd
-                , outPeriodCmd, outFilenameCmd
-                , repoAddCmd, repoDelCmd
-                , typeCmd
-                , exitCommand "quit"
                 ]
   where
     -- debug toggle, need to update the logger too
@@ -131,14 +129,13 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnits
     setDouble lbl val = modifyShellSt $ set lbl val
 
     -- basic params
-    startTimeCmd = cmd "startTime" (setDouble $ lStartTime . lSimParams) "Initial simulation time"
-    stopTimeCmd = cmd "stopTime" (setDouble $ lStopTime . lSimParams) "Final simulation time"
+    simStartTimeCmd = cmd "startTime" (setDouble $ lStartTime . lSimParams) "Initial simulation time"
+    simStopTimeCmd = cmd "stopTime" (setDouble $ lStopTime . lSimParams) "Final simulation time"
     simTimestepCmd = cmd "timestep" (setDouble $ lTimestep . lSimParams) "Timestep to use for simulation"
-    outPeriodCmd = cmd "period" (setDouble $ lOutputPeriod . lSimParams) "Interval period to save simulation state to disk (seconds)"
 
     -- unit params
-    disableUnitsCmd = toggle "disableUnits" "Toggle Units Checking" (get $ lUnitsCheck . lSimParams) (set $ lUnitsCheck . lSimParams)
-    setTimeUnitCmd = cmd "timeUnit" f "Set the unit used for the independent time parameter"
+    simDisableUnitsCmd = toggle "disableUnits" "Toggle Units Checking" (get $ lUnitsCheck . lSimParams) (set $ lUnitsCheck . lSimParams)
+    simTimeUnitCmd = cmd "timeUnit" f "Set the unit used for the independent time parameter"
       where
         f :: String -> Sh SysState ()
         f str | map toLower str == "ns"  = modifyShellSt $ set (lTimeUnit . lSimParams) U.uNanoSeconds
@@ -164,11 +161,13 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnits
         f _ = shellPutInfoLn "Possible options <stiff, nonstiff>"
 
     -- output params
-    outFilenameCmd = cmd "output" f "Filename to save simulation results"
+    simOutPeriodCmd = cmd "period" (setDouble $ lOutputPeriod . lSimParams) "Interval period to save simulation state to disk (seconds)"
+    simOutFilenameCmd = cmd "output" f "Filename to save simulation results"
       where
         f :: File -> Sh SysState ()
         f (File x) = modifyShellSt $ set (lFilename . lSimParams) x
 
+    -- compilation params
     simSolverCmd = cmd "solver" f "ODE Solver to use for simulation <euler, rk4, adaptive>"
       where
         f :: String -> Sh SysState ()
@@ -195,11 +194,7 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnits
 
     simExecuteCmd       = toggle "disableExecute" "Toggle Execution of Simulations" (get $ lExecute . lSimParams) (set $ lExecute . lSimParams)
 
-    -- opt params
-    simOptimiseCmd      = toggle "disableOptimise" "Toggle LLVM Optimisation of Simulations" (get $ lOptimise . lSimParams) (set $ lOptimise . lSimParams)
-    simShortCircuitCmd  = toggle "disableShortCircuit" "Toggle Short-circuiting of boolean operators (N.B. may change simulation semantics) " (get $ lOptShortCircuit . lSimParams) (set $ lOptShortCircuit . lSimParams)
-    simPowerExpanCmd    = toggle "disablePowerExpan" "Toggle Expansion of pow() calls (requires mathModel = fast)" (get $ lOptPowerExpan . lSimParams) (set $ lOptPowerExpan . lSimParams)
-
+    -- fast math
     simMathModelCmd = cmd "mathModel" f "Compilation Math model to utilise <strict, fast>"
       where
         f :: String -> Sh SysState ()
@@ -217,6 +212,12 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnits
 
     simVecMathCmd       = toggle "vecMath" "Toggle Vectorisation Optimisation" (get $ lVecMath . lSimParams) (set $ lVecMath . lSimParams)
 
+    -- opt params
+    simOptimiseCmd      = toggle "disableOptimise" "Toggle LLVM Optimisation of Simulations" (get $ lOptimise . lSimParams) (set $ lOptimise . lSimParams)
+    simShortCircuitCmd  = toggle "disableShortCircuit" "Toggle Short-circuiting of boolean operators (N.B. may change simulation semantics) " (get $ lOptShortCircuit . lSimParams) (set $ lOptShortCircuit . lSimParams)
+    simPowerExpanCmd    = toggle "disablePowerExpan" "Toggle Expansion of pow() calls (requires mathModel = fast)" (get $ lOptPowerExpan . lSimParams) (set $ lOptPowerExpan . lSimParams)
+
+
 -- Start Simulation ----------------------------------------------------------------------------------------------------
     simStartCmd = cmd "simulate" f "Start a simulation"
       where
@@ -224,8 +225,6 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, disableUnits
         f initMod = shSimulate initMod
 
 -- Repo Management -----------------------------------------------------------------------------------------------------
-
-
     repoAddCmd = cmd "addRepo" f "Add a directory path to the module repository (note - this clears all loaded modules)"
       where
         f :: File -> Sh SysState ()

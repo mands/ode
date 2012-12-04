@@ -203,7 +203,8 @@ convertCastUnit fromUnitC@(UnitC fromUnit) toUnitC@(UnitC toUnit) uEnv cEnv = do
 
         convertSingleUnit :: (BUMap, CExpr) -> (BaseUnit, Integer) -> MExcept (BUMap, CExpr)
         convertSingleUnit s@(rhsUs, cExpr) (lhsUnit, lIdx) =
-            trace' [MkSB lhsUnit, MkSB lIdx, MkSB rhsUs] "convU loop" $ if lIdx > 0
+            -- trace' [MkSB lhsUnit, MkSB lIdx, MkSB rhsUs] "convU loop" $
+            if lIdx > 0
                 then convertSingleUnit' >>= (\s -> convertSingleUnit s (lhsUnit, lIdx - 1)) -- execute the conversion monad and call again
                 else return s
           where
@@ -214,7 +215,7 @@ convertCastUnit fromUnitC@(UnitC fromUnit) toUnitC@(UnitC toUnit) uEnv cEnv = do
                                                     Nothing -> errorDump [MkSB rhsUs] "(UC) Cannot find anymore rhs units" assert
 
                 cExpr' <- convertBaseUnit lhsUnit rhsUnit (getConvGraph dim cEnv)
-                trace' [MkSB lhsUnit, MkSB rhsUnit, MkSB cExpr'] "derived conversion expr" $ return ()
+                -- trace' [MkSB lhsUnit, MkSB rhsUnit, MkSB cExpr'] "derived conversion expr" $ return ()
                 -- return the updated rhs map minus an index, and the inlined conversion expr
                 let rhsUs'' = if (rIdx == 1) then rhsUs' else Map.insert rhsUnit (rIdx-1) rhsUs'
                 return (rhsUs'', inlineCExpr cExpr cExpr')

@@ -225,7 +225,8 @@ unifyTypes conTypeS = unifyTypesLoop conTypeS
 
     -- Composite, Newtypes
     processType (ConEqual t1@(E.TTypeCons t1Name t1Unwrap) t2@(E.TTypeCons t2Name t2Unwrap)) curS =
-        trace' [MkSB t1, MkSB t2] "Unify TypeCons" $ processType (ConEqual t1Unwrap t2Unwrap) curS
+        -- trace' [MkSB t1, MkSB t2] "Unify TypeCons" $
+        processType (ConEqual t1Unwrap t2Unwrap) curS
 
     -- Composite, Tuples
     processType (ConEqual (E.TTuple t1s) (E.TTuple t2s)) curS | (length t1s == length t2s) =
@@ -322,7 +323,8 @@ unifyUnits uState conUnitS = unifyUnitLoop conUnitS
     -- 0 uVars - simply check the sums are correct
     -- u/NU u/NU u/NU
     processUnit con@(ConSum u1 u2 u3) st | not (isUnitVar u1) && not (isUnitVar u2) && not (isUnitVar u3) =
-        trace' [MkSB con, MkSB st] "ConSum" $ if U.addUnit u1 u2 == u3 then return st
+        -- trace' [MkSB con, MkSB st] "ConSum" $
+        if U.addUnit u1 u2 == u3 then return st
                                 else throwError $ printf "Unit Error - %s + %s does not equal %s" (show u1) (show u2) (show u3)
 
     -- Unification (Minimal) and Checking (Full) for SameDim rule ------------------------------------------------------
