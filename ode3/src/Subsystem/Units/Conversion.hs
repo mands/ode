@@ -101,9 +101,8 @@ convertBaseUnit u1 u2 convGraph = do
     -- create the conversion expressions
     case length edges >= 1 of
         True -> let expr = foldl1 inlineCExpr edges in
-            return $ trace' [MkSB expr] (printf "Inlined Conversion expression %s => %s" u1 u2) expr
+            return $ expr -- trace' [MkSB expr] (printf "Inlined Conversion expression %s => %s" u1 u2) expr
         False -> throwError $ printf "Cannot find conversion between units %s and %s" u1 u2
-
 
 
 -- Conversion between Units (inc Simplification and derived units conversion) ------------------------------------------
