@@ -117,6 +117,18 @@ module Div6 {
 */
 
 
+// div, reciprocals - OK
+module Div7 {
+    val x = 1/1{unit : m^2}
+}
+
+// div, reciprocals w/ calc - OK
+module Div8 {
+    val x = 1 {unit : m} * 1 {unit : m}
+    val y = 1/x
+}
+
+
 /******************************************************************************
 ** Complex Ops
 ******************************************************************************/

@@ -130,32 +130,33 @@ data Expr b = Var (VarId b) (Maybe RecId)             -- a reference to any let-
             | Abs b (Expr b)            -- abs arg, expr
 
             | Let Bool Type (BindList b) (Expr b) (Expr b)  -- basic let within sub-expression
-                                        -- test to try multi-lets within an expressino - handles unpacking with context
-                                         -- can be stateful bindings that are held between time-steps if 1st param=True
-                                         -- Type param holds the type of the bindings created by e1
+                                                -- test to try multi-lets within an expressino - handles unpacking with context
+                                                -- can be stateful bindings that are held between time-steps if 1st param=True
+                                                -- Type param holds the type of the bindings created by e1
 
---            | InitVal Type b (Expr b) (Expr b)  -- a new type to represent initial expressions,
---                                                -- type should always be a double, but may have a unit attached
+            | Lit Literal                       -- basic built-in constant literals
 
-            | Lit Literal               -- basic built-in constant literals
+            | Op AC.Op (Expr b)         -- is basically identical to App - however is used to refer to built-in/run-time functions
+                                        -- we could but don't curry as would like to apply same optimsations to both sys/user functions
+                                        -- instead pass pair-cons of expressions
 
-            | Op AC.Op (Expr b)    -- is basically identical to App - however is used to refer to built-in/run-time functions
-                                -- we could but don't curry as would like to apply same optimsations to both sys/user functions
-                                -- instead pass pair-cons of expressions
+            | If (Expr b) (Expr b) (Expr b)     -- standard FP if construct, used to apply piecewise/case constructs
 
-            | If (Expr b) (Expr b) (Expr b) -- standard if construct, used to apply piecewise/case constructs
+            | Tuple [Expr b]                    -- a collection of expressions
+                                                -- do we allow nested tuples? if not, do we use GADTs to enforce unnested?
 
-            | Tuple [Expr b]            -- a collection of expressions
-                                        -- do we allow nested tuples? if not, do we use GADTs to enforce unnested?
+            | Record (Map.Map RecId (Expr b))   -- a record, technically just a nmed tuple iwth ordering
+                                                -- need to unify with tuples
+            -- now add the simulation stuff!
+            | Ode (VarId b) (Expr b)            -- an Ode, uses a state variable defined in b,
+                                                -- and runs and returns the delta expression
 
-            | Record (Map.Map RecId (Expr b)) -- a record, technically just a nmed tuple iwth ordering - need to unify with tuples
+            | Sde (VarId b) (Expr b) (Expr b)   -- a Sde, uses a state variable defined in b, a weiner in 1st expr,
+                                                -- and runs and returns the delta expression
 
-            | Ode (VarId b) (Expr b)   -- an Ode, uses a state variable defined in b, and runs and returns the delta expression
-
-            | Rre (VarId b) (VarId b) Double -- an RRE, from var->var with given rate
+            | Rre (VarId b) (VarId b) Double -- an RRE, from var->var with given rate, returns unit
 
             | TypeCast (Expr b) (TypeCast b) -- type casts to expressions
-            -- now add the simulation stuff!
             deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
 
 
@@ -183,6 +184,7 @@ mapExpr f (If eB eT eF) = If (f eB) (f eT) (f eF)
 mapExpr f (Tuple es) = Tuple (map f es)
 mapExpr f (Record es) = Record (Map.map f es)
 mapExpr f (Ode v e1) = Ode v (f e1)
+mapExpr f (Sde v e1 e2) = Sde v (f e1) (f e2)
 mapExpr f (TypeCast e1 t) = TypeCast (f e1) t
 mapExpr f e = e -- trace' [MkSB e] "Returing unhandled non-composite e" $ e
 
@@ -196,6 +198,7 @@ mapExprM f (If eB eT eF) = If <$> f eB <*> f eT <*> f eF
 mapExprM f (Tuple es) = Tuple <$> mapM f es
 mapExprM f (Record es) = Record <$> DT.mapM f es
 mapExprM f (Ode v e1) = Ode v <$> f e1
+mapExprM f (Sde v e1 e2) = Sde v <$> f e1 <*> f e2
 mapExprM f (TypeCast e1 t) = TypeCast <$> f e1 <*> pure t
 mapExprM f e = return e -- trace' [MkSB e] "Returning unhandled non-composite e" $ return e
 
@@ -210,6 +213,7 @@ foldExpr f st (If eB eT eF) = f st eB |> (\st -> f st eT) |> (\st -> f st eF)
 foldExpr f st (Tuple es) = foldl f st es
 foldExpr f st (Record es) = Map.foldl f st es
 foldExpr f st (Ode v e1) = f st e1
+foldExpr f st (Sde v e1 e2) = f st e1 |> (\st -> f st e2)
 foldExpr f st (TypeCast e1 t) = f st e1
 foldExpr f st e = st -- trace' [MkSB e, MkSB st] "Returning unchanged state" st
 
@@ -222,8 +226,6 @@ foldExprM f st (If eB eT eF) = f st eB >>= (\st -> f st eT) >>= (\st -> f st eF)
 foldExprM f st (Tuple es) = DF.foldlM f st es
 foldExprM f st (Record es) = DF.foldlM f st es
 foldExprM f st (Ode v e1) = f st e1
+foldExprM f st (Sde v e1 e2) = f st e1 >>= (\st -> f st e2)
 foldExprM f st (TypeCast e1 t) = f st e1
 foldExprM f st e = return st -- trace' [MkSB e, MkSB st] "Returning unchanged state" $ return st
-
-
-

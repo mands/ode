@@ -53,6 +53,7 @@ commonLangDef = emptyDef
                         , "component", "where", "return"
                         , "val", "init"
                         , "ode", "delta"
+                        , "sde", "weiner"
                         , "rre", "reaction", "rate"
                         , "piecewise", "default"
                         , "True", "False", "time", "None"

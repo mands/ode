@@ -50,6 +50,8 @@ data Stmt = -- each independent component, is basically function abstraction
             | SValue { svName :: SrcId, svValue :: Expr }
             -- ODE - a SValue and ODE def combined
             | OdeDef { odeInit :: SrcId, odeDeltaName :: BindId, odeExpr :: Expr}
+            -- SDE - a SValue and SDE def combined
+            | SdeDef { sdeInit :: SrcId, sdeDeltaName :: BindId, sdeWeinerExpr :: Expr, sdeExpr :: Expr}
             -- RRE - takes two SValues and a rate parameter
             | RreDef { rreRate :: Double, rreSrc :: SrcId, rreDest :: SrcId }
             -- or they may be a reference to a component defined in a module param and re-exported here

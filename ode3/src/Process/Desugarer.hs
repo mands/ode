@@ -155,6 +155,10 @@ dsNestedStmt (s@(O.OdeDef _ _ _):xs) outs = do
     (odeVar, odeExpr) <- dsStmt s
     C.Let False C.TUnit odeVar odeExpr <$> dsNestedStmt xs outs
 
+dsNestedStmt (s@(O.SdeDef _ _ _ _):xs) outs = do
+    (sdeVar, sdeExpr) <- dsStmt s
+    C.Let False C.TUnit sdeVar sdeExpr <$> dsNestedStmt xs outs
+
 dsNestedStmt (s@(O.RreDef _ _ _):xs) outs = do
     (rreVar, rreExpr) <- dsStmt s
     C.Let False C.TUnit rreVar rreExpr <$> dsNestedStmt xs outs
@@ -179,6 +183,12 @@ dsStmt (O.OdeDef initRef deltaName expr) = do
     odeExpr <- C.Ode <$> pure (C.LocalVar initRef) <*> dsExpr expr
     odeDeltaVar <- subDontCares deltaName
     return $ ([odeDeltaVar], odeExpr)
+
+-- TODO - need to add the correct unit for the delta expr here
+dsStmt (O.SdeDef initRef deltaName weinerExpr deltaExpr) = do
+    sdeExpr <- C.Sde <$> pure (C.LocalVar initRef) <*> dsExpr weinerExpr <*> dsExpr deltaExpr
+    sdeDeltaVar <- subDontCares deltaName
+    return $ ([sdeDeltaVar], sdeExpr)
 
 dsStmt (O.RreDef rate src dest) = do
     rreVar <- supply

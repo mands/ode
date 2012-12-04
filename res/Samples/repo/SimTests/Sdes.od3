@@ -1,8 +1,12 @@
 // basic sde
 module Sde1 {
     //b = sde { init: 10.0, delta: 0, weiner: 1.0 }
-    init b = 10.0
-    sde { init : b, delta : db, weiner : 1.0 } = 0
+    //init b = 10.0
+    //sde { init : b, delta : db, weiner : 1.0 } = 0
+    
+    val a = time
+    val b = time 
+    
 }
 
 /*

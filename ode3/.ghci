@@ -9,6 +9,12 @@
 :set -fno-warn-overlapping-patterns
 :set -fno-warn-incomplete-patterns
 
+:set -XRecordWildCards
+:set -XNamedFieldPuns
+:set -XGeneralizedNewtypeDeriving
+:set -XKindSignatures
+:set -XGADTs
+
 -- useful settings
 :set +t
 -- :set +m

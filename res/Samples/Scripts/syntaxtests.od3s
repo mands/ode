@@ -1,11 +1,12 @@
 // disable unit checking
-:disableUnits
+//:disableUnits
 
 // setup the repo
 :addRepo ../res/Samples/repo
 
 // import our modules
-import SyntaxTests.AdvancedFeatures.*
+//import SyntaxTests.Ops.*
+import UnitsTests.UnitsOps.*
 
 // :show all
 :show modState
@@ -36,7 +37,7 @@ import SyntaxTests.AdvancedFeatures.*
 //:vecMath
 :mathLib "gnu"
 // backend to use - interpreter, jitcompiler, aotcompiler, objectfile
-:backend "aotcompiler"
+:backend "interpreter"
 
 // adaptive params
 :relError 1e-4
@@ -45,6 +46,6 @@ import SyntaxTests.AdvancedFeatures.*
 :maxTimestep 2
 
 // all done
-:simulate Adv6a
+:simulate Div8
 :quit
 

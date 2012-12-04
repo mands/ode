@@ -138,16 +138,16 @@ unitDef = do
     unit <- attribDef unitDefAttrib
     return $ unit { AO.uName = uName }
   where
-    unitDefAttrib = AO.UnitStmt ""   <$$> attrib "dim" (Just <$> oneOf "LMTIOJN")
+    unitDefAttrib = AO.UnitStmt ""  <$$> attrib "dim" (Just <$> oneOf "LMTIOJN")
                                     <|?> (Nothing, attrib "alias" (Just <$> identifier))
                                     <||> attrib "SI" boolean -- <?> "unit definition"
 
 
 -- | Parses a conversion defintion stmt for 2 units within a given dimension
 convDef :: Parser AO.OdeStmt
-convDef = reserved "conversion" *> attribDef (AO.ConvDefStmt <$$> attrib "from" alphaIdentifier
-                                                            <||> attrib "to" alphaIdentifier
-                                                            <||> attrib "factor" convExpr) <?> "conversion definition"
+convDef = reserved "conversion" *> attribDef (AO.ConvDefStmt    <$$> attrib "from" alphaIdentifier
+                                                                <||> attrib "to" alphaIdentifier
+                                                                <||> attrib "factor" convExpr) <?> "conversion definition"
 
 
 -- | parse a term - the value on either side of an operator
@@ -178,6 +178,7 @@ exprStmt    = compDef
             <|> valueDef
             <|> sValueDef
             <|> odeDef
+            <|> sdeDef
             <|> rreDef
             <?> "component, value or simulation defintion"
 
@@ -213,6 +214,16 @@ odeDef = do
   where
     odeAttribs  = (,)   <$$> attrib "init" identifier
                         <|?> (AO.DontCare, attrib "delta" valIdentifier)
+
+sdeDef :: Parser AO.Stmt
+sdeDef = do
+    sdeExpr <- reserved "sde" *> attribDef sdeAttribs
+    expr <- reservedOp "=" *> compExpr
+    return $ sdeExpr expr
+  where
+    sdeAttribs  = AO.SdeDef     <$$> attrib "init" identifier
+                                <|?> (AO.DontCare, attrib "delta" valIdentifier)
+                                <||> attrib "weiner" compExpr
 
 rreDef :: Parser AO.Stmt
 rreDef = AO.RreDef <$> (reserved "rre" *> braces rreAttribs) <*> (reservedOp "=" *> identifier) <*> (reservedOp "->" *> identifier)
@@ -335,6 +346,7 @@ hardcodedOps :: Parser AO.Expr
 hardcodedOps =  upow
                 <|> uroot
   where
+    -- upow and uroot handle +ve integers only
     upow = do
         (e, pow) <- reserved "upow" *> parens ((,) <$> compExpr <*> (comma *> natural))
         return $ AO.Op (AC.OtherOp (AC.UPow pow)) [e]

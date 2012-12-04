@@ -57,7 +57,6 @@ import Process.Flatten.OptimiseCoreFlatAST
 import Process.Flatten.InitialValueGen
 
 
--- TODO - should really clean this up, is so verbose simply so can get debugging output
 flatten :: String -> SysExcept ACF.Module
 flatten initModStr = do
     sysSt <- S.get

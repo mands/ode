@@ -312,6 +312,31 @@ constrain gModEnv modData mFuncArgs unitsCheck timeUnit = runStateT (evalSupplyT
         -- TODO - return the type of the dExpr
         return eDT
 
+    -- Not fully unit-safe, weiner process unit cannot be checked in current units implementation
+    consExpr (E.Sde lv@(E.LocalVar _) eW eD) = do
+        -- constrain the ode state val to be a float
+        vT <- getLVarType lv
+        uV1 <- newUnitVar
+        addConsType $ ConEqual vT (E.TFloat uV1)
+
+        -- get the weiner type, it must be a (single) float, whose value should be Unit/s^0.5
+        -- however as don't allow non-integer units, cannot capture this
+        eWT <- consExpr eW
+        uV3 <- newUnitVar
+        addConsType $ ConEqual eWT (E.TFloat uV3)
+
+        -- add the deltaExpr type - must be Unit/s (for whatever s timeUnit is set to)
+        eDT <- consExpr eD
+        uV2 <- newUnitVar
+        addConsType $ ConEqual eDT (E.TFloat uV2)
+
+        -- process differently depending if units are enabled
+        -- TODO - contrain both types wrt Time -- is this right?
+        when unitsCheck (addConsUnit $ ConSum uV2 timeUnit uV1)
+        -- TODO - return the type of the dExpr`
+        return eDT
+
+
     consExpr (E.Rre src@(E.LocalVar _) dest@(E.LocalVar _) _) = do
         -- constrain both state vals to be floats
         srcT <- getLVarType src
