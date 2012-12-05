@@ -41,12 +41,13 @@ import qualified Subsystem.SysState as Sys
 import AST.Common as AC
 import AST.CoreFlat
 
+import System.Random
 
 type SimM = StateT SimState MExceptIO
 
 data SimState = SimState    { _simEnv :: Map.Map Id Var, _stateEnv :: Map.Map Id Var
                             , _curTime :: Double, _curPeriod :: Integer, _outputHandle :: Handle
-                            , _simParams :: Sys.SimParams
+                            , _simParams :: Sys.SimParams, _rndGen :: StdGen
                             }
 
 interpret :: Module -> Sys.SysExceptIO ()
@@ -60,7 +61,8 @@ interpret Module{..} = do
     liftIO $ writeColumnHeader (Map.size $ initVals) [] outHandle
     liftIO $ writeRow (Sys._startTime p) (Map.elems $ Num <$> initVals) outHandle
     -- setup the initial data, wrap doubles into Var (Num d)
-    let initState = SimState Map.empty (Num <$> initVals) (Sys._startTime p) (Sys.calcOutputInterval p) outHandle p
+    randS <- liftIO $ newStdGen
+    let initState = SimState Map.empty (Num <$> initVals) (Sys._startTime p) (Sys.calcOutputInterval p) outHandle p randS
     -- simulate the loop exprs over the time period
     lift $ runStateT (unless (OrdMap.null loopExprs) $ runLoop 1 p) initState
     -- close the output file
@@ -247,12 +249,29 @@ simSimOp ((Ode initId v)) = do
     -- lookup initId in cur state map
     let (Num curN) = (_stateEnv st) Map.! initId
     -- calc the ode
-    let n' = Num $ curN + dN * (Sys._timestep $ _simParams st)
+    let dt = Sys._timestep $ _simParams st
+    let n' = Num $ curN + dt * dN
 
     -- update the stateEnv -- we can do this destructively as the delta vars have already been calculated within the exprMap
     modify (\st -> st { _stateEnv = Map.insert initId n' (_stateEnv st) })
     -- trace' [MkSB initId, MkSB dN, MkSB curN, MkSB n'] "finished solved ode" $ return ()
--- simSimOp ((Sde initId v)) = do
+
+simSimOp ((Sde initId vW vD)) = do
+    st <- get
+    -- pickup the weiner via a VarRef into the loop state
+    (Num dW) <- simVar vW
+    -- pickup the delta via a VarRef into the loop state
+    (Num dN) <- simVar vD
+    -- lookup initId in cur state map
+    let (Num curN) = (_stateEnv st) Map.! initId
+    -- calc the sde
+    let dt = Sys._timestep $ _simParams st
+    randN <- getStdNorm
+    let n' = Num $ curN + dt*dN + dW*sqrt(dt)*randN
+
+    -- update the stateEnv -- we can do this destructively as the delta vars have already been calculated within the exprMap
+    modify (\st -> st { _stateEnv = Map.insert initId n' (_stateEnv st) })
+
 -- simSimOp ((Rre initId v)) = do
 
 
@@ -278,4 +297,40 @@ writeRow t vs handle = do
     -- hFlush handle
     return ()
 
+-- Random Number Generation --------------------------------------------------------------------------------------------
 
+-- helper functions to access random numbers
+-- gets a uniform random number
+getRandom :: SimM Double
+getRandom = do
+    s@SimState{_rndGen} <- get
+    let (val, _rndGen') = random (_rndGen)
+    put (s {_rndGen = _rndGen'})
+    return val
+
+
+-- returns a z-value based standard normal random number, based on the box-muller transform of uniform randoms
+-- caching both values doesn't seem to work
+getStdNorm :: SimM Double
+getStdNorm = do
+    snd <$> boxM
+{-
+    s <- get
+    case (cacheNorm s) of
+        Just y -> do
+            put (s {cacheNorm = Nothing})
+            return y
+        Nothing -> do
+            (x,y) <- boxM
+            put (s {cacheNorm = Just y})
+            return x
+-}
+  where
+    -- apply the box-muller transform to obtain two guassiam-dist values, with 0 mean, and 1 varience
+    boxM :: SimM (Double, Double)
+    boxM = do
+        u1 <- getRandom
+        u2 <- getRandom
+        let t1 = sqrt(-2 * log(u1))
+        let t2 = 2*pi*u2
+        return (t1*cos(t2), t1*sin(t2))

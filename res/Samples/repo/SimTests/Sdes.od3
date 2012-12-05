@@ -5,20 +5,19 @@ module Sde1 {
     sde { init : b, delta : db, weiner : 1.0 } = 0
 }
 
-/*
 // more complex sde
 module Sde2 {
     //b { type : sde, wrt: t, init: 45.3, weiner: 34 * a} = 23.0;
     //b = sde { wrt: t, init: 45.3, exp: 23.0 + t, weiner: 34 * a }
     init b = 45.3
-    sde { init b, delta : db, weiner : 34 } = 23    
+    sde { init : b, delta : db, weiner : 34 } = 23    
 }
 
 // expression in weiner
 module Sde3 {
     val a = 0.5
     init b = 45.3
-    sde { init b, delta : db, weiner : 34 + a } = 23    
+    sde { init : b, delta : db, weiner : 34 + a } = 23    
 }
 
 // Ornstein–Uhlenbeck process
@@ -28,7 +27,14 @@ module Sde4 {
     val mu = 20
     val sigma = 10
     init y = 0.5
-    sde { init: y, delta : dy, weiner: sigma} = theta*(mu-y4)
+    sde { init : y, delta : dy, weiner : sigma} = theta*(mu-y)
 }
-*/
+
+module Sde5 {
+    val theta=1
+    val mu=1.2
+    val sigma=0.3
+    init y = 0
+    sde { init : y, delta : dy, weiner : sigma} = theta*(mu-y)
+}
 
