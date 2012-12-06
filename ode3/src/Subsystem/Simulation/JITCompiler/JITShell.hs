@@ -142,7 +142,7 @@ linkStdlibScript p@(Sys.SimParams{..}) = do
     -- run_ "opt" ["-analyze", "-dot-callgraph", "-dot-cfg", "-dot-dom", simBC]
     return ()
   where
-    odeStdLib   = toTextIgnore $ odeLibPath </> "OdeLibraryFinal.bc" -- TODO - change to opt stdlib?
+    odeStdLib   = toTextIgnore $ odeLibPath </> "libOde.bc" -- TODO - change to opt stdlib?
     odeCvodeSim = toTextIgnore $ odeFFIPath </> "CvodeSim.bc" -- TODO - change to opt stdlib?
     linkOpts    = ["-std-link-opts", "-std-compile-opts"]
     simLtoBC    = "sim.pre-lto.ll"

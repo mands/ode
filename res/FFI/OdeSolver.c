@@ -7,7 +7,7 @@
 #include <string.h>
 #include <math.h>
 
-#include "OdeLibrary.h"
+#include "OdeStdLib.h"
 #include "OdeModel.h"
 
 void solverInit(double* const restrict state);

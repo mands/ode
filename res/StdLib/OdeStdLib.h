@@ -1,6 +1,6 @@
 // ODE Runtime Library Header file
-#ifndef ODE_LIBRARY_H
-#define ODE_LIBRARY_H
+#ifndef ODE_STDLIB_H
+#define ODE_STDLIB_H
 #include <stdint.h>
 
 // system specific
@@ -18,5 +18,5 @@ extern void OdeWriteState(const double time, const double* const restrict state)
 extern inline double OdeRandUniform(void);
 extern double OdeRandNormal(void);
 
-#endif // ODE_LIBRARY_H
+#endif // ODE_STDLIB_H
 

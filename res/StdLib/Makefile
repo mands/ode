@@ -2,27 +2,29 @@
 CC            = clang
 CFLAGS        = -std=c11 -O3 -pedantic -Weverything -ffast-math -integrated-as
 
-all: OdeLibrary.bc OdeLibrary.o AOTStub.bc
+all: libOde.bc libOde.o
 
-OdeLibrary.bc: OdeLibrary.c OdeLibrary.h WELL512a.c WELL512a.h
-	$(CC) $(CFLAGS) -emit-llvm -c -o OdeLibrary.bc OdeLibrary.c
+# build bitcode version of library
+libOde.bc: OdeStdLib.c OdeStdLib.h WELL512a.c WELL512a.h
+	$(CC) $(CFLAGS) -emit-llvm -c -o OdeStdLib.bc OdeStdLib.c
 	$(CC) $(CFLAGS) -emit-llvm -c -o WELL512a.bc WELL512a.c
-	llvm-dis $@
 	# link into bc archive
-	llvm-link -o OdeLibraryFinal.bc OdeLibrary.bc WELL512a.bc
-	llvm-dis OdeLibraryFinal.bc
+	llvm-link -o $@ OdeStdLib.bc WELL512a.bc
+	llvm-dis $@
 
-# generate an optimised version of the odelibrary
+# unused - generate an optimised version of the odelibrary
 #OdeLibraryOpt.bc: OdeLibraryOpt.ll
 #	llvm-as -o $@ $<
 
-OdeLibrary.o: OdeLibrary.c OdeLibrary.h WELL512a.c WELL512a.h
-	$(CC) $(CFLAGS) -c OdeLibrary.c
+# build a C-version of the library
+libOde.a: OdeStdLib.c OdeStdLib.h WELL512a.c WELL512a.h
+	$(CC) $(CFLAGS) -c OdeStdLib.c
 	$(CC) $(CFLAGS) -c WELL512a.c
-	ar rcs libOde.a OdeLibrary.o WELL512a.o
+	ar rcs $@ OdeStdLib.o WELL512a.o
 
-AOTStub.bc: AOTStub.ll
-	llvm-as -o $@ $<
+# unused - aot stub
+#AOTStub.bc: AOTStub.ll
+#	llvm-as -o $@ $<
 
 VecMath: VecMathCog.py
 	cog.py -r -c -e VecMath_GNU.ll
@@ -36,5 +38,4 @@ clean:
 	rm -f *.o *~
 
 .PHONY: clean
-
 

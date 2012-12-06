@@ -1,7 +1,7 @@
 // Run-time library for the ODE Compiler
 // Written in C99 rathn than LLVM for quick development
 // Mainly utility functions for outputting balues to screen and files
-#include "OdeLibrary.h"
+#include "OdeStdLib.h"
 #include "WELL512a.h"
 
 #include <stdlib.h>

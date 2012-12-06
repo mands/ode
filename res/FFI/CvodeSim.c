@@ -17,7 +17,7 @@
 // #include "sundials/sundials_types.h"	/* Definition of type realtype */
 
 // Ode Model Interface
-#include "OdeLibrary.h"
+#include "OdeStdLib.h"
 #include "OdeModel.h"
 
 // prototypes
