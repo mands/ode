@@ -52,7 +52,7 @@ unpackTuples Module{..} = do
     -- run over both the init and loop exprs, using the same state
     -- NOTE - do we need to run unpack over initExprs ??
     ((loopExprs', freeIds), _)   <- runStateT (runSupplyT (unpackM loopExprs) [freeId..]) $ mkUnpackState
-    return $ Module loopExprs' initVals simOps (head freeIds)
+    return $ Module loopExprs' initVals simOps simType (head freeIds)
   where
     unpackM :: ExprMap -> UnpackM ExprMap
     unpackM exprMap = unpackTop (OrdMap.toList exprMap) OrdMap.empty

@@ -203,6 +203,58 @@ instance OdeSolver EulerSolver where
                     dValTime <- buildFMul builder dVal (constDouble $ L.get Sys.lTimestep simParams) "deltaTime"
                     buildFAdd builder stateVal dValTime "newState"
 
+
+
+-- Euler Maruyama (SDE) Solver --------------------------------------------------------------------------------------------------------
+
+data EulerMSolver = EulerMSolver    { eulerMStateVals :: ParamMap
+                                    , eulerMWeinerVals :: ParamMap
+                                    , eulerMDeltaVals :: ParamMap
+                                    }
+
+
+instance OdeSolver EulerMSolver where
+    genVals ids = do    -- create the vals
+        stateValRefMap  <- createVals ids "StateRef"
+        weinerValRefMap <- createVals ids "WeinerRef"
+        deltaValRefMap  <- createVals ids "DeltaRef"
+        return $ EulerMSolver stateValRefMap weinerValRefMap deltaValRefMap
+
+    getStateVals e = eulerMStateVals e
+
+    genSolver (EulerMSolver stateValRefMap weinerValRefMap deltaValRefMap) rhsF curTimeRef simOps = do
+        GenState {builder, curFunc, simParams, libOps} <- get
+        -- call the modelRHS func
+        stateVals <- mapM (\v -> liftIO $ buildLoad builder v "odeValx") $ OrdMap.elems stateValRefMap
+        _ <- liftIO $ withPtrVal builder curTimeRef $ \curTime -> do
+            buildCall builder rhsF (curTime : stateVals  ++ OrdMap.elems weinerValRefMap ++ OrdMap.elems deltaValRefMap) ""
+
+        -- update the states/run the forward euler
+        liftIO $ mapM_ (updateState builder simParams libOps) simOps
+
+      where
+        updateState :: Builder -> Sys.SimParams -> LibOps -> SimOps -> IO ()
+        updateState builder simParams _ (Ode i _) = do
+            -- get state val
+            updatePtrVal builder (stateValRefMap OrdMap.! i) $ \stateVal -> do
+                withPtrVal builder (deltaValRefMap OrdMap.! i) $ \dVal -> do
+                    -- y' = y + h*dy
+                    dValTime <- buildFMul builder dVal (constDouble $ L.get Sys.lTimestep simParams) "deltaTime"
+                    buildFAdd builder stateVal dValTime "newState"
+
+        updateState builder simParams libOps (Sde i _ _) = do
+            -- get state val
+            updatePtrVal builder (stateValRefMap OrdMap.! i) $ \stateVal -> do
+                withPtrVal builder (weinerValRefMap OrdMap.! i) $ \wVal -> do
+                    withPtrVal builder (deltaValRefMap OrdMap.! i) $ \dVal -> do
+                        -- y' = y + h*dy + dW*sqrt(dt)*rand(0,1)
+                        randVal <- buildCall builder (libOps Map.! "OdeRandNormal") [] ""
+                        weiner1 <- buildFMul builder randVal (constDouble . sqrt $ L.get Sys.lTimestep simParams) "weiner1"
+                        weiner2 <- buildFMul builder weiner1 wVal "weiner2"
+                        delta1 <- buildFMul builder dVal (constDouble $ L.get Sys.lTimestep simParams) "delta1"
+                        state1 <- buildFAdd builder weiner2 delta1 "state1"
+                        buildFAdd builder stateVal state1 "state2"
+
 -- RK4 Solver ----------------------------------------------------------------------------------------------------------
 
 data RK4Solver = RK4Solver  { rk4StateVals :: ParamMap, rk4Delta1Vals :: ParamMap, rk4Delta2Vals :: ParamMap
@@ -311,7 +363,8 @@ genModelSolver CF.Module{..} initsF rhsF = do
 
     -- create the vals (and indirectly choose the solver)
     solver <- case (L.get Sys.lSolver simParams) of
-        Sys.FEuler  -> MkSolver <$> (genVals $ (Map.keys initVals) :: GenM EulerSolver)
+        -- Sys.FEuler  -> MkSolver <$> (genVals $ (Map.keys initVals) :: GenM EulerSolver)
+        Sys.FEuler  -> MkSolver <$> (genVals $ (Map.keys initVals) :: GenM EulerMSolver)
         Sys.RK4     -> MkSolver <$> (genVals $ (Map.keys initVals) :: GenM RK4Solver)
 
     -- create mutable sim params (static sim params embeedded as constants)

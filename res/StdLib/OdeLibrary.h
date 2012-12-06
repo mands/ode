@@ -14,5 +14,9 @@ extern void OdeStopSim(void);
 // iteration output
 extern void OdeWriteState(const double time, const double* const restrict state);
 
+// Random Number Generation
+extern inline double OdeRandUniform(void);
+extern double OdeRandNormal(void);
+
 #endif // ODE_LIBRARY_H
 

@@ -56,11 +56,20 @@ convertAST :: (Module Id, InitMap) -> MExcept ACF.Module
 convertAST (LitMod modData, initMap) = do
     trace' [MkSB modData] "Flatten - Final Core AST input" $ return ()
     ((_, freeIds'), fSt') <- runStateT (runSupplyT flatExprM freeIds) $ mkFlatState (modTMap modData)
-    return $ ACF.Module (_curExprs fSt') initMap (reverse $ _simOps fSt') (head freeIds')
+    let simOps = (reverse $ _simOps fSt')
+    return $ ACF.Module (_curExprs fSt') initMap simOps (getSimType simOps) (head freeIds')
   where
     freeIds = [modFreeId modData..]
     flatExprM :: ConvM ()
     flatExprM = foldM_ convertTop () $ OrdMap.toList (modExprMap modData)
+
+    -- determine if this module may be simulated and the mechanism to use
+    getSimType simOps = if hasSdes then ACF.SimSDE else ACF.SimODE
+      where
+        hasOdes = any (\op -> case op of ACF.Ode _ _ -> True;_ -> False) simOps
+        hasSdes = any (\op -> case op of ACF.Sde _ _ _ -> True;_ -> False) simOps
+        -- hasRres = any \(case op of (ACF.Rre _ _ _ -> True);_ -> False) simOps
+
 
 -- convert the toplet - we ensure that only TopLets with exist at this point
 convertTop :: () -> ([Id], AC.TopLet Id) -> ConvM ()

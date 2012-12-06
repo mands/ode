@@ -4,19 +4,22 @@ CFLAGS        = -std=c11 -O3 -pedantic -Weverything -ffast-math -integrated-as
 
 all: OdeLibrary.bc OdeLibrary.o AOTStub.bc
 
-OdeLibrary.bc: OdeLibrary.c OdeLibrary.h
-	$(CC) $(CFLAGS) -emit-llvm -c -o $@ $<
+OdeLibrary.bc: OdeLibrary.c OdeLibrary.h WELL512a.c WELL512a.h
+	$(CC) $(CFLAGS) -emit-llvm -c -o OdeLibrary.bc OdeLibrary.c
+	$(CC) $(CFLAGS) -emit-llvm -c -o WELL512a.bc WELL512a.c
 	llvm-dis $@
+	# link into bc archive
+	llvm-link -o OdeLibraryFinal.bc OdeLibrary.bc WELL512a.bc
+	llvm-dis OdeLibraryFinal.bc
 
 # generate an optimised version of the odelibrary
-OdeLibraryOpt.bc: OdeLibraryOpt.ll
-	llvm-as -o $@ $<
+#OdeLibraryOpt.bc: OdeLibraryOpt.ll
+#	llvm-as -o $@ $<
 
-OdeLibrary.o: OdeLibrary.c OdeLibrary.h
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-OdeSolver.exe: OdeSolver.c OdeLibrary.o OdeModel.h OdeModel.o
-	$(CC) $(CFLAGS) -o $@ OdeSolver.c OdeLibrary.o OdeModel.o -lm
+OdeLibrary.o: OdeLibrary.c OdeLibrary.h WELL512a.c WELL512a.h
+	$(CC) $(CFLAGS) -c OdeLibrary.c
+	$(CC) $(CFLAGS) -c WELL512a.c
+	ar rcs libOde.a OdeLibrary.o WELL512a.o
 
 AOTStub.bc: AOTStub.ll
 	llvm-as -o $@ $<

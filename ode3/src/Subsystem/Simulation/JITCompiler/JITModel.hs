@@ -13,7 +13,7 @@
 -----------------------------------------------------------------------------
 
 module Subsystem.Simulation.JITCompiler.JITModel (
-genModelInitials, genModelRHS,
+genModelInitials, genModelRHS, genModelSdeRHS,
 genExprMap, genExpr, genVar
 ) where
 
@@ -96,12 +96,14 @@ genModelRHS CF.Module{..} = do
     -- set func params
     _ <- liftIO $ addFuncAttributes curFunc [AlwaysInlineAttribute, NoUnwindAttribute]
     liftIO $ getParams curFunc >>= \params -> setParamAttribs params
-    -- setup access to the input args
-    createLocalMap curFunc
-    -- add the insts (if exprMap not empty)
-    unless (OrdMap.null loopExprs) (void $ genExprMap loopExprs)
-    -- store the outputs
-    storeOutputs curFunc builder
+    -- only create function if an Ode, else just a placeholder
+    when (simType == CF.SimODE) $ do
+        -- setup access to the input args
+        createLocalMap curFunc
+        -- add the insts (if exprMap not empty)
+        unless (OrdMap.null loopExprs) (void $ genExprMap loopExprs)
+        -- store the outputs
+        storeOutputs curFunc builder
     -- return void
     r <- liftIO $ buildRetVoid builder
     liftIO $ disposeBuilder builder
@@ -129,11 +131,70 @@ genModelRHS CF.Module{..} = do
         -- map over simops
         forM_ simOps $ storeDelta outMap builder
       where
-        storeDelta outMap builder (Ode initId ((VarRef deltaId))) = do
+        storeDelta outMap builder (Ode initId (VarRef deltaId)) = do
             deltaVal <- lookupId deltaId
-            let outVal = outMap Map.! initId
-            liftIO $ buildStore builder deltaVal outVal
+            let deltaOutVal = outMap Map.! initId
+            void $ liftIO $ buildStore builder deltaVal deltaOutVal
 
+        storeDelta outMap builder _ = return ()
+
+
+-- | Generate the function that calculates the DELTA variables based on the current time and STATE
+-- odeModelRHS(time, STATE) -> (DELTA, WEINER), i.e. (y', w') = f(t, y)
+genModelSdeRHS :: CF.Module -> GenM LLVM.Value
+genModelSdeRHS CF.Module{..} = do
+    (curFunc, builder) <- genFunction "modelSdeRHS" voidType createArgsList
+    liftIO $ setLinkage curFunc PrivateLinkage
+    _ <- liftIO $ addFuncAttributes curFunc [AlwaysInlineAttribute, NoUnwindAttribute]
+    -- set func params attribs
+    (curTimeVal, inParams, wOutParams, dOutParams) <- getFuncParams curFunc
+    liftIO $ forM_ (wOutParams ++ dOutParams) $ \param -> addParamAttributes param [NoAliasAttribute, NoCaptureAttribute]
+
+    -- setup access to the input args
+    createLocalMap curTimeVal inParams
+    -- add the insts (if exprMap not empty)
+    unless (OrdMap.null loopExprs) (void $ genExprMap loopExprs)
+    -- store the outputs
+    storeOutputs builder wOutParams dOutParams
+
+    -- return void
+    r <- liftIO $ buildRetVoid builder
+    liftIO $ disposeBuilder builder
+    return curFunc
+  where
+    createArgsList = doubleType : (replicate (Map.size initVals) doubleType) ++ (replicate (Map.size initVals) (pointerType doubleType 0))
+                        ++ (replicate (Map.size initVals) (pointerType doubleType 0))
+
+    getFuncParams curFunc = do
+        (curTimeVal : params) <- liftIO $ LLVM.getParams curFunc
+        let paramSize = length params `div` 3
+        let inParams = take paramSize params
+        let (wOutParams, dOutParams) = drop paramSize params |> splitAt paramSize
+        return (curTimeVal, inParams, wOutParams, dOutParams)
+
+    createLocalMap curTimeVal inParams = do
+        let localMap = Map.fromList $ zip (Map.keys initVals) inParams
+        modify (\st -> st { curTimeVal, localMap })
+
+    -- need map over simops
+    storeOutputs :: LLVM.Builder -> [LLVM.Value] -> [LLVM.Value] -> GenM ()
+    storeOutputs builder wOutParams dOutParams = do
+        let outMap = Map.fromList $ zip (Map.keys initVals) (zip wOutParams dOutParams)
+        forM_ simOps $ storeDelta outMap builder
+      where
+        storeDelta outMap builder (Ode initId (VarRef deltaId)) = do
+            deltaVal <- lookupId deltaId
+            let (_, deltaOutVal) = outMap Map.! initId
+            void $ liftIO $ buildStore builder deltaVal deltaOutVal
+
+        storeDelta outMap builder (Sde initId (VarRef weinerId) (VarRef deltaId)) = do
+            weinerVal <- lookupId weinerId
+            deltaVal <- lookupId deltaId
+            let (weinerOutVal, deltaOutVal) = outMap Map.! initId
+            void $ liftIO $ buildStore builder weinerVal weinerOutVal
+            void $ liftIO $ buildStore builder deltaVal deltaOutVal
+
+        storeDelta outMap builder _ = return ()
 
 -- General Expr Generation ---------------------------------------------------------------------------------------------
 
@@ -216,11 +277,8 @@ genVar (Tuple vs) = do
 genVar (Num n) = return $ constReal doubleType (FFI.CDouble n)
 genVar (Boolean b) = return $ constInt int1Type (FFI.fromBool b) False
 genVar Unit = return $ constInt int1Type 0 False
-genVar Time = curTimeVal <$>   get
-    -- liftIO $ buildLoad builder curTimeRef "timeVal"
-    -- return curTime
-
-genVar v = errorDump [] "NYI" assert
+genVar Time = curTimeVal <$> get
+genVar v = errorDump [MkSB v] "NYI" assert
 
 
 -- | Takes an already evaulated list of vars and processes the builtin op

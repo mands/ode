@@ -8,7 +8,7 @@
 #define ODE_MODEL_H
 #include <stdint.h>
 
-/* Simulation Time Parameters *******************************************************/
+// Simulation Time Parameters //////////////////////////////////////////////////////////////////////
 // These are all read-only parameters that represent the simulation parameters specified when compiling the model
 // They may be ignored if required within the external solver
 extern const double OdeParamStartTime;
@@ -19,7 +19,7 @@ extern const double OdeParamAdjustedStopTime;
 // the timestep to be used for a fixed solver, or the minimum timestep within an adaptive solver
 extern const double OdeParamTimestep;
 
-/* Adative Solver Parameteres (i.e. for use with CVODE)************************/
+// Adative Solver Parameteres (i.e. for use with CVODE) ////////////////////////////////////////////
 // the max timestep to be used for an adaptive solver, used to ensure we don't skip
 // pass the stimulus current - set to half the stimulus interval
 extern const double OdeParamMaxTimestep;
@@ -38,7 +38,16 @@ enum OdeParamModelTypes {
 
 extern const enum OdeParamModelTypes OdeParamModelType;
 
-/* Simulation Output Parameters ****************************************************** */
+// simulation type
+enum OdeParamSimTypes {
+    Ode = 0,
+    Sde = 1,
+    Rre = 2
+};
+
+extern const enum OdeParamSimTypes OdeParamSimType;
+
+// Simulation Output Parameters ////////////////////////////////////////////////////////////////////
 // this incdiates the time period at which output should create, ideally should be an
 // integer multiple of the timestep for fixed solvers
 extern const double OdeParamPeriod;
@@ -54,7 +63,7 @@ extern const char OdeParamOutput[];
 extern const uint64_t OdeParamStateSize;
 
 
-/* Simulation Functions ********************************************************/
+// Simulation Functions ////////////////////////////////////////////////////////////////////////////
 // Functions to be called by external solvers, these both takes pointers to arrays of data that must be set to the size contained in OdeParamNumParams
 // (this can be done on stack as VLA in C99 - i.e. double STATE[OdeParamNumParams];)
 
@@ -66,5 +75,11 @@ extern void OdeModelInitials(const double time, double* const restrict state);
 // i.e. y' = f(t, y), where y'=DELTA and y=STATE
 extern void OdeModelRHS(const double time, const double* const restrict state,
                          double* const restrict delta);
+
+// This function calculates the delta and weiner values, used in (stochastic) SDE simulations
+// based on the current time and STATE values
+// i.e. (y', w) = f(t, y), where y'=DELTA and y=STATE
+extern void OdeModelStocRHS(const double time, const double* const restrict state,
+                            double* const restrict delta, double* const restrict weiner);
 
 #endif // ODE_MODEL_H

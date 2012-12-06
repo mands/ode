@@ -47,4 +47,10 @@ void dumpParams(void) {
 
     puts("\nOde Model Num Params");
     printf("OdeParamStateSize\t\t- %" PRIu64 "\n", OdeParamStateSize);
+
+// dummy code - ignore
+//    puts("\nSizeof declarations");
+//    printf("int\t\t- %" PRIu64 "\n", 8*sizeof(int));
+//    printf("long\t\t- %" PRIu64 "\n", 8*sizeof(long));
+
 }

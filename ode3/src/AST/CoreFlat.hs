@@ -13,7 +13,7 @@
 -----------------------------------------------------------------------------
 
 module AST.CoreFlat (
-Module(..), ExprMap, InitMap, TopLet, Expr(..), Var(..), ExprData(..), Type(..), SimOps(..),
+Module(..), ExprMap, InitMap, TopLet, Expr(..), Var(..), ExprData(..), Type(..), SimOps(..), SimType(..),
 mapExpr
 ) where
 
@@ -26,7 +26,7 @@ import AST.Common as AC
 
 -- not really a module, but datatype to hold the exeutable simulation expressions and related metadata
 data Module = Module    { loopExprs :: ExprMap, initVals :: InitMap
-                        , simOps :: [SimOps], freeId :: Id }
+                        , simOps :: [SimOps], simType :: SimType, freeId :: Id }
                         deriving (Show, Eq, Ord)
 
 -- this becomes our 'let' now - both toplevel and 'nested', creates a new binding for the expression
@@ -66,6 +66,10 @@ data SimOps = Ode Id Var    -- indicates the state val and a ref to an id holdin
             --Rre Id Id Var
             deriving (Show, Eq, Ord)
 
+-- | we only allow a simulation to be of a certain type, while ODEs are allowed in SDEs (using EulerMaruyama), no other
+-- hybrid simulation is supported
+data SimType = SimODE | SimSDE | SimRRE deriving (Show, Eq, Ord)
+
 -- | Used to handle both input and output args to a library/runtime operator
 -- these are handled in an implementation-specific fashion for the given backend
 -- data OpParams = OpParams [Id] deriving (Show, Eq, Ord)
@@ -75,3 +79,5 @@ data SimOps = Ode Id Var    -- indicates the state val and a ref to an id holdin
 mapExpr :: (ExprData -> ExprData) -> Expr -> Expr
 mapExpr f (If v eT eF) = If v (fmap f eT) (fmap f eF)
 mapExpr f e = e -- trace' [MkSB e] "Returing unhandled non-composite e" $ e
+
+
