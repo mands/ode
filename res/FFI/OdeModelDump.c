@@ -19,6 +19,20 @@ int main(void) {
 
 void dumpParams(void) {
     puts("Dumping Ode Model Params");
+    puts("\nOde Model High Level Params");
+    printf("OdeParamStateSize\t\t- %" PRIu64 "\n", OdeParamStateSize);
+    switch (OdeParamSimType) {
+    case Ode:
+        printf("OdeParamSimType\t\t\t- %s\n", "ODE");
+        break;
+    case Sde:
+        printf("OdeParamSimType\t\t\t- %s\n", "SDE");
+        break;
+    case Rre:
+        printf("OdeParamSimType\t\t\t- %s\n", "RRE");
+        break;
+    }
+
     puts("\nOde Model Timing");
     printf("OdeParamStartTime (s)\t\t- %g\n", OdeParamStartTime);
     printf("OdeParamStopTime (s)\t\t- %g\n", OdeParamStopTime);
@@ -44,9 +58,6 @@ void dumpParams(void) {
     printf("OdeParamPeriod (s)\t\t- %g\n", OdeParamPeriod);
     printf("OdeParamPeriodInterval\t\t- %" PRIu64 "\n", OdeParamPeriodInterval);
     printf("OdeParamOutput\t\t\t- %s\n", OdeParamOutput);
-
-    puts("\nOde Model Num Params");
-    printf("OdeParamStateSize\t\t- %" PRIu64 "\n", OdeParamStateSize);
 
 // dummy code - ignore
 //    puts("\nSizeof declarations");

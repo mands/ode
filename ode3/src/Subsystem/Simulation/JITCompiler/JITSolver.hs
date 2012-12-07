@@ -69,8 +69,8 @@ genAOTMain simF = do
 
 -- | C-compatible wrapper for all important simulation parameters - look at OdeModel.h for interface details
 -- Write sim param constant to global vals within the module
-genFFIParams :: Int -> GenM ()
-genFFIParams numParams = do
+genFFIParams :: Int -> CF.SimType -> GenM ()
+genFFIParams numParams simType = do
     GenState {builder, simParams, llvmMod} <- get
     let Sys.SimParams{..} = simParams
     liftIO $ addGlobalWithInit llvmMod (constDouble $ _startTime) doubleType True "OdeParamStartTime"
@@ -94,6 +94,12 @@ genFFIParams numParams = do
     -- HACK to build global string outside of a func (as buildGlob alString fails)
     liftIO $ addGlobalWithInit llvmMod (constString _filename False) (arrayType int8Type (fromIntegral $ length _filename + 1)) True "OdeParamOutput"
     -- liftIO $ buildGlobalString builder "test" "test" -- (Sys._filename  simParams) "OdeParamOutput"
+
+    -- sim type
+    case simType of
+        CF.SimODE   -> liftIO $ addGlobalWithInit llvmMod (constInt32 $ 0) int32Type True "OdeParamSimType"
+        CF.SimSDE   -> liftIO $ addGlobalWithInit llvmMod (constInt32 $ 1) int32Type True "OdeParamSimType"
+        CF.SimRRE   -> liftIO $ addGlobalWithInit llvmMod (constInt32 $ 2) int32Type True "OdeParamSimType"
 
     -- model size
     liftIO $ addGlobalWithInit llvmMod (constInt64 $ numParams) int64Type True "OdeParamStateSize"
@@ -122,32 +128,39 @@ genFFIModelInitials initsF numParams = do
 
 
 -- | C-compatible wrapper for the RHS function
-genFFIModelRHS :: LLVM.Value -> Int -> GenM ()
-genFFIModelRHS rhsF numParams = do
+genFFIModelRHS :: LLVM.Value -> Int -> CF.SimType -> GenM ()
+genFFIModelRHS rhsF numParams simType = do
     (curFunc, builder) <- genFunction "OdeModelRHS" voidType createArgsList
     liftIO $ setFuncParam curFunc 1 [NoAliasAttribute, NoCaptureAttribute]
     liftIO $ setFuncParam curFunc 2 [NoAliasAttribute, NoCaptureAttribute]
+    liftIO $ setFuncParam curFunc 3 [NoAliasAttribute, NoCaptureAttribute]
 
-    (curTimeVal : stateArrayRef : deltaArrayRef : []) <- liftIO $ LLVM.getParams curFunc
+    (curTimeVal : stateArrayRef : deltaArrayRef : weinerArrayRef : []) <- liftIO $ LLVM.getParams curFunc
 
     -- use GEP to build list of ptrs into stateVals array, need to deref each one
-    stateArgs <- liftIO $ forM [0..(numParams-1)] $ \idx -> do
+    stateArgs <- liftIO $ forM [0..arraySize] $ \idx -> do
         stateRef <- buildInBoundsGEP builder stateArrayRef [constInt64 0, constInt64 idx] "stateValRef"
         buildLoad builder stateRef "stateVal"
 
     -- use GEP to build list of ptrs into deltaVals array, can pass direct into modelLoop
-    deltaArgs <- liftIO $ forM [0..(numParams-1)] $ \idx ->
+    deltaArgs <- liftIO $ forM [0..arraySize] $ \idx ->
         buildInBoundsGEP builder deltaArrayRef [constInt64 0, constInt64 idx] "deltaValRef"
 
+    -- use GEP to build list of ptrs into weinerVals array, can pass direct into modelLoop
+    weinerArgs <- if simType == CF.SimSDE
+                    then liftIO $ forM [0..arraySize] $ \idx ->
+                        buildInBoundsGEP builder weinerArrayRef [constInt64 0, constInt64 idx] "weinerValRef"
+                    else return []
+
     -- call the internal inits functions
-    liftIO $ buildCall builder rhsF (curTimeVal : stateArgs ++ deltaArgs) ""
+    liftIO $ buildCall builder rhsF (curTimeVal : stateArgs ++ deltaArgs ++ weinerArgs) ""
     liftIO $ buildRetVoid builder
     return ()
-
-    return ()
   where
+    arraySize = numParams - 1
     -- create the input args
     createArgsList = [doubleType, pointerType (arrayType doubleType (fromIntegral numParams)) 0
+                                , pointerType (arrayType doubleType (fromIntegral numParams)) 0
                                 , pointerType (arrayType doubleType (fromIntegral numParams)) 0]
 
 

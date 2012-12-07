@@ -128,9 +128,9 @@ genLLVMModule p odeMod = do
     genFFI :: LLVM.Value -> LLVM.Value -> GenM ()
     genFFI initsF rhsF = do
         let numParams = Map.size $ initVals odeMod
-        genFFIParams numParams
+        genFFIParams numParams (simType odeMod)
         genFFIModelInitials initsF numParams
-        genFFIModelRHS rhsF numParams
+        genFFIModelRHS rhsF numParams (simType odeMod)
 
 -- | Load our compiled module and run a simulation
 runJITSimulation :: Sys.SimParams -> IO ()

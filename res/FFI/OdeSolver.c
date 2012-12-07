@@ -1,4 +1,4 @@
-// This program plus implements a basic euler solver using OdeLibrary and OdeModel.o
+// This program plus implements a basic euler (ODE&SDE) solver using OdeLibrary and OdeModel.o
 // Acts as a test for the OdeModel.h FFI
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,6 +15,11 @@ void solverRun(double* const restrict state);
 void solverShutdown(void);
 
 int main(void) {
+    if (OdeParamSimType == Rre) {
+        puts("Cannot simulation an RRE model");
+        return(1);
+    }
+
     // main code to setup, run, and shutdown the simulation
     // main data structs passed around solver
     double state[OdeParamStateSize];
@@ -38,10 +43,13 @@ void solverInit(double* const restrict state) {
 }
 
 void solverRun(double* const restrict state) {
-    // alloc delta vals - using C99 VLA
+    // alloc delta and weiner vals - using C99 VLA
     double delta[OdeParamStateSize];
+    double weiner[OdeParamStateSize];
+
     // euler loop params
     double time;
+    const double sqrtTimestep = sqrt(OdeParamTimestep);
     uint64_t curPeriod = 1;
     uint64_t curLoop = 0;
     uint64_t stateIdx;
@@ -52,12 +60,26 @@ void solverRun(double* const restrict state) {
         ++curLoop;
         time = OdeParamStartTime + curLoop * OdeParamTimestep;
 
-        // update the deltas
-        OdeModelRHS(time, state, delta);
-
-        // update the state
-        for (stateIdx = 0; stateIdx < OdeParamStateSize; ++stateIdx) {
-            state[stateIdx] += delta[stateIdx] * OdeParamTimestep;
+        switch (OdeParamSimType) {
+        case Ode:
+            // update the deltas
+            OdeModelRHS(time, state, delta, NULL);
+            // update the state - y' = y + dy*h
+            for (stateIdx = 0; stateIdx < OdeParamStateSize; ++stateIdx) {
+                state[stateIdx] += delta[stateIdx] * OdeParamTimestep;
+            }
+            break;
+        case Sde:
+            // update the deltas and weiners
+            OdeModelRHS(time, state, delta, weiner);
+            //puts("Start Loop");
+            // update the state - y' = y + dy*h + dW*sqrt(h)*rand
+            for (stateIdx = 0; stateIdx < OdeParamStateSize; ++stateIdx) {
+                state[stateIdx] += (delta[stateIdx] * OdeParamTimestep)
+                        + (weiner[stateIdx]*sqrtTimestep*OdeRandNormal());
+                //printf("Weiner - %g\n", weiner[stateIdx]);
+            }
+            break;
         }
 
         // write out at sample period

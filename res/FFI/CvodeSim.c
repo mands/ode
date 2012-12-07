@@ -37,7 +37,7 @@ void modelSolver(void);
 // computes the RHS, i.e. y' = f(t, y)
 int odeWrapperF(double time, N_Vector const restrict y, N_Vector const restrict yDot, void* userData){
     // we use NV_DATA_S macro to accress the internal arrays
-    OdeModelRHS(time, NV_DATA_S(y), NV_DATA_S(yDot));
+    OdeModelRHS(time, NV_DATA_S(y), NV_DATA_S(yDot), NULL);
     return 0;
 }
 
@@ -58,7 +58,7 @@ void checkAlloc(const void* const ptr, const char* const restrict funcname) {
 
 //// Main function
 //int main(void) {
-//    return 0;
+//    modelSolver():
 //}
 
 // main entry point

@@ -182,9 +182,8 @@ defineExtOps p llvmMod = do
                                 setFuncParam f 1 [NoAliasAttribute, NoCaptureAttribute]
                                 return f
                                 )
-        , ("OdeRandUniform",       addFunction llvmMod "OdeRandUniform" (functionType doubleType [] False))
-        , ("OdeRandNormal",       addFunction llvmMod "OdeRandNormal" (functionType doubleType [] False))
-
+        , ("OdeRandUniform",    addFunction llvmMod "OdeRandUniform" (functionType doubleType [] False))
+        , ("OdeRandNormal",     addFunction llvmMod "OdeRandNormal" (functionType doubleType [] False))
         ]
 
 

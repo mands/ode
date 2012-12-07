@@ -19,6 +19,7 @@ extern const double OdeParamAdjustedStopTime;
 // the timestep to be used for a fixed solver, or the minimum timestep within an adaptive solver
 extern const double OdeParamTimestep;
 
+
 // Adative Solver Parameteres (i.e. for use with CVODE) ////////////////////////////////////////////
 // the max timestep to be used for an adaptive solver, used to ensure we don't skip
 // pass the stimulus current - set to half the stimulus interval
@@ -38,14 +39,6 @@ enum OdeParamModelTypes {
 
 extern const enum OdeParamModelTypes OdeParamModelType;
 
-// simulation type
-enum OdeParamSimTypes {
-    Ode = 0,
-    Sde = 1,
-    Rre = 2
-};
-
-extern const enum OdeParamSimTypes OdeParamSimType;
 
 // Simulation Output Parameters ////////////////////////////////////////////////////////////////////
 // this incdiates the time period at which output should create, ideally should be an
@@ -57,6 +50,17 @@ extern const uint64_t OdeParamPeriodInterval;
 
 // this is actually statically alloc'd string literal, need to take the address to use it as a string
 extern const char OdeParamOutput[];
+
+
+// High-level Simulation/Model Parameters //////////////////////////////////////////////////////////
+// Simulation Type - indicates how to strucutre the solver and interact with the model functions
+enum OdeParamSimTypes {
+    Ode = 0,
+    Sde = 1,
+    Rre = 2
+};
+
+extern const enum OdeParamSimTypes OdeParamSimType;
 
 // This parameter indicates the number of STATE parameters contatined in the model
 // It is to be used when allocating memory to hold the STATE and DELTA arrays
@@ -71,15 +75,11 @@ extern const uint64_t OdeParamStateSize;
 // i.e. y0 = y(t), where y0=STATE
 extern void OdeModelInitials(const double time, double* const restrict state);
 
-// This function calculates the delta, based on the current time and STATE values
-// i.e. y' = f(t, y), where y'=DELTA and y=STATE
-extern void OdeModelRHS(const double time, const double* const restrict state,
-                         double* const restrict delta);
-
-// This function calculates the delta and weiner values, used in (stochastic) SDE simulations
-// based on the current time and STATE values
+// This function calculates the delta value based on the current time and STATE values
+// if SimType=SDE, also returns the weiner values, else pass a NULL pointer
 // i.e. (y', w) = f(t, y), where y'=DELTA and y=STATE
-extern void OdeModelStocRHS(const double time, const double* const restrict state,
-                            double* const restrict delta, double* const restrict weiner);
+extern void OdeModelRHS(const double time, const double* const restrict state,
+                         double* const restrict delta, double* const restrict weiner);
+
 
 #endif // ODE_MODEL_H

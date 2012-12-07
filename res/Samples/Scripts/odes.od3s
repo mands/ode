@@ -19,7 +19,7 @@
 //:vecMath
 :mathLib "gnu"
 // backend to use - interpreter, jitcompiler, aotcompiler, obj, cvode
-:backend "aotcompiler"
+:backend "objectfile"
 
 // setup the repo
 :addRepo ../res/Samples/repo
@@ -35,7 +35,7 @@ import SimTests.Odes.*
 :timestep 1
 :period 1
 :output "./output_Ode1.bin"
-:simulate Ode1
+//:simulate Ode1
 
 :output "./output_Ode2.bin"
 //:simulate Ode2
@@ -54,7 +54,7 @@ import SimTests.Odes.*
 :timestep 0.03125
 :period 0.03125
 :output "./output_PredPrey.bin"
-//:simulate PredPreyNoUnits
+:simulate PredPreyNoUnits
 
 // all done
 :quit
