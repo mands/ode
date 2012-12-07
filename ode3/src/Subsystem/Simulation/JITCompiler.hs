@@ -55,7 +55,7 @@ import AST.CoreFlat as CF
 import Subsystem.Simulation.JITCompiler.JITCommon
 import Subsystem.Simulation.JITCompiler.JITSolver
 import Subsystem.Simulation.JITCompiler.JITShell
-import Subsystem.Simulation.JITCompiler.JITModel(genModelInitials, genModelRHS, genModelSdeRHS)
+import Subsystem.Simulation.JITCompiler.JITModel(genModelInitials, genModelRHS)
 
 
 -- Entry ---------------------------------------------------------------------------------------------------------------
@@ -94,8 +94,8 @@ genLLVMModule p odeMod = do
 
     -- generate & insert the low-level funcs into the module
     initsF <-   genModelInitials odeMod
-    -- rhsF <-    genModelRHS odeMod
-    rhsF <-    genModelSdeRHS odeMod
+    -- TODO - only gen rhsF for ODE and SDE models
+    rhsF <-    genModelRHS odeMod
 
     -- modify the module depedning on the chosen backend and solver
     if (L.get Sys.lBackend p == Sys.ObjectFile)

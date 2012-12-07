@@ -208,26 +208,26 @@ instance OdeSolver EulerSolver where
 -- Euler Maruyama (SDE) Solver --------------------------------------------------------------------------------------------------------
 
 data EulerMSolver = EulerMSolver    { eulerMStateVals :: ParamMap
-                                    , eulerMWeinerVals :: ParamMap
                                     , eulerMDeltaVals :: ParamMap
+                                    , eulerMWeinerVals :: ParamMap
                                     }
 
 
 instance OdeSolver EulerMSolver where
     genVals ids = do    -- create the vals
         stateValRefMap  <- createVals ids "StateRef"
-        weinerValRefMap <- createVals ids "WeinerRef"
         deltaValRefMap  <- createVals ids "DeltaRef"
-        return $ EulerMSolver stateValRefMap weinerValRefMap deltaValRefMap
+        weinerValRefMap <- createVals ids "WeinerRef"
+        return $ EulerMSolver stateValRefMap deltaValRefMap weinerValRefMap
 
     getStateVals e = eulerMStateVals e
 
-    genSolver (EulerMSolver stateValRefMap weinerValRefMap deltaValRefMap) rhsF curTimeRef simOps = do
+    genSolver (EulerMSolver stateValRefMap deltaValRefMap weinerValRefMap) rhsF curTimeRef simOps = do
         GenState {builder, curFunc, simParams, libOps} <- get
         -- call the modelRHS func
         stateVals <- mapM (\v -> liftIO $ buildLoad builder v "odeValx") $ OrdMap.elems stateValRefMap
         _ <- liftIO $ withPtrVal builder curTimeRef $ \curTime -> do
-            buildCall builder rhsF (curTime : stateVals  ++ OrdMap.elems weinerValRefMap ++ OrdMap.elems deltaValRefMap) ""
+            buildCall builder rhsF (curTime : stateVals  ++ OrdMap.elems deltaValRefMap ++ OrdMap.elems weinerValRefMap) ""
 
         -- update the states/run the forward euler
         liftIO $ mapM_ (updateState builder simParams libOps) simOps
@@ -347,7 +347,8 @@ instance OdeSolver RK4Solver where
                 buildFAdd builder stateVal kTmpTotal "newState"
 
 
--- | Generate the forward euler solver, also including much of the machinary to setup variables, write to disk, etc.
+-- | Generate the infrastrcutre for the internal solvers, i.e. constant time-step, explicit solvers,
+--  including much of the machinary to setup variables, write to disk, etc.
 genModelSolver :: CF.Module -> LLVM.Value -> LLVM.Value -> GenM LLVM.Value
 genModelSolver CF.Module{..} initsF rhsF = do
     (curFunc, builder) <- genFunction  "modelSolver" voidType []
@@ -361,11 +362,13 @@ genModelSolver CF.Module{..} initsF rhsF = do
     fileStrPtr <- liftIO $ buildInBoundsGEP builder fileStr [constInt64 0, constInt64 0] ""
     _ <- liftIO $ buildCall builder (libOps Map.! "OdeStartSim") [fileStrPtr, constInt64 $ Map.size initVals] ""
 
-    -- create the vals (and indirectly choose the solver)
-    solver <- case (L.get Sys.lSolver simParams) of
-        -- Sys.FEuler  -> MkSolver <$> (genVals $ (Map.keys initVals) :: GenM EulerSolver)
-        Sys.FEuler  -> MkSolver <$> (genVals $ (Map.keys initVals) :: GenM EulerMSolver)
-        Sys.RK4     -> MkSolver <$> (genVals $ (Map.keys initVals) :: GenM RK4Solver)
+    -- choose the solver (and create the vals)
+    -- if SDE, then must use EulerM, else choose FEuler or RK4 depending on SimParams
+    solver <- case simType of
+        CF.SimSDE   -> MkSolver <$> (genVals $ (Map.keys initVals) :: GenM EulerMSolver)
+        CF.SimODE   -> case (L.get Sys.lSolver simParams) of
+            Sys.FEuler  -> MkSolver <$> (genVals $ (Map.keys initVals) :: GenM EulerSolver)
+            Sys.RK4     -> MkSolver <$> (genVals $ (Map.keys initVals) :: GenM RK4Solver)
 
     -- create mutable sim params (static sim params embeedded as constants)
     simParamVs@(curPeriodRef, curLoopRef, curTimeRef, outStateArray) <- createSimParams outDataSize

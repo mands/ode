@@ -62,7 +62,7 @@ data Var    = VarRef Id
 -- | Main simulation opersions
 data SimOps = Ode Id Var    -- indicates the state val and a ref to an id holding the delta val
                             -- TODO - convert to an Id instead of Var
-            | Sde Id Var Var  -- indicates the state val and refs to ids holding the weiner and delta vals
+            | Sde Id Var Var  -- indicates the state val and refs to ids holding the weiner and delta vals (note the order)
             --Rre Id Id Var
             deriving (Show, Eq, Ord)
 
