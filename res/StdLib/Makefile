@@ -34,6 +34,9 @@ VecMath: VecMathCog.py
 	llvm-as VecMath_AMD.ll
 	llvm-as VecMath_Intel.ll
 
+RandTest.exe: RandTest.c libOde.a
+	$(CC) $(CFLAGS) -o $@ $< -L. -lOde -lm
+
 clean:
 	rm -f *.o *~
 

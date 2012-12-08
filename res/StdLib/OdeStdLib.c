@@ -14,6 +14,7 @@
 #define M_PI 3.14159265358979323846264338327
 
 // internal func declarations
+extern void sincos (double x, double *sinx, double *cosx);
 void OdeRandInit(void);
 
 // Add library support for...
@@ -60,8 +61,8 @@ void OdeStopSim(void) {
 }
 
 // write state to disk
-static uint64_t outIdx;
 void OdeWriteState(const double time, const double* const restrict state) {
+    static uint64_t outIdx;
     // build the output buffer
     outData[0] = time;
     for (outIdx = 1; outIdx < outSize; ++outIdx) {
@@ -88,16 +89,17 @@ inline double OdeRandUniform(void) {
 
 // return a random number between 0 and 1 with normal distribution
 double OdeRandNormal(void) {
-    static double y;
-    static bool y_exists = false;
-    if (y_exists == true) {
-        y_exists = false;
+    static double y, cosVal, sinVal;
+    static bool yExists = false;
+    if (yExists == true) {
+        yExists = false;
         return y;
     } else {
         double ex1 = sqrt(-2*log(OdeRandUniform()));
         double ex2 = 2*M_PI*OdeRandUniform();
-        y = ex1*sin(ex2);
-        y_exists = true;
-        return ex1*cos(ex2); // return x
+        sincos(ex2, &sinVal, &cosVal);
+        y = ex1*sinVal;
+        yExists = true;
+        return ex1*cosVal; // return x
     }
 }
