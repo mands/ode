@@ -38,7 +38,7 @@ RandTest.exe: RandTest.c libOde.a
 	$(CC) $(CFLAGS) -o $@ $< -L. -lOde -lm
 
 clean:
-	rm -f *.o *~
+	rm -f *.o *~ *.bin libOde.a OdeStdLib.bc
 
 .PHONY: clean
 

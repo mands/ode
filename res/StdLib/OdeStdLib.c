@@ -100,6 +100,6 @@ double OdeRandNormal(void) {
         sincos(ex2, &sinVal, &cosVal);
         y = ex1*sinVal;
         yExists = true;
-        return ex1*cosVal; // return x
+        return ex1*cosVal;
     }
 }
