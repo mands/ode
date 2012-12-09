@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #include "OdeModel.h"
 
 void modelSolver(void);

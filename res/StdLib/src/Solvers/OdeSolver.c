@@ -16,7 +16,11 @@ void solverShutdown(void);
 
 int main(void) {
     if (OdeParamSimType == Rre) {
-        puts("Cannot simulation an RRE model");
+        fprintf(stderr, "Cannot simulation an RRE model\n");
+        return(1);
+    }
+    if (OdeParamTimestep == 0.0) {
+        fprintf(stderr, "Timestep must be greater than 0 for constant solvers\n");
         return(1);
     }
 

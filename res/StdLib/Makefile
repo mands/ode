@@ -1,44 +1,21 @@
-####### Compiler, tools and options
-CC            = clang
-CFLAGS        = -std=c11 -O3 -pedantic -Weverything -ffast-math -integrated-as
+## Top level makefile
+## Uses recusrive makes - i know not recoemmned but is easiest solution for now
+## everything depends on src/Stdlib, but otherwise all sub-modules are independent
 
-all: libOde.bc libOde.o
+include Makefile.inc
 
-# build bitcode version of library
-libOde.bc: OdeStdLib.c OdeStdLib.h WELL512a.c WELL512a.h
-	$(CC) $(CFLAGS) -emit-llvm -c -o OdeStdLib.bc OdeStdLib.c
-	$(CC) $(CFLAGS) -emit-llvm -c -o WELL512a.bc WELL512a.c
-	# link into bc archive
-	llvm-link -o $@ OdeStdLib.bc WELL512a.bc
-	llvm-dis $@
+SRC_DIRS := src/StdLib src/Solvers src/Utils src/VecMath
 
-# unused - generate an optimised version of the odelibrary
-#OdeLibraryOpt.bc: OdeLibraryOpt.ll
-#	llvm-as -o $@ $<
+all:
+	-for d in $(SRC_DIRS); do (cd $$d; $(MAKE) ); done
 
-# build a C-version of the library
-libOde.a: OdeStdLib.c OdeStdLib.h WELL512a.c WELL512a.h
-	$(CC) $(CFLAGS) -c OdeStdLib.c
-	$(CC) $(CFLAGS) -c WELL512a.c
-	ar rcs $@ OdeStdLib.o WELL512a.o
-
-# unused - aot stub
-#AOTStub.bc: AOTStub.ll
-#	llvm-as -o $@ $<
-
-VecMath: VecMathCog.py
-	cog.py -r -c -e VecMath_GNU.ll
-	cog.py -r -c -e VecMath_AMD.ll
-	cog.py -r -c -e VecMath_Intel.ll
-	llvm-as VecMath_GNU.ll
-	llvm-as VecMath_AMD.ll
-	llvm-as VecMath_Intel.ll
-
-RandTest.exe: RandTest.c libOde.a
-	$(CC) $(CFLAGS) -o $@ $< -L. -lOde -lm
+install:
+	-for d in $(SRC_DIRS); do (cd $$d; $(MAKE) install); done
 
 clean:
-	rm -f *.o *~ *.bin libOde.a OdeStdLib.bc
+	-for d in $(SRC_DIRS); do (cd $$d; $(MAKE) clean ); done
+#	rm -f *.o *~ *.bin
 
-.PHONY: clean
+force_look:
+	true
 
