@@ -39,15 +39,16 @@ default (LT.Text)
 
 -- Global Constants
 -- TODO - fix these hardcoded paths
-rootPath    = "/home/mandeep/DPhil/Projects/root"
-libPath     = rootPath </> "lib"
+projRootPath    = "/home/mandeep/DPhil/Projects/root"
+projLibPath     = projRootPath </> "lib"
+odeRootPath = "../res/StdLib"
+odeLibPath  = odeRootPath </> "lib"
+
 modelBC     = "./Model.bc"
 modelOptBC  = "./Model.opt.bc"
 simBC       = "./Sim.bc"
 exeOutput   = "./Sim.exe"
-odeLibPath  = "../res/StdLib"
 odeObjFile  = "./OdeModel.o"
-odeFFIPath  = "../res/FFI"
 
 optScript :: Sys.SimParams -> Sh ()
 optScript p@(Sys.SimParams{..}) = do
@@ -100,7 +101,7 @@ optScript p@(Sys.SimParams{..}) = do
     run_ "llvm-dis" [modelOptBC]
     return ()
   where
-    llvmVecMath = toTextIgnore $ libPath </> "LLVMVecMath.so"
+    llvmVecMath = toTextIgnore $ projLibPath </> "LLVMVecMath.so"
     modelOpts   = ["-std-compile-opts"]
 
     -- link the model to the vecmath implementation, and perfomrm LTO/opts
@@ -143,7 +144,7 @@ linkStdlibScript p@(Sys.SimParams{..}) = do
     return ()
   where
     odeStdLib   = toTextIgnore $ odeLibPath </> "libOde.bc" -- TODO - change to opt stdlib?
-    odeCvodeSim = toTextIgnore $ odeFFIPath </> "CvodeSim.bc" -- TODO - change to opt stdlib?
+    odeCvodeSim = toTextIgnore $ odeLibPath </> "CvodeSim.bc" -- TODO - change to opt stdlib?
     linkOpts    = ["-std-link-opts", "-std-compile-opts"]
     simLtoBC    = "sim.pre-lto.ll"
 
@@ -163,7 +164,7 @@ compileScript p@(Sys.SimParams{..}) = do
                 ++ maybeToList fastMath ++ [modelOptBC]
         -- use clang to link our llvm-linked sim module to the system
         else run "clang" $ (maybeToList linkType) ++ ["-integrated-as", "-o", toTextIgnore exeOutput, optLevel]
-            ++ maybeToList fastMath ++ [simBC] ++ ["-L", toTextIgnore libPath] ++ cvodeLibs ++ mathLibs
+            ++ maybeToList fastMath ++ [simBC] ++ ["-L", toTextIgnore projLibPath] ++ cvodeLibs ++ mathLibs
 
     return ()
   where
@@ -182,7 +183,7 @@ compileScript p@(Sys.SimParams{..}) = do
                     else []
 
     -- odeVecMathLib = toTextIgnore $ odeLibPath </> odeVecMathFile
-    crtFastMath = "-Wl,--no-as-needed,../res/StdLib/crtfastmath.o"
+    crtFastMath = LT.append "-Wl,--no-as-needed," (toTextIgnore $ odeLibPath </> "crtfastmath.o")
 
     optLevel    = if (L.get Sys.lOptimise p) then "-O3" else "-O0"
     fastMath    = if _optimise && (L.get Sys.lMathModel p == Sys.Fast) then Just "-ffast-math" else Nothing

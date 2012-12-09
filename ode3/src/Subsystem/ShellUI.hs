@@ -356,6 +356,8 @@ shSimulate initMod = do
             (throwError $ printf "Timestep (%g) must be smaller or equal to simulation time interval (%g)\n" _timestep (_stopTime - _startTime))
         when (_startTime < 0)
             (throwError $ printf "Start time (%g) cannot be negative \n" _startTime)
+        when (_timestep < 0 || _maxTimestep < 0)
+            (throwError $ printf "Timesteps (%g, %g) cannot be negative \n" _timestep _maxTimestep)
 
         return ()
 

@@ -22,10 +22,10 @@ libOde.a: OdeStdLib.c OdeStdLib.h WELL512a.c WELL512a.h
 #	llvm-as -o $@ $<
 
 install: libOde.bc libOde.a OdeStdLib.h
-	cp libOde.bc $(ODE_BIN_DIR)
-	cp libOde.a $(ODE_BIN_DIR)
+	cp libOde.bc $(ODE_LIB_DIR)
+	cp libOde.a $(ODE_LIB_DIR)
 	cp OdeStdLib.h $(ODE_INC_DIR)
 
 clean:
-	rm -f *.o *~ *.bin libOde.a libOde.bc
+	rm -f *.o *~ *.bin libOde.a libOde.bc libOde.ll
 
