@@ -131,6 +131,8 @@ initIntExpr e@(AC.Sde (AC.LocalVar v) eW eD) env = do
     (eD', _) <- initIntExpr eD env
     return (eD', env)
 
+-- Rres - don't have any internal exprs
+initIntExpr e@(AC.Rre _ _ _) env = return (e, env)
 
 initIntExpr e env = errorDump [MkSB e, MkSB env] "InitValGen - Cannot interpret expression" assert
 

@@ -35,7 +35,11 @@ import SimTests.Rres.*
 :timestep 1
 :period 1
 :output "./output_Rre1.bin"
-:simulate Sde1
+//:simulate Rre1
+
+:stopTime 20
+:output "./output_Rre2.bin"
+:simulate Rre2
 
 // all done
 :quit

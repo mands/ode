@@ -51,7 +51,7 @@ data SimState = SimState    { _simEnv :: Map.Map Id Var, _stateEnv :: Map.Map Id
                             }
 
 interpret :: Module -> Sys.SysExceptIO ()
-interpret Module{..} = do
+interpret m@Module{..} = do
     -- setup the default simulation state
     p <- Sys.getSysState Sys.lSimParams
     liftIO $ debugM "ode3.sim" $ "Starting (Interpreted) Simulation"
@@ -63,19 +63,26 @@ interpret Module{..} = do
     -- setup the initial data, wrap doubles into Var (Num d)
     randS <- liftIO $ newStdGen
     let initState = SimState Map.empty (Num <$> initVals) (Sys._startTime p) (Sys.calcOutputInterval p) outHandle p randS
-    -- simulate the loop exprs over the time period
-    lift $ runStateT (unless (OrdMap.null loopExprs) $ runLoop 1 p) initState
+
+    -- choose and start the correct the simulation model
+    case simType of
+        SimRRE -> lift $ runStateT (runSSA m p (Sys._startTime p)) initState
+        -- ODE or SDE, simulate the loop exprs over the time period
+        _ ->     lift $ runStateT (unless (OrdMap.null loopExprs) $ runEulerMaruyama m 1 p) initState
+
     -- close the output file
     liftIO $ hFlush outHandle >> hClose outHandle
     liftIO $ debugM "ode3.sim" $ "(Interpreted) Simulation Complete"
     return ()
+
+
+-- Simulation Types ----------------------------------------------------------------------------------------------------
+runEulerMaruyama :: Module -> Integer -> Sys.SimParams -> SimM ()
+runEulerMaruyama m@Module{..} curLoop p = do
+    runIter time -- run an iteration
+    if time < (Sys.calcAdjustedStopTime p) then runEulerMaruyama m (inc curLoop) p else return () -- only loop again is time is less than endtime, break if equal/greater
   where
-    runLoop :: Integer -> Sys.SimParams -> SimM ()
-    runLoop curLoop p = do
-        runIter time -- run an iteration
-        if time < (Sys.calcAdjustedStopTime p) then runLoop (inc curLoop) p else return () -- only loop again is time is less than endtime, break if equal/greater
-      where
-        time = (Sys._startTime p) + (fromInteger curLoop) * (Sys._timestep p)
+    time = (Sys._startTime p) + (fromInteger curLoop) * (Sys._timestep p)
 
     -- wrapper function to configure the cur time
     -- (equiv to simulate func in jitcompile/odelibrary)
@@ -100,6 +107,71 @@ interpret Module{..} = do
                 modify (\st -> st { _curPeriod = inc $ _curPeriod st } )
         --trace' [MkSB t, MkSB (_simEnv st), MkSB (_stateEnv st)] "Current sim and state envs" $ return ()
 
+
+runSSA :: Module -> Sys.SimParams -> Double -> SimM ()
+runSSA m@Module{..} p time = do
+    -- states <- mStates
+    sumProp <- sumPropensitities
+    if sumProp > 0 && time < (Sys._stopTime p)
+        then do
+            time' <- runSSA' time sumProp
+            runSSA m p time'
+        else return ()
+  where
+    runSSA' time sumProp = do
+        tau <- chooseTimestep sumProp
+        r <- chooseReaction sumProp
+        triggerReaction r
+        let time' = time + tau
+
+        -- output state
+        st <- get
+        liftIO $ writeRow time' (Map.elems $ _stateEnv st) (_outputHandle st)
+        return time'
+
+    -- mStates = _stateEnv <$> get
+    -- we know list of simops only contains RREs
+    reactions = filter (\op -> case op of (Rre _ _ _) -> True; _ -> False) simOps
+
+    chooseTimestep sumProp = do
+        r1 <- getRandUniform
+        return $ -(1/sumProp) * log(r1)
+
+    chooseReaction sumProp = do
+        r2 <- getRandUniform
+        let endProp = r2 * sumProp
+        (_, Just r) <- DF.foldlM (f endProp) (0, Nothing) reactions
+        return r
+
+      where
+        f :: Double -> (Double, Maybe SimOps) -> SimOps -> SimM (Double, Maybe SimOps)
+        f _ st@(curProp, Just r) _    =   return st
+        f endProp st@(curProp, Nothing) r = do
+            p <- calcPropensity r
+            let curProp' = curProp + p
+            if curProp' > endProp then return (curProp', Just r) else return (curProp', Nothing)
+
+    triggerReaction (Rre srcs dests rate) = do
+        mapM_ (changePop (-)) srcs
+        mapM_ (changePop (+)) dests
+      where
+        changePop op (stoc, v) = do
+            n <- getStateVal v
+            let n' = Num $ op n (fromIntegral stoc)
+            modify (\st -> st { _stateEnv = Map.insert v n' (_stateEnv st) } )
+
+    sumPropensitities :: SimM Double
+    sumPropensitities = sum <$> mapM calcPropensity reactions
+
+    -- does this not take into account the stoc of the srcs?
+    calcPropensity (Rre srcs _ rate) = do
+        srcPops <- mapM (\(i, v) -> getStateVal v) srcs
+        return $ (product srcPops) * rate
+
+    getStateVal v = do
+        s <- _stateEnv <$> get
+        let (Num n) = s Map.! v
+        return n
 
 -- Interpreter ---------------------------------------------------------------------------------------------------------
 
@@ -240,7 +312,7 @@ simOp op vs = errorDump [MkSB op, MkSB vs] "Operator not supported in interprete
 
 -- | Interpret a Simulation Operation - these are all stateful
 -- solve an Ode using a forward-Euler
-simSimOp ((Ode initId v)) = do
+simSimOp (Ode initId v) = do
     -- trace' [] "entering solve ode" $ return ()
     st <- get
     -- trace' [MkSB $ _simEnv st, MkSB $ _stateEnv st] "envs" $ return ()
@@ -256,7 +328,8 @@ simSimOp ((Ode initId v)) = do
     modify (\st -> st { _stateEnv = Map.insert initId n' (_stateEnv st) })
     -- trace' [MkSB initId, MkSB dN, MkSB curN, MkSB n'] "finished solved ode" $ return ()
 
-simSimOp ((Sde initId vW vD)) = do
+-- solve a Sde using forward Euler-Maruyama
+simSimOp (Sde initId vW vD) = do
     st <- get
     -- pickup the weiner via a VarRef into the loop state
     (Num dW) <- simVar vW
@@ -266,13 +339,15 @@ simSimOp ((Sde initId vW vD)) = do
     let (Num curN) = (_stateEnv st) Map.! initId
     -- calc the sde
     let dt = Sys._timestep $ _simParams st
-    randN <- getStdNorm
+    randN <- getRandNormal
     let n' = Num $ curN + dt*dN + dW*sqrt(dt)*randN
 
     -- update the stateEnv -- we can do this destructively as the delta vars have already been calculated within the exprMap
     modify (\st -> st { _stateEnv = Map.insert initId n' (_stateEnv st) })
 
--- simSimOp ((Rre initId v)) = do
+-- Rre not supported in this sim model
+simSimOp (Rre srcs dests rate) = do
+    undefined
 
 
 -- File Output ---------------------------------------------------------------------------------------------------------
@@ -301,8 +376,8 @@ writeRow t vs handle = do
 
 -- helper functions to access random numbers
 -- gets a uniform random number
-getRandom :: SimM Double
-getRandom = do
+getRandUniform :: SimM Double
+getRandUniform = do
     s@SimState{_rndGen} <- get
     let (val, _rndGen') = random (_rndGen)
     put (s {_rndGen = _rndGen'})
@@ -311,8 +386,8 @@ getRandom = do
 
 -- returns a z-value based standard normal random number, based on the box-muller transform of uniform randoms
 -- caching both values doesn't seem to work
-getStdNorm :: SimM Double
-getStdNorm = do
+getRandNormal :: SimM Double
+getRandNormal = do
     snd <$> boxM
 {-
     s <- get
@@ -329,8 +404,8 @@ getStdNorm = do
     -- apply the box-muller transform to obtain two guassiam-dist values, with 0 mean, and 1 varience
     boxM :: SimM (Double, Double)
     boxM = do
-        u1 <- getRandom
-        u2 <- getRandom
+        u1 <- getRandUniform
+        u2 <- getRandUniform
         let t1 = sqrt(-2 * log(u1))
         let t2 = 2*pi*u2
         return (t1*cos(t2), t1*sin(t2))

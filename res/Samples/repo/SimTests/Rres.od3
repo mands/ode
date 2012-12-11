@@ -1,13 +1,13 @@
 // basic rre
-module Sde1 {
+module Rre1 {
     init x = 1000
     init z = 0
     rre { rate: 0.5 } = x -> z
 }
 
-/*
+
 // pred-prey
-module Sde2 {
+module Rre2 {
     init x = 1
     init y1 = 1000
     init y2 = 1000
@@ -25,11 +25,11 @@ module Sde2 {
     // predator death
     rre { rate : 10 } = y2 -> z
 }
-*/
+
 
 /*
 // G Protein Cycle Wt
-module Sde3 {
+module Rre3 {
   // r1 = L + R <-> RL
   init l = 6.022e17
   init r = 10000

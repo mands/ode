@@ -57,18 +57,26 @@ convertAST (LitMod modData, initMap) = do
     trace' [MkSB modData] "Flatten - Final Core AST input" $ return ()
     ((_, freeIds'), fSt') <- runStateT (runSupplyT flatExprM freeIds) $ mkFlatState (modTMap modData)
     let simOps = (reverse $ _simOps fSt')
-    return $ ACF.Module (_curExprs fSt') initMap simOps (getSimType simOps) (head freeIds')
+    simType <- getSimType simOps
+    return $ ACF.Module (_curExprs fSt') initMap simOps simType (head freeIds')
   where
     freeIds = [modFreeId modData..]
     flatExprM :: ConvM ()
     flatExprM = foldM_ convertTop () $ OrdMap.toList (modExprMap modData)
 
     -- determine if this module may be simulated and the mechanism to use
-    getSimType simOps = if hasSdes then ACF.SimSDE else ACF.SimODE
+    getSimType simOps = if isRREOnly then return ACF.SimRRE else
+                            if hasRREs
+                                then throwError $ "Model currently can not have a mix of RREs and SDEs/ODEs"
+                                else if hasSDEs then return ACF.SimSDE else return ACF.SimODE
       where
-        hasOdes = any (\op -> case op of ACF.Ode _ _ -> True;_ -> False) simOps
-        hasSdes = any (\op -> case op of ACF.Sde _ _ _ -> True;_ -> False) simOps
-        -- hasRres = any \(case op of (ACF.Rre _ _ _ -> True);_ -> False) simOps
+        hasODEs = any (\op -> case op of ACF.Ode _ _ -> True;_ -> False) simOps
+        hasSDEs = any (\op -> case op of ACF.Sde _ _ _ -> True;_ -> False) simOps
+        hasRREs = any (\op -> case op of ACF.Rre _ _ _ -> True;_ -> False) simOps
+        checkODE = (\op -> case op of ACF.Ode _ _ -> True;_ -> False)
+        checkSDE = (\op -> case op of ACF.Sde _ _ _ -> True;_ -> False)
+        checkRRE = (\op -> case op of ACF.Rre _ _ _ -> True;_ -> False)
+        isRREOnly = all checkRRE simOps
 
 
 -- convert the toplet - we ensure that only TopLets with exist at this point
@@ -138,14 +146,14 @@ convertExpr e@(AC.If eB eT eF) = do
         return es
 
 -- Tuple - delibeatly lift all refences here rather than try to embed, makes unpacking stage easier
-convertExpr e@(AC.Tuple es) = ACF.Var <$> ACF.Tuple <$> mapM insertTmpVar es
+convertExpr e@(AC.Tuple es) = ACF.Var <$> ACF.Tuple <$> mapM insertAsTmpVar es
 -- Record - we convert to a tuple
-convertExpr e@(AC.Record nEs) = ACF.Var <$> ACF.Tuple <$> mapM insertTmpVar (AC.dropLabels nEs)
+convertExpr e@(AC.Record nEs) = ACF.Var <$> ACF.Tuple <$> mapM insertAsTmpVar (AC.dropLabels nEs)
 
 -- Ode
 convertExpr e@(AC.Ode (AC.LocalVar v) eD) = do
     -- convert the delta expr - insert in as an tmp binding
-    dRef <- insertTmpVar eD
+    dRef <- insertAsTmpVar eD
     -- add the Ode to SimOps
     lift $ modify (\st -> st { _simOps = (ACF.Ode v dRef) : (_simOps st) })
     -- add the vRef to the delta Expr to the cur exprMap
@@ -154,13 +162,24 @@ convertExpr e@(AC.Ode (AC.LocalVar v) eD) = do
 -- Sde
 convertExpr e@(AC.Sde (AC.LocalVar v) eW eD) = do
     -- convert the weiner expr - insert in as an tmp binding
-    wRef <- insertTmpVar eW
+    wRef <- insertAsTmpVar eW
     -- convert the delta expr - insert in as an tmp binding
-    dRef <- insertTmpVar eD
+    dRef <- insertAsTmpVar eD
     -- add the Sde to SimOps
     lift $ modify (\st -> st { _simOps = (ACF.Sde v wRef dRef) : (_simOps st) })
     -- add the vRef to the delta Expr to the cur exprMap
     return $ ACF.Var dRef
+
+-- Rre
+convertExpr e@(AC.Rre srcs dests rate) = do
+    -- add the Rre to SimOps
+    lift $ modify (\st -> st { _simOps = (ACF.Rre (convProduct srcs) (convProduct dests) rate) : (_simOps st) })
+    -- return a unit val
+    return $ ACF.Var ACF.Unit
+  where
+    convProduct = map (\(i, AC.LocalVar v) -> (fromInteger i, v))
+
+
 
 -- anything else,
 convertExpr expr = errorDump [MkSB expr] "Cannot convert expression to CoreFlat" assert
@@ -209,11 +228,11 @@ convertLet t ids e1 = do
 convertVar :: AC.Expr Id -> ConvM ACF.Var
 convertVar e = do
     mE' <- liftVarExpr e
-    maybe (insertTmpVar e) (return) mE'
+    maybe (insertAsTmpVar e) (return) mE'
 
 -- convert an expr, create a new binding and return a refvar to it
-insertTmpVar :: AC.Expr Id -> ConvM ACF.Var
-insertTmpVar e = do
+insertAsTmpVar :: AC.Expr Id -> ConvM ACF.Var
+insertAsTmpVar e = do
     -- convert the expression and return a var pointing to it
     id <- supply
     e' <- convertExpr e
