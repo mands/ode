@@ -32,7 +32,7 @@ import qualified Data.Traversable as DT
 import qualified Data.Foldable as DF
 import qualified Data.Set as Set
 import Text.Printf (printf)
-import Utils.Utils
+import Utils.CommonImports
 import qualified Utils.OrdMap as OrdMap
 import qualified AST.Core as E
 import qualified AST.Module as M
@@ -128,6 +128,9 @@ validExpr (E.Record nEs) st = DF.mapM_ (\e -> validExpr e st) nEs >> return st
 -- add ode & rre checks
 validExpr (E.Ode (E.LocalVar initRef) eD) st = checkSVal initRef st >> validExpr eD st
 validExpr (E.Sde (E.LocalVar initRef) eW eD) st = checkSVal initRef st >> validExpr eW st >> validExpr eD st
-validExpr (E.Rre (E.LocalVar src) (E.LocalVar dest) _) st = checkSVal src st >>  checkSVal dest st >> return st
+validExpr (E.Rre srcs dests _) st = mapM (mapSndM checkVarId) srcs >> mapM (mapSndM checkVarId) srcs >> return st
+  where
+    checkVarId (E.LocalVar lv) = checkSVal lv st
+    checkVarId v = errorDump [MkSB v] "Intra-module init vals for Simops not handled correctly!" assert
 
 validExpr e st = return st

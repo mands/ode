@@ -154,7 +154,7 @@ data Expr b = Var (VarId b) (Maybe RecId)             -- a reference to any let-
             | Sde (VarId b) (Expr b) (Expr b)   -- a Sde, uses a state variable defined in b, a weiner in 1st expr,
                                                 -- and runs and returns the delta expression
 
-            | Rre (VarId b) (VarId b) Double -- an RRE, from var->var with given rate, returns unit
+            | Rre [(Integer, VarId b)] [(Integer, VarId b)] Double -- an RRE, from var->var with given rate, returns unit
 
             | TypeCast (Expr b) (TypeCast b) -- type casts to expressions
             deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)

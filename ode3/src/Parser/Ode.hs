@@ -226,11 +226,13 @@ sdeDef = do
                                 <||> attrib "weiner" compExpr
 
 rreDef :: Parser AO.Stmt
-rreDef = AO.RreDef <$> (reserved "rre" *> braces rreAttribs) <*> (reservedOp "=" *> identifier) <*> (reservedOp "->" *> identifier)
+rreDef = AO.RreDef <$> (reserved "rre" *> braces rreAttribs) <*> (reservedOp "=" *> speciesList) <*> (reservedOp "->" *> speciesList)
   where
     -- | parse a rre attribute definition
     -- TODO - this could/should be an expression
     rreAttribs = attrib "rate" number
+    rreSpecies = (,) <$> option 1 (natural <* symbol  ".") <*> identifier
+    speciesList = sepBy1 rreSpecies (reservedOp "+")
 
 
 -- Ode Terms -----------------------------------------------------------------------------------------------------------

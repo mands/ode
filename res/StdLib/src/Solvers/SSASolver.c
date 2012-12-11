@@ -1,118 +1,75 @@
 // a basic SSA solver, includes hardcoded models and utilises Ode Stdlib
 #include <stdlib.h>
 #include <stdio.h>
-#include <stdarg.h>
-#include <stdbool.h>
 #include <stdint.h>
-#include <string.h>
+#include <inttypes.h>
 #include <math.h>
 
+#include "SSASolver.h"
 #include "OdeStdLib.h"
 
-// Data structures
-// species - only holds the population
-typedef uint64_t Species;
-
-// reactions
-typedef enum ReactionTypesT {
-    UniMolecular = 0,
-    BiMolecular = 1
-} ReactionTypes;
-
-typedef struct ReactionProductT {
-    Species* prodSpecies;
-    uint64_t stoc;
-} ReactionProduct;
-
-typedef struct ReactionT {
-    ReactionTypes reactionType;
-    Species* speciesA;
-    Species* speciesB;
-    double rate;
-    uint64_t numProducts;
-    ReactionProduct* products;
-} Reaction;
-
-
-// function declarations
-double calcPropensity(Reaction r);
-double sumPropensities(Reaction reactions[], uint64_t numReactions);
-double chooseTimestep(double sumProp);
-uint64_t chooseReaction(double sumProp, Reaction reactions[], uint64_t numReactions);
-void triggerReaction(Reaction r);
-void writeState(double time, Species* species[], uint64_t numSpecies);
-void runSimulation(Reaction reactions[], uint64_t numReactions, Species* species[],
-                   uint64_t numSpecies, double stopTime);
-void RadioactiveDecaySim(void);
-
-
-// hard-coded basic SSA simulation
-void RadioactiveDecaySim(void) {
-    // species
-    // const uint64_t numSpecies = 2;
-    Species x = 1000;
-    Species z = 0;
-
-    Species* species[2] = {&x, &z};
-
-    // reactions, using inline style
-    ReactionProduct r1p[1] = { { &z, 1 } };
-    Reaction r1 = { UniMolecular, &x, NULL, 0.5, 1, r1p };
-//    Reaction r1 = {.reactionType=UniMolecular, .speciesA=&x,
-//                   .speciesB=NULL, .rate=0.5, .numProducts=1,
-//                   .products={ {.prodSpecits=&z, .stoc=1 } } };
-
-    Reaction reactions[1] = {r1};
-
-    // start the sim
-    runSimulation(reactions, 1, species, 2, 100);
-
-}
-
-int main(void) {
-    OdeInit();
-    RadioactiveDecaySim();
-    OdeShutdown();
-}
-
+//static const uint64_t maxUint64 = 0xFFFFFFFFFFFFFFFF;
 
 // take in a model and actually run the simulation using SSA
-void runSimulation(Reaction reactions[], uint64_t numReactions, Species* species[],
-                   uint64_t numSpecies, double stopTime) {
-    OdeStartSim("output.bin", numSpecies);
+void runSimulation(const char* filename, const double stopTime, const double outPeriod,
+                   const uint64_t maxPopulation, Reaction reactions[], const uint64_t numReactions,
+                   const Species* restrict species[], const uint64_t numSpecies) {
+    OdeStartSim(filename, numSpecies);
     // run ssa
     double time = 0, tau;
+    uint64_t loopCount = 1;
+    double nextOutput = loopCount * outPeriod;
+    // initial output
+    writeState(time, species, numSpecies);
+
     double sumProp = sumPropensities(reactions, numReactions);
-    while (time < stopTime && sumProp > 0) {
-        // calculuate the sum of all the reaction propensities within the system
-        sumProp = sumPropensities(reactions, numReactions);
-        if (sumProp > 0) {
-            // output the current state
+    while (sumProp > 0 && time < stopTime) {
+        if (maxPopulation) checkPopulations(species, numSpecies, maxPopulation);
+        // get the stochastic time-step
+        tau = chooseTimestep(sumProp);
+        // calc the reaction
+        Reaction r = reactions[chooseReaction(sumProp, reactions, numReactions)];
+        // finally update the system state consdiering the reaction R occured at time tau
+        triggerReaction(r);
+        // inc time as needed
+        time += tau;
+
+        // output the current state
+        if(time >= nextOutput) {
+            ++loopCount;
+            nextOutput = loopCount * outPeriod;
             writeState(time, species, numSpecies);
-            // get the stochastic time-step
-            tau = chooseTimestep(sumProp);
-            // calc the reaction
-            Reaction r = reactions[chooseReaction(sumProp, reactions, numReactions)];
-            // finally update the system state consdiering the reaction R occured at time tau
-            triggerReaction(r);
-            // inc time as needed
-            time += tau;
         }
+
+        // calculuate the sum of all the reaction propensities within the system for next iteration
+        sumProp = sumPropensities(reactions, numReactions);
     }
+    // write final state
+    // writeState(time, species, numSpecies);
     OdeStopSim();
 }
 
-void writeState(double time, Species *species[], uint64_t numSpecies) {
-    // need to convert the array from uint to double
-    double outArr[numSpecies];
-    uint64_t idx;
-    for (idx = 0; idx < numSpecies; ++idx) {
-        outArr[idx] = (double)*(species[idx]);
-    }
-    OdeWriteState(time, outArr);
+// randomly chooses a time for the reaction to occur
+inline double chooseTimestep(const double sumProp) {
+    double r1 = OdeRandUniform();
+    return -(1/sumProp) * log(r1);
 }
 
-void triggerReaction(Reaction r) {
+// randomly chooses a reaction from the set
+inline uint64_t chooseReaction(const double sumProp, const Reaction reactions[], const uint64_t numReactions) {
+    double r2 = OdeRandUniform();
+    double endProp = r2 * sumProp;
+    double curProp = 0;
+    uint64_t idx = 0;
+    while (curProp <= endProp) {
+        curProp += calcPropensity(reactions[idx]);
+        ++idx;
+    }
+    return (idx-1);
+}
+
+// updates all species invovled when reaction R occurs
+inline void triggerReaction(Reaction r) {
     switch (r.reactionType) {
     case UniMolecular:
         --(*r.speciesA);
@@ -130,24 +87,8 @@ void triggerReaction(Reaction r) {
     }
 }
 
-uint64_t chooseReaction(double sumProp, Reaction reactions[], uint64_t numReactions) {
-    double r2 = OdeRandUniform();
-    double endProp = r2 * sumProp;
-    double curProp = 0;
-    uint64_t idx = 0;
-    while (curProp <= endProp) {
-        curProp += calcPropensity(reactions[idx]);
-        ++idx;
-    }
-    return (idx-1);
-}
-
-double chooseTimestep(double sumProp) {
-    double r1 = OdeRandUniform();
-    return -(1/sumProp) * log(r1);
-}
-
-double sumPropensities(Reaction reactions[], uint64_t numReactions) {
+// return the sum of all reaction propensitites
+inline double sumPropensities(const Reaction reactions[], const uint64_t numReactions) {
     double sumProp = 0;
     for (uint64_t idx = 0; idx < numReactions; ++idx) {
         sumProp += calcPropensity(reactions[idx]);
@@ -155,11 +96,34 @@ double sumPropensities(Reaction reactions[], uint64_t numReactions) {
     return sumProp;
 }
 
-double calcPropensity(Reaction r) {
+// calculate the propensitiy of a reaction
+inline double calcPropensity(const Reaction r) {
     switch (r.reactionType) {
     case UniMolecular:
         return ((*r.speciesA) * r.rate);
     case BiMolecular:
         return ((*r.speciesA) * (*r.speciesB) * r.rate);
+    }
+}
+
+// write the current state of all species to disk
+void writeState(const double time, const Species* restrict species[], const uint64_t numSpecies) {
+    // need to convert the array from uint to double
+    double outArr[numSpecies];
+    uint64_t idx;
+    for (idx = 0; idx < numSpecies; ++idx) {
+        outArr[idx] = (double)*(species[idx]);
+    }
+    OdeWriteState(time, outArr);
+}
+
+void checkPopulations(const Species* restrict species[], const uint64_t numSpecies, const uint64_t maxPopulation) {
+    for (uint64_t idx = 0; idx < numSpecies; ++idx) {
+        if (*(species[idx]) > maxPopulation) {
+            fprintf(stderr,
+                    "Model has become unbounded, species population - %" PRIu64 ", max allowed - %" PRIu64 "\n",
+                    *(species[idx]), maxPopulation);
+            exit(EXIT_FAILURE);
+        }
     }
 }

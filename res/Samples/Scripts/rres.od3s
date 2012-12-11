@@ -1,0 +1,42 @@
+// :show all
+//:show modState
+
+// sim backend params
+:solver "euler"
+// linker - dynamic, static
+:linker "dynamic"
+// disable exe
+:disableExecute
+// disable opts
+//:disableOptimise
+// disable short-circuiting
+//:disableShortCircuit
+// disable power expan
+//:disablePowerExpan
+// math model - strict, fast
+:mathModel "fast"
+// vecmath enable?
+//:vecMath
+:mathLib "gnu"
+// backend to use - interpreter, jitcompiler, aotcompiler, obj, cvode
+:backend "interpreter"
+
+// setup the repo
+:addRepo ../res/Samples/repo
+
+// disable unit checking
+:disableUnits
+// import our modules
+import SimTests.Rres.*
+
+// set sim params
+:startTime 0
+:stopTime 10
+:timestep 1
+:period 1
+:output "./output_Rre1.bin"
+:simulate Sde1
+
+// all done
+:quit
+

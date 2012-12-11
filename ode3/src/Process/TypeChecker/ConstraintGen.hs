@@ -322,8 +322,7 @@ constrain gModEnv modData mFuncArgs unitsCheck timeUnit = runStateT (evalSupplyT
         -- get the weiner type, it must be a (single) float, whose value should be Unit/s^0.5
         -- however as don't allow non-integer units, cannot capture this
         eWT <- consExpr eW
-        uV3 <- newUnitVar
-        addConsType $ ConEqual eWT (E.TFloat uV3)
+        addConsType =<< ConEqual eWT <$> uFloat
 
         -- add the deltaExpr type - must be Unit/s (for whatever s timeUnit is set to)
         eDT <- consExpr eD
@@ -336,14 +335,17 @@ constrain gModEnv modData mFuncArgs unitsCheck timeUnit = runStateT (evalSupplyT
         -- TODO - return the type of the dExpr`
         return eDT
 
-
-    consExpr (E.Rre src@(E.LocalVar _) dest@(E.LocalVar _) _) = do
-        -- constrain both state vals to be floats
-        srcT <- getLVarType src
-        addConsType =<< ConEqual srcT <$> uFloat
-        destT <- getLVarType dest
-        addConsType =<< ConEqual destT <$> uFloat
+    -- what is the type of the state vals, molecules, mols?
+    consExpr (E.Rre srcs dests _) = do
+        -- constrain all state vals to be floats
+        mapM_ addRreCons srcs
+        mapM_ addRreCons dests
         return E.TUnit
+      where
+        addRreCons (_, lv@(E.LocalVar _)) = do
+            lvT <- getLVarType lv
+            addConsType =<< ConEqual lvT <$> uFloat
+
 
     -- Type/Unit-casting constraints
     consExpr (E.TypeCast e (E.UnitCast u)) = do

@@ -1,0 +1,63 @@
+// basic rre
+module Sde1 {
+    init x = 1000
+    init z = 0
+    rre { rate: 0.5 } = x -> z
+}
+
+/*
+// pred-prey
+module Sde2 {
+    init x = 1
+    init y1 = 1000
+    init y2 = 1000
+    init z = 0
+    
+    // r1 = x + y1 -> x + 2y1 (rate : 10)
+    // prey w/ static birth rate (thus can grow unbounded if all predators die)
+    rre { rate : 10 } = x + y1 -> x + 2.y1
+
+    // r2 = y1 + y2 -> 2y2 (rate : 0.01)
+    // predator - created in responce to prey
+    rre { rate : 0.01 } = y1 + y2 -> 2.y2
+    
+    // r3 = y2 -> z (rate : 10)
+    // predator death
+    rre { rate : 10 } = y2 -> z
+}
+*/
+
+/*
+// G Protein Cycle Wt
+module Sde3 {
+  // r1 = L + R <-> RL
+  init l = 6.022e17
+  init r = 10000
+  init lr = 0
+  rre { rate : 3.32e-18 } = l + r -> rl
+  rre { rate : 0.01 } = rl -> l + r
+  
+  // r2 = Gd + Gbg -> G
+  init gd = 3000
+  init gbg = 3000
+  init g = 7000
+  rre { rate : 1.0 } = gd + gbg -> g
+  
+  // r3 = RL + G -> Ga + Gbg + RL
+  init ga = 1
+  rre { rate : 1.0e-5 } = rl + g -> ga + gbg + rl
+
+  // r4 = R <-> null
+  init rNullSink = 1
+  init rNullSource = 1
+  rre { rate : 4e-4 } = r -> rNullSink
+  rre { rate : 4 } = rNullSource -> r
+  
+  // r5 = RL -> null
+  init rlNullSink = 1
+  rre { rate : 0.004 } = rl -> rlNullSink
+
+  // r6 = Ga -> Gd
+  rre { rate : 0.11 } ga -> gd
+}
+*/

@@ -124,7 +124,10 @@ shiftExprIds (AC.Ode v eD) = AC.Ode <$> calcReboundVar v <*> shiftExprIds eD
 
 shiftExprIds (AC.Sde v eW eD) = AC.Sde <$> calcReboundVar v <*> shiftExprIds eW <*> shiftExprIds eD
 
-shiftExprIds (AC.Rre v1 v2 rate) = AC.Rre <$> calcReboundVar v1 <*> calcReboundVar v2 <*> pure rate
+shiftExprIds (AC.Rre vs1 vs2 rate) = AC.Rre <$> shiftRres vs1 <*> shiftRres vs2 <*> pure rate
+  where
+    shiftRres = mapM (mapSndM calcReboundVar)
+
 
 shiftExprIds (AC.Let isInit t (b:[]) e1 e2) = do
     e1' <- shiftExprIds e1

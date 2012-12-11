@@ -183,8 +183,10 @@ renExpr (E.Ode (E.LocalVar v) eD) = E.Ode <$> (E.LocalVar <$> bLookup v) <*> ren
 
 renExpr (E.Sde (E.LocalVar v) eW eD) = E.Sde <$> (E.LocalVar <$> bLookup v) <*> renExpr eW <*> renExpr eD
 
-renExpr (E.Rre (E.LocalVar src) (E.LocalVar dest) rate) =
-    E.Rre <$> (E.LocalVar <$> bLookup src) <*> (E.LocalVar <$> bLookup dest) <*> pure rate
+renExpr (E.Rre srcs dests rate) =
+    E.Rre <$> rreLookup srcs <*> rreLookup dests <*> pure rate
+  where
+    rreLookup = mapM (mapSndM (\(E.LocalVar vId) -> E.LocalVar <$> bLookup vId))
 
 renExpr (E.TypeCast e tC ) = E.TypeCast <$> renExpr e <*> tC'
   where

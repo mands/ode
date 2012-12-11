@@ -53,7 +53,7 @@ data Stmt = -- each independent component, is basically function abstraction
             -- SDE - a SValue and SDE def combined
             | SdeDef { sdeInit :: SrcId, sdeDeltaName :: BindId, sdeWeinerExpr :: Expr, sdeExpr :: Expr}
             -- RRE - takes two SValues and a rate parameter
-            | RreDef { rreRate :: Double, rreSrc :: SrcId, rreDest :: SrcId }
+            | RreDef { rreRate :: Double, rreSrc :: [(Integer, SrcId)], rreDest :: [(Integer, SrcId)] }
             -- or they may be a reference to a component defined in a module param and re-exported here
             -- ComponentRef SrcId ModLocalId
             deriving (Show, Eq, Ord)

@@ -16,7 +16,7 @@
 
 module Utils.Utils (
 MExcept, MExceptIO, mkExceptIO, maybeToExcept, maybeToExcept', maybeToExceptIO,
-mapFst, mapSnd, pairM, notEqual, inc, dec, isWholeNumber,
+mapFst, mapSnd, mapFstM, mapSndM, pairM, notEqual, inc, dec, isWholeNumber,
 (|>),
 SB(..), trace', errorDump,
 openPipe, closePipe, readLoop,
@@ -24,6 +24,7 @@ mkLabelName,
 listUniqs
 ) where
 
+import Control.Applicative
 import Control.Monad
 import Control.Monad.Error
 import qualified Data.List as List
@@ -43,10 +44,19 @@ import Data.Maybe (fromJust)
 (|>) x f = f x
 infixl 0 |>
 
+
+-- Useful Tuple helpers
 mapFst :: (a -> b) -> (a, c) -> (b, c)
 mapFst f (x,y) = (f x,y)
+
+mapFstM :: (Monad m) => (a -> m b) -> (a, c) -> m (b, c)
+mapFstM f (x,y) = liftM2 (,) (f x) (return y)
+
 mapSnd :: (a -> b) -> (c, a) -> (c, b)
 mapSnd f (x,y) = (x,f y)
+
+mapSndM :: (Monad m) => (a -> m b) -> (c, a) -> m (c, b)
+mapSndM f (x,y) = liftM2 (,) (return x) (f y)
 
 pairM :: (Monad m) => m a -> m b -> m (a, b)
 pairM a b = liftM2 (,) a b
