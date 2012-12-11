@@ -32,11 +32,12 @@ import SimTests.Rres.*
 // set sim params
 :startTime 0
 :stopTime 10
-:timestep 1
-:period 1
+:timestep 0.01
+:period 0.1
 :output "./output_Rre1.bin"
 //:simulate Rre1
 
+:period 0.01
 :stopTime 20
 :output "./output_Rre2.bin"
 :simulate Rre2

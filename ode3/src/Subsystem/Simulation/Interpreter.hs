@@ -60,27 +60,30 @@ interpret m@Module{..} = do
     -- write file header and initial data
     liftIO $ writeColumnHeader (Map.size $ initVals) [] outHandle
     liftIO $ writeRow (Sys._startTime p) (Map.elems $ Num <$> initVals) outHandle
+
     -- setup the initial data, wrap doubles into Var (Num d)
     randS <- liftIO $ newStdGen
     let initState = SimState Map.empty (Num <$> initVals) (Sys._startTime p) (Sys.calcOutputInterval p) outHandle p randS
 
     -- choose and start the correct the simulation model
-    case simType of
-        SimRRE -> lift $ runStateT (runSSA m p (Sys._startTime p)) initState
-        -- ODE or SDE, simulate the loop exprs over the time period
-        _ ->     lift $ runStateT (unless (OrdMap.null loopExprs) $ runEulerMaruyama m 1 p) initState
+    let simM =  case simType of
+                    SimRRE  -> runSSA m p (Sys._startTime p) 1
+                    -- ODE or SDE, simulate the loop exprs over the time period
+                    _       -> unless (OrdMap.null loopExprs) $ runEulerMaruyama m p 1
+    lift $ runStateT simM initState
 
     -- close the output file
     liftIO $ hFlush outHandle >> hClose outHandle
     liftIO $ debugM "ode3.sim" $ "(Interpreted) Simulation Complete"
     return ()
+  where
 
 
 -- Simulation Types ----------------------------------------------------------------------------------------------------
-runEulerMaruyama :: Module -> Integer -> Sys.SimParams -> SimM ()
-runEulerMaruyama m@Module{..} curLoop p = do
+runEulerMaruyama :: Module -> Sys.SimParams -> Integer -> SimM ()
+runEulerMaruyama m@Module{..} p curLoop = do
     runIter time -- run an iteration
-    if time < (Sys.calcAdjustedStopTime p) then runEulerMaruyama m (inc curLoop) p else return () -- only loop again is time is less than endtime, break if equal/greater
+    if time < (Sys.calcAdjustedStopTime p) then runEulerMaruyama m p (inc curLoop) else return () -- only loop again is time is less than endtime, break if equal/greater
   where
     time = (Sys._startTime p) + (fromInteger curLoop) * (Sys._timestep p)
 
@@ -108,28 +111,27 @@ runEulerMaruyama m@Module{..} curLoop p = do
         --trace' [MkSB t, MkSB (_simEnv st), MkSB (_stateEnv st)] "Current sim and state envs" $ return ()
 
 
-runSSA :: Module -> Sys.SimParams -> Double -> SimM ()
-runSSA m@Module{..} p time = do
-    -- states <- mStates
+runSSA :: Module -> Sys.SimParams -> Double -> Integer -> SimM ()
+runSSA m@Module{..} p time curLoop = do
     sumProp <- sumPropensitities
     if sumProp > 0 && time < (Sys._stopTime p)
         then do
-            time' <- runSSA' time sumProp
-            runSSA m p time'
+            tau <- chooseTimestep sumProp
+            r <- chooseReaction sumProp
+            triggerReaction r
+            let time' = time + tau
+
+            -- output state
+            curLoop' <- if time' >= (Sys._outputPeriod p * fromInteger curLoop)
+                then do
+                    trace' [MkSB time', MkSB $ Sys._outputPeriod p, MkSB $ fromInteger curLoop] "output time" $ return ()
+                    st <- get
+                    liftIO $ writeRow time' (Map.elems $ _stateEnv st) (_outputHandle st)
+                    return $ inc curLoop
+                else  return curLoop
+            runSSA m p time' curLoop'
         else return ()
   where
-    runSSA' time sumProp = do
-        tau <- chooseTimestep sumProp
-        r <- chooseReaction sumProp
-        triggerReaction r
-        let time' = time + tau
-
-        -- output state
-        st <- get
-        liftIO $ writeRow time' (Map.elems $ _stateEnv st) (_outputHandle st)
-        return time'
-
-    -- mStates = _stateEnv <$> get
     -- we know list of simops only contains RREs
     reactions = filter (\op -> case op of (Rre _ _ _) -> True; _ -> False) simOps
 
