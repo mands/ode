@@ -124,7 +124,6 @@ runSSA m@Module{..} p time curLoop = do
             -- output state
             curLoop' <- if time' >= (Sys._outputPeriod p * fromInteger curLoop)
                 then do
-                    trace' [MkSB time', MkSB $ Sys._outputPeriod p, MkSB $ fromInteger curLoop] "output time" $ return ()
                     st <- get
                     liftIO $ writeRow time' (Map.elems $ _stateEnv st) (_outputHandle st)
                     return $ inc curLoop
@@ -144,9 +143,7 @@ runSSA m@Module{..} p time curLoop = do
         let endProp = r2 * sumProp
         (_, Just r) <- DF.foldlM (f endProp) (0, Nothing) reactions
         return r
-
       where
-        f :: Double -> (Double, Maybe SimOps) -> SimOps -> SimM (Double, Maybe SimOps)
         f _ st@(curProp, Just r) _    =   return st
         f endProp st@(curProp, Nothing) r = do
             p <- calcPropensity r
@@ -157,23 +154,19 @@ runSSA m@Module{..} p time curLoop = do
         mapM_ (changePop (-)) srcs
         mapM_ (changePop (+)) dests
       where
-        changePop op (stoc, v) = do
-            n <- getStateVal v
-            let n' = Num $ op n (fromIntegral stoc)
-            modify (\st -> st { _stateEnv = Map.insert v n' (_stateEnv st) } )
+        changePop op (stoc, v) = modify $ \st -> do
+            let (Num n) = (_stateEnv st) Map.! v
+            let n' = op n (fromIntegral stoc)
+            st { _stateEnv = Map.insert v (Num n') (_stateEnv st) }
 
     sumPropensitities :: SimM Double
     sumPropensitities = sum <$> mapM calcPropensity reactions
 
     -- does this not take into account the stoc of the srcs?
     calcPropensity (Rre srcs _ rate) = do
-        srcPops <- mapM (\(i, v) -> getStateVal v) srcs
-        return $ (product srcPops) * rate
-
-    getStateVal v = do
         s <- _stateEnv <$> get
-        let (Num n) = s Map.! v
-        return n
+        let srcPops = map (\(i, v) -> let (Num n) = s Map.! v in n * fromIntegral i) srcs
+        return $ (product srcPops) * rate
 
 -- Interpreter ---------------------------------------------------------------------------------------------------------
 

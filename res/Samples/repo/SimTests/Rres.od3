@@ -27,13 +27,13 @@ module Rre2 {
 }
 
 
-/*
+
 // G Protein Cycle Wt
 module Rre3 {
   // r1 = L + R <-> RL
   init l = 6.022e17
   init r = 10000
-  init lr = 0
+  init rl = 0
   rre { rate : 3.32e-18 } = l + r -> rl
   rre { rate : 0.01 } = rl -> l + r
   
@@ -58,6 +58,6 @@ module Rre3 {
   rre { rate : 0.004 } = rl -> rlNullSink
 
   // r6 = Ga -> Gd
-  rre { rate : 0.11 } ga -> gd
+  rre { rate : 0.11 } = ga -> gd
 }
-*/
+

@@ -232,6 +232,9 @@ buildAllocaWithInit builder initV lType str = do
 
 -- const value wrappers
 constDouble d = constReal doubleType (CDouble d)
+constZero = constDouble 0
+constOne = constDouble 1
+
 constInt64 i = constInt int64Type (fromIntegral i) False
 constInt32 i = constInt int32Type (fromIntegral i) False
 
@@ -337,7 +340,7 @@ ifStmt builder curFunc condVal trueF falseF = do
     return [(trueV, trueBB'), (falseV, falseBB')]
 
 -- | A basic do-While loop
--- TODO - are phis correct for loopStart - yes, think so
+-- TODO - are phis correct for loopStart - yes, think so, we alter global vals only
 doWhileStmt :: Builder -> LLVM.Value -> (Builder -> GenM LLVM.Value) -> (Builder -> LLVM.Value -> GenM LLVM.Value) -> GenM ()
 doWhileStmt builder curFunc doBodyF doCondF = do
     -- create do-loop bb's
@@ -350,9 +353,9 @@ doWhileStmt builder curFunc doBodyF doCondF = do
     liftIO $ positionAtEnd builder doBodyBB
     setBB doBodyBB
     bodyV <- doBodyF builder
+    liftIO $ buildBr builder doCondBB
 
     -- while loop test
-    liftIO $ buildBr builder doCondBB
     liftIO $ positionAtEnd builder doCondBB
     setBB doCondBB
     condV <- doCondF builder bodyV
@@ -362,3 +365,29 @@ doWhileStmt builder curFunc doBodyF doCondF = do
     liftIO $ positionAtEnd builder doEndBB
     setBB doEndBB
 
+
+-- | A basic while loop
+-- TODO - are phis correct for loopStart - yes, think so, we alter global vals only
+whileStmt :: Builder -> LLVM.Value -> (Builder -> GenM LLVM.Value) -> (Builder -> GenM LLVM.Value) -> GenM ()
+whileStmt builder curFunc condF bodyF = do
+    -- create do-loop bb's
+    whileCondBB <- liftIO $ appendBasicBlock curFunc "while.cond"
+    whileBodyBB <- liftIO $ appendBasicBlock curFunc "while.body"
+    whileEndBB <- liftIO $ appendBasicBlock curFunc "while.end"
+
+    -- while loop test
+    liftIO $ buildBr builder whileCondBB
+    liftIO $ positionAtEnd builder whileCondBB
+    setBB whileCondBB
+    condV <- condF builder
+    liftIO $ buildCondBr builder condV whileBodyBB whileEndBB
+
+    -- create and br to loop body
+    liftIO $ positionAtEnd builder whileBodyBB
+    setBB whileBodyBB
+    bodyV <- bodyF builder
+    liftIO $ buildBr builder whileCondBB
+
+    -- leave loop
+    liftIO $ positionAtEnd builder whileEndBB
+    setBB whileEndBB
