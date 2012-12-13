@@ -37,7 +37,7 @@ void runSimulation(const char* filename, const double stopTime, const double out
         // output the current state
         if(time >= nextOutput) {
             ++loopCount;
-            nextOutput = loopCount * outPeriod;
+            nextOutput = (double)loopCount * outPeriod;
             writeState(time, species, numSpecies);
         }
 

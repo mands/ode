@@ -371,9 +371,8 @@ genModelSolver CF.Module{..} initsF rhsF = do
     GenState {libOps, llvmMod, simParams} <- get
     -- call the startSim func
     _ <- liftIO $ buildCall builder (libOps Map.! "OdeInit") [] ""
-    fileStr <- liftIO $ buildGlobalString builder (L.get Sys.lFilename simParams) "simFilename"
-    fileStrPtr <- liftIO $ buildInBoundsGEP builder fileStr [constInt64 0, constInt64 0] ""
-    _ <- liftIO $ buildCall builder (libOps Map.! "OdeStartSim") [fileStrPtr, constInt64 $ Map.size initVals] ""
+    fileStrPtr  <- liftIO $ buildGlobalStringPtr builder (L.get Sys.lFilename simParams) "simFilename"
+    _ <- liftIO $ buildCall builder (libOps Map.! "OdeStartSim") [fileStrPtr, constInt64 $ outDataSize] ""
 
     -- choose the solver (and create the vals)
     -- if SDE, then must use EulerM, else choose FEuler or RK4 depending on SimParams
@@ -409,7 +408,7 @@ genModelSolver CF.Module{..} initsF rhsF = do
     liftIO $ disposeBuilder builder
     return curFunc
   where
-    outDataSize = Map.size initVals + 1
+    outDataSize = Map.size initVals
 
     -- | Create the main body of the solver loop
     createSolverLoopBody  :: (OdeSolver a) => LLVM.Value -> a -> (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value) -> GenM ()
@@ -456,12 +455,13 @@ genSSASolver CF.Module{..} initsF = do
     GenState {libOps, llvmMod, simParams} <- get
     -- call the startSim func
     _ <- liftIO $ buildCall builder (libOps Map.! "OdeInit") [] ""
-    fileStr <- liftIO $ buildGlobalString builder (L.get Sys.lFilename simParams) "simFilename"
-    fileStrPtr <- liftIO $ buildInBoundsGEP builder fileStr [constInt64 0, constInt64 0] ""
-    _ <- liftIO $ buildCall builder (libOps Map.! "OdeStartSim") [fileStrPtr, constInt64 $ Map.size initVals] ""
+    fileStrPtr  <- liftIO $ buildGlobalStringPtr builder (L.get Sys.lFilename simParams) "simFilename"
+    _ <- liftIO $ buildCall builder (libOps Map.! "OdeStartSim") [fileStrPtr, constInt64 outDataSize] ""
 
     -- create mutable sim params (static sim params embeedded as constants)
     simParamVs@(curPeriodRef, curLoopRef, curTimeRef, outStateArray) <- createSimParams outDataSize
+    -- set loopCount to 1
+    _ <- liftIO $ buildStore builder (constInt64 1) curLoopRef
 
     -- create and init state vals
     stateValRefMap <- createVals (Map.keys initVals) "StateRef"
@@ -475,17 +475,24 @@ genSSASolver CF.Module{..} initsF = do
     sumPropRef <- liftIO $ buildAlloca builder doubleType "sumProp"
     sumPropensities sumPropRef stateValRefMap
 
+    -- setup nextOutput val
+    nextOutputInitial <- liftIO $ buildFAdd builder (constDouble $ L.get Sys.lStartTime simParams)
+                                           (constDouble $ L.get Sys.lOutputPeriod simParams) "nextOutputInitial"
+    nextOutputRef <- liftIO $ buildAllocaWithInit builder nextOutputInitial doubleType "nextOutput"
+
     -- create the main solver loop - use while stmt
     whileStmt builder curFunc
         -- whileCond
         (\builder ->
             liftIO $ withPtrVal builder curTimeRef $ \curTime ->
             liftIO $ withPtrVal builder sumPropRef $ \sumProp -> do
-                cond1 <- liftIO $ buildFCmp builder FPOGT sumProp constZero "bSumPropPos"
-                cond2 <- liftIO $ buildFCmp builder FPOLT curTime (constDouble $ Sys.calcAdjustedStopTime simParams) "bWhileTime"
-                liftIO $ buildAnd builder cond1 cond2 "bAllConds")
+                -- dbgStr <- buildGlobalStringPtr builder "While conds - sumProp : %g, time : %g\n" "dbgStr"
+                -- _ <- buildCall builder (libOps Map.! "printf") [dbgStr, sumProp, curTime] ""
+                cond1 <- buildFCmp builder FPOGT sumProp constZero "bSumPropPos"
+                cond2 <- buildFCmp builder FPOLT curTime (constDouble $ Sys.calcAdjustedStopTime simParams) "bWhileTime"
+                buildAnd builder cond1 cond2 "bAllConds")
         -- whileBody
-        (\builder ->  createSolverLoopBody sumPropRef stateValRefMap simParamVs >> (liftIO $ buildNoOp builder))
+        (\builder ->  createSolverLoopBody sumPropRef nextOutputRef stateValRefMap simParamVs >> (liftIO $ buildNoOp builder))
 
     -- end sim
     _ <- liftIO $ buildCall builder (libOps Map.! "OdeStopSim") [] ""
@@ -496,12 +503,12 @@ genSSASolver CF.Module{..} initsF = do
     return curFunc
 
   where
-    outDataSize = Map.size initVals + 1
+    outDataSize = Map.size initVals
 
     -- | Create the main body of the SSA solver loop
-    createSolverLoopBody  :: LLVM.Value -> ParamMap -> (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value) -> GenM ()
-    createSolverLoopBody  sumPropRef stateValRefMap (curPeriodRef, curLoopRef, curTimeRef, outStateArray) = do
-        GenState {builder} <- get
+    createSolverLoopBody  :: LLVM.Value -> LLVM.Value -> ParamMap -> (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value) -> GenM ()
+    createSolverLoopBody  sumPropRef nextOutputRef stateValRefMap (curPeriodRef, curLoopRef, curTimeRef, outStateArray) = do
+        GenState {builder, curFunc, simParams} <- get
         tau <- chooseTimestep sumPropRef
 
         -- choose and trigger reaction
@@ -512,7 +519,27 @@ genSSASolver CF.Module{..} initsF = do
             buildFAdd builder curTime tau "incTime"
 
         -- write output
-        _ <- writeOutData outStateArray curTimeRef $ OrdMap.elems stateValRefMap
+        bWriteOut <-    liftIO $ withPtrVal builder curTimeRef $ \curTime ->
+                        liftIO $ withPtrVal builder nextOutputRef $ \nextOutput ->
+                            buildFCmp builder FPOGE curTime nextOutput "bWriteOut"
+
+        -- check period and writeOutData if needed
+        _ <- ifStmt builder curFunc bWriteOut
+            -- ifTrue
+            (\builder -> do
+                -- update loop ptr and next val
+                liftIO $ updatePtrVal builder curLoopRef $ \curLoop -> do
+                    curLoop' <- buildAdd builder curLoop (constInt64 1) "incLoop"
+                    updatePtrVal builder nextOutputRef $ \nextOutput -> do
+                        curLoop'' <- buildUIToFP builder curLoop' doubleType "cast"
+                        buildFMul builder curLoop'' (constDouble $ L.get Sys.lOutputPeriod simParams) "nextOutput"
+                    return curLoop'
+                -- write data
+                writeOutData outStateArray curTimeRef $ OrdMap.elems stateValRefMap
+                liftIO $ buildNoOp builder)
+
+            -- ifFalse
+            (\builder -> liftIO $ buildNoOp builder)
 
         -- update sumprops
         sumPropensities sumPropRef stateValRefMap
@@ -582,7 +609,7 @@ genSSASolver CF.Module{..} initsF = do
               where
                 f' fOp (i, vId) = do
                     updatePtrVal builder (stateValsRefMap OrdMap.! vId) $ \v ->
-                        fOp builder (constDouble . fromIntegral $ i) v "updatePop"
+                        fOp builder v (constDouble . fromIntegral $ i) "updatePop"
 
 
 

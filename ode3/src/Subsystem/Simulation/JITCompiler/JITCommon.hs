@@ -184,8 +184,8 @@ defineExtOps p llvmMod = do
                                 )
         , ("OdeRandUniform",    addFunction llvmMod "OdeRandUniform" (functionType doubleType [] False))
         , ("OdeRandNormal",     addFunction llvmMod "OdeRandNormal" (functionType doubleType [] False))
+        , ("printf",            addFunction llvmMod "printf" (functionType voidType [(pointerType int8Type 0)] True))
         ]
-
 
 -- | A helper function that performs much of the boiler-plate code in creating a function
 genFunction :: String -> LLVM.Type -> [LLVM.Type] -> GenM (LLVM.Value, LLVM.Builder)
@@ -235,6 +235,8 @@ constDouble d = constReal doubleType (CDouble d)
 constZero = constDouble 0
 constOne = constDouble 1
 
+constTrue = constInt int1Type 1 False
+constFalse = constInt int1Type 0 False
 constInt64 i = constInt int64Type (fromIntegral i) False
 constInt32 i = constInt int32Type (fromIntegral i) False
 

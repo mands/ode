@@ -29,6 +29,7 @@ import os
 import logging
 import pylab
 import argparse
+import scipy as sp
 
 from Common import openFile, getCols
 
@@ -54,6 +55,9 @@ if __name__ == '__main__':
     # open the file
     filename = os.path.abspath(args.file)
     (data, num_cols) = openFile(filename)
+
+    # print some data stats
+    print("Min : {:+.16g}, Max : {:+.16g}, Mean : {:+.16g}".format(sp.amin(data), sp.amax(data), sp.mean(data)))
 
     # plot the data
     logging.debug("Setting up a plot")
