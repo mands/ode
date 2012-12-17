@@ -55,3 +55,14 @@ module PredPreyNoUnits {
 
 // TODO - packed
 
+// module support
+module Ode1a {
+    init x = 0 { unit : m }
+}
+
+module Ode1b {
+    import SimTests.Odes.Ode1a as A    
+    ode {init: A.x, delta : dx } = 5 { unit : m.s^-1 }
+}
+
+

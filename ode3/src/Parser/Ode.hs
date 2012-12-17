@@ -225,13 +225,23 @@ sdeDef = do
                                 <|?> (AO.DontCare, attrib "delta" valIdentifier)
                                 <||> attrib "weiner" compExpr
 
+
 rreDef :: Parser AO.Stmt
-rreDef = mkRre <$> (reserved "rre" *> braces rreAttribs) <*> (reservedOp "=" *> speciesList) <*> (reservedOp "->" *> speciesList)
+rreDef = mkRre <$> (reserved "rre" *> braces rreAttribs) <*> (reservedOp "=" *> rreSpecies) <*> (reservedOp "->" *> productList)
   where
     -- | parse a rre attribute definition
     rreAttribs = attrib "rate" compExpr
-    rreSpecies = (,) <$> option 1 (natural <* symbol  ".") <*> identifier
-    speciesList = sepBy1 rreSpecies (reservedOp "+")
+
+    -- bit of a hack in the species parser to restrict rres to only support elementary reactions
+    rreSpecies = do
+        (i1, mi2) <- (,) <$> identifier <*> optionMaybe (reservedOp "+" *> identifier)
+        case mi2 of
+            Nothing -> return [(1,i1)]
+            Just i2 -> return [(1,i1), (1,i2)]
+
+    rreProducts = (,) <$> option 1 (natural <* symbol  ".") <*> identifier
+    productList = sepBy1 rreProducts (reservedOp "+")
+
     mkRre rate srcs dests = AO.RreDef srcs dests rate
 
 
