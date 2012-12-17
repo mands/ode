@@ -13,7 +13,7 @@
 -----------------------------------------------------------------------------
 
 module Subsystem.Simulation.JITCompiler.JITModel (
-genModelInitials, genModelRHS,
+genModelInitials, genModelRHS, genExprEval,
 genExprMap, genExpr, genVar
 ) where
 
@@ -145,6 +145,19 @@ genModelRHS CF.Module{..} = do
             void $ liftIO $ buildStore builder weinerVal weinerOutVal
 
         storeDelta _ _ _ simOp = errorDump [MkSB simOp] "Not supported by this simulation backend" assert
+
+-- a top-level wrapper to setup the initate state, and generate code to evlaute an expression map
+-- returns the map containing all top-level values
+genExprEval :: ExprMap -> ParamMap -> LLVM.Value -> GenM ()
+genExprEval exprMap stateValRefMap curTimeRef = do
+    GenState {builder} <- get
+    -- setup the correct state
+    localMap <- DT.mapM (\v -> liftIO $ buildLoad builder v "odeValx") . Map.fromList . OrdMap.toList $ stateValRefMap
+    curTimeVal <- liftIO $ buildLoad builder curTimeRef "curTime"
+    modify (\st -> st { curTimeVal, localMap })
+    unless (OrdMap.null exprMap) (void $ genExprMap exprMap)
+    -- localMap <$> get
+
 
 -- General Expr Generation ---------------------------------------------------------------------------------------------
 

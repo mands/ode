@@ -171,15 +171,15 @@ convertExpr e@(AC.Sde (AC.LocalVar v) eW eD) = do
     return $ ACF.Var dRef
 
 -- Rre
-convertExpr e@(AC.Rre srcs dests rate) = do
+convertExpr e@(AC.Rre srcs dests eR) = do
+    -- convert the rate expr - insert in as an tmp binding
+    rRef <- insertAsTmpVar eR
     -- add the Rre to SimOps
-    lift $ modify (\st -> st { _simOps = (ACF.Rre (convProduct srcs) (convProduct dests) rate) : (_simOps st) })
+    lift $ modify (\st -> st { _simOps = (ACF.Rre (convProduct srcs) (convProduct dests) rRef) : (_simOps st) })
     -- return a unit val
     return $ ACF.Var ACF.Unit
   where
     convProduct = map (\(i, AC.LocalVar v) -> (fromInteger i, v))
-
-
 
 -- anything else,
 convertExpr expr = errorDump [MkSB expr] "Cannot convert expression to CoreFlat" assert

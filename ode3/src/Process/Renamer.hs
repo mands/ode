@@ -183,8 +183,7 @@ renExpr (E.Ode (E.LocalVar v) eD) = E.Ode <$> (E.LocalVar <$> bLookup v) <*> ren
 
 renExpr (E.Sde (E.LocalVar v) eW eD) = E.Sde <$> (E.LocalVar <$> bLookup v) <*> renExpr eW <*> renExpr eD
 
-renExpr (E.Rre srcs dests rate) =
-    E.Rre <$> rreLookup srcs <*> rreLookup dests <*> pure rate
+renExpr (E.Rre srcs dests eR) = E.Rre <$> rreLookup srcs <*> rreLookup dests  <*> renExpr eR
   where
     rreLookup = mapM (mapSndM (\(E.LocalVar vId) -> E.LocalVar <$> bLookup vId))
 

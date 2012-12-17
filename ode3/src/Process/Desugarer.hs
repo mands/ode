@@ -191,9 +191,9 @@ dsStmt (O.SdeDef initRef deltaName weinerExpr deltaExpr) = do
     return $ ([sdeDeltaVar], sdeExpr)
 
 -- we give the rre a new binding name (of type Unit)
-dsStmt (O.RreDef rate srcs dests) = do
+dsStmt (O.RreDef srcs dests rateExpr) = do
     rreVar <- supply
-    let rreExpr = C.Rre (map (mapSnd C.LocalVar) srcs) (map (mapSnd C.LocalVar) dests) rate
+    rreExpr <- C.Rre (map (mapSnd C.LocalVar) srcs) (map (mapSnd C.LocalVar) dests) <$> dsExpr rateExpr
     return $ ([rreVar], rreExpr)
 
 -- desugar a top level component

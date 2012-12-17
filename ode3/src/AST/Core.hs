@@ -154,7 +154,7 @@ data Expr b = Var (VarId b) (Maybe RecId)             -- a reference to any let-
             | Sde (VarId b) (Expr b) (Expr b)   -- a Sde, uses a state variable defined in b, a weiner in 1st expr,
                                                 -- and runs and returns the delta expression
 
-            | Rre [(Integer, VarId b)] [(Integer, VarId b)] Double -- an RRE, from var->var with given rate, returns unit
+            | Rre [(Integer, VarId b)] [(Integer, VarId b)] (Expr b) -- an RRE, from var->var with dyn rate expr, returns unit
 
             | TypeCast (Expr b) (TypeCast b) -- type casts to expressions
             deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
@@ -185,6 +185,7 @@ mapExpr f (Tuple es) = Tuple (map f es)
 mapExpr f (Record es) = Record (Map.map f es)
 mapExpr f (Ode v eD) = Ode v (f eD)
 mapExpr f (Sde v eW eD) = Sde v (f eW) (f eD)
+mapExpr f (Rre srcs dests eR) = Rre srcs dests (f eR)
 mapExpr f (TypeCast e1 t) = TypeCast (f e1) t
 mapExpr f e = e -- trace' [MkSB e] "Returing unhandled non-composite e" $ e
 
@@ -199,6 +200,7 @@ mapExprM f (Tuple es) = Tuple <$> mapM f es
 mapExprM f (Record es) = Record <$> DT.mapM f es
 mapExprM f (Ode v eD) = Ode v <$> f eD
 mapExprM f (Sde v eW eD) = Sde v <$> f eW <*> f eD
+mapExprM f (Rre srcs dests eR) = Rre srcs dests <$> f eR
 mapExprM f (TypeCast e1 t) = TypeCast <$> f e1 <*> pure t
 mapExprM f e = return e -- trace' [MkSB e] "Returning unhandled non-composite e" $ return e
 
@@ -214,6 +216,7 @@ foldExpr f st (Tuple es) = foldl f st es
 foldExpr f st (Record es) = Map.foldl f st es
 foldExpr f st (Ode v eD) = f st eD
 foldExpr f st (Sde v eW eD) = f st eW |> (\st -> f st eD)
+foldExpr f st (Rre srcs dest eR) = f st eR
 foldExpr f st (TypeCast e1 t) = f st e1
 foldExpr f st e = st -- trace' [MkSB e, MkSB st] "Returning unchanged state" st
 
@@ -227,5 +230,6 @@ foldExprM f st (Tuple es) = DF.foldlM f st es
 foldExprM f st (Record es) = DF.foldlM f st es
 foldExprM f st (Ode v eD) = f st eD
 foldExprM f st (Sde v eW eD) = f st eW >>= (\st -> f st eD)
+foldExprM f st (Rre srcs dests eR) = f st eR
 foldExprM f st (TypeCast e1 t) = f st e1
 foldExprM f st e = return st -- trace' [MkSB e, MkSB st] "Returning unchanged state" $ return st

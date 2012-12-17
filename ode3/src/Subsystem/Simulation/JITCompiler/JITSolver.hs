@@ -37,6 +37,7 @@ import qualified Foreign.C as FFI
 import qualified Data.Foldable as DF
 import qualified Data.Traversable as DT
 import qualified Data.Map as Map
+import qualified Data.List as List
 import qualified Utils.OrdMap as OrdMap
 
 import Control.Monad.State
@@ -91,7 +92,7 @@ genFFIParams numParams simType = do
     liftIO $ addGlobalWithInit llvmMod (constDouble $ _outputPeriod) doubleType True "OdeParamPeriod"
     liftIO $ addGlobalWithInit llvmMod (constInt64 $ Sys.calcOutputInterval simParams) int64Type True "OdeParamPeriodInterval"
 
-    -- HACK to build global string outside of a func (as buildGlob alString fails)
+    -- HACK to build global string outside of a func (as buildGlobalString fails)
     liftIO $ addGlobalWithInit llvmMod (constString _filename False) (arrayType int8Type (fromIntegral $ length _filename + 1)) True "OdeParamOutput"
     -- liftIO $ buildGlobalString builder "test" "test" -- (Sys._filename  simParams) "OdeParamOutput"
 
@@ -473,6 +474,7 @@ genSSASolver CF.Module{..} initsF = do
 
     -- setup init sumprops
     sumPropRef <- liftIO $ buildAlloca builder doubleType "sumProp"
+    genExprEval loopExprs stateValRefMap curTimeRef
     sumPropensities sumPropRef stateValRefMap
 
     -- setup nextOutput val
@@ -505,6 +507,18 @@ genSSASolver CF.Module{..} initsF = do
   where
     outDataSize = Map.size initVals
 
+    -- attempt at optimised reaction selection by presorting reactions by probability
+    simOps' = simOps -- List.sortBy f simOps
+--      where
+--        f r1 r2 | calcProp r1 == calcProp r2 = Prelude.EQ
+--        f r1 r2 | calcProp r1 > calcProp r2 = Prelude.GT
+--        f r1 r2 | calcProp r1 < calcProp r2 = Prelude.LT
+--
+--        calcProp (Rre srcs _ rate) =  (product srcPops) * rate
+--          where
+--            srcPops = map (\(i, v) -> (initVals Map.! v) * fromIntegral i) srcs
+
+
     -- | Create the main body of the SSA solver loop
     createSolverLoopBody  :: LLVM.Value -> LLVM.Value -> ParamMap -> (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value) -> GenM ()
     createSolverLoopBody  sumPropRef nextOutputRef stateValRefMap (curPeriodRef, curLoopRef, curTimeRef, outStateArray) = do
@@ -531,16 +545,17 @@ genSSASolver CF.Module{..} initsF = do
                 liftIO $ updatePtrVal builder curLoopRef $ \curLoop -> do
                     curLoop' <- buildAdd builder curLoop (constInt64 1) "incLoop"
                     updatePtrVal builder nextOutputRef $ \nextOutput -> do
-                        curLoop'' <- buildUIToFP builder curLoop' doubleType "cast"
+                        curLoop'' <- buildUIToFP builder curLoop' doubleType "fpcast"
                         buildFMul builder curLoop'' (constDouble $ L.get Sys.lOutputPeriod simParams) "nextOutput"
                     return curLoop'
                 -- write data
                 writeOutData outStateArray curTimeRef $ OrdMap.elems stateValRefMap
                 liftIO $ buildNoOp builder)
-
             -- ifFalse
             (\builder -> liftIO $ buildNoOp builder)
 
+        -- run the loop exprs (for dyn rate values)
+        genExprEval loopExprs stateValRefMap curTimeRef
         -- update sumprops
         sumPropensities sumPropRef stateValRefMap
 
@@ -550,11 +565,11 @@ genSSASolver CF.Module{..} initsF = do
     chooseTimestep sumPropRef = do
         GenState {builder, libOps, mathOps} <- get
         liftIO $ do
-            ts1 <- buildCall builder (libOps Map.! "OdeRandUniform") [] "tsRand"
-            ts2 <- buildCall builder (mathOps Map.! AC.Log) [ts1] "tsLog"
+            ts1 <- buildCall builder (libOps Map.! "OdeRandUniform") [] "ts1"
+            ts2 <- buildCall builder (mathOps Map.! AC.Log) [ts1] "ts2"
             ts3 <- withPtrVal builder sumPropRef $ \sumProp ->
-                buildFDiv builder constOne sumProp "tsRecip"
-            ts4 <- buildFNeg builder ts3 "tsNeg"
+                buildFDiv builder constOne sumProp "ts3"
+            ts4 <- buildFNeg builder ts3 "ts4"
             buildFMul builder ts4 ts2 "tau"
 
     -- | we choose and trigger the reaction in a single block of code as is easier, already have access to the params within the bb
@@ -562,80 +577,79 @@ genSSASolver CF.Module{..} initsF = do
     chooseTriggerReaction sumPropRef stateValsRefMap = do
         GenState {builder, libOps, curFunc} <- get
 
-        liftIO $ do
-            r2 <- buildCall builder (libOps Map.! "OdeRandUniform") [] "trRand"
-            endProp <- withPtrVal builder sumPropRef $ \sumProp ->
-                buildFMul builder r2 sumProp "endProp"
+        r2 <- liftIO $ buildCall builder (libOps Map.! "OdeRandUniform") [] "trRand"
+        endProp <- liftIO $ withPtrVal builder sumPropRef $ \sumProp ->
+            buildFMul builder r2 sumProp "endProp"
 
-
-            nextBB <- appendBasicBlock curFunc "next.TR"
-            endBB <- appendBasicBlock curFunc "end.TR"
-            startBB <- appendBasicBlock curFunc "start.TR"
-            -- startup foldlM with branch to first
-            buildBr builder startBB
-            positionAtEnd builder startBB
-
-            (curProp', nextBB') <- DF.foldlM (f builder curFunc endProp endBB) (constZero, nextBB) simOps
-
-            -- pos at nextBB' and jump to final bb - clean up foldM
-            buildBr builder endBB
-            positionAtEnd builder nextBB'
-            buildBr builder endBB
-
-            positionAtEnd builder endBB
-
-            return ()
-
+        endBB <- liftIO $ appendBasicBlock curFunc "end.TR"
+        startBB <- liftIO $ appendBasicBlock curFunc "start.TR"
+        liftIO $ buildBr builder startBB
+        checkTrigger builder curFunc endProp endBB constZero startBB simOps' -- gen code to both check if reaction is chosen and to handle trigger
+        liftIO $ positionAtEnd builder endBB
+        return ()
       where
-        f builder curFunc endProp endBB (curProp, nextBB) rreOp@(CF.Rre srcs dests rate) = do
-            curProp' <- calcPropensity builder stateValsRefMap curProp rreOp
+        -- manual fold over rres - general case
+        checkTrigger builder curFunc endProp endBB curProp curBB (rreOp@(CF.Rre srcs dests rate):simOps) = do
+            liftIO $ positionAtEnd builder curBB
+            reactionProp <- calcPropensity builder stateValsRefMap rreOp
+            curProp' <- liftIO $ buildFAdd builder reactionProp curProp "sumProp"
+            triggerBB <- liftIO $ appendBasicBlock curFunc "trigger.TR"
+            -- if we're on lastOp - reaction must be triggered
+            nextBB <-   liftIO $ if lastOp then do
+                            -- jump stragiht to trigger then endBB
+                            buildBr builder triggerBB
+                            return endBB
+                         else do
+                            -- build branch to check if this reaction is triggered
+                            cmpProp <- buildFCmp builder FPOGT curProp' endProp "cmpProps"
+                            nextBB <- appendBasicBlock curFunc "next.TR"
+                            buildCondBr builder cmpProp triggerBB nextBB
+                            return nextBB
 
-            -- now build branch to trigger the reaction
-            triggerBB <- appendBasicBlock curFunc "trigger.TR"
-            cmpProp <- buildFCmp builder FPOGT curProp' endProp "cmpProps"
-            buildCondBr builder cmpProp triggerBB nextBB
+            -- build triggerbb - actually trigger the reaction
+            liftIO $ positionAtEnd builder triggerBB
+            mapM_ (updatePop buildFSub) srcs
+            mapM_ (updatePop buildFAdd) dests
+            liftIO $ buildBr builder endBB -- we're done, jump to the endBB
 
-            -- build triggerbb
-            positionAtEnd builder triggerBB
-            mapM_ (f' buildFSub) srcs
-            mapM_ (f' buildFAdd) dests
-
-            buildBr builder endBB
-
-            -- repos the builder and pass to next BB
-            positionAtEnd builder nextBB
-            nextBB' <- appendBasicBlock curFunc "next.TR"
-            return (curProp', nextBB')
+            if lastOp   then return ()
+                        else checkTrigger builder curFunc endProp endBB curProp' nextBB simOps
               where
-                f' fOp (i, vId) = do
+                updatePop fOp (i, vId) = liftIO $ do
                     updatePtrVal builder (stateValsRefMap OrdMap.! vId) $ \v ->
                         fOp builder v (constDouble . fromIntegral $ i) "updatePop"
+                lastOp = null simOps
 
-
+        -- non-rre sim op - ignore
+        checkTrigger builder curFunc endProp endBB curProp nextBB (op:simOps) = checkTrigger builder curFunc endProp endBB curProp nextBB simOps
 
     -- | Iterate over the RREs and both calculate the props and sum them up
     sumPropensities :: LLVM.Value -> ParamMap -> GenM (LLVM.Value)
     sumPropensities sumPropRef stateValsRefMap = do
         GenState {builder, simParams, llvmMod} <- get
-        sumProp <- liftIO $ DF.foldlM (calcPropensity builder stateValsRefMap) constZero simOps
+        (Just sumProp) <- DF.foldlM (sumPropensities' builder) Nothing simOps'
         liftIO $ buildStore builder sumProp sumPropRef
-
-    calcPropensity :: Builder -> ParamMap -> LLVM.Value -> SimOps -> IO (LLVM.Value)
-    calcPropensity builder stateValsRefMap curSumProp (CF.Rre srcs _ rate) = do
-        reactionProp <- DF.foldlM calcReactionProp constOne srcs
-        reactionProp' <- buildFMul builder reactionProp (constDouble rate) "prop3"
-        buildFAdd builder reactionProp' curSumProp "sumProp"
       where
-        calcReactionProp curReactionProp (i, vId) = do
+        sumPropensities' builder mCurSum simOp = do
+            reactionProp <- calcPropensity builder stateValsRefMap simOp
+            case mCurSum of
+                Just curSum -> liftIO $ Just <$> buildFAdd builder reactionProp curSum "sumProp"
+                Nothing  -> return $ Just reactionProp
+
+    -- | calculate the propensity of a given reaction
+    calcPropensity :: Builder -> ParamMap -> SimOps -> GenM (LLVM.Value)
+    calcPropensity builder stateValsRefMap (CF.Rre srcs _ (VarRef rateId)) = do
+        (Just reactionProp) <- liftIO $ DF.foldlM calcSrcPop Nothing srcs
+        rateVal <- lookupId rateId
+        liftIO $ buildFMul builder reactionProp rateVal "prop"
+      where
+        calcSrcPop mCurProp (i, vId) = do
             -- load the val
-            v <- buildLoad builder (stateValsRefMap OrdMap.! vId) "loadState"
-            prop1 <- buildFMul builder (constDouble . fromIntegral $ i) v "prop1"
-            buildFMul builder prop1 curReactionProp "prop2"
-
-
-
-
-
+            v <- buildLoad builder (stateValsRefMap OrdMap.! vId) "loadPop"
+            mulStoc <- buildFMul builder (constDouble . fromIntegral $ i) v "mulStoc"
+            case mCurProp of
+                Just curProp -> Just <$> buildFMul builder mulStoc curProp "mulProp"
+                Nothing  -> return $ Just mulStoc
 
 -- | create the global variables - to hold STATE and DELTA
 createVals :: [Id] -> String -> GenM ParamMap

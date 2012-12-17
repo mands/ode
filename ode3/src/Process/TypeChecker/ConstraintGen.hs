@@ -336,10 +336,16 @@ constrain gModEnv modData mFuncArgs unitsCheck timeUnit = runStateT (evalSupplyT
         return eDT
 
     -- what is the type of the state vals, molecules, mols?
-    consExpr (E.Rre srcs dests _) = do
+    consExpr (E.Rre srcs dests eR) = do
         -- constrain all state vals to be floats
         mapM_ addRreCons srcs
         mapM_ addRreCons dests
+
+        -- get the rate type, it must be a (single) float, whose value should be in terms of mols?
+        eRT <- consExpr eR
+        addConsType =<< ConEqual eRT <$> uFloat
+        -- when unitsCheck (addConsUnit $ ConSum uV2 timeUnit uV1)
+
         return E.TUnit
       where
         addRreCons (_, lv@(E.LocalVar _)) = do

@@ -63,7 +63,7 @@ data Var    = VarRef Id
 data SimOps = Ode Id Var    -- indicates the state val and a ref to an id holding the delta val
                             -- TODO - convert to an Id instead of Var
             | Sde Id Var Var  -- indicates the state val and refs to ids holding the weiner and delta vals (note the order)
-            | Rre [(Int, Id)] [(Int, Id)] Double -- indicates the src and dest products in the reaction, and the const reaction rate
+            | Rre [(Int, Id)] [(Int, Id)] Var -- indicates the src and dest products in the reaction, and the ref to id holding dyn reaction rate
             deriving (Show, Eq, Ord)
 
 -- | we only allow a simulation to be of a certain type, while ODEs are allowed in SDEs (using EulerMaruyama), no other

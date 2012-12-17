@@ -56,12 +56,12 @@ import AST.CoreFlat as CF
 type MathOps = Map.Map AC.MathOp LLVM.Value
 type LibOps = Map.Map String LLVM.Value
 type ParamMap = OrdMap.OrdMap Id LLVM.Value
-
+type LocalMap = Map.Map Id LLVM.Value
 newtype GenM a = GenM { runGenM :: (StateT GenState (MExceptIO)) a }
     deriving (Monad, MonadError String, MonadIO, MonadState GenState, Functor) -- , MonadTrans)
 
 data GenState = GenState    { -- stateMap :: Map.Map Id String  -- a mapping from (state) ids to global vals in bitcode
-                              localMap :: Map.Map Id LLVM.Value -- a mapping from local-def'd ids to their LLVM vals
+                              localMap :: LocalMap              -- a mapping from local-def'd ids to their LLVM vals
                             , mathOps :: MathOps                -- a mapping to all externally defined funcs
                             , libOps :: LibOps                  -- a mapping to all externally defined funcs
                             , builder :: LLVM.Builder           -- the current inst. builder
@@ -184,6 +184,7 @@ defineExtOps p llvmMod = do
                                 )
         , ("OdeRandUniform",    addFunction llvmMod "OdeRandUniform" (functionType doubleType [] False))
         , ("OdeRandNormal",     addFunction llvmMod "OdeRandNormal" (functionType doubleType [] False))
+        -- access to printf, for debugging
         , ("printf",            addFunction llvmMod "printf" (functionType voidType [(pointerType int8Type 0)] True))
         ]
 

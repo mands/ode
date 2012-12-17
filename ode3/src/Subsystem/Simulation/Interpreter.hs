@@ -113,9 +113,19 @@ runEulerMaruyama m@Module{..} p curLoop = do
 
 runSSA :: Module -> Sys.SimParams -> Double -> Integer -> SimM ()
 runSSA m@Module{..} p time curLoop = do
+    -- run all exprs to setup the env (for dyn rate)
+    -- set the sim env
+    modify (\st -> st { _curTime = time, _simEnv = Map.empty } )
+    -- simulate the expr
+    _ <- simExprMap loopExprs
+
     sumProp <- sumPropensitities
+
+    -- main reaction code
     if sumProp > 0 && time < (Sys._stopTime p)
         then do
+
+            -- now run the SSA
             tau <- chooseTimestep sumProp
             r <- chooseReaction sumProp
             triggerReaction r
@@ -150,7 +160,7 @@ runSSA m@Module{..} p time curLoop = do
             let curProp' = curProp + p
             if curProp' > endProp then return (curProp', Just r) else return (curProp', Nothing)
 
-    triggerReaction (Rre srcs dests rate) = do
+    triggerReaction (Rre srcs dests _) = do
         mapM_ (changePop (-)) srcs
         mapM_ (changePop (+)) dests
       where
@@ -163,9 +173,11 @@ runSSA m@Module{..} p time curLoop = do
     sumPropensitities = sum <$> mapM calcPropensity reactions
 
     -- does this not take into account the stoc of the srcs?
-    calcPropensity (Rre srcs _ rate) = do
+    calcPropensity (Rre srcs _ vR) = do
         s <- _stateEnv <$> get
         let srcPops = map (\(i, v) -> let (Num n) = s Map.! v in n * fromIntegral i) srcs
+        -- get the calc expression rate
+        (Num rate) <-  simVar vR
         return $ (product srcPops) * rate
 
 -- Interpreter ---------------------------------------------------------------------------------------------------------
@@ -231,7 +243,7 @@ simVar v = return v
 lookupId :: Id -> SimM Var
 lookupId i = do
     st <- get
-    --trace' [MkSB i, MkSB $ _simEnv st, MkSB $ _stateEnv st] "lookup id" $ return ()
+    -- trace' [MkSB i, MkSB $ _simEnv st, MkSB $ _stateEnv st] "lookup id" $ return ()
     case Map.lookup i $ _simEnv st of
         Just v  -> return v
         Nothing -> return $ _stateEnv st Map.! i
@@ -341,8 +353,7 @@ simSimOp (Sde initId vW vD) = do
     modify (\st -> st { _stateEnv = Map.insert initId n' (_stateEnv st) })
 
 -- Rre not supported in this sim model
-simSimOp (Rre srcs dests rate) = do
-    undefined
+simSimOp simOp@(Rre srcs dests rate) = errorDump [MkSB simOp] "RREs not supported in continous models" assert
 
 
 -- File Output ---------------------------------------------------------------------------------------------------------

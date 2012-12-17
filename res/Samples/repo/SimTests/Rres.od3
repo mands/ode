@@ -5,6 +5,20 @@ module Rre1 {
     rre { rate: 0.5 } = x -> z
 }
 
+// basic rre
+module Rre1a {
+    init x = 1000
+    init z = 0
+    rre { rate: ((time + 0.0001) / (time + 0.0001)) * 0.5 } = x -> z
+}
+
+// basic rre
+module Rre1b {
+    init x = 1000
+    init z = 0
+    rre { rate: ((x + 0.0001) / (x + 0.0001)) * 0.5 } = x -> z
+}
+
 
 // pred-prey
 module Rre2 {
