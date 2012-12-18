@@ -63,7 +63,7 @@ genModelInitials initVals stateRefMap = do
 
 -- | Generate the code that calculates the DELTA variables based on the current time and STATE, handles both Odes and Sdes
 -- odeModelRHS(time, STATE) -> (DELTA, WEINER), i.e. (y', w') = f(t, y)
-genModelRHS :: ExprMap -> [SimOps] -> LLVM.Value -> LocalMap -> LocalMap -> LocalMap -> GenM ()
+genModelRHS :: ExprMap -> [SimOp] -> LLVM.Value -> LocalMap -> LocalMap -> LocalMap -> GenM ()
 genModelRHS loopExprs simOps curTimeVal stateValMap deltaRefMap weinerRefMap = do
     GenState {builder} <- get
     -- code gen the loop exprs

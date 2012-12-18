@@ -13,7 +13,7 @@
 -----------------------------------------------------------------------------
 
 module AST.CoreFlat (
-Module(..), ExprMap, InitMap, TopLet, Expr(..), Var(..), ExprData(..), Type(..), SimOps(..), SimType(..),
+Module(..), ExprMap, InitMap, TopLet, Expr(..), Var(..), ExprData(..), Type(..), SimOp(..), SimType(..),
 mapExpr
 ) where
 
@@ -26,7 +26,7 @@ import AST.Common as AC
 
 -- not really a module, but datatype to hold the exeutable simulation expressions and related metadata
 data Module = Module    { loopExprs :: ExprMap, initVals :: InitMap
-                        , simOps :: [SimOps], simType :: SimType, freeId :: Id }
+                        , simOps :: [SimOp], simType :: SimType, freeId :: Id }
                         deriving (Show, Eq, Ord)
 
 -- this becomes our 'let' now - both toplevel and 'nested', creates a new binding for the expression
@@ -60,7 +60,7 @@ data Var    = VarRef Id
             deriving (Show, Eq, Ord)
 
 -- | Main simulation opersions
-data SimOps = Ode Id Var    -- indicates the state val and a ref to an id holding the delta val
+data SimOp  = Ode Id Var    -- indicates the state val and a ref to an id holding the delta val
                             -- TODO - convert to an Id instead of Var
             | Sde Id Var Var  -- indicates the state val and refs to ids holding the weiner and delta vals (note the order)
             | Rre [(Int, Id)] [(Int, Id)] Var -- indicates the src and dest products in the reaction, and the ref to id holding dyn reaction rate

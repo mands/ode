@@ -42,7 +42,7 @@ type ConvM = SupplyT Id (StateT FlatState MExcept)
 -- type ConvM = Supply Id
 
 data FlatState = FlatState  { _curExprs :: ACF.ExprMap
-                            , _simOps :: [ACF.SimOps]
+                            , _simOps :: [ACF.SimOp]
                             , _curTMap :: TypeMap
                             } deriving (Show, Eq, Ord)
 mkFlatState = FlatState OrdMap.empty []

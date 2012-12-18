@@ -94,7 +94,7 @@ instance OdeSolver EulerSolver where
         liftIO $ mapM_ (updateState builder simParams) simOps
 
       where
-        updateState :: Builder -> Sys.SimParams -> SimOps -> IO ()
+        updateState :: Builder -> Sys.SimParams -> SimOp -> IO ()
         updateState builder simParams (Ode i dV) = do
             -- get state val
             updatePtrVal builder (stateRefMap Map.! i) $ \stateVal -> do
@@ -132,7 +132,7 @@ instance OdeSolver EulerMSolver where
         liftIO $ mapM_ (updateState builder simParams libOps) simOps
 
       where
-        updateState :: Builder -> Sys.SimParams -> LibOps -> SimOps -> IO ()
+        updateState :: Builder -> Sys.SimParams -> LibOps -> SimOp -> IO ()
         updateState builder simParams _ (Ode i _) = do
             -- get state val
             updatePtrVal builder (stateRefMap Map.! i) $ \stateVal -> do
@@ -225,7 +225,7 @@ instance OdeSolver RK4Solver where
             withPtrVal builder deltaRef $ \deltaVal -> buildFMul builder deltaVal timeStep "deltaTime"
 
         -- | get & updatestate val using RK4 algo for y' = y + 1/6*(k1 + 2*k2 + 2*k3 + k4)
-        updateState :: Builder -> LocalMap -> LocalMap -> LocalMap -> LocalMap -> SimOps -> GenM ()
+        updateState :: Builder -> LocalMap -> LocalMap -> LocalMap -> LocalMap -> SimOp -> GenM ()
         updateState builder k1State k2State k3State k4State (Ode i dV) = liftIO $
             updatePtrVal builder (stateRefMap Map.! i) $ \stateVal -> do
                 -- let idx = idMap Map.! i

@@ -437,7 +437,7 @@ genSSASolver CF.Module{..} = do
                 Nothing  -> return $ Just reactionProp
 
     -- | calculate the propensity of a given reaction - only consider elementary reactions
-    calcPropensity :: Builder -> LocalMap -> SimOps -> GenM (LLVM.Value)
+    calcPropensity :: Builder -> LocalMap -> SimOp -> GenM (LLVM.Value)
     calcPropensity builder stateValsRefMap (CF.Rre ((_, src1Id):[]) _ (VarRef rateId)) = do
         src1Pop <- liftIO $ buildLoad builder (stateValsRefMap Map.! src1Id) "src1Pop"
         rateVal <- lookupId rateId
