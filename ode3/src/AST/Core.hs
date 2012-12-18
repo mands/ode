@@ -173,7 +173,7 @@ data Literal =  Num Double U.Unit | NumSeq [Double] U.Unit | Boolean Bool | Time
 
 -- Expression Traversal Helper Funcs -----------------------------------------------------------------------------------
 -- mapExpr applies a function f over all sub-expressions within the expression
--- is it a functor?
+-- is it a functor? doesn't allow chaning type of generic param, as ids then need to be changed too
 -- call this only after our own traversals to traverse non-handled cases within f
 mapExpr :: (Show a) => (Expr a -> Expr a) -> Expr a -> Expr a
 mapExpr f (App v e1) = App v (f e1)

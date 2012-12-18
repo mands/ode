@@ -212,7 +212,7 @@ odeDef = do
     expr <- reservedOp "=" *> compExpr
     return $ AO.OdeDef initRef deltaName expr
   where
-    odeAttribs  = (,)   <$$> attrib "init" identifier
+    odeAttribs  = (,)   <$$> attrib "init" modLocalIdentifier
                         <|?> (AO.DontCare, attrib "delta" valIdentifier)
 
 sdeDef :: Parser AO.Stmt
@@ -221,7 +221,7 @@ sdeDef = do
     expr <- reservedOp "=" *> compExpr
     return $ sdeExpr expr
   where
-    sdeAttribs  = AO.SdeDef     <$$> attrib "init" identifier
+    sdeAttribs  = AO.SdeDef     <$$> attrib "init" modLocalIdentifier
                                 <|?> (AO.DontCare, attrib "delta" valIdentifier)
                                 <||> attrib "weiner" compExpr
 
@@ -234,12 +234,12 @@ rreDef = mkRre <$> (reserved "rre" *> braces rreAttribs) <*> (reservedOp "=" *> 
 
     -- bit of a hack in the species parser to restrict rres to only support elementary reactions
     rreSpecies = do
-        (i1, mi2) <- (,) <$> identifier <*> optionMaybe (reservedOp "+" *> identifier)
+        (i1, mi2) <- (,) <$> modLocalIdentifier <*> optionMaybe (reservedOp "+" *> modLocalIdentifier)
         case mi2 of
             Nothing -> return [(1,i1)]
             Just i2 -> return [(1,i1), (1,i2)]
 
-    rreProducts = (,) <$> option 1 (natural <* symbol  ".") <*> identifier
+    rreProducts = (,) <$> option 1 (natural <* symbol  ".") <*> modLocalIdentifier
     productList = sepBy1 rreProducts (reservedOp "+")
 
     mkRre rate srcs dests = AO.RreDef srcs dests rate

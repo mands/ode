@@ -141,6 +141,7 @@ shiftExprIds (AC.Let isInit t (b:[]) e1 e2) = do
 -- anything else, keep going
 shiftExprIds e = AC.mapExprM shiftExprIds e
 
+-- return the rebound var refence (only localvars now, have inlined modules)
 calcReboundVar :: AC.VarId Id -> InlineCompsM (AC.VarId Id)
 calcReboundVar (AC.LocalVar v) = do
     rbMap <- rebindsMap <$> lift get

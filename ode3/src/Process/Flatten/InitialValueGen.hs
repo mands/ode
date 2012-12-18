@@ -42,7 +42,6 @@ type InitEnv = Map.Map Id (AC.Expr Id)
 
 data InitState = InitState { initMap :: InitMap, startTime :: Double } deriving (Show, Eq)
 
-
 -- Entry Point ---------------------------------------------------------------------------------------------------------
 initialValueGen :: Sys.SimParams -> Module Id -> MExcept (Module Id, InitMap)
 initialValueGen p mod@(LitMod modData) = do
@@ -120,6 +119,8 @@ initIntExpr e@(AC.Record nEs) env = do
     nVs  <- fmap fst <$> DT.mapM (\e -> initIntExpr e env) nEs
     return (AC.Record nVs, env)
 
+-- SimOps
+-- should check that these actual reference svals, and are refereced correctly (i.e once per ode/sde)
 -- Odes
 initIntExpr e@(AC.Ode (AC.LocalVar v) e1) env = do
     (e1', _) <- initIntExpr e1 env

@@ -127,6 +127,8 @@ getMVarType mv@(E.ModVar m v) gModEnv modData mFuncArgs =
 
 
 -- Binding Helper Functions --------------------------------------------------------------------------------------------
+
+-- | Type check for initial values - make sure is a single value of type Float u1
 processInitValBind :: Integer -> E.Type -> TypeConsM ()
 processInitValBind b eT = do
     -- trace' [MkSB b, MkSB eT] "Init - types" $ return ()
@@ -136,7 +138,7 @@ processInitValBind b eT = do
     -- update the tEnv
     modify (\tEnvs@(TypeEnvs tEnv _ _) -> tEnvs { typeEnv = Map.insert (E.LocalVar b) eT tEnv })
 
-
+-- | update type-check env for (non-sval) let bindinds
 processLetBind :: E.BindList Integer -> E.Type -> TypeConsM ()
 processLetBind bs eT = do
     -- trace' [MkSB bs, MkSB eT] "let expr" $ return ()
@@ -295,9 +297,9 @@ constrain gModEnv modData mFuncArgs unitsCheck timeUnit = runStateT (evalSupplyT
     -- is a literal record, record this within the type
     consExpr (E.Record nEs) = liftM E.TRecord $ DT.mapM consExpr nEs
 
-    consExpr (E.Ode lv@(E.LocalVar _) eD) = do
+    consExpr (E.Ode v eD) = do
         -- constrain the ode state val to be a float
-        vT <- getLVarType lv
+        vT <- getVarType v gModEnv modData mFuncArgs
         uV1 <- newUnitVar
         addConsType $ ConEqual vT (E.TFloat uV1)
 
@@ -313,9 +315,9 @@ constrain gModEnv modData mFuncArgs unitsCheck timeUnit = runStateT (evalSupplyT
         return eDT
 
     -- Not fully unit-safe, weiner process unit cannot be checked in current units implementation
-    consExpr (E.Sde lv@(E.LocalVar _) eW eD) = do
+    consExpr (E.Sde v eW eD) = do
         -- constrain the ode state val to be a float
-        vT <- getLVarType lv
+        vT <- getVarType v gModEnv modData mFuncArgs
         uV1 <- newUnitVar
         addConsType $ ConEqual vT (E.TFloat uV1)
 
@@ -348,9 +350,9 @@ constrain gModEnv modData mFuncArgs unitsCheck timeUnit = runStateT (evalSupplyT
 
         return E.TUnit
       where
-        addRreCons (_, lv@(E.LocalVar _)) = do
-            lvT <- getLVarType lv
-            addConsType =<< ConEqual lvT <$> uFloat
+        addRreCons (_, v) = do
+            vT <- getVarType v gModEnv modData mFuncArgs
+            addConsType =<< ConEqual vT <$> uFloat
 
 
     -- Type/Unit-casting constraints

@@ -49,11 +49,11 @@ data Stmt = -- each independent component, is basically function abstraction
             -- state value defintion - indirectly mutable, stateful, values - only single bind name
             | SValue { svName :: SrcId, svValue :: Expr }
             -- ODE - a SValue and ODE def combined
-            | OdeDef { odeInit :: SrcId, odeDeltaName :: BindId, odeExpr :: Expr}
+            | OdeDef { odeInit :: RefId, odeDeltaName :: BindId, odeExpr :: Expr}
             -- SDE - a SValue and SDE def combined
-            | SdeDef { sdeInit :: SrcId, sdeDeltaName :: BindId, sdeWeinerExpr :: Expr, sdeExpr :: Expr}
+            | SdeDef { sdeInit :: RefId, sdeDeltaName :: BindId, sdeWeinerExpr :: Expr, sdeExpr :: Expr}
             -- RRE - takes two SValues and a rate parameter
-            | RreDef { rreSrc :: [(Integer, SrcId)], rreDest :: [(Integer, SrcId)], rreRate :: Expr }
+            | RreDef { rreSrc :: [(Integer, RefId)], rreDest :: [(Integer, RefId)], rreRate :: Expr }
             -- or they may be a reference to a component defined in a module param and re-exported here
             -- ComponentRef SrcId ModLocalId
             deriving (Show, Eq, Ord)

@@ -36,6 +36,7 @@ import SimTests.Sdes.*
 :period 1
 :output "./output_Sde1.bin"
 //:simulate Sde1
+:simulate Sde1b
 
 :output "./output_Sde2.bin"
 //:simulate Sde2
@@ -55,7 +56,7 @@ import SimTests.Sdes.*
 :period 0.00001
 :timestep 0.00001
 :output "./output_Sde5.bin"
-:simulate Sde5
+//:simulate Sde5
 
 // all done
 :quit

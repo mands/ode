@@ -129,18 +129,19 @@ bLookup v = do
         (Just v') -> return v'
         Nothing -> lift . lift . throwError $ printf "(RN01) Referenced variable %s not found in scope" (show v)
 
+-- | Rename a variable id, we pass on module vars
+renVarId :: E.VarId E.DesId -> IdSupply (E.VarId E.Id)
+renVarId (E.LocalVar v) = E.LocalVar <$> bLookup v
+renVarId (E.ModVar m v) = return $ E.ModVar m v
+
+
 -- | Basic traverse over the expression structure - can't use helpers as map from (Expr a -> Expr b)
+-- we don't rename module vars, least not yet - they are renamed during functor application
 renExpr :: E.Expr E.DesId -> IdSupply (E.Expr E.Id)
 -- need to check the expr and top bindings
-renExpr (E.Var (E.LocalVar v) mRecId) = E.Var <$> (E.LocalVar <$> bLookup v) <*> pure mRecId
+renExpr (E.Var vId mRecId) = E.Var <$> renVarId vId <*> pure mRecId
 
--- we don't rename module vars, least not yet - they are renamed during functor application
-renExpr (E.Var (E.ModVar m v) mRecId) = return $ E.Var (E.ModVar m v) mRecId
-
--- same as above
-renExpr (E.App (E.LocalVar b) e) = E.App <$> (E.LocalVar <$> bLookup b) <*> renExpr e
-
-renExpr (E.App (E.ModVar m v) expr) = E.App <$> pure (E.ModVar m v) <*> renExpr expr
+renExpr (E.App vId expr) = E.App <$> renVarId vId <*> renExpr expr
 
 renExpr (E.Abs b expr) = do
     bMap <- lift $ get
@@ -179,22 +180,20 @@ renExpr (E.Tuple exprs) = E.Tuple <$> DT.mapM renExpr exprs
 
 renExpr (E.Record nExprs) = E.Record <$> DT.mapM renExpr nExprs
 
-renExpr (E.Ode (E.LocalVar v) eD) = E.Ode <$> (E.LocalVar <$> bLookup v) <*> renExpr eD
+renExpr (E.Ode vId eD) = E.Ode <$> renVarId vId <*> renExpr eD
 
-renExpr (E.Sde (E.LocalVar v) eW eD) = E.Sde <$> (E.LocalVar <$> bLookup v) <*> renExpr eW <*> renExpr eD
+renExpr (E.Sde vId eW eD) = E.Sde <$> renVarId vId <*> renExpr eW <*> renExpr eD
 
 renExpr (E.Rre srcs dests eR) = E.Rre <$> rreLookup srcs <*> rreLookup dests  <*> renExpr eR
   where
-    rreLookup = mapM (mapSndM (\(E.LocalVar vId) -> E.LocalVar <$> bLookup vId))
+    rreLookup = mapM (mapSndM renVarId)
 
 renExpr (E.TypeCast e tC ) = E.TypeCast <$> renExpr e <*> tC'
   where
     tC' = case tC of
-        E.UnitCast u -> return $ E.UnitCast u
-        E.WrapType (E.LocalVar t) -> E.WrapType <$> (E.LocalVar <$> bLookup t)
-        E.WrapType (E.ModVar m v) -> return $ E.WrapType (E.ModVar m v)
-        E.UnwrapType (E.LocalVar t) -> E.UnwrapType <$> (E.LocalVar <$> bLookup t)
-        E.UnwrapType (E.ModVar m v) -> return $ E.UnwrapType (E.ModVar m v)
+        E.UnitCast u        -> return $ E.UnitCast u
+        E.WrapType tId      -> E.WrapType <$> renVarId tId
+        E.UnwrapType tId    -> E.UnwrapType <$> renVarId tId
 
 -- any unknown/unimplemented paths - not needed as match all
 renExpr a = errorDump [MkSB a] "(RN) Unknown Core expression" assert

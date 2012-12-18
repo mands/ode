@@ -98,25 +98,6 @@ desugarOde elems = do
 
     -- desugarOde' st stmt@(O.UnitStmt baseUnits _ _ _) = throw $ printf "Found an invalid unit def %s" (show baseUnits)
 
--- Helper Functions ----------------------------------------------------------------------------------------------------
-
--- | Simple test to see if an expression contains only a single element or is a packed tuple
-isSingleElem es = length es == 1
--- | Retrieve the single expression within a tuple, may cause exception
-singleElem es = head es
-
--- | packs up elements, if required, to use when calling a comp or setting up comp outputs
--- needed as \c-supports both single values and tuples
-packElems es = if (isSingleElem es)
-    then dsExpr $ singleElem es
-    else liftM C.Tuple $ mapM dsExpr es
-
--- | creates new unique variable identifiers for all don't care values
-subDontCares :: O.BindId -> TmpSupply C.DesId
-subDontCares O.DontCare = supply
-subDontCares (O.BindId v) = return v
-
-
 -- Desugar Main Ode Statements -----------------------------------------------------------------------------------------
 
 -- | desugar a top-level value constant(s)
@@ -180,20 +161,20 @@ dsStmt (O.SValue id expr) = do
 
 -- TODO - need to add the correct unit for the delta expr here
 dsStmt (O.OdeDef initRef deltaName expr) = do
-    odeExpr <- C.Ode <$> pure (C.LocalVar initRef) <*> dsExpr expr
+    odeExpr <- C.Ode <$> pure (dsRefId initRef) <*> dsExpr expr
     odeDeltaVar <- subDontCares deltaName
     return $ ([odeDeltaVar], odeExpr)
 
 -- TODO - need to add the correct unit for the delta expr here
 dsStmt (O.SdeDef initRef deltaName weinerExpr deltaExpr) = do
-    sdeExpr <- C.Sde <$> pure (C.LocalVar initRef) <*> dsExpr weinerExpr <*> dsExpr deltaExpr
+    sdeExpr <- C.Sde <$> pure (dsRefId initRef) <*> dsExpr weinerExpr <*> dsExpr deltaExpr
     sdeDeltaVar <- subDontCares deltaName
     return $ ([sdeDeltaVar], sdeExpr)
 
 -- we give the rre a new binding name (of type Unit)
 dsStmt (O.RreDef srcs dests rateExpr) = do
     rreVar <- supply
-    rreExpr <- C.Rre (map (mapSnd C.LocalVar) srcs) (map (mapSnd C.LocalVar) dests) <$> dsExpr rateExpr
+    rreExpr <- C.Rre (map (mapSnd dsRefId) srcs) (map (mapSnd dsRefId) dests) <$> dsExpr rateExpr
     return $ ([rreVar], rreExpr)
 
 -- desugar a top level component
@@ -241,8 +222,7 @@ dsExpr (O.Boolean b) = return $ C.Lit (C.Boolean b)
 dsExpr (O.Time) = return $ C.Lit (C.Time)
 dsExpr (O.None) = return $ C.Lit (C.Unit)
 -- TODO - add record selection here
-dsExpr (O.ValueRef (O.LocalId id) mRecId) = return $ C.Var (C.LocalVar id) mRecId
-dsExpr (O.ValueRef (O.ModId modId id) mRecId) = return $ C.Var (C.ModVar (ModName modId) id) mRecId
+dsExpr (O.ValueRef refId mRecId) = return $ C.Var (dsRefId refId) mRecId
 
 -- we can convert from ext. tuple to int. record here
 -- dsExpr (O.Tuple exprs) = C.Record . C.addLabels <$> DT.mapM dsExpr exprs
@@ -263,18 +243,37 @@ dsExpr (O.Piecewise cases e) = dsIf cases
     dsIf ((testExpr, runExpr):xs) = liftM3 C.If (dsExpr testExpr) (dsExpr runExpr) (dsIf xs)
 
 -- convert call to a app, need to convert ins/args into a tuple first
-dsExpr (O.Call (O.LocalId id) exprs) = C.App (C.LocalVar id) <$> packElems exprs
-dsExpr (O.Call (O.ModId mId id) exprs) = C.App (C.ModVar (ModName mId) id) <$> packElems exprs
+dsExpr (O.Call refId exprs) = C.App (dsRefId refId) <$> packElems exprs
 
 -- type experessions
-dsExpr (O.ConvCast e u) = C.TypeCast <$> (dsExpr e) <*> pure (C.UnitCast $ U.mkUnit u)
-dsExpr (O.WrapType e (O.LocalId id)) = C.TypeCast <$> (dsExpr e) <*> pure (C.WrapType (C.LocalVar id))
-dsExpr (O.WrapType e (O.ModId modId id)) = C.TypeCast <$> (dsExpr e) <*> pure (C.WrapType (C.ModVar (ModName modId) id))
-dsExpr (O.UnwrapType e (O.LocalId id)) = C.TypeCast <$> (dsExpr e) <*> pure (C.UnwrapType (C.LocalVar id))
-dsExpr (O.UnwrapType e (O.ModId modId id)) = C.TypeCast <$> (dsExpr e) <*> pure (C.UnwrapType (C.ModVar (ModName modId) id))
+dsExpr (O.ConvCast e u) = C.TypeCast <$> dsExpr e <*> pure (C.UnitCast $ U.mkUnit u)
+dsExpr (O.WrapType e refId) = C.TypeCast <$> dsExpr e <*> pure (C.WrapType $ dsRefId refId)
+dsExpr (O.UnwrapType e refId) = C.TypeCast <$> dsExpr e <*> pure (C.UnwrapType $ dsRefId refId)
 
 -- any unknown/unimplemented paths - not needed as overlapping
 dsExpr a = errorDump [MkSB a] "(DS) Unknown ODE3 expression" assert
+
+dsRefId :: O.RefId -> C.VarId C.DesId
+dsRefId (O.LocalId id)      = C.LocalVar id
+dsRefId (O.ModId modId id)  = C.ModVar (ModName modId) id
+
+-- Helper Functions ----------------------------------------------------------------------------------------------------
+
+-- | Simple test to see if an expression contains only a single element or is a packed tuple
+isSingleElem es = length es == 1
+-- | Retrieve the single expression within a tuple, may cause exception
+singleElem es = head es
+
+-- | packs up elements, if required, to use when calling a comp or setting up comp outputs
+-- needed as \c-supports both single values and tuples
+packElems es = if (isSingleElem es)
+    then dsExpr $ singleElem es
+    else liftM C.Tuple $ mapM dsExpr es
+
+-- | creates new unique variable identifiers for all don't care values
+subDontCares :: O.BindId -> TmpSupply C.DesId
+subDontCares O.DontCare = supply
+subDontCares (O.BindId v) = return v
 
 
 ---- | simple patttern matching convertor, boring but gotta be done...

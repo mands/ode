@@ -5,6 +5,16 @@ module Sde1 {
     sde { init : b, delta : db, weiner : 1.0 } = 0
 }
 
+// module varient
+module Sde1a {
+    val b = 10.0
+}
+// basic sde
+module Sde1b {
+    import SimTests.Sdes.Sde1a as A
+    sde { init : A.b, delta : db, weiner : 1.0 } = 0
+}
+
 // more complex sde
 module Sde2 {
     //b { type : sde, wrt: t, init: 45.3, weiner: 34 * a} = 23.0;

@@ -128,6 +128,13 @@ appendModule modIdVarMap srcMod = do
 
         -- switch all vars eithin the expression to reference localvars within our inlined Mod
         updateExpr :: AC.Expr Id -> AC.Expr Id
-        updateExpr (AC.Var mv@(AC.ModVar modId id) mRecId) | (Just idVarMap) <- Map.lookup modId modIdVarMap = AC.Var (AC.LocalVar (idVarMap Map.! id)) mRecId
-        updateExpr (AC.App mv@(AC.ModVar modId id) e1) | (Just idVarMap) <- Map.lookup modId modIdVarMap = AC.App (AC.LocalVar (idVarMap Map.! id)) (updateExpr e1)
+        updateExpr (AC.Var mv mRecId) = AC.Var (updateIds mv) mRecId
+        updateExpr (AC.App mv e1)  = AC.App (updateIds mv) (updateExpr e1)
+        -- update sim ops
+        updateExpr (AC.Ode mv e1) = AC.Ode (updateIds mv) (updateExpr e1)
+        updateExpr (AC.Sde mv e1 e2) = AC.Sde (updateIds mv) (updateExpr e1) (updateExpr e2)
+        updateExpr (AC.Rre srcs dests e1) = AC.Rre (map (mapSnd updateIds) srcs) (map (mapSnd updateIds) dests) (updateExpr e1)
         updateExpr e = AC.mapExpr updateExpr e
+
+        updateIds mv@(AC.ModVar modId id) | (Just idVarMap) <- Map.lookup modId modIdVarMap = AC.LocalVar (idVarMap Map.! id)
+        updateIds v = v

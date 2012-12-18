@@ -61,20 +61,13 @@ validateModData modData = do
 
 -- Binding datatypes ---------------------------------------------------------------------------------------------------
 -- data Metadata = Metadata { bindMap :: Map.Map E.DesId Bool }
-data ValidState = ValidState { exprMap :: M.ExprMap E.DesId, curBinds :: Set.Set E.DesId, sValSet :: Set.Set E.DesId, inSVal :: Bool }
-mkValidState = ValidState OrdMap.empty Set.empty Set.empty False
+data ValidState = ValidState { exprMap :: M.ExprMap E.DesId, curBinds :: Set.Set E.DesId }
+mkValidState = ValidState OrdMap.empty Set.empty
 
 addBinding :: Bool -> ValidState -> E.DesId -> MExcept ValidState
 addBinding isSVal st b = case Set.member b (curBinds st) of
     True -> throwError $ printf "(VL04) - Binding %s already exists at this scoping level" b
-    False -> return $ st { curBinds = Set.insert b (curBinds st)
-                        , sValSet = if isSVal then Set.insert b (sValSet st) else (sValSet st) }
-
--- | ensure that we only ever reference another init value from an init value, assumes all bindings are vals unless explicity init within scope
--- TODO - this may be too strict
-checkSVal :: E.DesId -> ValidState -> MExcept ()
--- checkSVal v st = unless (Set.member v (sValSet st)) $ throwError $ printf "(VL07) Value %s must be an init value" (show v)
-checkSVal v st = return ()
+    False -> return $ st { curBinds = Set.insert b (curBinds st) }
 
 -- Top Level Exprs -----------------------------------------------------------------------------------------------------
 -- create the expression map and check for duplicated top-level bindings
@@ -91,7 +84,7 @@ createTopExprs exprList exports = do
     t :: ValidState -> E.TopLet E.DesId -> MExcept ValidState
     t st topExpr@(E.TopLet sv ty bs expr) = do
         -- reset the curBinds and update the SVal state flag
-        validExpr expr (st { curBinds = Set.empty, inSVal = sv })
+        validExpr expr (st { curBinds = Set.empty })
         addTopBinding sv st bs topExpr
 
     t st topExpr@(E.TopType tName) = addTopBinding False st [tName] topExpr
@@ -104,15 +97,15 @@ createTopExprs exprList exports = do
 -- Core Exprs ----------------------------------------------------------------------------------------------------------
 -- check several properties for expression tree, passes state down into exp, doesn't bother returning it for now
 validExpr :: E.Expr E.DesId -> ValidState -> MExcept ValidState
-validExpr (E.Var (E.LocalVar v) _) st = if (inSVal st) then checkSVal v st >> return st else return st
+validExpr (E.Var (E.LocalVar v) _) st = return st
 
 validExpr (E.App v e) st = validExpr e st
 
 validExpr (E.Abs b e) st = validExpr e st
 
 validExpr (E.Let s t bs e1 e2) st = do
-    -- reset the curBinds and update the SVal state flag
-    validExpr e1 (st { curBinds = Set.empty, inSVal = s })
+    -- reset the curBinds
+    validExpr e1 (st { curBinds = Set.empty })
     validExpr e2 =<< DF.foldlM (addBinding s) st bs
 
 validExpr (E.Op op e) st = validExpr e st
@@ -126,11 +119,11 @@ validExpr (E.Tuple es) st = DF.mapM_ (\e -> validExpr e st) es >> return st
 validExpr (E.Record nEs) st = DF.mapM_ (\e -> validExpr e st) nEs >> return st
 
 -- add ode & rre checks
-validExpr (E.Ode (E.LocalVar initRef) eD) st = checkSVal initRef st >> validExpr eD st
-validExpr (E.Sde (E.LocalVar initRef) eW eD) st = checkSVal initRef st >> validExpr eW st >> validExpr eD st
-validExpr (E.Rre srcs dests eR) st = mapM (mapSndM checkVarId) srcs >> mapM (mapSndM checkVarId) srcs >> validExpr eR st
-  where
-    checkVarId (E.LocalVar lv) = checkSVal lv st
-    checkVarId v = errorDump [MkSB v] "Intra-module init vals for Simops not handled correctly!" assert
+validExpr (E.Ode (E.LocalVar initRef) eD) st = validExpr eD st
+validExpr (E.Sde (E.LocalVar initRef) eW eD) st = validExpr eW st >> validExpr eD st
+validExpr (E.Rre srcs dests eR) st = validExpr eR st -- mapM (mapSndM checkVarId) srcs >> mapM (mapSndM checkVarId) srcs >> validExpr eR st
+--  where
+--    checkVarId (E.LocalVar lv) = return ()
+--    checkVarId v = errorDump [MkSB v] "Intra-module init vals for Simops not handled correctly!" assert
 
 validExpr e st = return st
