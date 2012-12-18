@@ -83,6 +83,10 @@ setBB bb = modify (\st -> st { curBB = bb })
 getBB :: GenM BasicBlock
 getBB = curBB <$> get
 
+loadRefMap :: LocalMap -> GenM LocalMap
+loadRefMap refMap = do
+    GenState {builder} <- get
+    liftIO $ DT.mapM (\ref -> buildLoad builder ref "stateVal") refMap
 
 -- lookup an id both within current env, then global env
 lookupId :: Id -> GenM LLVM.Value
@@ -104,6 +108,19 @@ convertType (CF.TFloat) = doubleType
 convertType (CF.TBool) = int1Type
 convertType (CF.TUnit) = int1Type
 convertType (CF.TTuple ts) = structType (map convertType ts) False
+
+
+-- | create the global variables - to hold STATE and DELTA vals
+createVals :: [Id] -> String -> GenM LocalMap
+createVals ids suffix = foldM createVal Map.empty ids
+  where
+    createVal idMap i = do
+        GenState {builder, llvmMod} <- get
+        llV <- liftIO $ addGlobalWithInit llvmMod (constDouble 0.0) doubleType False (getName i)
+        liftIO $ setLinkage llV PrivateLinkage
+        return $ Map.insert i llV idMap
+    getName i = (getValidIdName i) ++ suffix
+
 
 -- | Define the basic math operations required by the code-generator
 -- TODO - set the func attribs and calling convs
@@ -263,8 +280,10 @@ updatePtrVal builder ptrVal updateFunc = do
     _ <- buildStore builder val' ptrVal
     return ()
 
-withPtrVal :: Builder -> LLVM.Value -> (LLVM.Value -> IO a) -> IO a
-withPtrVal builder ptrVal runFunc = buildLoad builder ptrVal "derefVal" >>= (\val -> runFunc val)
+withPtrVal :: MonadIO m => Builder -> LLVM.Value -> (LLVM.Value -> m a) -> m a
+withPtrVal builder ptrVal runFunc = do
+    val <- liftIO $ buildLoad builder ptrVal "derefVal"
+    runFunc val
 
 addParamAttributes :: LLVM.Value -> [Attribute] -> IO LLVM.Value
 addParamAttributes v attrs = mapM_ (addAttribute v) attrs >> return v

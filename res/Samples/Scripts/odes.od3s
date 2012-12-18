@@ -2,7 +2,7 @@
 //:show modState
 
 // sim backend params
-:solver "euler"
+:solver "rk4"
 // linker - dynamic, static
 :linker "dynamic"
 // disable exe
@@ -19,7 +19,7 @@
 //:vecMath
 :mathLib "gnu"
 // backend to use - interpreter, jitcompiler, aotcompiler, obj, cvode
-:backend "interpreter"
+:backend "aotcompiler"
 
 // setup the repo
 :addRepo ../res/Samples/repo
@@ -36,7 +36,7 @@ import SimTests.Odes.*
 :period 1
 :output "./output_Ode1.bin"
 //:simulate Ode1
-:simulate Ode1b
+//:simulate Ode1b
 
 
 :output "./output_Ode2.bin"
@@ -56,7 +56,7 @@ import SimTests.Odes.*
 :timestep 0.03125
 :period 0.03125
 :output "./output_PredPrey.bin"
-//:simulate PredPreyNoUnits
+:simulate PredPreyNoUnits
 
 // all done
 :quit

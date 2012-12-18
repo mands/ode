@@ -8,14 +8,14 @@
 -- Stability   :  alpha
 -- Portability :
 --
--- |
+-- | The main interface to the internal and external solvers
 --
 -----------------------------------------------------------------------------
 
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Subsystem.Simulation.JITCompiler.JITSolver (
-genModelSolver, genSSASolver, genAOTMain, genFFIParams, genFFIModelInitials, genFFIModelRHS
+genDiffSolver, genSSASolver, genAOTMain, genFFIParams, genFFIModelInitials, genFFIModelRHS
 ) where
 
 -- Labels
@@ -52,6 +52,7 @@ import AST.CoreFlat as CF
 import Subsystem.Simulation.Common
 import Subsystem.Simulation.JITCompiler.JITCommon
 import Subsystem.Simulation.JITCompiler.JITModel
+import Subsystem.Simulation.JITCompiler.JITDiffSolvers
 
 
 -- Code Generation -----------------------------------------------------------------------------------------------------
@@ -108,29 +109,28 @@ genFFIParams numParams simType = do
 
 
 -- | C-compatible wrapper for the initial values function
-genFFIModelInitials :: LLVM.Value -> Int -> GenM ()
-genFFIModelInitials initsF numParams = do
+genFFIModelInitials :: CF.Module -> GenM ()
+genFFIModelInitials CF.Module{initVals} = do
     (curFunc, builder) <- genFunction "OdeModelInitials" voidType createArgsList
     liftIO $ setFuncParam curFunc 1 [NoAliasAttribute, NoCaptureAttribute]
 
     (curTimeVal : stateArrayRef : []) <- liftIO $ LLVM.getParams curFunc
 
-    -- use GEP to build list of ptrs into stateVals array, can pass direct into modelInits
-    args <- liftIO $ forM [0..(numParams-1)] $ \idx ->
-        buildInBoundsGEP builder stateArrayRef [constInt64 0, constInt64 idx] "stateValRef"
+    -- build the LocalMap and gen the initial vals
+    stateRefMap <- foldM (buildArrayRefMap builder stateArrayRef) Map.empty (zip (Map.keys initVals) [0..])
+    genModelInitials initVals stateRefMap
 
-    -- call the internal inits functions
-    liftIO $ buildCall builder initsF (curTimeVal : args ) ""
     liftIO $ buildRetVoid builder
     return ()
   where
+    numParams = Map.size initVals
     -- create the input args
     createArgsList = [doubleType, pointerType (arrayType doubleType (fromIntegral numParams)) 0]
 
 
 -- | C-compatible wrapper for the RHS function
-genFFIModelRHS :: LLVM.Value -> Int -> CF.SimType -> GenM ()
-genFFIModelRHS rhsF numParams simType = do
+genFFIModelRHS :: CF.Module -> GenM ()
+genFFIModelRHS CF.Module{..} = do
     (curFunc, builder) <- genFunction "OdeModelRHS" voidType createArgsList
     liftIO $ setFuncParam curFunc 1 [NoAliasAttribute, NoCaptureAttribute]
     liftIO $ setFuncParam curFunc 2 [NoAliasAttribute, NoCaptureAttribute]
@@ -139,236 +139,40 @@ genFFIModelRHS rhsF numParams simType = do
     (curTimeVal : stateArrayRef : deltaArrayRef : weinerArrayRef : []) <- liftIO $ LLVM.getParams curFunc
 
     -- use GEP to build list of ptrs into stateVals array, need to deref each one
-    stateArgs <- liftIO $ forM [0..arraySize] $ \idx -> do
-        stateRef <- buildInBoundsGEP builder stateArrayRef [constInt64 0, constInt64 idx] "stateValRef"
-        buildLoad builder stateRef "stateVal"
+    stateRefMap <- foldM (buildArrayRefMap builder stateArrayRef) Map.empty (zip (Map.keys initVals) [0..])
+    deltaRefMap <- foldM (buildArrayRefMap builder deltaArrayRef) Map.empty (zip (Map.keys initVals) [0..])
+    weinerRefMap <-  if simType == CF.SimSDE
+                          then foldM (buildArrayRefMap builder weinerArrayRef) Map.empty (zip (Map.keys initVals) [0..])
+                          else return Map.empty
 
-    -- use GEP to build list of ptrs into deltaVals array, can pass direct into modelLoop
-    deltaArgs <- liftIO $ forM [0..arraySize] $ \idx ->
-        buildInBoundsGEP builder deltaArrayRef [constInt64 0, constInt64 idx] "deltaValRef"
+    -- gen the rhs code
+    genModelRHS loopExprs simOps curTimeVal stateRefMap deltaRefMap weinerRefMap
 
-    -- use GEP to build list of ptrs into weinerVals array, can pass direct into modelLoop
-    weinerArgs <- if simType == CF.SimSDE
-                    then liftIO $ forM [0..arraySize] $ \idx ->
-                        buildInBoundsGEP builder weinerArrayRef [constInt64 0, constInt64 idx] "weinerValRef"
-                    else return []
-
-    -- call the internal inits functions
-    liftIO $ buildCall builder rhsF (curTimeVal : stateArgs ++ deltaArgs ++ weinerArgs) ""
     liftIO $ buildRetVoid builder
     return ()
   where
-    arraySize = numParams - 1
+    numParams = Map.size initVals
     -- create the input args
     createArgsList = [doubleType, pointerType (arrayType doubleType (fromIntegral numParams)) 0
                                 , pointerType (arrayType doubleType (fromIntegral numParams)) 0
                                 , pointerType (arrayType doubleType (fromIntegral numParams)) 0]
 
-
--- Solvers -------------------------------------------------------------------------------------------------------------
-
--- A solver class for abstracting over the differing code-gen requriements for Odes/Sdes
-class OdeSolver a where
-    genVals :: [Id] -> GenM a
-    genSolver :: a -> LLVM.Value -> LLVM.Value -> [SimOps] -> GenM ()
-    getStateVals :: a -> ParamMap
-
--- Existential wrapper for solver
-data Solver :: * where
-    MkSolver :: OdeSolver a => a -> Solver
-
-instance OdeSolver Solver where
-    genVals ids = genVals ids
-    genSolver (MkSolver s) rhsF curTimeRef = genSolver s rhsF curTimeRef
-    getStateVals (MkSolver s) = getStateVals s
+-- use GEP to build list of ptrs into stateVals array, can pass direct into modelInits
+buildArrayRefMap builder stateArrayRef refMap (initVal, idx) = liftIO $ do
+    ref <- buildInBoundsGEP builder stateArrayRef [constInt64 0, constInt64 idx] "valRef"
+    return $ Map.insert initVal ref refMap
 
 
--- Euler Solver --------------------------------------------------------------------------------------------------------
+-- Internal Solver Interfaces -------------------------------------------------------------------------------------------
 
-data EulerSolver = EulerSolver  { eulerStateVals :: ParamMap
-                                , eulerDeltaVals :: ParamMap}
-
-
-instance OdeSolver EulerSolver where
-    genVals ids = do    -- create the vals
-        stateValRefMap <- createVals ids "StateRef"
-        deltaValRefMap <- createVals ids "DeltaRef"
-        return $ EulerSolver stateValRefMap deltaValRefMap
-
-    getStateVals e = eulerStateVals e
-
-    genSolver (EulerSolver stateValRefMap deltaValRefMap) rhsF curTimeRef simOps = do
-        GenState {builder, curFunc, simParams} <- get
-        -- call the modelRHS func
-        stateVals <- mapM (\v -> liftIO $ buildLoad builder v "odeValx") $ OrdMap.elems stateValRefMap
-        _ <- liftIO $ withPtrVal builder curTimeRef $ \curTime -> do
-            buildCall builder rhsF (curTime : stateVals  ++ OrdMap.elems deltaValRefMap) ""
-
-        -- update the states/run the forward euler
-        liftIO $ mapM_ (updateState builder simParams) simOps
-
-      where
-        updateState :: Builder -> Sys.SimParams -> SimOps -> IO ()
-        updateState builder simParams (Ode i dV) = do
-            -- get state val
-            updatePtrVal builder (stateValRefMap OrdMap.! i) $ \stateVal -> do
-                withPtrVal builder (deltaValRefMap OrdMap.! i) $ \dVal -> do
-                    -- y' = y + h*dy
-                    dValTime <- buildFMul builder dVal (constDouble $ L.get Sys.lTimestep simParams) "deltaTime"
-                    buildFAdd builder stateVal dValTime "newState"
-
-
-
--- Euler Maruyama (SDE) Solver --------------------------------------------------------------------------------------------------------
-
-data EulerMSolver = EulerMSolver    { eulerMStateVals :: ParamMap
-                                    , eulerMDeltaVals :: ParamMap
-                                    , eulerMWeinerVals :: ParamMap
-                                    }
-
-
-instance OdeSolver EulerMSolver where
-    genVals ids = do    -- create the vals
-        stateValRefMap  <- createVals ids "StateRef"
-        deltaValRefMap  <- createVals ids "DeltaRef"
-        weinerValRefMap <- createVals ids "WeinerRef"
-        return $ EulerMSolver stateValRefMap deltaValRefMap weinerValRefMap
-
-    getStateVals e = eulerMStateVals e
-
-    genSolver (EulerMSolver stateValRefMap deltaValRefMap weinerValRefMap) rhsF curTimeRef simOps = do
-        GenState {builder, curFunc, simParams, libOps} <- get
-        -- call the modelRHS func
-        stateVals <- mapM (\v -> liftIO $ buildLoad builder v "odeValx") $ OrdMap.elems stateValRefMap
-        _ <- liftIO $ withPtrVal builder curTimeRef $ \curTime -> do
-            buildCall builder rhsF (curTime : stateVals  ++ OrdMap.elems deltaValRefMap ++ OrdMap.elems weinerValRefMap) ""
-
-        -- update the states/run the forward euler
-        liftIO $ mapM_ (updateState builder simParams libOps) simOps
-
-      where
-        updateState :: Builder -> Sys.SimParams -> LibOps -> SimOps -> IO ()
-        updateState builder simParams _ (Ode i _) = do
-            -- get state val
-            updatePtrVal builder (stateValRefMap OrdMap.! i) $ \stateVal -> do
-                withPtrVal builder (deltaValRefMap OrdMap.! i) $ \dVal -> do
-                    -- y' = y + h*dy
-                    dValTime <- buildFMul builder dVal (constDouble $ L.get Sys.lTimestep simParams) "deltaTime"
-                    buildFAdd builder stateVal dValTime "newState"
-
-        updateState builder simParams libOps (Sde i _ _) = do
-            -- get state val
-            updatePtrVal builder (stateValRefMap OrdMap.! i) $ \stateVal -> do
-                withPtrVal builder (weinerValRefMap OrdMap.! i) $ \wVal -> do
-                    withPtrVal builder (deltaValRefMap OrdMap.! i) $ \dVal -> do
-                        -- y' = y + h*dy + dW*sqrt(dt)*rand(0,1)
-                        randVal <- buildCall builder (libOps Map.! "OdeRandNormal") [] ""
-                        weiner1 <- buildFMul builder randVal (constDouble . sqrt $ L.get Sys.lTimestep simParams) "weiner1"
-                        weiner2 <- buildFMul builder weiner1 wVal "weiner2"
-                        delta1 <- buildFMul builder dVal (constDouble $ L.get Sys.lTimestep simParams) "delta1"
-                        state1 <- buildFAdd builder weiner2 delta1 "state1"
-                        buildFAdd builder stateVal state1 "state2"
-
--- RK4 Solver ----------------------------------------------------------------------------------------------------------
-
-data RK4Solver = RK4Solver  { rk4StateVals :: ParamMap, rk4Delta1Vals :: ParamMap, rk4Delta2Vals :: ParamMap
-                            , rk4Delta3Vals :: ParamMap, rk4Delta4Vals :: ParamMap}
-
-instance OdeSolver RK4Solver where
-    genVals ids = do    -- create the vals
-        stateValRefMap <- createVals ids "StateRef"
-        deltaVal1RefMap <- createVals ids "DeltaRef1"
-        deltaVal2RefMap <- createVals ids "DeltaRef2"
-        deltaVal3RefMap <- createVals ids "DeltaRef3"
-        deltaVal4RefMap <- createVals ids "DeltaRef4"
-        return $ RK4Solver stateValRefMap deltaVal1RefMap deltaVal2RefMap deltaVal3RefMap deltaVal4RefMap
-
-    getStateVals e = rk4StateVals e
-
-    -- TODO - we can reuse the same deltaVals for each step, as the final staate fot the step is held within kStates
-    genSolver (RK4Solver stateValRefMap deltaVal1RefMap deltaVal2RefMap deltaVal3RefMap deltaVal4RefMap) rhsF curTimeRef simOps = do
-        GenState {builder, curFunc, simParams} <- get
-
-        -- deref the state vals and time - these are static during main RK4 body
-        stateVals <- mapM (\ref -> liftIO $ buildLoad builder ref "stateVal") $ OrdMap.elems stateValRefMap
-
-        -- time constants
-        let h = constDouble $ L.get Sys.lTimestep simParams
-        let hHalf = constFMul h $ constDouble 0.5
-        t <- liftIO $ buildLoad builder curTimeRef "curTime"
-        tPlusHHalf <- liftIO $ buildFAdd builder t hHalf "tPlusHHalf"
-        tPlusH <- liftIO $ buildFAdd builder t h "tPlusH"
-
-        -- GEN K1
-        -- call the modelRHS func manually
-        callRHSF builder t stateVals deltaVal1RefMap
-        k1State <- multByTimeStep builder deltaVal1RefMap h
-
-        -- GEN K2
-        k2State <- genKState builder stateVals k1State deltaVal2RefMap tPlusHHalf h $ \(sv, k1v) -> do
-            i <- buildFMul builder k1v (constDouble 0.5) ""
-            buildFAdd builder sv i "sv"
-
-        -- GEN K3 (same as K2)
-        k3State <- genKState builder stateVals k2State deltaVal3RefMap tPlusHHalf h $ \(sv, k2v) -> do
-            i <- buildFMul builder k2v (constDouble 0.5) ""
-            buildFAdd builder sv i "sv"
-
-        -- GEN K4 (similar to K3)
-        k4State <- genKState builder stateVals k3State deltaVal4RefMap tPlusH h $ \(sv, k3v) -> do
-            buildFAdd builder sv k3v "sv"
-
-        -- update the states/calc avg. dy and adjust y for all SimOps
-        let idMap = Map.fromList $ zip (OrdMap.keys stateValRefMap) [0..]
-        forM_ simOps $ updateState builder k1State k2State k3State k4State idMap
-        return ()
-      where
-        -- | generate each of the k vals for RK4
-        genKState :: Builder -> [Value] -> [Value] -> ParamMap -> Value -> Value -> ((Value, Value) -> IO Value) -> GenM [Value]
-        genKState builder stateVals inKState deltaRefs timeDelta h stateF = do
-            -- generate the modified statevals
-            stateVals' <- liftIO $ forM (zip stateVals inKState) stateF
-            -- call the loop func f(t,y')
-            callRHSF builder timeDelta stateVals' deltaRefs
-            -- k' = h * f(t,y')
-            kState' <- multByTimeStep builder deltaRefs h
-            return kState'
-
-        -- | wrapper to call the acutal model rhs function f(t,y)
-        callRHSF :: Builder -> Value -> [Value] -> ParamMap -> GenM Value
-        callRHSF builder timeVal stateVals deltaValRefMap = liftIO $
-            buildCall builder rhsF (timeVal : stateVals  ++ (OrdMap.elems deltaValRefMap)) ""
-
-        -- | multiply a vector of refs by the timestep, i.e. h*f(t,y)
-        multByTimeStep :: Builder -> ParamMap -> Value -> GenM [Value]
-        multByTimeStep builder deltaValRefMap timeStep = liftIO $ forM (OrdMap.elems deltaValRefMap) $ \deltaRef ->
-            withPtrVal builder deltaRef $ \deltaVal -> buildFMul builder deltaVal timeStep "deltaTime"
-
-        -- | get & updatestate val using RK4 algo for y' = y + 1/6*(k1 + 2*k2 + 2*k3 + k4)
-        updateState :: Builder -> [Value] -> [Value] -> [Value] -> [Value] -> Map.Map Id Int -> SimOps -> GenM ()
-        updateState builder k1State k2State k3State k4State idMap (Ode i dV) = liftIO $
-            updatePtrVal builder (stateValRefMap OrdMap.! i) $ \stateVal -> do
-                let idx = idMap Map.! i
-                -- muls -- TODO - replace muls with adds?
-                kTmpMul <- buildFMul builder (k2State !! idx) (constDouble 2.0) "kTmpMul"
-                kTmpMul1 <- buildFMul builder (k3State !! idx) (constDouble 2.0) "kTmpMul1"
-                -- adds
-                kTmpAdd <- buildFAdd builder (k1State !! idx) kTmpMul "kTmpAdd"
-                kTmpAdd1 <- buildFAdd builder kTmpAdd kTmpMul1 "kTmpAdd1"
-                kTmpAdd2 <- buildFAdd builder (k4State !! idx) kTmpAdd1 "kTmpAdd2"
-                -- update state val
-                kTmpTotal  <- buildFDiv builder kTmpAdd2 (constDouble $ 6.0) "kTmpTotal"
-                buildFAdd builder stateVal kTmpTotal "newState"
-
-
--- | Generate the infrastrcutre for the internal solvers, i.e. constant time-step, explicit solvers,
---  including much of the machinary to setup variables, write to disk, etc.
-genModelSolver :: CF.Module -> LLVM.Value -> LLVM.Value -> GenM LLVM.Value
-genModelSolver CF.Module{..} initsF rhsF = do
+-- | Generate the infrastrcutre for the internal solvers for differntial equations
+-- , i.e. constant time-step, explicit solvers, including much of the machinary to setup variables, write to disk, etc.
+genDiffSolver :: CF.Module -> GenM LLVM.Value
+genDiffSolver odeMod@CF.Module{..} = do
     (curFunc, builder) <- genFunction  "modelSolver" voidType []
     -- need external linkage to generate a aot executable
     liftIO $ setLinkage curFunc ExternalLinkage
-    _ <- liftIO $ addFuncAttributes curFunc [NoUnwindAttribute]-- [NoInlineAttribute, NoUnwindAttribute]
+    _ <- liftIO $ addFuncAttributes curFunc [NoUnwindAttribute] -- ,NoInlineAttribute]
     GenState {libOps, llvmMod, simParams} <- get
     -- call the startSim func
     _ <- liftIO $ buildCall builder (libOps Map.! "OdeInit") [] ""
@@ -386,16 +190,14 @@ genModelSolver CF.Module{..} initsF rhsF = do
     -- create mutable sim params (static sim params embeedded as constants)
     simParamVs@(curPeriodRef, curLoopRef, curTimeRef, outStateArray) <- createSimParams outDataSize
 
-    -- call the init funcs
-    _ <- liftIO $ withPtrVal builder curTimeRef $ \curTime -> do
-        buildCall builder initsF (curTime : OrdMap.elems (getStateVals solver)) ""
-    -- write initial data
-    writeOutData outStateArray curTimeRef $ OrdMap.elems (getStateVals solver)
+    -- setup and write initial data
+    genModelInitials initVals (getStateVals solver)
+    writeOutData outStateArray curTimeRef $ Map.elems (getStateVals solver)
 
     -- create the main solver loop
     doWhileStmt builder curFunc
         -- doBody
-        (\builder ->  createSolverLoopBody rhsF solver simParamVs >> (liftIO $ buildNoOp builder))
+        (\builder ->  createSolverLoopBody solver odeMod simParamVs >> (liftIO $ buildNoOp builder))
         -- doCond
         (\builder _ ->  do
             liftIO $ withPtrVal builder curTimeRef $ \curTime -> do
@@ -412,10 +214,10 @@ genModelSolver CF.Module{..} initsF rhsF = do
     outDataSize = Map.size initVals
 
     -- | Create the main body of the solver loop
-    createSolverLoopBody  :: (OdeSolver a) => LLVM.Value -> a -> (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value) -> GenM ()
-    createSolverLoopBody  rhsF solver (curPeriodRef, curLoopRef, curTimeRef, outStateArray) = do
+    createSolverLoopBody  :: (OdeSolver a) => a -> CF.Module -> (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value) -> GenM ()
+    createSolverLoopBody solver odeMod (curPeriodRef, curLoopRef, curTimeRef, outStateArray) = do
         GenState {builder, curFunc, simParams} <- get
-        let stateValRefMap = getStateVals solver
+        let stateRefMap = getStateVals solver
         -- inc loop counter & calc the time
         liftIO $ updatePtrVal builder curLoopRef (\curLoop -> buildAdd builder curLoop (constInt64 1) "incCurLoop")
         liftIO $ withPtrVal builder curLoopRef $ \ curLoop -> do
@@ -425,7 +227,7 @@ genModelSolver CF.Module{..} initsF rhsF = do
             buildStore builder curTime curTimeRef
 
         -- call the solver
-        genSolver solver rhsF curTimeRef simOps
+        genSolver solver curTimeRef odeMod
 
         bWriteOut <- liftIO $ withPtrVal builder curPeriodRef $ \curPeriod -> do
             buildICmp builder IntEQ curPeriod (constInt64 $ Sys.calcOutputInterval simParams) "bWriteOut"
@@ -434,7 +236,7 @@ genModelSolver CF.Module{..} initsF rhsF = do
         _ <- ifStmt builder curFunc bWriteOut
             -- ifTrue
             (\builder -> do
-                _ <- writeOutData outStateArray curTimeRef $ OrdMap.elems (getStateVals solver)
+                _ <- writeOutData outStateArray curTimeRef $ Map.elems (getStateVals solver)
                 liftIO $ buildStore builder (constInt64 1) curPeriodRef)
             -- ifFalse
             (\builder -> do
@@ -444,11 +246,9 @@ genModelSolver CF.Module{..} initsF rhsF = do
         return ()
 
 
-
--- | Generate the function that calculates the SSA based on the list of RREs
--- modelSolver(void)
-genSSASolver :: CF.Module -> LLVM.Value -> GenM LLVM.Value
-genSSASolver CF.Module{..} initsF = do
+-- | Generate the solver for simulations RREs using the SSA
+genSSASolver :: CF.Module -> GenM LLVM.Value
+genSSASolver CF.Module{..} = do
     (curFunc, builder) <- genFunction  "modelSolver" voidType []
     -- need external linkage to generate a aot executable
     liftIO $ setLinkage curFunc ExternalLinkage
@@ -464,18 +264,15 @@ genSSASolver CF.Module{..} initsF = do
     -- set loopCount to 1
     _ <- liftIO $ buildStore builder (constInt64 1) curLoopRef
 
-    -- create and init state vals
-    stateValRefMap <- createVals (Map.keys initVals) "StateRef"
-    -- call the init funcs
-    _ <- liftIO $ withPtrVal builder curTimeRef $ \curTime -> do
-        buildCall builder initsF (curTime : OrdMap.elems stateValRefMap) ""
-    -- write initial data
-    writeOutData outStateArray curTimeRef $ OrdMap.elems stateValRefMap
+    -- create, setup and write initial data
+    stateRefMap <- createVals (Map.keys initVals) "StateRef"
+    genModelInitials initVals stateRefMap
+    writeOutData outStateArray curTimeRef $ Map.elems stateRefMap
 
-    -- setup init sumprops
+    -- eval expressions and setup init sumprops
+    evalExprs curTimeRef stateRefMap
     sumPropRef <- liftIO $ buildAlloca builder doubleType "sumProp"
-    genExprEval loopExprs stateValRefMap curTimeRef
-    sumPropensities sumPropRef stateValRefMap
+    sumPropensities sumPropRef stateRefMap
 
     -- setup nextOutput val
     nextOutputInitial <- liftIO $ buildFAdd builder (constDouble $ L.get Sys.lStartTime simParams)
@@ -494,7 +291,7 @@ genSSASolver CF.Module{..} initsF = do
                 cond2 <- buildFCmp builder FPOLT curTime (constDouble $ Sys.calcAdjustedStopTime simParams) "bWhileTime"
                 buildAnd builder cond1 cond2 "bAllConds")
         -- whileBody
-        (\builder ->  createSolverLoopBody sumPropRef nextOutputRef stateValRefMap simParamVs >> (liftIO $ buildNoOp builder))
+        (\builder ->  createSolverLoopBody sumPropRef nextOutputRef stateRefMap simParamVs >> (liftIO $ buildNoOp builder))
 
     -- end sim
     _ <- liftIO $ buildCall builder (libOps Map.! "OdeStopSim") [] ""
@@ -520,13 +317,13 @@ genSSASolver CF.Module{..} initsF = do
 
 
     -- | Create the main body of the SSA solver loop
-    createSolverLoopBody  :: LLVM.Value -> LLVM.Value -> ParamMap -> (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value) -> GenM ()
-    createSolverLoopBody  sumPropRef nextOutputRef stateValRefMap (curPeriodRef, curLoopRef, curTimeRef, outStateArray) = do
+    createSolverLoopBody  :: LLVM.Value -> LLVM.Value -> LocalMap -> (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value) -> GenM ()
+    createSolverLoopBody  sumPropRef nextOutputRef stateRefMap (curPeriodRef, curLoopRef, curTimeRef, outStateArray) = do
         GenState {builder, curFunc, simParams} <- get
         tau <- chooseTimestep sumPropRef
 
         -- choose and trigger reaction
-        chooseTriggerReaction sumPropRef stateValRefMap
+        chooseTriggerReaction sumPropRef stateRefMap
 
         -- update time
         liftIO $ updatePtrVal builder curTimeRef $ \curTime ->
@@ -549,15 +346,15 @@ genSSASolver CF.Module{..} initsF = do
                         buildFMul builder curLoop'' (constDouble $ L.get Sys.lOutputPeriod simParams) "nextOutput"
                     return curLoop'
                 -- write data
-                writeOutData outStateArray curTimeRef $ OrdMap.elems stateValRefMap
+                writeOutData outStateArray curTimeRef $ Map.elems stateRefMap
                 liftIO $ buildNoOp builder)
             -- ifFalse
             (\builder -> liftIO $ buildNoOp builder)
 
         -- run the loop exprs (for dyn rate values)
-        genExprEval loopExprs stateValRefMap curTimeRef
+        evalExprs curTimeRef stateRefMap
         -- update sumprops
-        sumPropensities sumPropRef stateValRefMap
+        sumPropensities sumPropRef stateRefMap
 
         return ()
 
@@ -573,7 +370,7 @@ genSSASolver CF.Module{..} initsF = do
             buildFMul builder ts4 ts2 "tau"
 
     -- | we choose and trigger the reaction in a single block of code as is easier, already have access to the params within the bb
-    chooseTriggerReaction :: LLVM.Value -> ParamMap -> GenM ()
+    chooseTriggerReaction :: LLVM.Value -> LocalMap -> GenM ()
     chooseTriggerReaction sumPropRef stateValsRefMap = do
         GenState {builder, libOps, curFunc} <- get
 
@@ -616,7 +413,7 @@ genSSASolver CF.Module{..} initsF = do
                         else checkTrigger builder curFunc endProp endBB curProp' nextBB simOps
               where
                 updatePop fOp (i, vId) = liftIO $ do
-                    updatePtrVal builder (stateValsRefMap OrdMap.! vId) $ \v ->
+                    updatePtrVal builder (stateValsRefMap Map.! vId) $ \v ->
                         fOp builder v (constDouble . fromIntegral $ i) "updatePop"
                 lastOp = null simOps
 
@@ -624,7 +421,7 @@ genSSASolver CF.Module{..} initsF = do
         checkTrigger builder curFunc endProp endBB curProp nextBB (op:simOps) = checkTrigger builder curFunc endProp endBB curProp nextBB simOps
 
     -- | Iterate over the RREs and both calculate the props and sum them up
-    sumPropensities :: LLVM.Value -> ParamMap -> GenM (LLVM.Value)
+    sumPropensities :: LLVM.Value -> LocalMap -> GenM (LLVM.Value)
     sumPropensities sumPropRef stateValsRefMap = do
         GenState {builder, simParams, llvmMod} <- get
         (Just sumProp) <- DF.foldlM (sumPropensities' builder) Nothing simOps'
@@ -637,7 +434,7 @@ genSSASolver CF.Module{..} initsF = do
                 Nothing  -> return $ Just reactionProp
 
     -- | calculate the propensity of a given reaction
-    calcPropensity :: Builder -> ParamMap -> SimOps -> GenM (LLVM.Value)
+    calcPropensity :: Builder -> LocalMap -> SimOps -> GenM (LLVM.Value)
     calcPropensity builder stateValsRefMap (CF.Rre srcs _ (VarRef rateId)) = do
         (Just reactionProp) <- liftIO $ DF.foldlM calcSrcPop Nothing srcs
         rateVal <- lookupId rateId
@@ -645,22 +442,19 @@ genSSASolver CF.Module{..} initsF = do
       where
         calcSrcPop mCurProp (i, vId) = do
             -- load the val
-            v <- buildLoad builder (stateValsRefMap OrdMap.! vId) "loadPop"
+            v <- buildLoad builder (stateValsRefMap Map.! vId) "loadPop"
             mulStoc <- buildFMul builder (constDouble . fromIntegral $ i) v "mulStoc"
             case mCurProp of
                 Just curProp -> Just <$> buildFMul builder mulStoc curProp "mulProp"
                 Nothing  -> return $ Just mulStoc
 
--- | create the global variables - to hold STATE and DELTA
-createVals :: [Id] -> String -> GenM ParamMap
-createVals ids suffix = foldM createVal OrdMap.empty ids
-  where
-    createVal idMap i = do
-        GenState {builder, llvmMod} <- get
-        llV <- liftIO $ addGlobalWithInit llvmMod (constDouble 0.0) doubleType False (getName i)
-        liftIO $ setLinkage llV PrivateLinkage
-        return $ OrdMap.insert i llV idMap
-    getName i = (getValidIdName i) ++ suffix
+    evalExprs :: LLVM.Value -> LocalMap -> GenM ()
+    evalExprs curTimeRef stateRefMap = do
+        GenState {builder} <- get
+        stateValMap <- loadRefMap stateRefMap
+        withPtrVal builder curTimeRef $ \curTimeVal -> do
+            genExprEval loopExprs curTimeVal stateValMap
+
 
 -- | create most (mutable) sim params
 createSimParams :: Int -> GenM (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value)
@@ -678,12 +472,13 @@ createSimParams outDataSize = do
     liftIO $ mapM_ (\v -> setLinkage v PrivateLinkage) [curPeriodRef, curLoopRef, curTimeRef, outStateArray]
     return (curPeriodRef, curLoopRef, curTimeRef, outStateArray)
 
+
 -- | Write the current time and STATE to disk
 writeOutData :: LLVM.Value -> LLVM.Value -> [LLVM.Value] -> GenM ()
-writeOutData outStateArray curTimeRef stateValRefs = do
+writeOutData outStateArray curTimeRef stateRefs = do
     GenState {builder, libOps} <- get
     -- fill the state array
-    forM_ (zip [0..] stateValRefs) $ \(i, ptrVal) -> liftIO $ do
+    forM_ (zip [0..] stateRefs) $ \(i, ptrVal) -> liftIO $ do
         outV <- buildInBoundsGEP builder outStateArray [constInt64 0, constInt64 i] $ "stateArrayPtr" ++ (show i)
         withPtrVal builder ptrVal $ \loadV -> liftIO $ buildStore builder loadV outV
     -- write to output func

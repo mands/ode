@@ -92,32 +92,26 @@ genLLVMModule p odeMod = do
     (mathOps, libOps) <- liftIO $ defineExtOps p llvmMod
     modify (\st -> st { llvmMod, mathOps, libOps })
 
-    -- generate & insert the low-level funcs into the module
-    initsF <-   genModelInitials odeMod
-
     if (CF.simType odeMod == CF.SimRRE)
         then do
-            simF <- genSSASolver odeMod initsF
+            simF <- genSSASolver odeMod
             when (L.get Sys.lBackend p == Sys.AOTCompiler) $ genAOTMain simF
         else do
-            -- TODO - only gen rhsF for ODE and SDE models
-            rhsF <-    genModelRHS odeMod
-
             -- modify the module depedning on the chosen backend and solver
             if (L.get Sys.lBackend p == Sys.ObjectFile)
-                then genFFI initsF rhsF
+                then genFFI
                 else case (L.get Sys.lSolver p) of
                     Sys.Adaptive    -> do
                         -- generate the FFI for linking to C-based CVODE solver
-                        genFFI initsF rhsF
+                        genFFI
                         -- declare the modelSolver func entry-point
                         simF <- liftIO $ addFunction llvmMod "modelSolver" (functionType voidType [] False)
                         -- gen a main func if AOT-compiling
                         when (L.get Sys.lBackend p == Sys.AOTCompiler) $ genAOTMain simF
 
-                    -- default - built-in solvers - euler & rk4
+                    -- default - built-in solvers - euler, eulerM, rk4
                     _               -> do
-                        simF <- genModelSolver odeMod initsF rhsF
+                        simF <- genDiffSolver odeMod
                         -- gen a main func if AOT-compiling
                         when (L.get Sys.lBackend p == Sys.AOTCompiler) $ genAOTMain simF
                         return ()
@@ -131,12 +125,12 @@ genLLVMModule p odeMod = do
     return ()
   where
     -- generate the C-interface, wrappers and static values to be used when linking to external/C-solver
-    genFFI :: LLVM.Value -> LLVM.Value -> GenM ()
-    genFFI initsF rhsF = do
+    genFFI :: GenM ()
+    genFFI = do
         let numParams = Map.size $ initVals odeMod
         genFFIParams numParams (simType odeMod)
-        genFFIModelInitials initsF numParams
-        genFFIModelRHS rhsF numParams (simType odeMod)
+        genFFIModelInitials odeMod
+        genFFIModelRHS odeMod
 
 -- | Load our compiled module and run a simulation
 runJITSimulation :: Sys.SimParams -> IO ()
