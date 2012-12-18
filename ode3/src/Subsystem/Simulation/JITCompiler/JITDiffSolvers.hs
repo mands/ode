@@ -12,8 +12,9 @@
 --
 -----------------------------------------------------------------------------
 
-module Subsystem.Simulation.JITCompiler.JITDiffSolvers
-where
+module Subsystem.Simulation.JITCompiler.JITDiffSolvers (
+OdeSolver(..), Solver(..), EulerSolver, EulerMSolver, RK4Solver
+) where
 
 -- Labels
 import Control.Category

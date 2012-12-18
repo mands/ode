@@ -160,22 +160,22 @@ runSSA m@Module{..} p time curLoop = do
             let curProp' = curProp + p
             if curProp' > endProp then return (curProp', Just r) else return (curProp', Nothing)
 
-    triggerReaction (Rre srcs dests _) = do
-        mapM_ (changePop (-)) srcs
-        mapM_ (changePop (+)) dests
+    triggerReaction (Rre srcs dests _) = mapM_ decPop srcs >> mapM_ incPop dests
       where
-        changePop op (stoc, v) = modify $ \st -> do
+        decPop (_, v) = modify $ \st -> do
             let (Num n) = (_stateEnv st) Map.! v
-            let n' = op n (fromIntegral stoc)
-            st { _stateEnv = Map.insert v (Num n') (_stateEnv st) }
+            st { _stateEnv = Map.insert v (Num $ n - 1) (_stateEnv st) }
+        incPop (stoc, v) = modify $ \st -> do
+            let (Num n) = (_stateEnv st) Map.! v
+            st { _stateEnv = Map.insert v (Num $ n + fromIntegral stoc) (_stateEnv st) }
 
     sumPropensitities :: SimM Double
     sumPropensitities = sum <$> mapM calcPropensity reactions
 
-    -- does this not take into account the stoc of the srcs?
+    -- does this not take into account the stoc of the srcs? no - only elementary reaction allowed
     calcPropensity (Rre srcs _ vR) = do
         s <- _stateEnv <$> get
-        let srcPops = map (\(i, v) -> let (Num n) = s Map.! v in n * fromIntegral i) srcs
+        let srcPops = map (\(_, v) -> let (Num n) = s Map.! v in n) srcs
         -- get the calc expression rate
         (Num rate) <-  simVar vR
         return $ (product srcPops) * rate

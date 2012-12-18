@@ -403,18 +403,21 @@ genSSASolver CF.Module{..} = do
                             buildCondBr builder cmpProp triggerBB nextBB
                             return nextBB
 
-            -- build triggerbb - actually trigger the reaction
+            -- build triggerbb - actually trigger the reaction and update populations
             liftIO $ positionAtEnd builder triggerBB
-            mapM_ (updatePop buildFSub) srcs
-            mapM_ (updatePop buildFAdd) dests
+            mapM_ decPop srcs
+            mapM_ incPop dests
             liftIO $ buildBr builder endBB -- we're done, jump to the endBB
 
             if lastOp   then return ()
                         else checkTrigger builder curFunc endProp endBB curProp' nextBB simOps
               where
-                updatePop fOp (i, vId) = liftIO $ do
+                decPop (_, vId) = liftIO $ do
                     updatePtrVal builder (stateValsRefMap Map.! vId) $ \v ->
-                        fOp builder v (constDouble . fromIntegral $ i) "updatePop"
+                        buildFSub builder v (constDouble 1) "decPop"
+                incPop (i, vId) = liftIO $ do
+                    updatePtrVal builder (stateValsRefMap Map.! vId) $ \v ->
+                        buildFAdd builder v (constDouble . fromIntegral $ i) "incPop"
                 lastOp = null simOps
 
         -- non-rre sim op - ignore
@@ -433,20 +436,19 @@ genSSASolver CF.Module{..} = do
                 Just curSum -> liftIO $ Just <$> buildFAdd builder reactionProp curSum "sumProp"
                 Nothing  -> return $ Just reactionProp
 
-    -- | calculate the propensity of a given reaction
+    -- | calculate the propensity of a given reaction - only consider elementary reactions
     calcPropensity :: Builder -> LocalMap -> SimOps -> GenM (LLVM.Value)
-    calcPropensity builder stateValsRefMap (CF.Rre srcs _ (VarRef rateId)) = do
-        (Just reactionProp) <- liftIO $ DF.foldlM calcSrcPop Nothing srcs
+    calcPropensity builder stateValsRefMap (CF.Rre ((_, src1Id):[]) _ (VarRef rateId)) = do
+        src1Pop <- liftIO $ buildLoad builder (stateValsRefMap Map.! src1Id) "src1Pop"
         rateVal <- lookupId rateId
-        liftIO $ buildFMul builder reactionProp rateVal "prop"
-      where
-        calcSrcPop mCurProp (i, vId) = do
-            -- load the val
-            v <- buildLoad builder (stateValsRefMap Map.! vId) "loadPop"
-            mulStoc <- buildFMul builder (constDouble . fromIntegral $ i) v "mulStoc"
-            case mCurProp of
-                Just curProp -> Just <$> buildFMul builder mulStoc curProp "mulProp"
-                Nothing  -> return $ Just mulStoc
+        liftIO $ buildFMul builder src1Pop rateVal "prop"
+
+    calcPropensity builder stateValsRefMap (CF.Rre ((_, src1Id):(_, src2Id):[]) _ (VarRef rateId)) = do
+        src1Pop <- liftIO $ buildLoad builder (stateValsRefMap Map.! src1Id) "src1Pop"
+        src2Pop <- liftIO $ buildLoad builder (stateValsRefMap Map.! src2Id) "src2Pop"
+        prop1 <- liftIO $ buildFMul builder src1Pop src2Pop "prop1"
+        rateVal <- lookupId rateId
+        liftIO $ buildFMul builder prop1 rateVal "prop2"
 
     evalExprs :: LLVM.Value -> LocalMap -> GenM ()
     evalExprs curTimeRef stateRefMap = do
