@@ -1,12 +1,13 @@
 // disable unit checking
-//:disableUnits
+:disableUnits
 
 // setup the repo
 :addRepo ../res/Samples/repo
 
 // import our modules
-import SyntaxTests.Ops.*
+//import SyntaxTests.Ops.*
 //import UnitsTests.UnitsOps.*
+import SyntaxTests.AdvancedFeatures.*
 
 // :show all
 :show modState
@@ -46,7 +47,7 @@ import SyntaxTests.Ops.*
 :maxTimestep 2
 
 // all done
-:simulate OtherOps 
+:simulate Adv7f 
 //Div8
 :quit
 

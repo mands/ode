@@ -35,7 +35,7 @@ import SimTests.Rres.*
 :timestep 0.001
 :period 0.1
 :output "./output_Rre1.bin"
-:simulate Rre1b
+:simulate Rre1
 
 :period 0.001
 :stopTime 100

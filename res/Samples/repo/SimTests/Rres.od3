@@ -5,15 +5,25 @@ module Rre1 {
     rre { rate: 0.5 } = x -> z
 }
 
-// basic rre
+// basic rre - test module init vals
 module Rre1a {
+    init x = 1000
+}
+module Rre1b {
+    import SimTests.Rres.Rre1a as A
+    init z = 0
+    rre { rate: 0.5 } = A.x -> z
+}
+
+// basic rre - test dyn rate exprs
+module Rre1c {
     init x = 1000
     init z = 0
     rre { rate: ((time + 0.0001) / (time + 0.0001)) * 0.5 } = x -> z
 }
 
-// basic rre
-module Rre1b {
+// basic rre - test dyn rate exprs
+module Rre1d {
     init x = 1000
     init z = 0
     rre { rate: ((x + 0.0001) / (x + 0.0001)) * 0.5 } = x -> z

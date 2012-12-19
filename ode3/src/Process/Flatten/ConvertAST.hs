@@ -67,7 +67,7 @@ convertAST (LitMod modData, initMap) = do
     -- determine if this module may be simulated and the mechanism to use
     getSimType simOps = if isRREOnly then return ACF.SimRRE else
                             if hasRREs
-                                then throwError $ "Model currently can not have a mix of RREs and SDEs/ODEs"
+                                then throwError $ "(SM04) Model currently can not have a mix of RREs and SDEs/ODEs"
                                 else if hasSDEs then return ACF.SimSDE else return ACF.SimODE
       where
         hasODEs = any (\op -> case op of ACF.Ode _ _ -> True;_ -> False) simOps

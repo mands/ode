@@ -33,19 +33,19 @@ import qualified Subsystem.SysState as Sys
 import qualified AST.Core as AC
 import AST.Common as ACO
 import AST.Module
-import AST.CoreFlat (InitMap)
+import AST.CoreFlat (InitMap, SimType(..))
 
 -- Types ---------------------------------------------------------------------------------------------------------------
 -- Same monad as renamer
 type InitM = StateT InitState MExcept
 type InitEnv = Map.Map Id (AC.Expr Id)
 
-data InitState = InitState { initMap :: InitMap, startTime :: Double } deriving (Show, Eq)
+data InitState = InitState { initMap :: InitMap, startTime :: Double, initCheck :: Map.Map Id (Maybe SimType) } deriving (Show, Eq)
 
 -- Entry Point ---------------------------------------------------------------------------------------------------------
 initialValueGen :: Sys.SimParams -> Module Id -> MExcept (Module Id, InitMap)
 initialValueGen p mod@(LitMod modData) = do
-    (env', st) <- runStateT initGenM $ InitState Map.empty (Sys._startTime p)
+    (env', st) <- runStateT initGenM $ InitState Map.empty (Sys._startTime p) Map.empty
     trace' [MkSB st] "Flatten - Calculated init vals" $ return ()
     return (mod, (initMap st))
   where
@@ -122,20 +122,26 @@ initIntExpr e@(AC.Record nEs) env = do
 -- SimOps
 -- should check that these actual reference svals, and are refereced correctly (i.e once per ode/sde)
 -- Odes
-initIntExpr e@(AC.Ode (AC.LocalVar v) e1) env = do
+initIntExpr e@(AC.Ode vId e1) env = do
     (e1', _) <- initIntExpr e1 env
+    checkSimOp vId SimODE
     return (e1', env)
 
 -- Sdes - only return the delta expr
-initIntExpr e@(AC.Sde (AC.LocalVar v) eW eD) env = do
+initIntExpr e@(AC.Sde vId eW eD) env = do
     (eW', _) <- initIntExpr eW env
     (eD', _) <- initIntExpr eD env
+    checkSimOp vId SimSDE
     return (eD', env)
 
 -- Rres - initInt the rate Expr, return unit
-initIntExpr e@(AC.Rre _ _ eR) env = do
+initIntExpr e@(AC.Rre srcs dests eR) env = do
     (eR', _) <- initIntExpr eR env
+    mapM checkRreOp srcs >> mapM checkRreOp dests
     return (e, env)
+  where
+    checkRreOp (i, vId) = checkSimOp vId SimRRE
+
 
 initIntExpr e env = errorDump [MkSB e, MkSB env] "InitValGen - Cannot interpret expression" assert
 
@@ -150,8 +156,23 @@ lookupVar id env = case (Map.lookup id env) of
                     Just v -> v
                     Nothing ->  errorDump [MkSB id, MkSB env] "InitValGen - Cannot find value in environment" assert
 
+-- | Insert both the evaluated initval into the initmap, and ack it's existance in initCheck
 insertInit :: Id -> Double -> InitM ()
-insertInit id v = modify (\st -> st { initMap = Map.insert id v (initMap st) })
+insertInit id v = modify (\st -> st { initMap = Map.insert id v (initMap st), initCheck = Map.insert id Nothing (initCheck st) })
+
+-- | checks that a simOp is used correctly wrt it's init val
+-- we don't even need init vals, could just lift initvals during this pass, but still
+checkSimOp :: AC.VarId Id -> SimType -> InitM ()
+checkSimOp (AC.LocalVar v) simOp = do
+    -- check the var is an init val
+    InitState{initCheck = i} <- get
+
+    case Map.lookup v i of
+        Nothing         -> throwError $ printf "(SM03) Value %s, referenced by simulation operation %s, is not an init/state value" (show v) (show simOp)
+        Just Nothing    -> modify (\st -> st { initCheck = Map.insert v (Just simOp) i } )
+        Just (Just prevOp)  ->   case simOp of
+                                _ | simOp `elem` [ SimODE, SimSDE] ->  throwError $ printf "(SM01) Value %s is already bound to an existing simOp %s" (show v) (show prevOp)
+                                SimRRE  ->   unless (prevOp == SimRRE) $ throwError $ printf "(SM02) Value %s is already bound to an incompatible simOp %s" (show v) (show prevOp)
 
 runOp :: AC.Op -> [AC.Expr Id] -> AC.Expr Id
 runOp op es = case op of
@@ -176,6 +197,7 @@ runOp op es = case op of
     (AC.MathOp ACO.Sin)     -> runOpF_F  (sin) es
     (AC.MathOp ACO.Cos)     -> runOpF_F  (cos) es
     (AC.MathOp ACO.Tan)     -> runOpF_F  (tan) es
+
     -- simOp (AC.MathOp AC.SinCos)   ((Num n1):[])   = Tuple (Num $ sin n1, Num $ cos n2)
 
     (AC.MathOp ACO.ASin)    -> runOpF_F  (asin) es
