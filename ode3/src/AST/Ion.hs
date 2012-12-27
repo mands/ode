@@ -13,10 +13,15 @@
 -----------------------------------------------------------------------------
 
 module AST.Ion (
-IonModel(..), IonChannel(..), StateReaction(..), Id
+IonModel(..), IonChannel(..), StateReaction(..), Id, mkIonChannel
 ) where
 
 import Control.Monad.Error
+import qualified Data.Set as Set
+
+import qualified Data.Graph.Inductive as G
+import Data.Graph.Inductive.Tree
+import qualified Utils.Graph as UG
 
 -- |identifier - is converted later on
 type Id = String
@@ -25,11 +30,19 @@ type Id = String
 type IonModel = [IonChannel]
 
 -- |description of an individual ion channel, containing all relevent information
-data IonChannel = IonChannel {  name :: Id, density :: Double, eqPot :: Double, subunits :: Integer,
-                                initialState :: Id, openStates :: [Id], states :: [StateReaction]}
-                    deriving Show
+-- collection of derived data strcutures to descibe the system, need
+-- * set of all states
+-- * graph describing reactions within system
+-- * stoc matrix
+-- * ...
+data IonChannel = IonChannel    {  name :: Id, species :: Set.Set Id, reactionGraph :: UG.GraphMap Id Double
+                                , density :: Double, eqPot :: Double, subunits :: Integer
+                                , initialState :: Id, openStates :: [Id], states :: [StateReaction]
+                                } deriving Show
 
--- |description of the state-change reaction within an ion-channel
--- we only consider uni-directional reactions for now
-data StateReaction  = StateReaction {stateA :: Id, stateB :: Id, fRate :: Double, rRate :: Double}
-                        deriving Show
+mkIonChannel = IonChannel "" Set.empty UG.mkGraphMap
+
+
+-- |description of the bi-directional state-change reaction within an ion-channel
+data StateReaction  = StateReaction {stateA :: Id, stateB :: Id, fRate :: Double, rRate :: Double} deriving Show
+

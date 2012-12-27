@@ -25,6 +25,9 @@ import System.Log.Handler.Simple
 -- import qualified Data.Text.IO as TIO
 
 import Parser.Ion
+import AST.Ion
+import Process.Ion
+
 import Utils.CommonImports
 
 -- | main entry funtion
@@ -46,7 +49,7 @@ main = do
     debugM "ion.main" $ "Running from " ++ curDir
 
 
-    -- get the file from the args#
+    -- get the file from the args
     argsLen <- length <$> getArgs
     if argsLen /= 1
       then do
@@ -70,11 +73,9 @@ processFile inFile = do
     fileData <- liftIO $ readFile inFile
     liftIO $ putStrLn fileData
 
-    -- parse the file
-    ionAST <- mkExceptIO $ ionParse inFile fileData
-
-    trace' [MkSB ionAST] "Ion AST" $ return ()
-    -- process the file
+    -- parse, process and save the file
+    ionAST <- mkExceptIO $ ionParse inFile fileData >>= processIon
+    trace' [MkSB ionAST] "Final Ion AST" $ return ()
 
     -- save as Ode file
 

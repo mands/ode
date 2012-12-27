@@ -64,4 +64,4 @@ nodeExists n = do
 
 -- | Special insert node that only inserts node if not already present
 -- only needed for Tree-backed DynGraph, but PatriciaTree is okay
-insertNodeM_ n = unlessM (nodeExists n) (NM.insMapNodeM n >> return ())
+insertNodeM_ n = unlessM (nodeExists n) (void $ NM.insMapNodeM n)

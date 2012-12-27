@@ -107,25 +107,24 @@ ionReaction = mkReaction <$> attribDef reactionAttribs
                             <||> attrib "f_rate" number
                             <||> attrib "r_rate" number
 
--- |flexible permutation parser for channel attributes
--- only prob is recording the name, could place into the parser state
-ionChannelBody :: Parser I.IonChannel
-ionChannelBody = permute (I.IonChannel ""
-                            <$$> (attrib "density" number)
-                            <||> (attrib "equilibrium_potential" number)
-                            <||> (attrib "subunits" integer)
-                            <||> (attrib "initial_state" identifier)
-                            <||> (attrib "open_states" (braces (listSep identifier)))
-                            <||> (attrib "states" (braces (listSep ionReaction)))
-                            )
 
 -- |parser for a channel defintion
 -- records the name first and uses record update syntax to update the ionChannelBody parser
+-- NOTE - we can't pass along a curried-constructor to the attrib parser, causes GHC int. error as in Ode Parser
 ionChannelDef :: Parser I.IonChannel
-ionChannelDef = updateName <$> (reserved "channel" *> identifier) <*> braces ionChannelBody
+ionChannelDef = do
+    iName <- reserved "channel" *> identifier
+    ionChannel <- attribDef ionChannelBody
+    return $ (ionChannel { I.name = iName })
   where
-    -- need to update the model with the name, maybe easier to use state or bind name outside the channel
-    updateName n model = model { I.name = n }
+    -- |flexible permutation parser for channel attributes
+    -- only prob is recording the name, could place into the parser state
+    ionChannelBody = I.mkIonChannel       <$$> (attrib "density" number)
+                                        <||> (attrib "equilibrium_potential" number)
+                                        <||> (attrib "subunits" integer)
+                                        <||> (attrib "initial_state" identifier)
+                                        <||> (attrib "open_states" (braces (listSep identifier)))
+                                        <||> (attrib "states" (braces (listSep ionReaction)))
 
 -- |parser top level
 ionTop :: Parser [I.IonChannel]
