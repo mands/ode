@@ -43,9 +43,10 @@
           <keyword>density</keyword>
           <keyword>equilibrium_potential</keyword>
           <keyword>subunits</keyword>
+          <keyword>initial_state</keyword>
           <keyword>open_states</keyword>
           <keyword>states</keyword>
-          <keyword>rate</keyword>
+          <keyword>reaction</keyword>
           <keyword>f_rate</keyword>
           <keyword>r_rate</keyword>
 <!--

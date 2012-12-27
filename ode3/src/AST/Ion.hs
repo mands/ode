@@ -25,11 +25,11 @@ type Id = String
 type IonModel = [IonChannel]
 
 -- |description of an individual ion channel, containing all relevent information
-data IonChannel = IonChannel {  name :: Id, density :: Double, equilibrium_potential :: Double, subunits :: Integer,
-                                open_states :: [Id], states :: [StateReaction]}
-                deriving Show
+data IonChannel = IonChannel {  name :: Id, density :: Double, eqPot :: Double, subunits :: Integer,
+                                initialState :: Id, openStates :: [Id], states :: [StateReaction]}
+                    deriving Show
 
 -- |description of the state-change reaction within an ion-channel
 -- we only consider uni-directional reactions for now
-data StateReaction  = StateReaction {stateA :: Id, stateB :: Id, rate :: Double}
-                    deriving Show
+data StateReaction  = StateReaction {stateA :: Id, stateB :: Id, fRate :: Double, rRate :: Double}
+                        deriving Show

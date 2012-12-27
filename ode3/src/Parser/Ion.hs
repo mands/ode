@@ -19,47 +19,79 @@ module Parser.Ion (
 ) where
 
 import Control.Applicative
-import Text.Parsec hiding (many, optional)
+import Text.Parsec hiding (many, optional, (<|>))
 import Text.Parsec.String
 import Text.Parsec.Expr
-import qualified Text.Parsec.Token as P
-import Text.Parsec.Language( javaStyle )
+import qualified Text.Parsec.Token as T
+import Text.Parsec.Language
 import Text.Parsec.Perm
 
 import Utils.Utils
-import qualified Ion.AST as I
+import qualified AST.Ion as I
 
--- |hijack the javaStyle default definition, gives us a bunch of ready-made parsers
-ionLangDef = javaStyle
-    {
-        -- add more later
-        P.reservedNames = ["channel", "density", "equilibrium_potential", "subunits", "open_states",
-            "states", "rate", "forward_rate", "reverse_rate"],
-        -- unary ops and relational ops?
-        -- do formatting operators count? e.g. :, {, }, ,, etc.
-        P.reservedOpNames = ["->"] --, "<-", "<->", ":", "{", "}", ","]
+-- type Parser = Parsec String ()
+
+-- |Ion Channel parser style
+ionLangDef = emptyDef
+    { T.commentStart    = "/*"
+    , T.commentEnd      = "*/"
+    , T.commentLine     = "//"
+
+    -- reuse the initial identifier parsers
+    -- , T.identStart     = letter <|> char '_'
+    -- , T.identLetter    = alphaNum <|> oneOf "_'"
+
+    -- no user-defined operators
+    , T.opStart = oneOf ""
+    , T.opLetter = oneOf ""
+
+    -- add more later
+    , T.reservedNames = [ "channel", "density", "equilibrium_potential", "subunits", "initial_state", "open_states"
+                        , "states", "reaction", "f_rate", "r_rate"]
+    -- unary ops and relational ops?
+    -- do formatting operators count? e.g. :, {, }, ,, etc.
+    , T.reservedOpNames = ["<->"] --, "<-", "<->", ":", "{", "}", ","]
+
+    -- need case-sens for type and unit declarations
+    , T.caseSensitive = True
     }
 
-lexer :: P.TokenParser ()
-lexer  = P.makeTokenParser ionLangDef
+lexer :: T.TokenParser ()
+lexer  = T.makeTokenParser ionLangDef
 
 -- thankfully, we don't need any expressions in this language
 
 -- For efficiency, we will bind all the used lexical parsers at toplevel.
-whiteSpace  = P.whiteSpace lexer
-natural     = P.natural lexer
-integer     = P.integer lexer
-float      = P.float lexer
-parens      = P.parens lexer
-colon       = P.colon lexer
-comma       = P.comma lexer
-identifier  = P.identifier lexer
-reserved    = P.reserved lexer
-reservedOp  = P.reservedOp lexer
-braces      = P.braces lexer
+whiteSpace  = T.whiteSpace lexer
+natural     = T.natural lexer
+integer     = T.integer lexer
+float       = T.float lexer
+parens      = T.parens lexer
+colon       = T.colon lexer
+comma       = T.comma lexer
+identifier  = T.identifier lexer
+reserved    = T.reserved lexer
+reservedOp  = T.reservedOp lexer
+braces      = T.braces lexer
+
+
+-- | boolean parser, parses a case-sensitive, boolean literal
+boolean :: Parser Bool
+boolean =  reserved "True" *> pure True
+            <|> reserved "False"  *> pure False
+            <?> "boolean"
+
+-- | number parser, parses most formats
+number :: Parser Double
+number =    try float
+            <|> fromIntegral <$> integer
+            <?> "number"
 
 -- |a more flexible list separater, allows optional end comma as needed for permutation lists
 listSep p = sepEndBy1 p comma
+
+-- | Wrapper around our default attribute notation
+attribDef p = braces (permute p)
 
 -- |a parameterised single attribute parser for a given attriibute identifier
 -- TODO - fix the comma separated list of attribute, commaSep?
@@ -68,16 +100,21 @@ attrib res p = reserved res *> colon *> p <* optional comma
 
 -- |parser for a single, unidirectional reaction, e.g. A->B
 ionReaction :: Parser I.StateReaction
-ionReaction = braces (I.StateReaction <$> identifier <*> (reservedOp "->" *> identifier) <*>
-            (comma *> attrib "rate" float))
+ionReaction = mkReaction <$> attribDef reactionAttribs
+  where
+    mkReaction ((a, b), fRate, rRate) = I.StateReaction a b fRate rRate
+    reactionAttribs = (,,)  <$$> attrib "reaction" ((,) <$> identifier <*> (reservedOp "<->" *> identifier))
+                            <||> attrib "f_rate" number
+                            <||> attrib "r_rate" number
 
 -- |flexible permutation parser for channel attributes
 -- only prob is recording the name, could place into the parser state
 ionChannelBody :: Parser I.IonChannel
 ionChannelBody = permute (I.IonChannel ""
-                            <$$> (attrib "density" float)
-                            <||> (attrib "equilibrium_potential" float)
+                            <$$> (attrib "density" number)
+                            <||> (attrib "equilibrium_potential" number)
                             <||> (attrib "subunits" integer)
+                            <||> (attrib "initial_state" identifier)
                             <||> (attrib "open_states" (braces (listSep identifier)))
                             <||> (attrib "states" (braces (listSep ionReaction)))
                             )
@@ -96,7 +133,7 @@ ionTop = whiteSpace *> many1 ionChannelDef <* eof
 
 -- | parses the string and returns the result if sucessful
 -- maybe move into main
--- TODO - switch to bytestring
+-- TODO - switch to bytestring/Data.Text
 ionParse :: FilePath -> String -> MExcept [I.IonChannel]
 ionParse fileName fileData =
     -- do  parseRes <- parseFromFile odeMain fileName

@@ -24,3 +24,20 @@ channel tes {
   }
 }
 // test
+
+// our sample ion channel
+// cool, eh?!
+
+channel potassium {
+  density : 1,
+  equilibrium_potential : 1,
+  subunits : 4,
+  open_states : {A,B,C},
+  states : {
+    {R1 -> R2, rate : 1},
+    {R2 -> R1, rate : 1},
+    {R2 <-> A, f_rate: 1, r_rate : 1},
+  },
+}
+
+
