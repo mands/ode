@@ -110,14 +110,14 @@ dimTerm :: Parser AC.DimVec
 dimTerm = reserved "dim" *> lexeme parseDims
   where
     parseDims :: Parser AC.DimVec
-    parseDims = permute (AC.DimVec <$?> (0, parseDim 'L')
-                                <|?> (0, parseDim 'M')
-                                <|?> (0, parseDim 'T')
-                                <|?> (0, parseDim 'I')
-                                <|?> (0, parseDim 'O')
-                                <|?> (0, parseDim 'J')
-                                <|?> (0, parseDim 'N')
-                        )
+    parseDims = permute (AC.DimVec  <$?> (0, parseDim 'L')
+                                    <|?> (0, parseDim 'M')
+                                    <|?> (0, parseDim 'T')
+                                    <|?> (0, parseDim 'I')
+                                    <|?> (0, parseDim 'O')
+                                    <|?> (0, parseDim 'J')
+                                    <|?> (0, parseDim 'N'))
+
     -- parseDim dim = char dim *> option 1 (reservedOp "^" *> integer <* char '.')
     parseDim dim = char dim *> option 1 (reservedOp "^" *> integer) <* optional (char '.')
 

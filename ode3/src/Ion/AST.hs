@@ -12,7 +12,7 @@
 --
 -----------------------------------------------------------------------------
 
-module AST.Ion (
+module Ion.AST (
 IonModel(..), IonChannel(..), StateReaction(..), Id, mkIonChannel
 ) where
 

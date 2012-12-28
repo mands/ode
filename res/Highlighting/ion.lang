@@ -46,7 +46,7 @@
           <keyword>initial_state</keyword>
           <keyword>open_states</keyword>
           <keyword>states</keyword>
-          <keyword>reaction</keyword>
+          <keyword>transition</keyword>
           <keyword>f_rate</keyword>
           <keyword>r_rate</keyword>
 <!--

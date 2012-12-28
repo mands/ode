@@ -24,9 +24,9 @@ import System.Log.Handler.Simple
 -- import qualified Data.Text as T
 -- import qualified Data.Text.IO as TIO
 
-import Parser.Ion
-import AST.Ion
-import Process.Ion
+import Ion.Parser
+import Ion.AST
+import Ion.Process
 
 import Utils.CommonImports
 

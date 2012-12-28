@@ -17,46 +17,6 @@ category: Languages
 author: Mandeep Gill
 data-dir: ""
  
-executable ion
-    build-depends: Shellac -any, Shellac-readline -any, base -any,
-                   bimap -any, binary -any, bytestring -any, cond -any,
-                   containers -any, data-binary-ieee754 -any, directory -any,
-                   fclabels -any, fgl -any, filepath -any, hslogger -any,
-                   llvm-base -any, llvm-wrapper -any, mtl -any, parsec -any,
-                   pretty-show -any, random -any, shelly -any, split -any, text -any,
-                   unix -any
-    main-is: IonMain.hs
-    buildable: True
-    extensions: MultiParamTypeClasses EmptyDataDecls KindSignatures
-                BangPatterns NamedFieldPuns GeneralizedNewtypeDeriving
-                RecordWildCards RecordPuns DisambiguateRecordFields
-                OverloadedStrings GADTs GADTSyntax DeriveFunctor DeriveTraversable
-                DeriveFoldable
-    hs-source-dirs: src
-    other-modules: Process.Ion Parser.Ode Parser.Common Parser.Module
-                   Parser.Ion Utils.CommonImports Utils.Utils Utils.ShellHandleBackend
-                   Utils.OrdMap Utils.OrdSet Utils.MonadSupply Utils.Graph
-                   Subsystem.ShellUI Subsystem.Types Subsystem.ModDriver
-                   Subsystem.Units Subsystem.SysState Subsystem.Units.UnitsDims
-                   Subsystem.Units.Conversion Subsystem.Units.Builtins
-                   Subsystem.ModDriver.ModCmd Subsystem.ModDriver.ModDef
-                   Subsystem.Simulation.Interpreter Subsystem.Simulation.JITCompiler
-                   Subsystem.Simulation.Common
-                   Subsystem.Simulation.JITCompiler.JITShell
-                   Subsystem.Simulation.JITCompiler.JITSolver
-                   Subsystem.Simulation.JITCompiler.JITModel
-                   Subsystem.Simulation.JITCompiler.JITDiffSolvers
-                   Subsystem.Simulation.JITCompiler.JITCommon Process.TypeChecker
-                   Process.Desugarer Process.Validator Process.Flatten Process.Renamer
-                   Process.Reorderer Process.TypeChecker.Unification
-                   Process.TypeChecker.ConstraintGen Process.TypeChecker.Common
-                   Process.Flatten.OptimiseAST Process.Flatten.ConvertAST
-                   Process.Flatten.UnpackTuples Process.Flatten.ConvertTypes
-                   Process.Flatten.InlineComps Process.Flatten.InlineMods
-                   Process.Flatten.OptimiseCoreFlatAST Process.Flatten.InitialValueGen
-                   AST.Core AST.Ode AST.Common AST.Module AST.Ion AST.CoreFlat
-    ghc-options: -w
- 
 executable ode3
     build-depends: Shellac -any, Shellac-readline -any, base -any,
                    bimap -any, binary -any, bytestring -any, cond -any,
@@ -73,8 +33,8 @@ executable ode3
                 OverloadedStrings GADTs GADTSyntax DeriveFunctor DeriveTraversable
                 DeriveFoldable
     hs-source-dirs: src
-    other-modules: Process.Ion Parser.Ode Parser.Common Parser.Module
-                   Parser.Ion Utils.CommonImports Utils.Utils Utils.ShellHandleBackend
+    other-modules: Ion.Process Parser.Ode Parser.Common Parser.Module
+                   Ion.Parser Utils.CommonImports Utils.Utils Utils.ShellHandleBackend
                    Utils.OrdMap Utils.OrdSet Utils.MonadSupply Utils.Graph
                    Subsystem.ShellUI Subsystem.Types Subsystem.ModDriver
                    Subsystem.Units Subsystem.SysState Subsystem.Units.UnitsDims
@@ -94,6 +54,41 @@ executable ode3
                    Process.Flatten.UnpackTuples Process.Flatten.ConvertTypes
                    Process.Flatten.InlineComps Process.Flatten.InlineMods
                    Process.Flatten.OptimiseCoreFlatAST Process.Flatten.InitialValueGen
-                   AST.Core AST.Ode AST.Common AST.Module AST.Ion AST.CoreFlat
+                   AST.Core AST.Ode AST.Common AST.Module Ion.AST AST.CoreFlat
     ghc-options: -w
- 
+
+executable ion
+    build-depends: Shellac -any, Shellac-readline -any, base -any,
+                   bimap -any, binary -any, bytestring -any, cond -any,
+                   containers -any, data-binary-ieee754 -any, directory -any,
+                   fclabels -any, fgl -any, filepath -any, hslogger -any,
+                   mtl -any, parsec -any,
+                   pretty-show -any, random -any, shelly -any, split -any, text -any,
+                   unix -any
+    main-is: Ion.hs
+    buildable: True
+    extensions: MultiParamTypeClasses EmptyDataDecls KindSignatures
+                BangPatterns NamedFieldPuns GeneralizedNewtypeDeriving
+                RecordWildCards RecordPuns DisambiguateRecordFields
+                OverloadedStrings GADTs GADTSyntax DeriveFunctor DeriveTraversable
+                DeriveFoldable
+    hs-source-dirs: src
+    other-modules: Ion.Process Parser.Ode Parser.Common Parser.Module
+                   Ion.Parser Utils.CommonImports Utils.Utils Utils.ShellHandleBackend
+                   Utils.OrdMap Utils.OrdSet Utils.MonadSupply Utils.Graph
+                   Subsystem.ShellUI Subsystem.Types Subsystem.ModDriver
+                   Subsystem.Units Subsystem.SysState Subsystem.Units.UnitsDims
+                   Subsystem.Units.Conversion Subsystem.Units.Builtins
+                   Subsystem.ModDriver.ModCmd Subsystem.ModDriver.ModDef
+                   Subsystem.Simulation.Interpreter
+                   Subsystem.Simulation.Common Process.TypeChecker
+                   Process.Desugarer Process.Validator Process.Flatten Process.Renamer
+                   Process.Reorderer Process.TypeChecker.Unification
+                   Process.TypeChecker.ConstraintGen Process.TypeChecker.Common
+                   Process.Flatten.OptimiseAST Process.Flatten.ConvertAST
+                   Process.Flatten.UnpackTuples Process.Flatten.ConvertTypes
+                   Process.Flatten.InlineComps Process.Flatten.InlineMods
+                   Process.Flatten.OptimiseCoreFlatAST Process.Flatten.InitialValueGen
+                   AST.Core AST.Ode AST.Common AST.Module Ion.AST AST.CoreFlat
+    ghc-options: -w
+

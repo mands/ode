@@ -14,7 +14,7 @@
 --
 -----------------------------------------------------------------------------
 
-module Parser.Ion (
+module Ion.Parser (
     ionParse,
 ) where
 
@@ -27,7 +27,7 @@ import Text.Parsec.Language
 import Text.Parsec.Perm
 
 import Utils.Utils
-import qualified AST.Ion as I
+import qualified Ion.AST as I
 
 -- type Parser = Parsec String ()
 
@@ -47,7 +47,7 @@ ionLangDef = emptyDef
 
     -- add more later
     , T.reservedNames = [ "channel", "density", "equilibrium_potential", "subunits", "initial_state", "open_states"
-                        , "states", "reaction", "f_rate", "r_rate"]
+                        , "states", "transition", "f_rate", "r_rate"]
     -- unary ops and relational ops?
     -- do formatting operators count? e.g. :, {, }, ,, etc.
     , T.reservedOpNames = ["<->"] --, "<-", "<->", ":", "{", "}", ","]
@@ -103,7 +103,7 @@ ionReaction :: Parser I.StateReaction
 ionReaction = mkReaction <$> attribDef reactionAttribs
   where
     mkReaction ((a, b), fRate, rRate) = I.StateReaction a b fRate rRate
-    reactionAttribs = (,,)  <$$> attrib "reaction" ((,) <$> identifier <*> (reservedOp "<->" *> identifier))
+    reactionAttribs = (,,)  <$$> attrib "transition" ((,) <$> identifier <*> (reservedOp "<->" *> identifier))
                             <||> attrib "f_rate" number
                             <||> attrib "r_rate" number
 
@@ -119,9 +119,9 @@ ionChannelDef = do
   where
     -- |flexible permutation parser for channel attributes
     -- only prob is recording the name, could place into the parser state
-    ionChannelBody = I.mkIonChannel       <$$> (attrib "density" number)
+    ionChannelBody = I.mkIonChannel     <$$> (attrib "density" number)
                                         <||> (attrib "equilibrium_potential" number)
-                                        <||> (attrib "subunits" integer)
+                                        <|?> (1, attrib "subunits" natural)
                                         <||> (attrib "initial_state" identifier)
                                         <||> (attrib "open_states" (braces (listSep identifier)))
                                         <||> (attrib "states" (braces (listSep ionReaction)))

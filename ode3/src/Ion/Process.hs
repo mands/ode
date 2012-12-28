@@ -12,11 +12,11 @@
 --
 -----------------------------------------------------------------------------
 
-module Process.Ion (
+module Ion.Process (
 processIon
 ) where
 
-import AST.Ion
+import Ion.AST
 import Utils.CommonImports
 
 import qualified Data.Set as Set
@@ -28,19 +28,23 @@ import qualified Data.Graph.Inductive.Basic as GB
 import qualified Utils.Graph as UG
 import Data.Graph.Inductive.Query.DFS(noComponents)
 
+-- Process Entry -------------------------------------------------------------------------------------------------------
+
 processIon :: IonModel -> MExcept IonModel
 processIon im = do
     trace' [MkSB im] "Input Ion AST" $ return ()
+    mapM processChannel im
+  where
+    processChannel :: IonChannel -> MExcept IonChannel
+    processChannel ionChan@IonChannel{..} = do
+        ionChan' <- buildIonData ionChan >>= validateIonChan
+        if subunits > 1
+          then expandSubunits ionChan >>= buildIonData -- expand the reactions, and rebuild the data
+          else return ionChan'
 
-    im' <- mapM buildIonData im
-    mapM_ validateIon im'
-    return im'
-
-
-
+-- | Build the auxilary ion channel data structures, i.e. set of reactions and the reaction graph
 buildIonData :: IonChannel -> MExcept IonChannel
 buildIonData ionChan@IonChannel{..} = do
-
     return $ ionChan { species=species', reactionGraph=reactionGraph' }
   where
     species' = foldl addSpecies Set.empty states
@@ -58,25 +62,41 @@ buildIonData ionChan@IonChannel{..} = do
 -- * do list of rates form a closed set
 -- * are all state reactions between different reactions
 -- * do open and initial states reference actualy existing states
-validateIon :: IonChannel -> MExcept ()
-validateIon ionChan@IonChannel{..} = do
+validateIonChan :: IonChannel -> MExcept IonChannel
+validateIonChan ionChan@IonChannel{..} = do
     -- check initial state is valid
     unless (checkStateExists initialState)
         (throwError $ printf "(ION01) %s state is not contained in any reaction" (show initialState))
     -- check open states are valid
     unless (all checkStateExists openStates)
         (throwError $ printf "(ION02) An open state found that is not contained in any reaction")
-
     -- check reactions form a single graph - i.e. 1 component
     let numComponents = noComponents $ UG.graph reactionGraph
     trace' [] (printf "Num components - %d" numComponents) $ return ()
     unless (numComponents == 1)
         (throwError $ printf "(ION03) The set of reactions is invalid, it contains %d sets of independent reactions" numComponents)
-
     -- check reactions have no loops (in terms of direct loops)
     unless (GB.isSimple $ UG.graph reactionGraph)
         (throwError $ printf "(ION04) The set of reactions is invalid, it contains loops into the same state")
-
-    return ()
+    return ionChan
   where
     checkStateExists s = Set.member s species
+
+
+
+-- Subunit handling ----------------------------------------------------------------------------------------------------
+-- | NYI - This fucntions expands the set of reactions, initial and open states to accomodate n-identical subunits
+expandSubunits :: IonChannel -> MExcept IonChannel
+expandSubunits ionChan@IonChannel{..} = do
+    return ionChan
+  where
+-- basic algorithm - very slow, prob exp-O notation as requries brute-force check over entire expanded state space for suitable reactions, anyway,
+-- first create the new set of states (binomial coef - (x+n-1, n)) and insert into a graph
+-- then scan over all possible combinations of nodes
+-- * if the state diff is only 1, then determine if a link exists in the intial reaction graph
+-- * add the new link, having adjusted the fwd and rev transition rates
+
+
+-- Stoc Matrix Generation ----------------------------------------------------------------------------------------------
+
+
