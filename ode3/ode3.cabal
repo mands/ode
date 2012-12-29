@@ -17,54 +17,14 @@ category: Languages
 author: Mandeep Gill
 data-dir: ""
  
-executable ode3
-    build-depends: Shellac -any, Shellac-readline -any, base -any,
-                   bimap -any, binary -any, bytestring -any, cond -any,
-                   containers -any, data-binary-ieee754 -any, directory -any,
-                   fclabels -any, fgl -any, filepath -any, hslogger -any,
-                   llvm-base -any, llvm-wrapper -any, mtl -any, parsec -any,
-                   pretty-show -any, random -any, shelly -any, split -any, text -any,
-                   unix -any
-    main-is: Main.hs
-    buildable: True
-    extensions: MultiParamTypeClasses EmptyDataDecls KindSignatures
-                BangPatterns NamedFieldPuns GeneralizedNewtypeDeriving
-                RecordWildCards RecordPuns DisambiguateRecordFields
-                OverloadedStrings GADTs GADTSyntax DeriveFunctor DeriveTraversable
-                DeriveFoldable
-    hs-source-dirs: src
-    other-modules: Ion.Process Parser.Ode Parser.Common Parser.Module
-                   Ion.Parser Utils.CommonImports Utils.Utils Utils.ShellHandleBackend
-                   Utils.OrdMap Utils.OrdSet Utils.MonadSupply Utils.Graph
-                   Subsystem.ShellUI Subsystem.Types Subsystem.ModDriver
-                   Subsystem.Units Subsystem.SysState Subsystem.Units.UnitsDims
-                   Subsystem.Units.Conversion Subsystem.Units.Builtins
-                   Subsystem.ModDriver.ModCmd Subsystem.ModDriver.ModDef
-                   Subsystem.Simulation.Interpreter Subsystem.Simulation.JITCompiler
-                   Subsystem.Simulation.Common
-                   Subsystem.Simulation.JITCompiler.JITShell
-                   Subsystem.Simulation.JITCompiler.JITSolver
-                   Subsystem.Simulation.JITCompiler.JITModel
-                   Subsystem.Simulation.JITCompiler.JITDiffSolvers
-                   Subsystem.Simulation.JITCompiler.JITCommon Process.TypeChecker
-                   Process.Desugarer Process.Validator Process.Flatten Process.Renamer
-                   Process.Reorderer Process.TypeChecker.Unification
-                   Process.TypeChecker.ConstraintGen Process.TypeChecker.Common
-                   Process.Flatten.OptimiseAST Process.Flatten.ConvertAST
-                   Process.Flatten.UnpackTuples Process.Flatten.ConvertTypes
-                   Process.Flatten.InlineComps Process.Flatten.InlineMods
-                   Process.Flatten.OptimiseCoreFlatAST Process.Flatten.InitialValueGen
-                   AST.Core AST.Ode AST.Common AST.Module Ion.AST AST.CoreFlat
-    ghc-options: -w
-
 executable ion
-    build-depends: Shellac -any, Shellac-readline -any, base -any,
-                   bimap -any, binary -any, bytestring -any, cond -any,
-                   containers -any, data-binary-ieee754 -any, directory -any,
-                   fclabels -any, fgl -any, filepath -any, hslogger -any,
-                   mtl -any, parsec -any,
-                   pretty-show -any, random -any, shelly -any, split -any, text -any,
-                   unix -any
+    build-depends: Shellac -any, Shellac-readline -any, array -any,
+                   base -any, bimap -any, binary -any, bytestring -any, cmdargs -any,
+                   cond -any, containers -any, data-binary-ieee754 -any,
+                   directory -any, fclabels -any, fgl -any, filepath -any,
+                   hslogger -any, llvm-base -any, llvm-wrapper -any, mtl -any,
+                   parsec -any, pretty-show -any, random -any, shelly -any,
+                   split -any, text -any, unix -any
     main-is: Ion.hs
     buildable: True
     extensions: MultiParamTypeClasses EmptyDataDecls KindSignatures
@@ -73,22 +33,62 @@ executable ion
                 OverloadedStrings GADTs GADTSyntax DeriveFunctor DeriveTraversable
                 DeriveFoldable
     hs-source-dirs: src
-    other-modules: Ion.Process Parser.Ode Parser.Common Parser.Module
-                   Ion.Parser Utils.CommonImports Utils.Utils Utils.ShellHandleBackend
-                   Utils.OrdMap Utils.OrdSet Utils.MonadSupply Utils.Graph
-                   Subsystem.ShellUI Subsystem.Types Subsystem.ModDriver
-                   Subsystem.Units Subsystem.SysState Subsystem.Units.UnitsDims
-                   Subsystem.Units.Conversion Subsystem.Units.Builtins
-                   Subsystem.ModDriver.ModCmd Subsystem.ModDriver.ModDef
-                   Subsystem.Simulation.Interpreter
-                   Subsystem.Simulation.Common Process.TypeChecker
-                   Process.Desugarer Process.Validator Process.Flatten Process.Renamer
-                   Process.Reorderer Process.TypeChecker.Unification
-                   Process.TypeChecker.ConstraintGen Process.TypeChecker.Common
-                   Process.Flatten.OptimiseAST Process.Flatten.ConvertAST
-                   Process.Flatten.UnpackTuples Process.Flatten.ConvertTypes
-                   Process.Flatten.InlineComps Process.Flatten.InlineMods
-                   Process.Flatten.OptimiseCoreFlatAST Process.Flatten.InitialValueGen
-                   AST.Core AST.Ode AST.Common AST.Module Ion.AST AST.CoreFlat
+    other-modules: Subsystem.SysState Subsystem.ModDriver
+                   Subsystem.Units Subsystem.ShellUI Subsystem.Types
+                   Subsystem.Units.Builtins Subsystem.Units.Conversion
+                   Subsystem.Units.UnitsDims Subsystem.ModDriver.ModDef
+                   Subsystem.ModDriver.ModCmd Subsystem.Simulation.Common
+                   Subsystem.Simulation.Interpreter Process.TypeChecker
+                   Process.Renamer Process.Validator Process.Flatten Process.Reorderer
+                   Process.Desugarer Process.TypeChecker.ConstraintGen
+                   Process.TypeChecker.Unification Process.TypeChecker.Common
+                   Process.Flatten.InlineMods Process.Flatten.ConvertTypes
+                   Process.Flatten.ConvertAST Process.Flatten.OptimiseCoreFlatAST
+                   Process.Flatten.OptimiseAST Process.Flatten.InitialValueGen
+                   Process.Flatten.InlineComps Process.Flatten.UnpackTuples AST.Ode
+                   AST.Module AST.Core AST.CoreFlat AST.Common Parser.Ode
+                   Parser.Module Parser.Common Ion.Process Ion.Parser Ion.AST
+                   Utils.OrdSet Utils.MonadSupply Utils.Utils Utils.CommonImports
+                   Utils.ShellHandleBackend Utils.OrdMap Utils.Graph
     ghc-options: -w
-
+ 
+executable ode3
+    build-depends: Shellac -any, Shellac-readline -any, array -any,
+                   base -any, bimap -any, binary -any, bytestring -any, cmdargs -any,
+                   cond -any, containers -any, data-binary-ieee754 -any,
+                   directory -any, fclabels -any, fgl -any, filepath -any,
+                   hslogger -any, llvm-base -any, llvm-wrapper -any, mtl -any,
+                   parsec -any, pretty-show -any, random -any, shelly -any,
+                   split -any, text -any, unix -any
+    main-is: Main.hs
+    buildable: True
+    extensions: MultiParamTypeClasses EmptyDataDecls KindSignatures
+                BangPatterns NamedFieldPuns GeneralizedNewtypeDeriving
+                RecordWildCards RecordPuns DisambiguateRecordFields
+                OverloadedStrings GADTs GADTSyntax DeriveFunctor DeriveTraversable
+                DeriveFoldable
+    hs-source-dirs: src
+    other-modules: Subsystem.SysState Subsystem.ModDriver
+                   Subsystem.Units Subsystem.ShellUI Subsystem.Types
+                   Subsystem.Units.Builtins Subsystem.Units.Conversion
+                   Subsystem.Units.UnitsDims Subsystem.ModDriver.ModDef
+                   Subsystem.ModDriver.ModCmd Subsystem.Simulation.JITCompiler
+                   Subsystem.Simulation.Common Subsystem.Simulation.Interpreter
+                   Subsystem.Simulation.JITCompiler.JITCommon
+                   Subsystem.Simulation.JITCompiler.JITDiffSolvers
+                   Subsystem.Simulation.JITCompiler.JITSolver
+                   Subsystem.Simulation.JITCompiler.JITModel
+                   Subsystem.Simulation.JITCompiler.JITShell Process.TypeChecker
+                   Process.Renamer Process.Validator Process.Flatten Process.Reorderer
+                   Process.Desugarer Process.TypeChecker.ConstraintGen
+                   Process.TypeChecker.Unification Process.TypeChecker.Common
+                   Process.Flatten.InlineMods Process.Flatten.ConvertTypes
+                   Process.Flatten.ConvertAST Process.Flatten.OptimiseCoreFlatAST
+                   Process.Flatten.OptimiseAST Process.Flatten.InitialValueGen
+                   Process.Flatten.InlineComps Process.Flatten.UnpackTuples AST.Ode
+                   AST.Module AST.Core AST.CoreFlat AST.Common Parser.Ode
+                   Parser.Module Parser.Common Ion.Process Ion.Parser Ion.AST
+                   Utils.OrdSet Utils.MonadSupply Utils.Utils Utils.CommonImports
+                   Utils.ShellHandleBackend Utils.OrdMap Utils.Graph
+    ghc-options: -w
+ 

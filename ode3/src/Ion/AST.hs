@@ -13,7 +13,7 @@
 -----------------------------------------------------------------------------
 
 module Ion.AST (
-IonModel(..), IonChannel(..), StateReaction(..), Id, mkIonChannel
+IonModel(..), IonChannel(..), Transition(..), Id, mkIonChannel, StocMatrix
 ) where
 
 import Control.Monad.Error
@@ -22,6 +22,7 @@ import qualified Data.Set as Set
 import qualified Data.Graph.Inductive as G
 import Data.Graph.Inductive.Tree
 import qualified Utils.Graph as UG
+import qualified Data.Array as A
 
 -- |identifier - is converted later on
 type Id = String
@@ -35,14 +36,17 @@ type IonModel = [IonChannel]
 -- * graph describing reactions within system
 -- * stoc matrix
 -- * ...
-data IonChannel = IonChannel    {  name :: Id, species :: Set.Set Id, reactionGraph :: UG.GraphMap Id Double
+data IonChannel = IonChannel    {  name :: Id, states :: Set.Set Id, transitionGraph :: UG.GraphMap Id Double
+                                , stocMatrix :: Maybe StocMatrix
+
                                 , density :: Double, eqPot :: Double, subunits :: Integer
-                                , initialState :: Id, openStates :: [Id], states :: [StateReaction]
+                                , initialState :: Id, openStates :: [Id], transitions :: [Transition]
                                 } deriving Show
 
-mkIonChannel = IonChannel "" Set.empty UG.mkGraphMap
+mkIonChannel = IonChannel "" Set.empty UG.mkGraphMap Nothing
 
 
 -- |description of the bi-directional state-change reaction within an ion-channel
-data StateReaction  = StateReaction {stateA :: Id, stateB :: Id, fRate :: Double, rRate :: Double} deriving Show
+data Transition = Transition {stateA :: Id, stateB :: Id, fRate :: Double, rRate :: Double} deriving Show
 
+type StocMatrix = A.Array (Int,Int) Int

@@ -21,6 +21,7 @@ import System.Log.Logger
 import System.Log.Handler(close)
 import System.Log.Handler.Simple
 
+import qualified Data.Set as Set
 -- import qualified Data.Text as T
 -- import qualified Data.Text.IO as TIO
 
@@ -75,8 +76,18 @@ processFile inFile = do
 
     -- parse, process and save the file
     ionAST <- mkExceptIO $ ionParse inFile fileData >>= processIon
+
     trace' [MkSB ionAST] "Final Ion AST" $ return ()
 
     -- save as Ode file
+    liftIO $ mapM_ saveChannel ionAST
 
     return ()
+  where
+    saveChannel :: IonChannel -> IO ()
+    saveChannel ionChan@IonChannel{..} = do
+        putStrLn $ printf "\nStocimetric Matrix - (%d transitions x %d states)" (length transitions) (Set.size states)
+        putStrLn $ printf "State column names - %s" (show states)
+        putStrLn $ matrixToTable (fromJust stocMatrix)
+
+

@@ -47,7 +47,7 @@ ionLangDef = emptyDef
 
     -- add more later
     , T.reservedNames = [ "channel", "density", "equilibrium_potential", "subunits", "initial_state", "open_states"
-                        , "states", "transition", "f_rate", "r_rate"]
+                        , "transitions", "transition", "f_rate", "r_rate"]
     -- unary ops and relational ops?
     -- do formatting operators count? e.g. :, {, }, ,, etc.
     , T.reservedOpNames = ["<->"] --, "<-", "<->", ":", "{", "}", ","]
@@ -99,13 +99,13 @@ attribDef p = braces (permute p)
 attrib res p = reserved res *> colon *> p <* optional comma
 
 -- |parser for a single, unidirectional reaction, e.g. A->B
-ionReaction :: Parser I.StateReaction
-ionReaction = mkReaction <$> attribDef reactionAttribs
+ionTransition :: Parser I.Transition
+ionTransition = mkTransition <$> attribDef transitionAttribs
   where
-    mkReaction ((a, b), fRate, rRate) = I.StateReaction a b fRate rRate
-    reactionAttribs = (,,)  <$$> attrib "transition" ((,) <$> identifier <*> (reservedOp "<->" *> identifier))
-                            <||> attrib "f_rate" number
-                            <||> attrib "r_rate" number
+    mkTransition ((a, b), fRate, rRate) = I.Transition a b fRate rRate
+    transitionAttribs = (,,)    <$$> attrib "transition" ((,) <$> identifier <*> (reservedOp "<->" *> identifier))
+                                <||> attrib "f_rate" number
+                                <||> attrib "r_rate" number
 
 
 -- |parser for a channel defintion
@@ -124,7 +124,7 @@ ionChannelDef = do
                                         <|?> (1, attrib "subunits" natural)
                                         <||> (attrib "initial_state" identifier)
                                         <||> (attrib "open_states" (braces (listSep identifier)))
-                                        <||> (attrib "states" (braces (listSep ionReaction)))
+                                        <||> (attrib "transitions" (braces (listSep ionTransition)))
 
 -- |parser top level
 ionTop :: Parser [I.IonChannel]

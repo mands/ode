@@ -7,8 +7,9 @@ channel test {
   subunits : 2,
   initial_state: C,
   open_states : {O},
-  states : {
+  transitions : {
     {transition: C <-> O, f_rate: 1, r_rate : 0.1},
+    {transition: I <-> C, f_rate: 1, r_rate : 0.1},
   },
 }
 
