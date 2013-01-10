@@ -21,7 +21,9 @@ mapFst, mapSnd, mapFstM, mapSndM, pairM, notEqual, inc, dec, isWholeNumber,
 SB(..), trace', errorDump,
 openPipe, closePipe, readLoop,
 mkLabelName,
-listUniqs
+listUniqs,
+mapArrayWithIdx, matMatMult, matVecMult, genDiagMat,
+until'
 ) where
 
 import Control.Applicative
@@ -36,7 +38,8 @@ import Data.List (nub)
 import GHC.Base(assert)
 import Text.Show.Pretty(ppShow)
 import Data.Maybe (fromJust)
-
+import qualified Data.Array as A
+import Data.Monoid
 
 -- Misc Functions ------------------------------------------------------------------------------------------------------
 -- basic piping/chaining of functions
@@ -165,3 +168,55 @@ mkLabelName s = 'l' : toUpper (head n) : tail n
   where
     n = drop 1 s
 
+-- Array Functions -----------------------------------------------------------------------------------------------------
+
+-- convert to a assoclist first
+mapArrayWithIdx :: A.Ix i => (i -> e -> f) -> A.Array i e -> A.Array i f
+mapArrayWithIdx f arr = A.listArray (A.bounds arr) $ map (uncurry f) (A.assocs arr)
+
+-- generic matrix multiplication, (based on sample from http://www.haskell.org/tutorial/arrays.html and RossetaCode)
+matMatMult :: (A.Ix i, Monoid (Sum a), Monoid (Product a)) => A.Array (i,i) a -> A.Array (i,i) a -> A.Array (i,i) a
+matMatMult x y
+    | x1 /= y0 || x1' /= y0'  = error "range mismatch"
+    | otherwise               = A.array ((x0,y1),(x0',y1')) l
+  where
+    ((x0,x1),(x0',x1')) = A.bounds x
+    ((y0,y1),(y0',y1')) = A.bounds y
+    ir = A.range (x0,x0')
+    jr = A.range (y1,y1')
+    kr = A.range (x1,x1')
+    l  = [((i,j), getSum $ mconcat [Sum . getProduct $ mappend (Product $ x A.! (i,k)) (Product $ y A.! (k,j)) | k <- kr]) | i <- ir, j <- jr]
+
+
+matVecMult :: (A.Ix i, Monoid (Sum a), Monoid (Product a)) => A.Array (i,i) a -> A.Array i a -> A.Array i a
+matVecMult x v
+    | x1 /= v0 || x1' /= v0'  = error "range mismatch"
+    | otherwise               = A.array (x0,x0') l
+  where
+    ((x0,x1),(x0',x1')) = A.bounds x
+    (v0,v0') = A.bounds v
+    ir = A.range (x0,x0')
+    kr = A.range (x1,x1')
+    l  = [(i, getSum $ mconcat [Sum . getProduct $ mappend (Product $ x A.! (i,k)) (Product $ v A.! k) | k <- kr]) | i <- ir]
+
+-- Geneate a diagonal matrix from a list of elements, impiles Int indexing statring from 1
+genDiagMat :: a -> [a] -> A.Array (Int, Int) a
+genDiagMat def elems = zeroArray A.// [((j,j), diagVec A.! j) | j <- [1..i]]
+  where
+    i = length elems
+    diagVec = A.listArray (1, i) elems
+    zeroArray = A.listArray ((1,1), (i,i)) $ repeat def
+-- TODO - genMatAdd
+
+-- a varient of until that utilise a eq rather than a predicate
+until' :: (Eq a) => (a -> a) -> a -> a
+until' f x = let x' = f x in
+    if x == x' then x else until' f x'
+
+converge :: (a -> a -> Bool) -> [a] -> a
+converge p (x:ys@(y:_))
+    | p x y     = y
+    | otherwise = converge p ys
+
+-- a alt. varient of until' (taken from stackoverflow)
+simplify f x = converge (==) (iterate f x)

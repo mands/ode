@@ -2,6 +2,7 @@
 // cool, eh?!
 
 channel test {
+  sim_type : ode,
   density : 1,
   equilibrium_potential : 1,
   subunits : 2,

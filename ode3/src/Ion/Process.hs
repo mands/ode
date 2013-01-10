@@ -13,7 +13,8 @@
 -----------------------------------------------------------------------------
 
 module Ion.Process (
-processIon, matrixToTable
+processIon, matrixToTable,
+getDetElems, getStocElems
 ) where
 
 import Ion.AST
@@ -21,7 +22,7 @@ import Utils.CommonImports
 
 import qualified Data.Set as Set
 import qualified Data.Map as Map
-
+import Data.Maybe(fromJust)
 import qualified Data.Graph.Inductive as G
 import qualified Data.Graph.Inductive.NodeMap as NM
 import Data.Graph.Inductive.Tree
@@ -29,7 +30,7 @@ import qualified Data.Graph.Inductive.Basic as GB
 import qualified Utils.Graph as UG
 import Data.Graph.Inductive.Query.DFS(noComponents)
 import qualified Data.Array as A
-
+import Data.Monoid
 
 -- Process Entry -------------------------------------------------------------------------------------------------------
 
@@ -48,7 +49,7 @@ processIon im = do
 -- | Build the auxilary ion channel data structures, i.e. set of reactions and the reaction graph
 buildIonData :: IonChannel -> MExcept IonChannel
 buildIonData ionChan@IonChannel{..} = do
-    return $ stocMatrix' (ionChan { states=states', transitionGraph=transitionGraph' })
+    return ((ionChan { states=states', transitionGraph=transitionGraph' }) |> stocMatrix')
   where
     states' = foldl addStates Set.empty transitions
     addStates states (Transition sA sB _ _) = Set.insert sA states |> Set.insert sB
@@ -105,16 +106,68 @@ expandSubunits ionChan@IonChannel{..} = do
 genStocMatrix :: IonChannel -> StocMatrix
 genStocMatrix ionChan@IonChannel{..} = initArray A.// stocElems
   where
-    initArray = A.listArray ((1,1),(length transitions, Set.size states)) [0,0..] -- create a zero-filled init array, (transitions x states)
-    stateMap = Map.fromList $ zip (Set.toList states) [1..] -- mapping from a state to it's col in the stocMatrix
+    initArray = A.listArray ((1,1), (Set.size states, length transitions)) [0,0..] -- create a zero-filled init array, (states x transitions)
+    stateMap = Map.fromList $ zip (Set.toList states) [1..] -- mapping from a state to it's row in the stocMatrix
     -- list of updates to the inital array
     stocElems = concat $ map createElems (zip [1..] transitions)
     -- creates 2 inserts into array to represetn the state changes by the transition
-    createElems (transIdx, (Transition a b _ _)) = [((transIdx, stateMap Map.! a), -1), ((transIdx, stateMap Map.! b), 1)]
+    createElems (transIdx, (Transition a b _ _)) = [((stateMap Map.! a, transIdx), -1), ((stateMap Map.! b, transIdx), 1)]
 
 -- Create a 2D representation of the array for printinf (taken from http://stackoverflow.com/questions/8901252/2d-array-in-haskell)
 matrixToTable :: StocMatrix -> String
-matrixToTable arr =
-  unlines $ map (unwords . map (show . (arr A.!))) indices
-  where indices = [[(x, y) | x <- [startX..endX]] | y <- [startY..endY]]
-        ((startX, startY), (endX, endY)) = A.bounds arr
+matrixToTable arr = unlines $ map (unwords . map (printElem . (arr A.!))) indices
+  where
+    indices = [[(row, col) | row <- [startRow..endRow]] | col <- [startCol..endCol]]
+    ((startRow, startCol), (endRow, endCol)) = A.bounds arr
+    printElem x | x == 1 = "+1"
+    printElem x | x == 0 = " 0"
+    printElem x | x == -1 = "-1"
+
+
+
+-- Deterministic Matrix Generation -------------------------------------------------------------------------------------
+-- fold over the graph nodes (i.e. states), building up an ion expression for each one based upon the node in/out edges
+getDetElems :: IonChannel -> [IonExpr]
+getDetElems ionChan@IonChannel{..} = map (optExpr . calcDetExpr) (Set.toList states)
+  where
+    g = UG.graph transitionGraph
+
+    -- build an expr based on the in/out edges, we unroll the matrix mult here for simpliticy
+    calcDetExpr :: Id -> IonExpr
+    calcDetExpr state = Add outgoingEdges ingoingEdges
+      where
+        nodeId = fromJust $ UG.getNodeInt transitionGraph state
+        -- outgoing edges from node are neg, ingoing edges are pos
+        outgoingEdges = Neg $ Mul (Var state) (getProduct . mconcat . map prodEdges $ G.lsuc g nodeId)
+        prodEdges (_, rateExpr) = Product rateExpr
+
+        ingoingEdges = getSum . mconcat . map sumEdges $ G.lpre g nodeId
+        sumEdges (preNodeId, rateExpr) = Sum $ Mul (Var . fromJust $ G.lab g preNodeId) rateExpr
+
+
+-- Stochastic Matrix Generation -------------------------------------------------------------------------------------
+-- fold over the transition list, generating the weiner exprs as go along
+getStocElems :: IonChannel -> [IonExpr]
+getStocElems ionChan@IonChannel{..} = trace' [MkSB fDiagMat, MkSB eMulF] "fdiag, emulf" $ map optExpr $ A.elems (matVecMult eMulF weinerVec)
+  where
+    -- a 2D array represeting the diag matrix F
+    fDiagMat = genDiagMat (Num 0) (map genProp transitions)
+    genProp Transition{..} = Sqrt $ Add (Mul (Var stateA) fRate) (Mul (Var stateB) rRate)
+    -- e.F(x) matrix - matrix mult
+    eMulF = matMatMult (Num <$> fromJust stocMatrix) fDiagMat
+    -- a dummy array for representing the weiner for each transition (we actually require them per state)
+    weinerVec = A.listArray (1, length transitions) $ repeat (Num 1)
+
+
+
+-- RRE Generation ------------------------------------------------------------------------------------------------------
+-- fold over the transitions, converting to RREs as go along
+-- (Need some expression to generate the voltage from open state matrix)
+getRREElems = undefined
+
+
+
+
+
+
+

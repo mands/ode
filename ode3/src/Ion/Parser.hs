@@ -28,6 +28,7 @@ import Text.Parsec.Perm
 
 import Utils.Utils
 import qualified Ion.AST as I
+import AST.CoreFlat(SimType(..))
 
 -- type Parser = Parsec String ()
 
@@ -46,8 +47,11 @@ ionLangDef = emptyDef
     , T.opLetter = oneOf ""
 
     -- add more later
-    , T.reservedNames = [ "channel", "density", "equilibrium_potential", "subunits", "initial_state", "open_states"
-                        , "transitions", "transition", "f_rate", "r_rate"]
+    , T.reservedNames = [ "channel", "density", "equilibrium_potential"
+                        , "subunits", "initial_state", "open_states"
+                        , "transitions", "transition", "f_rate", "r_rate"
+                        , "ode", "sde", "rre"
+                        ]
     -- unary ops and relational ops?
     -- do formatting operators count? e.g. :, {, }, ,, etc.
     , T.reservedOpNames = ["<->"] --, "<-", "<->", ":", "{", "}", ","]
@@ -104,8 +108,8 @@ ionTransition = mkTransition <$> attribDef transitionAttribs
   where
     mkTransition ((a, b), fRate, rRate) = I.Transition a b fRate rRate
     transitionAttribs = (,,)    <$$> attrib "transition" ((,) <$> identifier <*> (reservedOp "<->" *> identifier))
-                                <||> attrib "f_rate" number
-                                <||> attrib "r_rate" number
+                                <||> attrib "f_rate" (I.Num <$> number)
+                                <||> attrib "r_rate" (I.Num <$> number)
 
 
 -- |parser for a channel defintion
@@ -119,12 +123,19 @@ ionChannelDef = do
   where
     -- |flexible permutation parser for channel attributes
     -- only prob is recording the name, could place into the parser state
-    ionChannelBody = I.mkIonChannel     <$$> (attrib "density" number)
+    ionChannelBody = I.mkIonChannel     <$?> (SimODE, attrib "sim_type" ionSimType)
+                                        <||> (attrib "density" number)
                                         <||> (attrib "equilibrium_potential" number)
                                         <|?> (1, attrib "subunits" natural)
                                         <||> (attrib "initial_state" identifier)
                                         <||> (attrib "open_states" (braces (listSep identifier)))
                                         <||> (attrib "transitions" (braces (listSep ionTransition)))
+
+    ionSimType :: Parser SimType
+    ionSimType =    reserved "ode" *> pure SimODE
+                    <|> reserved "sde" *> pure SimSDE
+                    <|> reserved "rre" *> pure SimRRE
+                    <?> "simulation type"
 
 -- |parser top level
 ionTop :: Parser [I.IonChannel]
