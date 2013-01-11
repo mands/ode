@@ -79,6 +79,8 @@ processFile inFile = do
     -- parse, process and save the file
     ionOut  <- mkExceptIO $ ionParse inFile fileData >>= processIon >>= ionCodeGen
     liftIO $ writeFile outFile ionOut
+    liftIO $ putStrLn ionOut
+
 
     -- all done!
     return ()

@@ -126,6 +126,7 @@ ionChannelDef = do
     ionChannelBody = I.mkIonChannel     <$?> (SimODE, attrib "sim_type" ionSimType)
                                         <||> (attrib "density" number)
                                         <||> (attrib "equilibrium_potential" number)
+                                        <||> (attrib "channel_conductance" number)
                                         <|?> (1, attrib "subunits" natural)
                                         <||> (attrib "initial_state" identifier)
                                         <||> (attrib "open_states" (braces (listSep identifier)))

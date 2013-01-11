@@ -5,6 +5,7 @@ channel test3 {
   sim_type : rre,
   density : 1,
   equilibrium_potential : 1,
+  channel_conductance : 7,
   subunits : 1,
   initial_state: X1,
   open_states : {X3},

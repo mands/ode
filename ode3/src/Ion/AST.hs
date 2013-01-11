@@ -50,8 +50,8 @@ type IonModel = [IonChannel]
 data IonChannel = IonChannel    {  name :: Id, states :: Set.Set Id, transitionGraph :: UG.GraphMap Id IonExpr
                                 , stocMatrix :: Maybe IonMatrix
 
-                                , simType :: SimType, density :: Double, eqPot :: Double, subunits :: Integer
-                                , initialState :: Id, openStates :: [Id], transitions :: [Transition]
+                                , simType :: SimType, density :: Double, eqPot :: Double, chanConductance :: Double
+                                , subunits :: Integer , initialState :: Id, openStates :: [Id], transitions :: [Transition]
                                 } deriving Show
 
 mkIonChannel = IonChannel "" Set.empty UG.mkGraphMap Nothing
@@ -101,6 +101,9 @@ optExpr e = until' optExpr' e
     -- * Mul x 1 = x
                         | isOne x = optExpr' y
                         | isOne y = optExpr' x
+    -- * Mul x -1 = -x
+                        | isNegOne x = Neg $ optExpr' y
+                        | isNegOne y = Neg $ optExpr' x
     -- * Add x 0 = x
     optExpr' (Add x y)  | isZero x = optExpr' y
                         | isZero y = optExpr' x
@@ -114,9 +117,10 @@ optExpr e = until' optExpr' e
     optExpr' (Neg x) = Neg (optExpr' x)
     optExpr' (Sqrt x) = Sqrt (optExpr' x)
     optExpr' e = e
-
-
+    -- guards
     isZero (Num 0) = True
     isZero _ = False
     isOne (Num 1) = True
     isOne _ = False
+    isNegOne (Num (-1)) = True
+    isNegOne _ = False
