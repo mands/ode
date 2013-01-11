@@ -68,7 +68,7 @@ data SimOp  = Ode Id Var    -- indicates the state val and a ref to an id holdin
 
 -- | we only allow a simulation to be of a certain type, while ODEs are allowed in SDEs (using EulerMaruyama), no other
 -- hybrid simulation is supported
-data SimType = SimODE | SimSDE | SimRRE deriving (Show, Eq, Ord)
+data SimType = SimODE | SimSDE | SimRRE | SimHybrid deriving (Show, Eq, Ord)
 
 -- | Used to handle both input and output args to a library/runtime operator
 -- these are handled in an implementation-specific fashion for the given backend

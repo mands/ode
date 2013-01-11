@@ -47,6 +47,11 @@ initialValueGen :: Sys.SimParams -> Module Id -> MExcept (Module Id, InitMap)
 initialValueGen p mod@(LitMod modData) = do
     (env', st) <- runStateT initGenM $ InitState Map.empty (Sys._startTime p) Map.empty
     trace' [MkSB st] "Flatten - Calculated init vals" $ return ()
+
+    -- check the model has any init vals
+    when (Map.null $ initMap st) $
+        throwError "(SM05) Final model does not contain any initial value expressions"
+
     return (mod, (initMap st))
   where
     initGenM :: InitM InitEnv

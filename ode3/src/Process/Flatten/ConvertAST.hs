@@ -56,27 +56,31 @@ convertAST :: (Module Id, InitMap) -> MExcept ACF.Module
 convertAST (LitMod modData, initMap) = do
     trace' [MkSB modData] "Flatten - Final Core AST input" $ return ()
     ((_, freeIds'), fSt') <- runStateT (runSupplyT flatExprM freeIds) $ mkFlatState (modTMap modData)
-    let simOps = (reverse $ _simOps fSt')
+
+    let simOps = reverse $ _simOps fSt'
     simType <- getSimType simOps
+
+    trace' [MkSB simType] "Sim Type" $ return ()
     return $ ACF.Module (_curExprs fSt') initMap simOps simType (head freeIds')
   where
     freeIds = [modFreeId modData..]
     flatExprM :: ConvM ()
     flatExprM = foldM_ convertTop () $ OrdMap.toList (modExprMap modData)
 
-    -- determine if this module may be simulated and the mechanism to use
-    getSimType simOps = if isRREOnly then return ACF.SimRRE else
-                            if hasRREs
-                                then throwError $ "(SM04) Model currently can not have a mix of RREs and SDEs/ODEs"
-                                else if hasSDEs then return ACF.SimSDE else return ACF.SimODE
+    -- determine if this module may be simulated, has any simOps, and the mechanism to use
+    getSimType simOps   | null simOps = throwError "(SM06) Final model does not contain any simulation operations (i.e. ODEs/SDEs/RREs)"
+                        | hasRREs && (hasODEs || hasSDEs) = return ACF.SimHybrid
+                        | allRREs = return ACF.SimRRE
+                        | hasSDEs = return ACF.SimSDE
+                        | hasODEs = return ACF.SimODE
       where
-        hasODEs = any (\op -> case op of ACF.Ode _ _ -> True;_ -> False) simOps
-        hasSDEs = any (\op -> case op of ACF.Sde _ _ _ -> True;_ -> False) simOps
-        hasRREs = any (\op -> case op of ACF.Rre _ _ _ -> True;_ -> False) simOps
-        checkODE = (\op -> case op of ACF.Ode _ _ -> True;_ -> False)
-        checkSDE = (\op -> case op of ACF.Sde _ _ _ -> True;_ -> False)
-        checkRRE = (\op -> case op of ACF.Rre _ _ _ -> True;_ -> False)
-        isRREOnly = all checkRRE simOps
+        hasODEs = any checkODE simOps
+        hasSDEs = any checkSDE simOps
+        hasRREs = any checkRRE simOps
+        checkODE op = case op of ACF.Ode _ _ -> True; _ -> False
+        checkSDE op = case op of ACF.Sde _ _ _ -> True; _ -> False
+        checkRRE op = case op of ACF.Rre _ _ _ -> True; _ -> False
+        allRREs = all checkRRE simOps
 
 
 -- convert the toplet - we ensure that only TopLets with exist at this point

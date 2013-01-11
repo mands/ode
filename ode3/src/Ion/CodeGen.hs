@@ -37,7 +37,6 @@ ionCodeGen ionChans = do
     let doc = (vcat $ map genChannel ionChans) <$> comment "EOF"
     return $ show doc
 
-
 genChannel :: IonChannel -> Doc
 genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
   where
