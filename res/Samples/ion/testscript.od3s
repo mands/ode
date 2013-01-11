@@ -1,0 +1,50 @@
+// disable unit checking
+:disableUnits
+
+// setup the repo
+:addRepo ../res/Samples/ion
+
+// import our modules
+import Test3.*
+
+// :show all
+//:show modState
+
+// set sim params
+:startTime 0
+:stopTime 10
+:timestep 1
+:period 3
+:output "./output.bin"
+
+// sim backend params
+// solver - euler, rk4, adaptive
+:solver "euler"
+// linker - dynamic, static
+:linker "dynamic"
+// disable exe
+:disableExecute
+// disable opts
+//:disableOptimise
+// disable short-circuiting
+//:disableShortCircuit
+// disable power expan
+//:disablePowerExpan
+// math model - strict, fast
+:mathModel "fast"
+// vecmath enable?
+//:vecMath
+:mathLib "gnu"
+// backend to use - interpreter, jitcompiler, aotcompiler, objectfile
+:backend "aotcompiler"
+
+// adaptive params
+:relError 1e-4
+:absError 1e-6
+:modelType "stiff"
+:maxTimestep 2
+
+// all done
+:simulate Test3
+:quit
+

@@ -156,17 +156,3 @@ getStocElems ionChan@IonChannel{..} = map optExpr $ A.elems (matVecMult eMulF we
     eMulF = matMatMult (fromJust stocMatrix) fDiagMat
     -- a dummy array for representing the weiner for each transition (we actually require them per state)
     weinerVec = A.listArray (1, length transitions) $ repeat (Num 1)
-
-
-
--- RRE Generation ------------------------------------------------------------------------------------------------------
--- geenrate RREs directly from transitions, no intermediate structure needed
--- (Need some expression to generate the voltage from open state matrix)
-getRREElems = undefined
-
-
-
-
-
-
-

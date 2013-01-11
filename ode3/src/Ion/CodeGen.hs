@@ -34,7 +34,7 @@ import Text.PrettyPrint.Leijen
 ionCodeGen :: [IonChannel] -> MExcept String
 ionCodeGen ionChans = do
     -- create the docs
-    let doc = (vcat $ map genChannel ionChans) <$> text "EOF"
+    let doc = (vcat $ map genChannel ionChans) <$> comment "EOF"
     return $ show doc
 
 
@@ -45,19 +45,22 @@ genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
     modHeader = text "module" <+> text (capitalise name)
 
     -- main component header
-    mainComponent = codeBlock compHeader $ initVals <$> stateVals <$> currentCalc
+    mainComponent = compComment <$> (codeBlock compHeader $ initVals <$> stateVals <$> currentCalc)
     compHeader = text "component" <+> text "getCurrent" <> parens voltage
+    compComment = comment "Externally called component to generate channel current"
 
     -- initial vals
-    initVals = vsep . map genInitVal $ Set.toList states
+    initVals = initComment <$> (vsep . map genInitVal $ Set.toList states)
       where
         genInitVal state = text "init" <+> text state <+> text "=" <+> initVal
           where
             initVal | initialState == state  = double 1.0
                     | otherwise             = double 0.0
+        initComment = comment "Setup initial values"
+
 
     -- generate converted data depedning on simtype
-    stateVals = case simType of
+    stateVals = stateComment <$> case simType of
         SimODE -> vsep . map genOdeExpr $ zip (Set.toList states) detElems
           where
             detElems = getDetElems ionChan
@@ -74,9 +77,12 @@ genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
           where
             genRreExpr Transition{..} = [genRreExpr' stateA stateB fRate, genRreExpr' stateB stateA rRate]
             genRreExpr' x y eRate = text "rre" <+> genAttribs [("rate", genExpr eRate)] <+> equals <+> text x <+> text "->" <+> text y
-
-    currentCalc = defI <$> retI
       where
+        stateComment = comment "Setup state values (based on ODE/SDE/RRE form)"
+
+    currentCalc = curComment <$> defI <$> retI
+      where
+        curComment = comment "Calculate channel current"
         defI = text "val" <+> text "current" <+> equals <+> exprI
         retI = text "return" <+> text "current"
         -- eqn taken from rudy/silva paper
@@ -120,3 +126,4 @@ plus = char '+'
 minus = char '-'
 div = char '/'
 voltage = char 'V'
+comment t = enclose (text "/* ") (text " */") (text t)

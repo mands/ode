@@ -1,0 +1,17 @@
+module Test3 {
+    /* Externally called component to generate channel current */
+    component getCurrent(V) {
+        /* Setup initial values */
+        init X1 = 1.0
+        init X2 = 0.0
+        init X3 = 0.0
+        /* Setup state values (based on ODE/SDE/RRE form) */
+        ode {init : X1} = (-((X1)*(1.1)))+((X2)*(0.1))
+        ode {init : X2} = (-((X2)*((0.1)*(0.1))))+(((X1)*(1.1))+((X3)*(1.1)))
+        ode {init : X3} = (-((X3)*(1.1)))+((X2)*(0.1))
+        /* Calculate channel current */
+        val current = 7.0*1.0*(X3)*(V-1.0)
+        return current
+        }
+    }
+/* EOF */

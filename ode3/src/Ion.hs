@@ -64,7 +64,7 @@ main = do
         res <- runErrorT $ processFile inFile
         case res of
             Left err -> putStrLn $ "Error - " ++ err
-            Right () -> return ()
+            Right () -> debugM "ion.main" "All sucessful." >> return ()
 
     debugM "ion.main" $ "Quitting."
     -- TODO - return exit code depending on success/failure
@@ -85,7 +85,7 @@ processFile inFile = do
     -- all done!
     return ()
   where
-    outFile = SF.replaceExtension inFile "ode"
+    outFile = SF.replaceExtension inFile "od3"
 
 -- TODO - integrate this correctly, use box output
 dumpData :: IonChannel -> IO ()
