@@ -55,6 +55,7 @@
         <context id="types" style-ref="type">
           <keyword>init</keyword>
           <keyword>delta</keyword>
+          <keyword>weiner</keyword>
           <keyword>unit</keyword>
           <keyword>rate</keyword>
 

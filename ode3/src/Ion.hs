@@ -16,8 +16,8 @@ import System.IO(stdout)
 import System.IO as SIO
 import System.Environment(getArgs, getProgName)
 import System.Directory(getCurrentDirectory)
-import System.Posix.Files as PF
-import System.FilePath.Posix as SFP
+-- import System.Posix.Files as PF
+import System.FilePath as SF
 import System.Log.Logger
 import System.Log.Handler(close)
 import System.Log.Handler.Simple
@@ -28,6 +28,7 @@ import qualified Data.Text.IO as TIO
 import AST.CoreFlat(SimType(..))
 
 import Ion.Parser
+import Ion.CodeGen
 import Ion.AST
 import Ion.Process
 
@@ -75,53 +76,19 @@ processFile :: FilePath -> MExceptIO ()
 processFile inFile = do
     fileData <- liftIO $ readFile inFile
     liftIO $ putStrLn fileData
-
     -- parse, process and save the file
-    ionAST <- mkExceptIO $ ionParse inFile fileData >>= processIon
+    ionOut  <- mkExceptIO $ ionParse inFile fileData >>= processIon >>= ionCodeGen
+    liftIO $ writeFile outFile ionOut
 
-    trace' [MkSB ionAST] "Final Ion AST" $ return ()
-
-    -- save as Ode file
-
-    liftIO $ mapM_ saveChannel ionAST
-    liftIO $ saveOutFile
-
+    -- all done!
     return ()
   where
-    saveChannel :: IonChannel -> IO ()
-    saveChannel ionChan@IonChannel{..} = do
-        putStrLn $ printf "\nStocimetric Matrix - (%d transitions x %d states)" (length transitions) (Set.size states)
-        putStrLn $ printf "State row names - %s" (show states)
-        putStrLn $ matrixToTable (fromJust stocMatrix)
+    outFile = SF.replaceExtension inFile "ode"
 
-        -- generate converted data
-        case simType of
-            SimODE -> genOde ionChan
-            SimSDE -> genSde ionChan
-            SimRRE -> genRre ionChan
+-- TODO - integrate this correctly, use box output
+dumpData :: IonChannel -> IO ()
+dumpData ionChan@IonChannel{..} = do
+    putStrLn $ printf "\nStocimetric Matrix - (%d transitions x %d states)" (length transitions) (Set.size states)
+    putStrLn $ printf "State row names - %s" (show states)
+    putStrLn $ matrixToTable (fromJust stocMatrix)
 
-
-    outFile = SFP.replaceExtension inFile "ode"
-
-    saveOutFile = do
-        TIO.writeFile outFile "Dummy\n"
-
-
-
-genOde :: IonChannel -> IO ()
-genOde ionChan@IonChannel{..} = do
-    let detElems = getDetElems ionChan
-    trace' [MkSB detElems] "Det elems" $ return ()
-    return ()
-
-genSde :: IonChannel -> IO ()
-genSde ionChan@IonChannel{..} = do
-    let detElems = getDetElems ionChan
-    let stocElems = getStocElems ionChan
-    trace' [MkSB detElems] "Det elems" $ return ()
-    trace' [MkSB stocElems] "Stoc elems" $ return ()
-    return ()
-
-genRre :: IonChannel -> IO ()
-genRre ionChan@IonChannel{..} = do
-    undefined

@@ -20,9 +20,9 @@ mapFst, mapSnd, mapFstM, mapSndM, pairM, notEqual, inc, dec, isWholeNumber,
 (|>),
 SB(..), trace', errorDump,
 openPipe, closePipe, readLoop,
-mkLabelName,
+mkLabelName, capitalise,
 listUniqs,
-mapArrayWithIdx, matMatMult, matVecMult, genDiagMat,
+mapArrayWithIdx, matMatMult, matVecMult, genDiagMat, initMat,
 until'
 ) where
 
@@ -164,9 +164,12 @@ readLoop hCmdPipe = forever (SIO.hGetLine hCmdPipe >>= outCmd)
 -- FCLabels Functions --------------------------------------------------------------------------------------------------
 -- | fclabels fucntion to create labels of form lRecordName
 mkLabelName :: String -> String
-mkLabelName s = 'l' : toUpper (head n) : tail n
-  where
-    n = drop 1 s
+mkLabelName s = 'l' : capitalise s
+
+-- | Capitalise the first char of a string
+capitalise :: String -> String
+capitalise [] = []
+capitalise (x:xs) = toUpper x : xs
 
 -- Array Functions -----------------------------------------------------------------------------------------------------
 
@@ -201,12 +204,16 @@ matVecMult x v
 
 -- Geneate a diagonal matrix from a list of elements, impiles Int indexing statring from 1
 genDiagMat :: a -> [a] -> A.Array (Int, Int) a
-genDiagMat def elems = zeroArray A.// [((j,j), diagVec A.! j) | j <- [1..i]]
+genDiagMat def elems = (initMat i i def) A.// [((j,j), diagVec A.! j) | j <- [1..i]]
   where
     i = length elems
     diagVec = A.listArray (1, i) elems
-    zeroArray = A.listArray ((1,1), (i,i)) $ repeat def
+
 -- TODO - genMatAdd
+
+-- | Generate an empty 2d matrix of size n
+initMat :: Int -> Int -> e -> A.Array (Int, Int) e
+initMat rows cols x = A.listArray ((1,1), (rows,cols)) $ repeat x
 
 -- a varient of until that utilise a eq rather than a predicate
 until' :: (Eq a) => (a -> a) -> a -> a

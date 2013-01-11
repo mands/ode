@@ -21,7 +21,7 @@
              UndecidableInstances #-}
 
 module Ion.AST (
-IonModel(..), IonChannel(..), Transition(..), Id, mkIonChannel, StocMatrix, IonExpr(..), optExpr
+IonModel(..), IonChannel(..), Transition(..), Id, mkIonChannel, IonExpr(..), optExpr, IonMatrix, IonVector
 ) where
 
 import Control.Monad.Error
@@ -48,7 +48,7 @@ type IonModel = [IonChannel]
 -- * stoc matrix
 -- * ...
 data IonChannel = IonChannel    {  name :: Id, states :: Set.Set Id, transitionGraph :: UG.GraphMap Id IonExpr
-                                , stocMatrix :: Maybe StocMatrix
+                                , stocMatrix :: Maybe IonMatrix
 
                                 , simType :: SimType, density :: Double, eqPot :: Double, subunits :: Integer
                                 , initialState :: Id, openStates :: [Id], transitions :: [Transition]
@@ -60,7 +60,6 @@ mkIonChannel = IonChannel "" Set.empty UG.mkGraphMap Nothing
 -- |description of the bi-directional state-change reaction within an ion-channel
 data Transition = Transition {stateA :: Id, stateB :: Id, fRate :: IonExpr, rRate :: IonExpr} deriving Show
 
-type StocMatrix = A.Array (Int,Int) Double
 type IonMatrix = A.Array (Int,Int) IonExpr
 type IonVector = A.Array Int IonExpr
 
@@ -97,13 +96,13 @@ optExpr e = until' optExpr' e
   where
     optExpr' :: IonExpr -> IonExpr
     -- * Mul x 0 = 0,
-    optExpr' (Mul x y)   | isZero x = Num 0
+    optExpr' (Mul x y)  | isZero x = Num 0
                         | isZero y = Num 0
     -- * Mul x 1 = x
                         | isOne x = optExpr' y
                         | isOne y = optExpr' x
     -- * Add x 0 = x
-    optExpr' (Add x y)   | isZero x = optExpr' y
+    optExpr' (Add x y)  | isZero x = optExpr' y
                         | isZero y = optExpr' x
     -- misc - are these needed? most unopts exprs come from monoid ops
     optExpr' (Neg (Num n)) = Num $ negate n

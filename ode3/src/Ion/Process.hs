@@ -103,26 +103,25 @@ expandSubunits ionChan@IonChannel{..} = do
 
 
 -- Stoc Matrix Generation ----------------------------------------------------------------------------------------------
-genStocMatrix :: IonChannel -> StocMatrix
+genStocMatrix :: IonChannel -> IonMatrix
 genStocMatrix ionChan@IonChannel{..} = initArray A.// stocElems
   where
-    initArray = A.listArray ((1,1), (Set.size states, length transitions)) [0,0..] -- create a zero-filled init array, (states x transitions)
+    initArray = initMat (Set.size states) (length transitions) (Num 0) -- zero-filled init array, (states x transitions)
     stateMap = Map.fromList $ zip (Set.toList states) [1..] -- mapping from a state to it's row in the stocMatrix
     -- list of updates to the inital array
     stocElems = concat $ map createElems (zip [1..] transitions)
     -- creates 2 inserts into array to represetn the state changes by the transition
-    createElems (transIdx, (Transition a b _ _)) = [((stateMap Map.! a, transIdx), -1), ((stateMap Map.! b, transIdx), 1)]
+    createElems (transIdx, (Transition a b _ _)) = [((stateMap Map.! a, transIdx), Num (-1)), ((stateMap Map.! b, transIdx), Num 1)]
 
 -- Create a 2D representation of the array for printinf (taken from http://stackoverflow.com/questions/8901252/2d-array-in-haskell)
-matrixToTable :: StocMatrix -> String
+matrixToTable :: IonMatrix -> String
 matrixToTable arr = unlines $ map (unwords . map (printElem . (arr A.!))) indices
   where
     indices = [[(row, col) | row <- [startRow..endRow]] | col <- [startCol..endCol]]
     ((startRow, startCol), (endRow, endCol)) = A.bounds arr
-    printElem x | x == 1 = "+1"
-    printElem x | x == 0 = " 0"
-    printElem x | x == -1 = "-1"
-
+    printElem (Num n) | n == 1   = "+1"
+    printElem (Num n) | n == -1  = "-1"
+    printElem _                 = " 0"
 
 
 -- Deterministic Matrix Generation -------------------------------------------------------------------------------------
@@ -148,20 +147,20 @@ getDetElems ionChan@IonChannel{..} = map (optExpr . calcDetExpr) (Set.toList sta
 -- Stochastic Matrix Generation -------------------------------------------------------------------------------------
 -- fold over the transition list, generating the weiner exprs as go along
 getStocElems :: IonChannel -> [IonExpr]
-getStocElems ionChan@IonChannel{..} = trace' [MkSB fDiagMat, MkSB eMulF] "fdiag, emulf" $ map optExpr $ A.elems (matVecMult eMulF weinerVec)
+getStocElems ionChan@IonChannel{..} = map optExpr $ A.elems (matVecMult eMulF weinerVec)
   where
     -- a 2D array represeting the diag matrix F
     fDiagMat = genDiagMat (Num 0) (map genProp transitions)
     genProp Transition{..} = Sqrt $ Add (Mul (Var stateA) fRate) (Mul (Var stateB) rRate)
     -- e.F(x) matrix - matrix mult
-    eMulF = matMatMult (Num <$> fromJust stocMatrix) fDiagMat
+    eMulF = matMatMult (fromJust stocMatrix) fDiagMat
     -- a dummy array for representing the weiner for each transition (we actually require them per state)
     weinerVec = A.listArray (1, length transitions) $ repeat (Num 1)
 
 
 
 -- RRE Generation ------------------------------------------------------------------------------------------------------
--- fold over the transitions, converting to RREs as go along
+-- geenrate RREs directly from transitions, no intermediate structure needed
 -- (Need some expression to generate the voltage from open state matrix)
 getRREElems = undefined
 
