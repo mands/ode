@@ -68,7 +68,7 @@ convertAST (LitMod modData, initMap) = do
     flatExprM = foldM_ convertTop () $ OrdMap.toList (modExprMap modData)
 
     -- determine if this module may be simulated, has any simOps, and the mechanism to use
-    getSimType simOps   | null simOps = throwError "(SM06) Final model does not contain any simulation operations (i.e. ODEs/SDEs/RREs)"
+    getSimType simOps   | null simOps = throwError "(SM05) Final model does not contain any simulation operations (i.e. ODEs/SDEs/RREs)"
                         | hasRREs && (hasODEs || hasSDEs) = return ACF.SimHybrid
                         | allRREs = return ACF.SimRRE
                         | hasSDEs = return ACF.SimSDE

@@ -62,27 +62,39 @@ optScript p@(Sys.SimParams{..}) = do
             then if (_vecMath)
                 -- fastmath & vecmath then run full vecmath opts
                 then do
-                    -- 1st pass - std-compile-opts, liftvecmath, bb-vectorise1 (pick up all std chains (length 4+))
-                    -- TODO - we don't run this pass yet until LLVM 3.2 released
---                    run_ "opt" $ ["-load", llvmVecMath, "-o", LT.append modelBC "vec2" ] ++
---                        ["-liftvecmath", "-std-compile-opts", "-bb-vectorize", "-lowervecmath" -- lift and lower
---                        ,"-bb-vectorize-vecmath-pass=0", "-bb-vectorize-req-chain-depth=7", "-bb-vectorize-pow2-len-only=0"
---                        ,"-bb-vectorize-no-floats=0", "-bb-vectorize-no-math=1", "-bb-vectorize-no-vecmath=1", "-bb-vectorize-no-fma=0"
---                        ,"-bb-vectorize-aligned-only=1", "-bb-vectorize-no-mem-op-boost=0"
---                        ,"-bb-vectorize-debug-instruction-examination=0", "-bb-vectorize-debug-candidate-selection=0", "-bb-vectorize-debug-pair-selection=0", "-bb-vectorize-debug-cycle-check=0"
+                    -- 1st pass - std-compile-opts, liftvecmath, bb-vectorise1 (pick up all std chain#s (length 4+))
+                    -- disabled as of llvm 3.2 - wait for improved cost-analysis mechanism in later llvm releases
+--                    let modelVec1 = "./Model.vec1.bc"
+--                    run_ "opt" $ ["-load", llvmVecMath, "-o", modelVec1 ] ++
+--                        [ "-std-compile-opts", "-liftvecmath", "-bb-vectorize"
+--                        -- main params
+--                        , "-bb-vectorize-vecmath-pass=0", "-bb-vectorize-req-chain-depth=6", "-bb-vectorize-use-chain-depth=1", "-bb-vectorize-aligned-only=1", "-bb-vectorize-splat-breaks-chain=1"
+--                        -- no built-in or vecmath intrinsics
+--                        , "-bb-vectorize-no-math=1", "-bb-vectorize-no-vecmath=1"
+--                        -- disable all other instructinos except FP ops
+--                        , "-bb-vectorize-no-bools=1", "-bb-vectorize-no-ints=1", "-bb-vectorize-no-pointers=1", "-bb-vectorize-no-casts=1", "-bb-vectorize-no-fma=1"
+--                        , "-bb-vectorize-no-select=1", "-bb-vectorize-no-cmp=1", "-bb-vectorize-no-gep=1", "-bb-vectorize-no-mem-ops=1"
+--                        -- debug output
+--                        ,"-bb-vectorize-debug-instruction-examination=0", "-bb-vectorize-debug-candidate-selection=0", "-bb-vectorize-debug-pair-selection=0"
 --                        ,"-stats", modelBC]
+--                    run_ "llvm-dis" [modelVec1]
+
+                    -- dummy 1st pass - std-compile-opts, liftvecmath
+                    let modelVec1 = "./Model.vec1.bc"
+                    run_ "opt" $ ["-load", llvmVecMath, "-o", modelVec1 ] ++ [ "-std-compile-opts", "-liftvecmath", "-stats", modelBC]
+                    run_ "llvm-dis" [modelVec1]
                     -- 2nd pass - bb-vectorise2 (pick up all short vecmath-only chains (length 1-2)), lowervecmath, std-compile-opts
                     let modelVec2 = "./Model.vec2.bc"
                     run_ "opt" $ ["-load", llvmVecMath, "-o", modelVec2 ] ++
-                        ["-liftvecmath", "-bb-vectorize", "-lowervecmath", "-std-compile-opts"
-                        ,"-bb-vectorize-vecmath-pass=1", "-bb-vectorize-req-chain-depth=2", "-bb-vectorize-pow2-len-only=1"
-                        ,"-bb-vectorize-no-floats=1", "-bb-vectorize-no-math=1", "-bb-vectorize-no-vecmath=0", "-bb-vectorize-no-fma=0"
-                        ,"-bb-vectorize-aligned-only=1", "-bb-vectorize-no-mem-op-boost=0"
-                        ,"-bb-vectorize-debug-instruction-examination=0", "-bb-vectorize-debug-candidate-selection=1", "-bb-vectorize-debug-pair-selection=0", "-bb-vectorize-debug-cycle-check=0"
-                        ,"-stats", modelBC ] --LT.append modelBC "vec1"]
+                        ["-bb-vectorize", "-lowervecmath", "-std-compile-opts"
+                        -- main params
+                        ,"-bb-vectorize-vecmath-pass=1", "-bb-vectorize-req-chain-depth=2", "-bb-vectorize-use-chain-depth=1", "-bb-vectorize-aligned-only=1", "-bb-vectorize-splat-breaks-chain=1"
+                        -- debug output
+                        -- ,"-bb-vectorize-debug-instruction-examination=0", "-bb-vectorize-debug-candidate-selection=1", "-bb-vectorize-debug-pair-selection=0"
+                        ,"-stats", modelVec1]
                     run_ "llvm-dis" [modelVec2]
                     linkVecMath modelVec2
-                    -- return modelVec2
+
                 -- just fastmath, run lift and lowering (as implies linking to finite-funcs)
                 else do
                     let modelLift = "./Model.lift.bc"

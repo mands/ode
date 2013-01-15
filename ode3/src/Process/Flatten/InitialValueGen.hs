@@ -50,7 +50,7 @@ initialValueGen p mod@(LitMod modData) = do
 
     -- check the model has any init vals
     when (Map.null $ initMap st) $
-        throwError "(SM05) Final model does not contain any initial value expressions"
+        throwError "(SM04) Final model does not contain any initial value expressions"
 
     return (mod, (initMap st))
   where

@@ -12,13 +12,14 @@ import SimTests.HodHux.*
 
 // set sim params
 :startTime 0
-:stopTime 60.015
-:timestep 0.001
-:period 0.01
+:stopTime 60
+:timestep 0.000005
+:period 0.1
 :output "./output.bin"
 
 // sim backend params
-:solver "adaptive"
+// solver - euler, rk4, adaptive
+:solver "euler"
 // linker - dynamic, static
 :linker "dynamic"
 // disable exe
@@ -28,11 +29,11 @@ import SimTests.HodHux.*
 // disable short-circuiting
 //:disableShortCircuit
 // disable power expan
-//:disablePowerExpan
+:disablePowerExpan
 // math model - strict, fast
 :mathModel "fast"
 // vecmath enable?
-//:vecMath
+:vecMath
 :mathLib "gnu"
 // backend to use - interpreter, jitcompiler, aotcompiler, objectfile
 :backend "aotcompiler"
