@@ -87,6 +87,7 @@ defSysState = SysState
 
 -- Simulation Datatypes
 data OdeSolver  = FEuler | RK4 | Adaptive deriving (Show, Eq)
+data SdeSolver  = EM | ReflectedEM deriving (Show, Eq)
 data OdeBackend = Interpreter | JITCompiler | AOTCompiler | ObjectFile deriving (Show, Eq)
 data OdeLinker  = Static | Dynamic deriving (Show, Eq)
 data OdeMathModel = Strict | Fast deriving (Show, Eq)
@@ -116,10 +117,12 @@ data SimParams = SimParams
     , _filename     :: FilePath         -- output filename to save data to
 
     -- compilation params
-    , _solver       :: OdeSolver
+    , _odeSolver    :: OdeSolver
+    , _sdeSolver    :: SdeSolver
     , _backend      :: OdeBackend
     , _linker       :: OdeLinker
     , _execute      :: Bool
+    , _exeName      :: String
 
     -- fast math
     , _mathModel    :: OdeMathModel
@@ -149,10 +152,13 @@ defSimParams = SimParams
     , _outputPeriod = 0.5               -- 0.5s
     , _filename     = "output.bin"      -- default output file
 
-    , _solver       = FEuler            -- default solver
+    , _odeSolver    = FEuler            -- default solver
+    , _sdeSolver    = EM                -- default solver
+
     , _backend      = Interpreter       -- default backend
     , _linker       = Dynamic           -- always dyn link (not used for Interpreter & JIT)
     , _execute      = True              -- always execute (not used for Interpreter & JIT)
+    , _exeName      = "Sim.exe"         -- executable name (only for aotcompilation output)
 
     , _mathModel    = Fast              -- always use fast maths during code-gen
     , _mathLib      = GNU               -- always use GNU libm
@@ -215,8 +221,8 @@ def genLens(recName, fields):
 
 genLens("SysState",     ['_debug', '_simParams', '_modState', '_unitsState'])
 genLens("SimParams",    ['_startTime', '_stopTime', '_timestep', '_maxTimestep', '_maxNumSteps', '_relError', '_absError', '_modelType'
-                        , '_unitsCheck', '_timeUnit', '_filename', '_outputPeriod', '_solver', '_backend', '_linker', '_execute'
-                        , '_mathModel', '_mathLib', '_vecMath', '_optimise', '_optShortCircuit', '_optPowerExpan'])
+                        , '_unitsCheck', '_timeUnit', '_filename', '_outputPeriod', '_odeSolver', '_sdeSolver', '_backend', '_linker', '_execute'
+                        , '_exeName', '_mathModel', '_mathLib', '_vecMath', '_optimise', '_optShortCircuit', '_optPowerExpan'])
 genLens("ModState",     ['_repos', '_modEnv', '_parsedFiles', '_replFile'])
 genLens("UnitsState",   ['_quantities', '_unitDimEnv', '_convEnv'])
 
@@ -243,10 +249,12 @@ lUnitsCheck = lens (_unitsCheck) (\x rec -> rec { _unitsCheck = x })
 lTimeUnit = lens (_timeUnit) (\x rec -> rec { _timeUnit = x })
 lFilename = lens (_filename) (\x rec -> rec { _filename = x })
 lOutputPeriod = lens (_outputPeriod) (\x rec -> rec { _outputPeriod = x })
-lSolver = lens (_solver) (\x rec -> rec { _solver = x })
+lOdeSolver = lens (_odeSolver) (\x rec -> rec { _odeSolver = x })
+lSdeSolver = lens (_sdeSolver) (\x rec -> rec { _sdeSolver = x })
 lBackend = lens (_backend) (\x rec -> rec { _backend = x })
 lLinker = lens (_linker) (\x rec -> rec { _linker = x })
 lExecute = lens (_execute) (\x rec -> rec { _execute = x })
+lExeName = lens (_exeName) (\x rec -> rec { _exeName = x })
 lMathModel = lens (_mathModel) (\x rec -> rec { _mathModel = x })
 lMathLib = lens (_mathLib) (\x rec -> rec { _mathLib = x })
 lVecMath = lens (_vecMath) (\x rec -> rec { _vecMath = x })
@@ -264,7 +272,7 @@ lReplFile = lens (_replFile) (\x rec -> rec { _replFile = x })
 lQuantities = lens (_quantities) (\x rec -> rec { _quantities = x })
 lUnitDimEnv = lens (_unitDimEnv) (\x rec -> rec { _unitDimEnv = x })
 lConvEnv = lens (_convEnv) (\x rec -> rec { _convEnv = x })
---[[[end]]] (checksum: 38e1bc7eaed9a5f89a7f7c8b9694782f)
+--[[[end]]] (checksum: bcd24fc368ca87c9213903c0014cd07e)
 
 -- a few useful views from top SysState into nested labels
 vModEnv :: SysState :-> MA.GlobalModEnv

@@ -2,7 +2,7 @@
 //:show modState
 
 // sim backend params
-:solver "euler"
+:odeSolver "euler"
 // linker - dynamic, static
 :linker "dynamic"
 // disable exe

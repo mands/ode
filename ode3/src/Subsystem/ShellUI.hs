@@ -114,7 +114,7 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, simStartCmd,
                 , simStartTimeCmd, simStopTimeCmd, simTimestepCmd
                 , simMaxTimestepCmd, simMaxNumStepsCmd, simRelErrorCmd, simAbsErrorCmd, simModelType
                 , simDisableUnitsCmd, simTimeUnitCmd, simOutPeriodCmd, simOutFilenameCmd
-                , simSolverCmd, simBackendCmd, simLinkerCmd, simExecuteCmd
+                , simOdeSolverCmd, simSdeSolverCmd, simBackendCmd, simExeFilenameCmd, simLinkerCmd, simExecuteCmd
                 , simMathModelCmd, simMathLibCmd, simVecMathCmd
                 , simOptimiseCmd, simShortCircuitCmd, simPowerExpanCmd
                 ]
@@ -168,13 +168,20 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, simStartCmd,
         f (File x) = modifyShellSt $ set (lFilename . lSimParams) x
 
     -- compilation params
-    simSolverCmd = cmd "solver" f "ODE Solver to use for simulation <euler, rk4, adaptive>"
+    simOdeSolverCmd = cmd "odeSolver" f "ODE Solver to use for simulation <euler, rk4, adaptive>"
       where
         f :: String -> Sh SysState ()
-        f str | map toLower str == "euler"       = modifyShellSt $ set (lSolver . lSimParams) FEuler
-        f str | map toLower str == "rk4"         = modifyShellSt $ set (lSolver . lSimParams) RK4
-        f str | map toLower str == "adaptive"    = modifyShellSt $ set (lSolver . lSimParams) Adaptive
+        f str | map toLower str == "euler"       = modifyShellSt $ set (lOdeSolver . lSimParams) FEuler
+        f str | map toLower str == "rk4"         = modifyShellSt $ set (lOdeSolver . lSimParams) RK4
+        f str | map toLower str == "adaptive"    = modifyShellSt $ set (lOdeSolver . lSimParams) Adaptive
         f _ = shellPutInfoLn "Possible options <euler, rk4, adaptive>"
+
+    simSdeSolverCmd = cmd "sdeSolver" f "SDE Solver to use for simulation <em, reflectedem>"
+      where
+        f :: String -> Sh SysState ()
+        f str | map toLower str == "em"          = modifyShellSt $ set (lSdeSolver . lSimParams) EM
+        f str | map toLower str == "reflectedem" = modifyShellSt $ set (lSdeSolver . lSimParams) ReflectedEM
+        f _ = shellPutInfoLn "Possible options <em, reflectedem>"
 
     simBackendCmd = cmd "backend" f "Simulation backend to use <interpreter, jitcompiler, aotcompiler>"
       where
@@ -184,6 +191,11 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, simStartCmd,
         f str | map toLower str == "aotcompiler"     = modifyShellSt $ set (lBackend . lSimParams) AOTCompiler
         f str | map toLower str == "objectfile"      = modifyShellSt $ set (lBackend . lSimParams) ObjectFile
         f _ = shellPutInfoLn "Possible options <interpreter, jitcompiler, aotcompiler>"
+
+    simExeFilenameCmd = cmd "exeOutput" f "Filename to save compiled model executable"
+      where
+        f :: File -> Sh SysState ()
+        f (File x) = modifyShellSt $ set (lExeName . lSimParams) x
 
     simLinkerCmd = cmd "linker" f "System linker to use when compiling <dynamic, static>"
       where
@@ -348,7 +360,7 @@ shSimulate initMod = do
     checkParams SimParams{..} = do
         when (_outputPeriod < _timestep)
             (throwError $ printf "Output period (%g) must be equal or greater to timestep (%g)\n" _outputPeriod _timestep)
-        when ((_backend == ObjectFile || _solver == Adaptive) && _maxTimestep < _timestep)
+        when ((_backend == ObjectFile || _odeSolver == Adaptive) && _maxTimestep < _timestep)
             (throwError $ printf "Max timestep (%g) must be equal or greater to timestep (%g)\n" _maxTimestep _timestep)
         when (_stopTime <= _startTime)
             (throwError $ printf "Stop time (%g) must be greater than start time (%g)\n" _stopTime _startTime)

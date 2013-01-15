@@ -2,7 +2,7 @@
 //:show modState
 
 // sim backend params
-:solver "rk4"
+:odeSolver "rk4"
 // linker - dynamic, static
 :linker "dynamic"
 // disable exe

@@ -92,36 +92,37 @@ genLLVMModule p odeMod = do
     (mathOps, libOps) <- liftIO $ defineExtOps p llvmMod
     modify (\st -> st { llvmMod, mathOps, libOps })
 
+    -- clean up nested ifs/selection logic
     if (CF.simType odeMod == CF.SimRRE)
         then do
             simF <- genSSASolver odeMod
             when (L.get Sys.lBackend p == Sys.AOTCompiler) $ genAOTMain simF
-        else do
-            -- modify the module depedning on the chosen backend and solver
-            if (L.get Sys.lBackend p == Sys.ObjectFile)
-                then genFFI
-                else case (L.get Sys.lSolver p) of
-                    Sys.Adaptive    -> do
-                        -- generate the FFI for linking to C-based CVODE solver
-                        genFFI
-                        -- declare the modelSolver func entry-point
-                        simF <- liftIO $ addFunction llvmMod "modelSolver" (functionType voidType [] False)
-                        -- gen a main func if AOT-compiling
-                        when (L.get Sys.lBackend p == Sys.AOTCompiler) $ genAOTMain simF
 
-                    -- default - built-in solvers - euler, eulerM, rk4
-                    _               -> do
-                        simF <- genDiffSolver odeMod
-                        -- gen a main func if AOT-compiling
-                        when (L.get Sys.lBackend p == Sys.AOTCompiler) $ genAOTMain simF
-                        return ()
+            -- modify the module depedning on the chosen backend and solver
+        else if (L.get Sys.lBackend p == Sys.ObjectFile)
+            then genFFI
+            else if (L.get Sys.lOdeSolver p == Sys.Adaptive && CF.simType odeMod == CF.SimODE)
+                then do
+                    -- generate the FFI for linking to C-based CVODE solver
+                    genFFI
+                    -- declare the modelSolver func entry-point
+                    simF <- liftIO $ addFunction llvmMod "modelSolver" (functionType voidType [] False)
+                    -- gen a main func if AOT-compiling
+                    when (L.get Sys.lBackend p == Sys.AOTCompiler) $ genAOTMain simF
+
+                -- default - built-in solvers - euler, eulerM, rk4
+                else do
+                    simF <- genDiffSolver odeMod
+                    -- gen a main func if AOT-compiling
+                    when (L.get Sys.lBackend p == Sys.AOTCompiler) $ genAOTMain simF
+                    return ()
 
     -- add the target - NOTE - bit hacky, hardcoded to amd64 platform
     liftIO $ setTarget llvmMod "x86_64-unknown-linux-gnu"
 
     -- save the module to disk
-    liftIO $ printModuleToFile llvmMod "Model.ll"
-    liftIO $ writeBitcodeToFile llvmMod "Model.bc"
+    liftIO $ printModuleToFile llvmMod ".Model.ll"
+    liftIO $ writeBitcodeToFile llvmMod ".Model.bc"
     return ()
   where
     -- generate the C-interface, wrappers and static values to be used when linking to external/C-solver

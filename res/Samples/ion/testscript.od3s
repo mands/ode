@@ -19,7 +19,7 @@ import Test3.*
 
 // sim backend params
 // solver - euler, rk4, adaptive
-:solver "euler"
+:odeSolver "euler"
 // linker - dynamic, static
 :linker "dynamic"
 // disable exe

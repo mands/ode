@@ -24,7 +24,7 @@ import Control.Category
 import qualified Data.Label as L
 import Prelude hiding ((.), id)
 
-
+import qualified System.FilePath as FP
 import Shelly
 import Data.Text.Lazy as LT
 
@@ -44,11 +44,11 @@ projLibPath     = projRootPath </> "lib"
 odeRootPath = "../res/StdLib"
 odeLibPath  = odeRootPath </> "lib"
 
-modelBC     = "./Model.bc"
-modelOptBC  = "./Model.opt.bc"
-simBC       = "./Sim.bc"
-exeOutput   = "./Sim.exe"
-odeObjFile  = "./OdeModel.o"
+modelBC     = "./.Model.bc"
+modelOptBC  = "./.Model.opt.bc"
+simBC       = "./.Sim.bc"
+exeOutput   = "./.Sim.exe"
+odeObjFile  = "./.OdeModel.o"
 
 optScript :: Sys.SimParams -> Sh ()
 optScript p@(Sys.SimParams{..}) = do
@@ -80,11 +80,11 @@ optScript p@(Sys.SimParams{..}) = do
 --                    run_ "llvm-dis" [modelVec1]
 
                     -- dummy 1st pass - std-compile-opts, liftvecmath
-                    let modelVec1 = "./Model.vec1.bc"
+                    let modelVec1 = "./.Model.vec1.bc"
                     run_ "opt" $ ["-load", llvmVecMath, "-o", modelVec1 ] ++ [ "-std-compile-opts", "-liftvecmath", "-stats", modelBC]
                     run_ "llvm-dis" [modelVec1]
                     -- 2nd pass - bb-vectorise2 (pick up all short vecmath-only chains (length 1-2)), lowervecmath, std-compile-opts
-                    let modelVec2 = "./Model.vec2.bc"
+                    let modelVec2 = "./.Model.vec2.bc"
                     run_ "opt" $ ["-load", llvmVecMath, "-o", modelVec2 ] ++
                         ["-bb-vectorize", "-lowervecmath", "-std-compile-opts"
                         -- main params
@@ -97,7 +97,7 @@ optScript p@(Sys.SimParams{..}) = do
 
                 -- just fastmath, run lift and lowering (as implies linking to finite-funcs)
                 else do
-                    let modelLift = "./Model.lift.bc"
+                    let modelLift = "./.Model.lift.bc"
                     run_ "opt" (["-load", llvmVecMath, "-o", modelLift ] ++
                         ["-liftvecmath", "-lowervecmath", "-std-compile-opts", "-stats", modelBC])
                     run_ "llvm-dis" [modelLift]
@@ -124,7 +124,7 @@ optScript p@(Sys.SimParams{..}) = do
         run_ "llvm-dis" [modelVecBC]
         return modelVecBC
       where
-        modelVecBC  = "Model.vecmath.bc"
+        modelVecBC  = "./.Model.vecmath.bc"
         -- we can't use link-opts here, as ends up removing everything (assumes full program)
         linkOpts    = ["-std-compile-opts"] -- ["-std-link-opts", "-std-compile-opts"]
         -- need to switch depending on the mathmodel
@@ -139,11 +139,11 @@ linkStdlibScript :: Sys.SimParams -> Sh ()
 linkStdlibScript p@(Sys.SimParams{..}) = do
     liftIO $ debugM "ode3.sim" $ "Starting LLVM Linker Script"
     -- delete the old sim file
-    rm_f "Sim.bc"
-    rm_f "Sim.ll"
+    rm_f ".Sim.bc"
+    rm_f ".Sim.ll"
     -- rm_f "./*.dot"
     -- link the model to stdlib and cvodeSim
-    if (_solver == Sys.Adaptive)
+    if (_odeSolver == Sys.Adaptive)
         then run_ "llvm-link" ["-o", simBC, modelOptBC, odeStdLib, odeCvodeSim]
         else run_ "llvm-link" ["-o", simBC, modelOptBC, odeStdLib]
     -- perform LTO
@@ -172,12 +172,15 @@ compileScript p@(Sys.SimParams{..}) = do
 
     if (L.get Sys.lBackend p == Sys.ObjectFile)
         -- use clang to create a object file
-        then run "clang" $ ["-integrated-as", "-c", "-o", toTextIgnore odeObjFile, optLevel]
-                ++ maybeToList fastMath ++ [modelOptBC]
+        then do
+                run "clang" $ ["-integrated-as", "-c", "-o", toTextIgnore odeObjFile, optLevel]
+                    ++ maybeToList fastMath ++ [modelOptBC]
+                cp odeObjFile (fromText . LT.pack $ FP.addExtension outName "o")
         -- use clang to link our llvm-linked sim module to the system
-        else run "clang" $ (maybeToList linkType) ++ ["-integrated-as", "-o", toTextIgnore exeOutput, optLevel]
-            ++ maybeToList fastMath ++ [simBC] ++ ["-L", toTextIgnore projLibPath] ++ cvodeLibs ++ mathLibs
-
+        else do
+            run "clang" $ (maybeToList linkType) ++ ["-integrated-as", "-o", toTextIgnore exeOutput, optLevel]
+                ++ maybeToList fastMath ++ [simBC] ++ ["-L", toTextIgnore projLibPath] ++ cvodeLibs ++ mathLibs
+            cp exeOutput (fromText . LT.pack $ FP.addExtension outName "exe")
     return ()
   where
     -- aotStubPath = "" -- "../res/StdLib/AOTStub.bc"
@@ -190,7 +193,7 @@ compileScript p@(Sys.SimParams{..}) = do
                         Sys.Intel   -> ["-lsvml", "-limf", "-lirc", "-lm", crtFastMath]
                     else ["-lm"]
 
-    cvodeLibs   = if (_solver == Sys.Adaptive)
+    cvodeLibs   = if (_odeSolver == Sys.Adaptive)
                     then ["-lsundials_cvode", "-lsundials_nvecserial"]
                     else []
 
@@ -204,6 +207,7 @@ compileScript p@(Sys.SimParams{..}) = do
         Sys.Static -> Just "-static"
         Sys.Dynamic -> Nothing
 
+    outName     = FP.dropExtension $ L.get Sys.lExeName p
 
 -- | Executes simulation of standalone executable in sub-process (any required libs must be on LD_LIBRARY_PATH)
 executeSimScript ::  Sys.SimParams -> Sh ()
