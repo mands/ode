@@ -67,6 +67,7 @@ genModelRHS :: ExprMap -> [SimOp] -> LLVM.Value -> LocalMap -> LocalMap -> Local
 genModelRHS loopExprs simOps curTimeVal stateValMap deltaRefMap weinerRefMap = do
     GenState {builder} <- get
     -- code gen the loop exprs
+    trace' [MkSB curTimeVal, MkSB stateValMap] "State vals" $ return ()
     genExprEval loopExprs curTimeVal stateValMap
     -- generate the output LocalMaps
     mapM_ (genOutput builder) simOps
@@ -74,6 +75,7 @@ genModelRHS loopExprs simOps curTimeVal stateValMap deltaRefMap weinerRefMap = d
     genOutput builder (Ode initId (VarRef deltaId)) = do
         deltaVal <- lookupId deltaId
         let deltaOutRef = deltaRefMap Map.! initId
+        trace' [MkSB deltaVal, MkSB deltaOutRef] "ODE delta vals" $ return ()
         liftIO $ buildStore builder deltaVal deltaOutRef
 
     genOutput builder (Sde initId (VarRef weinerId) (VarRef deltaId)) = do

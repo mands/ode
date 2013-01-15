@@ -71,6 +71,7 @@ genAOTMain simF = do
 
 -- | C-compatible wrapper for all important simulation parameters - look at OdeModel.h for interface details
 -- Write sim param constant to global vals within the module
+-- Elements are stored as read-only data within object file
 genFFIParams :: Int -> CF.SimType -> GenM ()
 genFFIParams numParams simType = do
     GenState {builder, simParams, llvmMod} <- get
@@ -85,7 +86,7 @@ genFFIParams numParams simType = do
     liftIO $ addGlobalWithInit llvmMod (constInt64 $ _maxNumSteps) int64Type True "OdeParamMaxNumSteps"
     liftIO $ addGlobalWithInit llvmMod (constDouble $ _relError) doubleType True "OdeParamRelativeError"
     liftIO $ addGlobalWithInit llvmMod (constDouble $ _absError) doubleType True "OdeParamAbsoluteError"
-    case _modelType of
+    case _modelType of -- hardcode the enum
         Sys.Stiff       -> liftIO $ addGlobalWithInit llvmMod (constInt32 $ 0) int32Type True "OdeParamModelType"
         Sys.NonStiff    -> liftIO $ addGlobalWithInit llvmMod (constInt32 $ 1) int32Type True "OdeParamModelType"
 
@@ -97,7 +98,7 @@ genFFIParams numParams simType = do
     liftIO $ addGlobalWithInit llvmMod (constString _filename False) (arrayType int8Type (fromIntegral $ length _filename + 1)) True "OdeParamOutput"
     -- liftIO $ buildGlobalString builder "test" "test" -- (Sys._filename  simParams) "OdeParamOutput"
 
-    -- sim type
+    -- sim type - hardcode the enum
     case simType of
         CF.SimODE   -> liftIO $ addGlobalWithInit llvmMod (constInt32 $ 0) int32Type True "OdeParamSimType"
         CF.SimSDE   -> liftIO $ addGlobalWithInit llvmMod (constInt32 $ 1) int32Type True "OdeParamSimType"
@@ -109,6 +110,7 @@ genFFIParams numParams simType = do
 
 
 -- | C-compatible wrapper for the initial values function
+-- OdeModelInitials(double, STATE*)
 genFFIModelInitials :: CF.Module -> GenM ()
 genFFIModelInitials CF.Module{initVals} = do
     (curFunc, builder) <- genFunction "OdeModelInitials" voidType createArgsList
@@ -129,6 +131,8 @@ genFFIModelInitials CF.Module{initVals} = do
 
 
 -- | C-compatible wrapper for the RHS function
+-- takes severl ptrs->arrays for the state/detla/weiner vals
+-- OdeModelRHS(double, STATE*, DELTA*, WEINER*)
 genFFIModelRHS :: CF.Module -> GenM ()
 genFFIModelRHS CF.Module{..} = do
     (curFunc, builder) <- genFunction "OdeModelRHS" voidType createArgsList
@@ -139,19 +143,21 @@ genFFIModelRHS CF.Module{..} = do
     (curTimeVal : stateArrayRef : deltaArrayRef : weinerArrayRef : []) <- liftIO $ LLVM.getParams curFunc
 
     -- use GEP to build list of ptrs into stateVals array, need to deref each one
-    stateRefMap <- foldM (buildArrayRefMap builder stateArrayRef) Map.empty (zip (Map.keys initVals) [0..])
-    deltaRefMap <- foldM (buildArrayRefMap builder deltaArrayRef) Map.empty (zip (Map.keys initVals) [0..])
+    stateRefMap <- foldM (buildArrayRefMap builder stateArrayRef) Map.empty initValIdxs
+    deltaRefMap <- foldM (buildArrayRefMap builder deltaArrayRef) Map.empty initValIdxs
     weinerRefMap <-  if simType == CF.SimSDE
-                          then foldM (buildArrayRefMap builder weinerArrayRef) Map.empty (zip (Map.keys initVals) [0..])
+                          then foldM (buildArrayRefMap builder weinerArrayRef) Map.empty initValIdxs
                           else return Map.empty
 
     -- gen the rhs code
-    genModelRHS loopExprs simOps curTimeVal stateRefMap deltaRefMap weinerRefMap
+    stateValMap <- loadRefMap stateRefMap
+    genModelRHS loopExprs simOps curTimeVal stateValMap deltaRefMap weinerRefMap
 
     liftIO $ buildRetVoid builder
     return ()
   where
     numParams = Map.size initVals
+    initValIdxs = (zip (Map.keys initVals) [0..])
     -- create the input args
     createArgsList = [doubleType, pointerType (arrayType doubleType (fromIntegral numParams)) 0
                                 , pointerType (arrayType doubleType (fromIntegral numParams)) 0
@@ -181,6 +187,7 @@ genDiffSolver odeMod@CF.Module{..} = do
 
     -- choose the solver (and create the vals)
     -- if SDE, then must use EulerM, else choose FEuler or RK4 depending on SimParams
+    trace' [MkSB simType, MkSB $ L.get Sys.lSolver simParams] "Sim params" $ return ()
     solver <- case simType of
         CF.SimSDE   -> MkSolver <$> (genVals $ (Map.keys initVals) :: GenM EulerMSolver)
         CF.SimODE   -> case (L.get Sys.lSolver simParams) of

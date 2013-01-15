@@ -125,8 +125,9 @@ instance OdeSolver EulerMSolver where
     genSolver (EulerMSolver stateRefMap deltaRefMap weinerRefMap) curTimeRef CF.Module{loopExprs, simOps} = do
         GenState {builder, curFunc, simParams, libOps} <- get
         -- gen the modelRHS code
+        stateValMap <- loadRefMap stateRefMap
         _ <- withPtrVal builder curTimeRef $ \curTimeVal -> do
-            genModelRHS loopExprs simOps curTimeVal stateRefMap deltaRefMap weinerRefMap
+            genModelRHS loopExprs simOps curTimeVal stateValMap deltaRefMap weinerRefMap
 
         -- update the states/run the forward euler
         liftIO $ mapM_ (updateState builder simParams libOps) simOps
@@ -211,10 +212,10 @@ instance OdeSolver RK4Solver where
         -- | generate each of the k vals for RK4
         genKState :: Builder -> LocalMap -> LocalMap -> LocalMap -> Value -> Value -> ((Value, Value) -> IO Value) -> GenM LocalMap
         genKState builder stateValMap inKState deltaRefMap timeDelta h stateF = do
-            -- generate the modified statevals
-            stateVals' <- liftIO $ DT.mapM stateF (Map.intersectionWith (,) stateValMap inKState)
+            -- generate the modified statevals map - y_n + k_x
+            stateValMap' <- liftIO $ DT.mapM stateF (Map.intersectionWith (,) stateValMap inKState)
             -- call the loop func f(t,y')
-            genModelRHS loopExprs simOps timeDelta stateValMap deltaRefMap Map.empty
+            genModelRHS loopExprs simOps timeDelta stateValMap' deltaRefMap Map.empty
             -- k' = h * f(t,y')
             kState' <- multByTimeStep builder deltaRefMap h
             return kState'

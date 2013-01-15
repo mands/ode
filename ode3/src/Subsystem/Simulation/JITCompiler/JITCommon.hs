@@ -83,6 +83,7 @@ setBB bb = modify (\st -> st { curBB = bb })
 getBB :: GenM BasicBlock
 getBB = curBB <$> get
 
+-- | load a map of references and return a map to their loaded vals
 loadRefMap :: LocalMap -> GenM LocalMap
 loadRefMap refMap = do
     GenState {builder} <- get
