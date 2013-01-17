@@ -51,7 +51,7 @@ data IonChannel = IonChannel    {  name :: Id, states :: Set.Set Id, transitionG
                                 , stocMatrix :: Maybe IonMatrix
 
                                 , simType :: SimType, density :: Double, eqPot :: Double, chanConductance :: Double
-                                , subunits :: Integer , inputs :: [Id], initialState :: Id, openStates :: [Id], transitions :: [Transition]
+                                , subunits :: Integer , inputs :: [Id], initialStates :: [(Id, Double)], openStates :: [Id], transitions :: [Transition]
                                 } deriving Show
 
 mkIonChannel = IonChannel "" Set.empty UG.mkGraphMap Nothing

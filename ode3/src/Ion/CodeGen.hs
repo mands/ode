@@ -49,12 +49,9 @@ genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
     compComment = comment "Externally called component to generate channel current"
 
     -- initial vals
-    initVals = initComment <$> (vsep . map genInitVal $ Set.toList states)
+    initVals = initComment <$> (vsep . map genInitVal $ initialStates)
       where
-        genInitVal state = text "init" <+> text state <+> text "=" <+> initVal
-          where
-            initVal | initialState == state  = double 1.0
-                    | otherwise             = double 0.0
+        genInitVal (stateId, val) = text "init" <+> text stateId <+> text "=" <+> double val
         initComment = comment "Setup initial values"
 
 
@@ -75,7 +72,7 @@ genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
         SimRRE -> vsep . concat . map genRreExpr $ transitions
           where
             genRreExpr Transition{..} = [genRreExpr' stateA stateB fRate, genRreExpr' stateB stateA rRate]
-            genRreExpr' x y eRate = text "rre" <+> genAttribs [("rate", genExpr eRate)] <+> equals <+> text x <+> text "->" <+> text y
+            genRreExpr' x y eRate = text "ssa" <+> genAttribs [("rate", genExpr eRate)] <+> equals <+> text x <+> text "->" <+> text y
       where
         stateComment = comment "Setup state values (based on ODE/SDE/RRE form)"
 

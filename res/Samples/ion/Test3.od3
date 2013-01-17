@@ -2,16 +2,14 @@ module Test3 {
     /* Externally called component to generate channel current */
     component getCurrent(V,Y) {
         /* Setup initial values */
-        init X1 = 1.0
-        init X2 = 0.0
-        init X3 = 0.0
+        init X1 = 0.3
+        init X2 = 0.2
+        init X3 = 0.6
         /* Setup state values (based on ODE/SDE/RRE form) */
-        sde {init : X1
-            ,weiner : -(sqrt(((X1)*(1.1))+((X2)*(0.1))))} = (-((X1)*(1.1)))+((X2)*(0.1))
-        sde {init : X2
-            ,weiner : (sqrt(((X3)*(exp(V)/V    +3))+((X2)*(0.1))))+(sqrt(((X1)*(1.1))+((X2)*(0.1))))} = (-((X2)*((0.1)*(0.1))))+(((X1)*(1.1))+((X3)*(exp(V)/V    +3)))
-        sde {init : X3
-            ,weiner : -(sqrt(((X3)*(exp(V)/V    +3))+((X2)*(0.1))))} = (-((X3)*(exp(V)/V    +3)))+((X2)*(0.1))
+        ssa {rate : exp(V)/V    +3} = X3 -> X2
+        ssa {rate : 0.1} = X2 -> X3
+        ssa {rate : 1.1} = X1 -> X2
+        ssa {rate : 0.1} = X2 -> X1
         /* Calculate channel current */
         val current = 7.0*1.0*(X3)*(V-1.0)
         return current

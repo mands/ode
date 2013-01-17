@@ -42,7 +42,8 @@
           <keyword>equilibrium_potential</keyword>
           <keyword>channel_conductance</keyword>
           <keyword>subunits</keyword>
-          <keyword>initial_state</keyword>
+          <keyword>initial_states</keyword>
+          <keyword>additional_inputs</keyword>
           <keyword>open_states</keyword>
           <keyword>transitions</keyword>
         </context>
@@ -53,7 +54,7 @@
           <keyword>r_rate</keyword>
           <keyword>ode</keyword>
           <keyword>sde</keyword>
-          <keyword>rre</keyword>
+          <keyword>ssa</keyword>
 <!--
           <keyword>double</keyword>
 -->

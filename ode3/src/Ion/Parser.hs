@@ -48,9 +48,9 @@ ionLangDef = emptyDef
 
     -- add more later
     , T.reservedNames = [ "channel", "density", "equilibrium_potential"
-                        , "subunits", "initial_state", "open_states", "additional_inputs"
+                        , "subunits", "initial_states", "open_states", "additional_inputs"
                         , "transitions", "transition", "f_rate", "r_rate"
-                        , "ode", "sde", "rre"
+                        , "ode", "sde", "ssa"
                         ]
     -- unary ops and relational ops?
     -- do formatting operators count? e.g. :, {, }, ,, etc.
@@ -111,6 +111,10 @@ attribDef p = braces (permute p)
 attrib res p = reserved res *> colon *> p <* optional comma
 
 
+-- | Parse an initial value for a state variable - does it represent the proportion or the total number??
+ionInitial :: Parser (I.Id, Double)
+ionInitial = (,) <$> identifier <*> (colon *> number)
+
 -- |parser for a single, unidirectional reaction, e.g. A->B
 ionTransition :: Parser I.Transition
 ionTransition = mkTransition <$> attribDef transitionAttribs
@@ -138,14 +142,14 @@ ionChannelDef = do
                                         <||> (attrib "channel_conductance" number)
                                         <|?> (1, attrib "subunits" natural) -- NYI
                                         <|?> ([], attrib "additional_inputs" (braces (listSep identifier)))
-                                        <||> (attrib "initial_state" identifier)
+                                        <||> (attrib "initial_states" (braces (listSep ionInitial)))
                                         <||> (attrib "open_states" (braces (listSep identifier)))
                                         <||> (attrib "transitions" (braces (listSep ionTransition)))
 
     ionSimType :: Parser SimType
     ionSimType =    reserved "ode" *> pure SimODE
                     <|> reserved "sde" *> pure SimSDE
-                    <|> reserved "rre" *> pure SimRRE
+                    <|> reserved "ssa" *> pure SimRRE
                     <?> "simulation type"
 
 -- |parser top level
