@@ -54,7 +54,6 @@ genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
         genInitVal (stateId, val) = text "init" <+> text stateId <+> text "=" <+> double val
         initComment = comment "Setup initial values"
 
-
     -- generate converted data depedning on simtype
     stateVals = stateComment <$> case simType of
         SimODE -> vsep . map genOdeExpr $ zip (Set.toList states) detElems
@@ -63,8 +62,13 @@ genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
             genOdeExpr (initVal, deltaExpr) = text "ode" <+> genAttribs [("init", text initVal)] <+> equals <+> genExpr deltaExpr
 
         SimSDE -> -- trace' [MkSB detElems, MkSB stocElems] "Eqns" $
-            vsep . map genSdeExpr $ zip3 (Set.toList states) detElems stocElems
+            wDefs <$> sdeDefs
+
           where
+            wDefs = vsep . map genWeinerDef . fromJust $ weiners
+            genWeinerDef wId = text "weiner" <+> text wId
+
+            sdeDefs = vsep . map genSdeExpr $ zip3 (Set.toList states) detElems stocElems
             detElems = getDetElems ionChan
             stocElems = getStocElems ionChan
             genSdeExpr (initVal, deltaExpr, weinerExpr) = text "sde" <+> genAttribs [("init", text initVal), ("weiner", genExpr weinerExpr)] <+> equals <+> genExpr deltaExpr

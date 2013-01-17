@@ -51,7 +51,7 @@ processIon im = do
 -- | Build the auxilary ion channel data structures, i.e. set of reactions and the reaction graph
 buildIonData :: IonChannel -> MExcept IonChannel
 buildIonData ionChan@IonChannel{..} = do
-    return ((ionChan { states=states', transitionGraph=transitionGraph' }) |> stocMatrix')
+    return ((ionChan { states=states', transitionGraph=transitionGraph', weiners=(Just weiners') }) |> stocMatrix')
   where
     -- states are defined by initital state list
     states' = Set.fromList . map fst $ initialStates
@@ -64,6 +64,10 @@ buildIonData ionChan@IonChannel{..} = do
         NM.insMapEdgeM (sB, sA, rRate)
 
     stocMatrix' ionChan = ionChan { stocMatrix=(Just $ genStocMatrix ionChan) }
+
+    -- weiner gen
+    weiners' = map (\wIdx -> "_w" ++ (show wIdx)) [1 .. length transitions]
+
 
 -- | Takes an Ion AST, and performs basic sanity checks on it, including
 -- * do list of rates form a closed set
@@ -164,4 +168,6 @@ getStocElems ionChan@IonChannel{..} = map optExpr $ A.elems (matVecMult eMulF we
     -- e.F(x) matrix - matrix mult
     eMulF = matMatMult (fromJust stocMatrix) fDiagMat
     -- a dummy array for representing the weiner for each transition (we actually require them per state)
-    weinerVec = A.listArray (1, length transitions) $ repeat (Num 1)
+    weinerVec = A.listArray (1, length transitions) $ map (Var) (fromJust weiners)
+
+

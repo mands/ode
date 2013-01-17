@@ -2,7 +2,7 @@
 // cool, eh?!
 
 channel test3 {
-  sim_type : ssa,
+  sim_type : sde,
   density : 1,
   equilibrium_potential : 1,
   channel_conductance : 7,

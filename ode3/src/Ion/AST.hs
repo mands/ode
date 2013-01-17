@@ -48,13 +48,13 @@ type IonModel = [IonChannel]
 -- * stoc matrix
 -- * ...
 data IonChannel = IonChannel    {  name :: Id, states :: Set.Set Id, transitionGraph :: UG.GraphMap Id IonExpr
-                                , stocMatrix :: Maybe IonMatrix
+                                , stocMatrix :: Maybe IonMatrix, weiners :: Maybe [Id]
 
                                 , simType :: SimType, density :: Double, eqPot :: Double, chanConductance :: Double
                                 , subunits :: Integer , inputs :: [Id], initialStates :: [(Id, Double)], openStates :: [Id], transitions :: [Transition]
                                 } deriving Show
 
-mkIonChannel = IonChannel "" Set.empty UG.mkGraphMap Nothing
+mkIonChannel = IonChannel "" Set.empty UG.mkGraphMap Nothing Nothing
 
 
 -- |description of the bi-directional state-change reaction within an ion-channel
@@ -70,7 +70,7 @@ type IonVector = A.Array Int IonExpr
 -- TODO - use GADTs to type it
 data IonExpr :: * where
     -- basic vars
-    Var :: Id -> IonExpr
+    Var :: Id -> IonExpr -- vars that contain lookup only into any known vals (inits, weiners, normal vals)
     Num :: Double -> IonExpr
     ExprMacro :: String -> IonExpr -- a built in macro that represents a (hopefully) valid synttic expression that evals to a float
     -- operators
