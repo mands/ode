@@ -45,7 +45,7 @@ genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
 
     -- main component header
     mainComponent = compComment <$> (codeBlock compHeader $ initVals <$> stateVals <$> currentCalc)
-    compHeader = text "component" <+> text "getCurrent" <> parens voltage
+    compHeader = text "component" <+> text "getCurrent" <> tupled (map text inputs)
     compComment = comment "Externally called component to generate channel current"
 
     -- initial vals
@@ -95,6 +95,7 @@ genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
 genExpr :: IonExpr -> Doc
 genExpr (Var x) = text x
 genExpr (Num n) = double n
+genExpr (ExprMacro e) = text e
 -- math ops
 genExpr (Add e1 e2) = (parens $ genExpr e1) <> plus <> (parens $ genExpr e2)
 genExpr (Mul e1 e2) = (parens $ genExpr e1) <> mul <> (parens $ genExpr e2)

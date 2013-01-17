@@ -42,9 +42,11 @@ processIon im = do
     processChannel :: IonChannel -> MExcept IonChannel
     processChannel ionChan@IonChannel{..} = do
         ionChan' <- buildIonData ionChan >>= validateIonChan
-        if subunits > 1
-          then expandSubunits ionChan >>= buildIonData -- expand the reactions, and rebuild the data
-          else return ionChan'
+        return ionChan'
+        -- subunit handling
+--        if subunits > 1
+--          then expandSubunits ionChan >>= buildIonData -- expand the reactions, and rebuild the data
+--          else return ionChan'
 
 -- | Build the auxilary ion channel data structures, i.e. set of reactions and the reaction graph
 buildIonData :: IonChannel -> MExcept IonChannel

@@ -1,0 +1,28 @@
+module TestSde {
+
+  init x = 0.1
+  
+  // Current Syntax
+  // implies one weiner process (dW) per sde
+  sde { init : x, weiner : wExpr} = dExpr // (delta expr)
+
+
+
+  w1 {P1=sqrt(x1)
+    P2=.....
+    
+    sde= ode = -P1
+    ............P1+P2}
+
+    sde { init : X1
+        , drift : ...
+        , weiner 
+        }
+
+  // possible scheme
+  weiner w1
+  weiner w2
+  sde { init : x, delta : dExpr, weiner : P1*w1 + P2*w2 }
+
+
+}

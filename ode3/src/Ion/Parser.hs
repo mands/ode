@@ -48,7 +48,7 @@ ionLangDef = emptyDef
 
     -- add more later
     , T.reservedNames = [ "channel", "density", "equilibrium_potential"
-                        , "subunits", "initial_state", "open_states"
+                        , "subunits", "initial_state", "open_states", "additional_inputs"
                         , "transitions", "transition", "f_rate", "r_rate"
                         , "ode", "sde", "rre"
                         ]
@@ -91,6 +91,14 @@ number =    try float
             <|> fromIntegral <$> integer
             <?> "number"
 
+
+-- | parse a macro representing an syntantically valid Ode numeric expression (such that we can embed in Ode output later)
+-- no newlines allowed
+exprMacro :: Parser String
+exprMacro = many (alphaNum <|> char ' ' <|> oneOf odeOps) -- Till anyChar (try (comma <|> string "}"))
+  where
+    odeOps = "().!*/+<>-=&|" -- brackets, fp dot, ode math ops
+
 -- |a more flexible list separater, allows optional end comma as needed for permutation lists
 listSep p = sepEndBy1 p comma
 
@@ -102,14 +110,15 @@ attribDef p = braces (permute p)
 -- attrib :: String -> Parser String
 attrib res p = reserved res *> colon *> p <* optional comma
 
+
 -- |parser for a single, unidirectional reaction, e.g. A->B
 ionTransition :: Parser I.Transition
 ionTransition = mkTransition <$> attribDef transitionAttribs
   where
     mkTransition ((a, b), fRate, rRate) = I.Transition a b fRate rRate
     transitionAttribs = (,,)    <$$> attrib "transition" ((,) <$> identifier <*> (reservedOp "<->" *> identifier))
-                                <||> attrib "f_rate" (I.Num <$> number)
-                                <||> attrib "r_rate" (I.Num <$> number)
+                                <||> attrib "f_rate" (I.ExprMacro <$> exprMacro)
+                                <||> attrib "r_rate" (I.ExprMacro <$> exprMacro)
 
 
 -- |parser for a channel defintion
@@ -119,7 +128,7 @@ ionChannelDef :: Parser I.IonChannel
 ionChannelDef = do
     iName <- reserved "channel" *> identifier
     ionChannel <- attribDef ionChannelBody
-    return $ (ionChannel { I.name = iName })
+    return $ (ionChannel { I.name = iName, I.inputs = ("V" : I.inputs ionChannel) })
   where
     -- |flexible permutation parser for channel attributes
     -- only prob is recording the name, could place into the parser state
@@ -127,7 +136,8 @@ ionChannelDef = do
                                         <||> (attrib "density" number)
                                         <||> (attrib "equilibrium_potential" number)
                                         <||> (attrib "channel_conductance" number)
-                                        <|?> (1, attrib "subunits" natural)
+                                        <|?> (1, attrib "subunits" natural) -- NYI
+                                        <|?> ([], attrib "additional_inputs" (braces (listSep identifier)))
                                         <||> (attrib "initial_state" identifier)
                                         <||> (attrib "open_states" (braces (listSep identifier)))
                                         <||> (attrib "transitions" (braces (listSep ionTransition)))

@@ -51,7 +51,7 @@ data IonChannel = IonChannel    {  name :: Id, states :: Set.Set Id, transitionG
                                 , stocMatrix :: Maybe IonMatrix
 
                                 , simType :: SimType, density :: Double, eqPot :: Double, chanConductance :: Double
-                                , subunits :: Integer , initialState :: Id, openStates :: [Id], transitions :: [Transition]
+                                , subunits :: Integer , inputs :: [Id], initialState :: Id, openStates :: [Id], transitions :: [Transition]
                                 } deriving Show
 
 mkIonChannel = IonChannel "" Set.empty UG.mkGraphMap Nothing
@@ -72,6 +72,7 @@ data IonExpr :: * where
     -- basic vars
     Var :: Id -> IonExpr
     Num :: Double -> IonExpr
+    ExprMacro :: String -> IonExpr -- a built in macro that represents a (hopefully) valid synttic expression that evals to a float
     -- operators
     Add :: IonExpr -> IonExpr -> IonExpr
     Sub :: IonExpr -> IonExpr -> IonExpr

@@ -2,15 +2,16 @@
 // cool, eh?!
 
 channel test3 {
-  sim_type : rre,
+  sim_type : sde,
   density : 1,
   equilibrium_potential : 1,
   channel_conductance : 7,
   subunits : 1,
-  initial_state: X1,
+  initial_state: X1, //{ X1 : 0.3, X2 : 
+  additional_inputs: {Y}
   open_states : {X3},
   transitions : {
-    {transition: X3 <-> X2, f_rate: 1.1, r_rate : 0.1},
+    {transition: X3 <-> X2, f_rate: exp(V)/V    +3, r_rate : 0.1},
     {transition: X1 <-> X2, f_rate: 1.1, r_rate : 0.1},
   },
 }
