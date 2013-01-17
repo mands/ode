@@ -45,7 +45,7 @@ genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
     modHeader = text "module" <+> text (capitalise name)
 
     -- main component header
-    mainComponent = compComment <$> (codeBlock compHeader $ initVals <$> tmpVals <$> stateVals <$> currentCalc)
+    mainComponent = compComment <$> (codeBlock compHeader $ initVals <$$$> genTmpVals vals <$$$> stateVals <$$$> currentCalc)
     compHeader = text "component" <+> text "getCurrent" <> tupled (map text inputs)
     compComment = comment "Externally called component to generate channel current"
 
@@ -55,11 +55,6 @@ genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
         genInitVal (stateId, val) = text "init" <+> text stateId <+> text "=" <+> double val
         initComment = comment "Setup initial values"
 
-    -- temportary vals - for any CSE/partial-eval, NYI
-    tmpVals = vsep . map genVal . OrdMap.toList $ vals
-      where
-        genVal (vId, vExpr) = text "val" <+> text vId <+> equals <+> genExpr vExpr
-
     -- generate converted data depedning on simtype
     stateVals = stateComment <$> case simType of
         SimODE -> vsep . map genOdeExpr $ zip (Set.toList states) detElems
@@ -68,7 +63,7 @@ genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
             genOdeExpr (initVal, deltaExpr) = text "ode" <+> genAttribs [("init", text initVal)] <+> equals <+> genExpr deltaExpr
 
         SimSDE -> -- trace' [MkSB detElems, MkSB stocElems] "Eqns" $
-            wDefs <$> sdeDefs
+            genTmpVals stocTmps <$> wDefs <$> sdeDefs
 
           where
             wDefs = vsep . map genWeinerDef . fromJust $ weiners
@@ -76,7 +71,7 @@ genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
 
             sdeDefs = vsep . map genSdeExpr $ zip3 (Set.toList states) detElems stocElems
             detElems = getDetElems ionChan
-            stocElems = getStocElems ionChan
+            (stocElems, stocTmps) = getStocElems ionChan
             genSdeExpr (initVal, deltaExpr, weinerExpr) = text "sde" <+> genAttribs [("init", text initVal), ("weiner", genExpr weinerExpr)] <+> equals <+> genExpr deltaExpr
 
         SimRRE -> vsep . concat . map genRreExpr $ transitions
@@ -96,6 +91,14 @@ genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
         parenSep = encloseSep lparen rparen plus
 
 -- independent gen combinators
+
+-- temportary vals - for any CSE/partial-eval
+genTmpVals :: OrdMap.OrdMap Id IonExpr -> Doc
+genTmpVals vals = tmpComment <$> (vsep . map genVal . OrdMap.toList $ vals)
+  where
+    genVal (vId, vExpr) = text "val" <+> text vId <+> equals <+> genExpr vExpr
+    tmpComment = comment "Temporary values to hold repeated/costly calculations"
+
 
 -- | convert an ion expression AST into source-code - not tail-call form
 genExpr :: IonExpr -> Doc
@@ -147,3 +150,8 @@ minus = char '-'
 div = char '/'
 voltage = char 'V'
 comment t = enclose (text "/* ") (text " */") (text t)
+
+
+-- | v.concat two docs with an empty line between them
+(<$$$>) :: Doc -> Doc -> Doc
+x <$$$> y         = x <$> line <> y

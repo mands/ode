@@ -5,15 +5,26 @@ module Test3 {
         init X1 = 0.3
         init X2 = 0.2
         init X3 = 0.6
+        
+        /* Temporary values to hold repeated/costly calculations */
+        val _rate1 = (exp(V)/V    +3)
+        val _rate2 = (0.1)
+        val _rate3 = (1.1)
+        val _rate4 = (0.1)
+        
         /* Setup state values (based on ODE/SDE/SSA form) */
+        /* Temporary values to hold repeated/costly calculations */
+        val _prop1 = sqrt(X3*_rate1+X2*_rate2)
+        val _prop2 = sqrt(X1*_rate3+X2*_rate4)
         weiner _w1
         weiner _w2
         sde {init : X1
-            ,weiner : -sqrt(X1*(1.1)+X2*(0.1))*_w2} = -(X1*(1.1))+X2*(0.1)
+            ,weiner : -_prop2*_w2} = -(X1*_rate3)+X2*_rate4
         sde {init : X2
-            ,weiner : sqrt(X3*(exp(V)/V    +3)+X2*(0.1))*_w1+sqrt(X1*(1.1)+X2*(0.1))*_w2} = -(X2*(0.1)*(0.1))+X1*(1.1)+X3*(exp(V)/V    +3)
+            ,weiner : _prop1*_w1+_prop2*_w2} = -(X2*_rate4*_rate2)+X1*_rate3+X3*_rate1
         sde {init : X3
-            ,weiner : -sqrt(X3*(exp(V)/V    +3)+X2*(0.1))*_w1} = -(X3*(exp(V)/V    +3))+X2*(0.1)
+            ,weiner : -_prop1*_w1} = -(X3*_rate1)+X2*_rate2
+        
         /* Calculate channel current */
         val current = 7.0*1.0*(X3)*(V-1.0)
         return current

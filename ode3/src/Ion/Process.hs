@@ -22,12 +22,16 @@ import Utils.CommonImports
 
 import qualified Data.Set as Set
 import qualified Data.Map as Map
+import qualified Data.Traversable as DT
+
 import Data.Maybe(fromJust)
+
 import qualified Data.Graph.Inductive as G
 import qualified Data.Graph.Inductive.NodeMap as NM
 import Data.Graph.Inductive.Tree
 import qualified Data.Graph.Inductive.Basic as GB
 import qualified Utils.Graph as UG
+import qualified Utils.OrdMap as OrdMap
 import Data.Graph.Inductive.Query.DFS(noComponents)
 import qualified Data.Array as A
 import Data.Monoid
@@ -51,12 +55,12 @@ processIon im = do
 -- | Build the auxilary ion channel data structures, i.e. set of reactions and the reaction graph
 buildIonData :: IonChannel -> MExcept IonChannel
 buildIonData ionChan@IonChannel{..} = do
-    return ((ionChan { states=states', transitionGraph=transitionGraph', weiners=(Just weiners') }) |> stocMatrix')
+    return ((ionChan { states=states', transitionGraph=transitionGraph', transitions=transitions', weiners=(Just weiners'), vals=vals' }) |> stocMatrix')
   where
     -- states are defined by initital state list
     states' = Set.fromList . map fst $ initialStates
 
-    transitionGraph' = foldl addTrans UG.mkGraphMap transitions
+    transitionGraph' = foldl addTrans UG.mkGraphMap transitions'
     addTrans gm (Transition sA sB fRate rRate) = UG.runGraph_ gm $ do
         _ <- UG.insertNodeM_ sA
         _ <- UG.insertNodeM_ sB
@@ -66,7 +70,13 @@ buildIonData ionChan@IonChannel{..} = do
     stocMatrix' ionChan = ionChan { stocMatrix=(Just $ genStocMatrix ionChan) }
 
     -- weiner gen
-    weiners' = map (\wIdx -> "_w" ++ (show wIdx)) [1 .. length transitions]
+    weiners' = take (length transitions) $ genUniqs "_w"
+
+    -- tmp val gen - bit hacky but fuck it
+    ((_, vals'), transitions') = DT.mapAccumL genTmpRateVals (genUniqs "_rate", vals) transitions
+      where
+        genTmpRateVals ((idA : idB : ids), vals) (Transition sA sB fRateExpr rRateExpr) =
+            ((ids, OrdMap.insert idA fRateExpr vals |> OrdMap.insert idB rRateExpr), Transition sA sB (Var idA) (Var idB))
 
 
 -- | Takes an Ion AST, and performs basic sanity checks on it, including
@@ -140,7 +150,7 @@ matrixToTable arr = unlines $ map (unwords . map (printElem . (arr A.!))) indice
 -- Deterministic Matrix Generation -------------------------------------------------------------------------------------
 -- fold over the graph nodes (i.e. states), building up an ion expression for each one based upon the node in/out edges
 getDetElems :: IonChannel -> [IonExpr]
-getDetElems ionChan@IonChannel{..} = map (optExpr . calcDetExpr) (Set.toList states)
+getDetElems ionChan@IonChannel{..} = map (optExpr . calcDetExpr) $ Set.toList states
   where
     g = UG.graph transitionGraph
 
@@ -159,15 +169,26 @@ getDetElems ionChan@IonChannel{..} = map (optExpr . calcDetExpr) (Set.toList sta
 
 -- Stochastic Matrix Generation -------------------------------------------------------------------------------------
 -- fold over the transition list, generating the weiner exprs as go along
-getStocElems :: IonChannel -> [IonExpr]
-getStocElems ionChan@IonChannel{..} = map optExpr $ A.elems (matVecMult eMulF weinerVec)
+getStocElems :: IonChannel -> ([IonExpr], OrdMap.OrdMap Id IonExpr)
+getStocElems ionChan@IonChannel{..} = (map optExpr $ A.elems (matVecMult eMulF weinerVec), tmpVals)
   where
     -- a 2D array represeting the diag matrix F
-    fDiagMat = genDiagMat (Num 0) (map genProp transitions)
-    genProp Transition{..} = Sqrt $ Add (Mul (Var stateA) fRate) (Mul (Var stateB) rRate)
+    fDiagMat = genDiagMat (Num 0) transitions'
+
+    -- obtain the tmpVals from the struc
+    ((_, tmpVals), transitions') = DT.mapAccumL genProp (genUniqs "_prop", OrdMap.empty) transitions
+    genProp ((propId : ids), tmpVals) Transition{..} = ((ids, OrdMap.insert propId propExpr tmpVals), Var propId)
+      where
+        propExpr = Sqrt $ Add (Mul (Var stateA) fRate) (Mul (Var stateB) rRate)
+
+
     -- e.F(x) matrix - matrix mult
     eMulF = matMatMult (fromJust stocMatrix) fDiagMat
     -- a dummy array for representing the weiner for each transition (we actually require them per state)
     weinerVec = A.listArray (1, length transitions) $ map (Var) (fromJust weiners)
 
+-- Helper functions ----------------------------------------------------------------------------------------------------
 
+-- | Generate a inf-list of unique ids using the given prefix
+genUniqs :: String -> [String]
+genUniqs prefix = map (\i -> prefix ++ (show i)) [1..]
