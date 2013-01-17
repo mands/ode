@@ -21,6 +21,7 @@ import Prelude hiding (div)
 import System.Log.Logger
 import System.Log.Handler(close)
 import System.Log.Handler.Simple
+import Text.PrettyPrint.Leijen
 
 import qualified Data.Set as Set
 import AST.CoreFlat(SimType(..))
@@ -29,7 +30,7 @@ import Ion.AST
 import Ion.Process
 
 import Utils.CommonImports hiding ((<$>))
-import Text.PrettyPrint.Leijen
+import qualified Utils.OrdMap as OrdMap
 
 ionCodeGen :: [IonChannel] -> MExcept String
 ionCodeGen ionChans = do
@@ -44,7 +45,7 @@ genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
     modHeader = text "module" <+> text (capitalise name)
 
     -- main component header
-    mainComponent = compComment <$> (codeBlock compHeader $ initVals <$> stateVals <$> currentCalc)
+    mainComponent = compComment <$> (codeBlock compHeader $ initVals <$> tmpVals <$> stateVals <$> currentCalc)
     compHeader = text "component" <+> text "getCurrent" <> tupled (map text inputs)
     compComment = comment "Externally called component to generate channel current"
 
@@ -53,6 +54,11 @@ genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
       where
         genInitVal (stateId, val) = text "init" <+> text stateId <+> text "=" <+> double val
         initComment = comment "Setup initial values"
+
+    -- temportary vals - for any CSE/partial-eval, NYI
+    tmpVals = vsep . map genVal . OrdMap.toList $ vals
+      where
+        genVal (vId, vExpr) = text "val" <+> text vId <+> equals <+> genExpr vExpr
 
     -- generate converted data depedning on simtype
     stateVals = stateComment <$> case simType of

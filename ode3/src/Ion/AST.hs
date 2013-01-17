@@ -31,6 +31,7 @@ import qualified Data.Graph.Inductive as G
 import Data.Graph.Inductive.Tree
 import qualified Utils.Graph as UG
 import qualified Data.Array as A
+import qualified Utils.OrdMap as OrdMap
 import AST.CoreFlat(SimType)
 import Data.Monoid
 import Utils.Utils
@@ -48,13 +49,13 @@ type IonModel = [IonChannel]
 -- * stoc matrix
 -- * ...
 data IonChannel = IonChannel    {  name :: Id, states :: Set.Set Id, transitionGraph :: UG.GraphMap Id IonExpr
-                                , stocMatrix :: Maybe IonMatrix, weiners :: Maybe [Id]
+                                , stocMatrix :: Maybe IonMatrix, weiners :: Maybe [Id], vals :: OrdMap.OrdMap Id IonExpr
 
                                 , simType :: SimType, density :: Double, eqPot :: Double, chanConductance :: Double
                                 , subunits :: Integer , inputs :: [Id], initialStates :: [(Id, Double)], openStates :: [Id], transitions :: [Transition]
                                 } deriving Show
 
-mkIonChannel = IonChannel "" Set.empty UG.mkGraphMap Nothing Nothing
+mkIonChannel = IonChannel "" Set.empty UG.mkGraphMap Nothing Nothing OrdMap.empty
 
 
 -- |description of the bi-directional state-change reaction within an ion-channel
