@@ -78,7 +78,7 @@ genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
             genRreExpr Transition{..} = [genRreExpr' stateA stateB fRate, genRreExpr' stateB stateA rRate]
             genRreExpr' x y eRate = text "ssa" <+> genAttribs [("rate", genExpr eRate)] <+> equals <+> text x <+> text "->" <+> text y
       where
-        stateComment = comment "Setup state values (based on ODE/SDE/RRE form)"
+        stateComment = comment "Setup state values (based on ODE/SDE/SSA form)"
 
     currentCalc = curComment <$> defI <$> retI
       where
@@ -92,20 +92,33 @@ genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
 -- independent gen combinators
 
 -- | convert an ion expression AST into source-code - not tail-call form
--- TODO - fix paren generation
 genExpr :: IonExpr -> Doc
+-- tokens
 genExpr (Var x) = text x
 genExpr (Num n) = double n
-genExpr (ExprMacro e) = text e
--- math ops
-genExpr (Add e1 e2) = (parens $ genExpr e1) <> plus <> (parens $ genExpr e2)
-genExpr (Mul e1 e2) = (parens $ genExpr e1) <> mul <> (parens $ genExpr e2)
-genExpr (Sub e1 e2) = (parens $ genExpr e1) <> minus <> (parens $ genExpr e2)
-genExpr (Div e1 e2) = (parens $ genExpr e1) <> div <> (parens $ genExpr e2)
--- bin ops
-genExpr (Neg e1) = char '-' <> (parens $ genExpr e1)
+genExpr (ExprMacro e) = parens $ text e
+
+-- math/bin ops
+genExpr (Add e1 e2) = genExpr e1 <> plus <> genExpr e2
+
+-- only gen parens for addition (i.e. lower in precedence)
+genExpr (Mul e1@(Add _ _) e2@(Add _ _)) = (parens $ genExpr e1) <> mul <> (parens $ genExpr e2)
+genExpr (Mul e1@(Add _ _) e2) = (parens $ genExpr e1) <> mul <> genExpr e2
+genExpr (Mul e1 e2@(Add _ _)) = genExpr e1 <> mul <> (parens $ genExpr e2)
+genExpr (Mul e1 e2) = genExpr e1 <> mul <> genExpr e2
+
+--genExpr (Div e1 e2) = (parens $ genExpr e1) <> div <> (parens $ genExpr e2)
+--genExpr (Sub e1 e2) = (parens $ genExpr e1) <> minus <> (parens $ genExpr e2)
+
+-- unary ops
+genExpr (Neg e1) | isBinOp e1 = char '-' <> (parens $ genExpr e1)
+                 | otherwise = char '-' <> genExpr e1
+
 genExpr (Sqrt e1) = text "sqrt" <> (parens $ genExpr e1)
 
+isBinOp (Add _ _) = True
+isBinOp (Mul _ _) = True
+isBinOp _ = False
 
 genAttribs :: [(String, Doc)] -> Doc
 genAttribs as = encloseSep lbrace rbrace comma $ map attrib as

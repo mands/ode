@@ -75,9 +75,9 @@ data IonExpr :: * where
     ExprMacro :: String -> IonExpr -- a built in macro that represents a (hopefully) valid synttic expression that evals to a float
     -- operators
     Add :: IonExpr -> IonExpr -> IonExpr
-    Sub :: IonExpr -> IonExpr -> IonExpr
     Mul :: IonExpr -> IonExpr -> IonExpr
-    Div :: IonExpr -> IonExpr -> IonExpr
+--    Sub :: IonExpr -> IonExpr -> IonExpr
+--    Div :: IonExpr -> IonExpr -> IonExpr
     Neg :: IonExpr -> IonExpr
     Sqrt :: IonExpr -> IonExpr
     deriving (Show, Eq, Ord)
@@ -113,8 +113,8 @@ optExpr e = until' optExpr' e
     -- basic recursive exprs
     optExpr' (Mul x y) = Mul (optExpr' x) (optExpr' y)
     optExpr' (Add x y) = Add (optExpr' x) (optExpr' y)
-    optExpr' (Sub x y) = Sub (optExpr' x) (optExpr' y)
-    optExpr' (Div x y) = Div (optExpr' x) (optExpr' y)
+--    optExpr' (Sub x y) = Sub (optExpr' x) (optExpr' y)
+--    optExpr' (Div x y) = Div (optExpr' x) (optExpr' y)
     optExpr' (Neg x) = Neg (optExpr' x)
     optExpr' (Sqrt x) = Sqrt (optExpr' x)
     optExpr' e = e
