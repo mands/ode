@@ -17,6 +17,8 @@
 extern void sincos (double x, double *sinx, double *cosx);
 void OdeRandInit(void);
 
+// Global variables
+
 // Add library support for...
 // multiple file opens within single ode file - needs compiler support
 // 
@@ -40,6 +42,7 @@ void OdeShutdown(void) {
 static FILE* outFile;
 static double* outData;
 static uint64_t outSize;
+static uint64_t stateSize;
 
 void OdeStartSim(const char* const restrict filename, const uint64_t numArgs) {
     printf("Starting simulation with output to %s\n", filename);
@@ -47,11 +50,13 @@ void OdeStartSim(const char* const restrict filename, const uint64_t numArgs) {
 
     // allocate the outData buffer
     outSize = numArgs+1;
+    stateSize = numArgs;
     outData = calloc(sizeof(double), outSize);
 
     // setup file header/first_run init here
     // write the num of cols as the header of the output file
     fwrite(&outSize, sizeof(uint64_t), 1, outFile);
+
 }
 
 void OdeStopSim(void) {
@@ -62,14 +67,11 @@ void OdeStopSim(void) {
 
 // write state to disk
 void OdeWriteState(const double time, const double* const restrict state) {
-    static uint64_t outIdx;
     // build the output buffer
     outData[0] = time;
-    for (outIdx = 1; outIdx < outSize; ++outIdx) {
-        outData[outIdx] = state[outIdx-1];
-    }
+    memcpy(&outData[1], state, stateSize * sizeof(double));
     // we use fwrite rather than write syscall as want buffering due to small data byte-count
-    fwrite(outData, sizeof(double), outSize, outFile);  
+    fwrite(outData, sizeof(double), outSize, outFile);
 }
 
 // Random Number Generation ////////////////////////////////////////////////////////////////////////
@@ -107,31 +109,42 @@ double OdeRandNormal(void) {
 
 // Solver Helper Functions /////////////////////////////////////////////////////////////////////////
 // used by the Reflected SDE Solver to project an array of doubles onto a simplex (0 < x_n < 1 and sum(x) == 1)
-void OdeProjectVector(double* xs, const double xsSize) {
-    // sort into new array y
-    ys = calloc(sizeof(double), xsSize);
-    memcpy(ys, xs, xsSize * sizeof(double));
-    qsort(ys, xsSize, sizeof(double), cmpDouble);
+// adapted from paper - "Projection Onto A Simplex" - Chen, Yunmei & Ye, Xiaojing
+int cmpInvDouble(const void * const x, const void * const y);
+
+void OdeProjectVector(double* const restrict xs, const uint64_t xsSize) {
+    // stack-alloc the tmp array  - should be fine as array not large, plus v.quick, only dec the SP
+    double ss[xsSize];
+    // sort into decending order in new array s
+    memcpy(ss, xs, xsSize * sizeof(double));
+    qsort(ss, xsSize, sizeof(double), cmpInvDouble);
 
     // iterate over y elems w/ running sum
+    double tmpSum = 0;
+    double tMax = 0;
+    for (uint64_t i = 0; i < (xsSize-1); ++i) {
+        tmpSum += ss[i];
+        tMax = (tmpSum-1)/(i+1);
+        //printf("Iter - tmpSum - %g, tMax - %g\n", tmpSum, tMax);
+        // break on cond - tmax >= next elem
+        if (tMax >= ss[i+1]) goto finish;
+    }
+    // if didn't break early - set tmax
+    tMax = (tmpSum + ss[xsSize-1] - 1) / xsSize;
 
+finish:
+    //printf("Final - tMax - %g\n", tMax);
+    // update x in place
     for (uint64_t i = 0; i < xsSize; ++i) {
-
-
+        xs[i] = fmax(xs[i] - tMax, 0);
     }
 
-    // break on cond - tmax >= next elem
-
-
-    // if didn't break - set tmax
-
-    // update x based on y array - tmax
 }
 
 // double compare fucntion for qsort
-int cmpDouble(const void *x, const void *y) {
+int cmpInvDouble(const void * const x, const void * const y) {
     double xx = *(double*)x, yy = *(double*)y;
-    if (xx < yy) return -1;
-    if (xx > yy) return  1;
+    if (xx < yy) return 1;
+    if (xx > yy) return -1;
     return 0;
 }

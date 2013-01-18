@@ -18,5 +18,8 @@ extern void OdeWriteState(const double time, const double* const restrict state)
 extern inline double OdeRandUniform(void);
 extern double OdeRandNormal(void);
 
+// Solver helper functions
+void OdeProjectVector(double* const restrict xs, const uint64_t xsSize);
+
 #endif // ODE_STDLIB_H
 

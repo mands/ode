@@ -10,11 +10,15 @@ AOTStub.bc: AOTStub.ll
 RandTest.exe: RandTest.c
 	$(CC) $(CFLAGS) -o $@ $(INC_DIRS) $< $(LIB_DIRS) $(ODE_LIB) $(LDLIBS) $(CRTFAST)
 
+ProjectTest.exe: ProjectTest.c
+	$(CC) $(CFLAGS) -o $@ $(INC_DIRS) $< $(LIB_DIRS) $(ODE_LIB) $(LDLIBS) $(CRTFAST)
+
 OdeModelDump.exe: OdeModelDump.c OdeModel.o
 	$(CC) $(CFLAGS) -o $@ $(INC_DIRS) $< OdeModel.o $(LIB_DIRS) $(ODE_LIB) $(LDLIBS) $(CRTFAST)
 
-install: RandTest.exe OdeModelDump.exe
+install: RandTest.exe ProjectTest.exe OdeModelDump.exe
 	cp RandTest.exe $(ODE_BIN_DIR)
+	cp ProjectTest.exe $(ODE_BIN_DIR)
 	cp OdeModelDump.exe $(ODE_BIN_DIR)
 
 clean:
