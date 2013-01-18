@@ -213,7 +213,7 @@ odeDef = do
     return $ AO.OdeDef initRef deltaName expr
   where
     odeAttribs  = (,)   <$$> attrib "init" modLocalIdentifier
-                        <|?> (AO.DontCare, attrib "delta" valIdentifier)
+                        <|?> (AO.DontCare, attrib "deltaVal" valIdentifier)
 
 sdeDef :: Parser AO.Stmt
 sdeDef = do
@@ -222,12 +222,12 @@ sdeDef = do
     return $ sdeExpr expr
   where
     sdeAttribs  = AO.SdeDef     <$$> attrib "init" modLocalIdentifier
-                                <|?> (AO.DontCare, attrib "delta" valIdentifier)
-                                <||> attrib "weiner" compExpr
+                                <|?> (AO.DontCare, attrib "deltaVal" valIdentifier)
+                                <||> attrib "diffusion" compExpr
 
 
 rreDef :: Parser AO.Stmt
-rreDef = mkRre <$> (reserved "rre" *> braces rreAttribs) <*> (reservedOp "=" *> rreSpecies) <*> (reservedOp "->" *> productList)
+rreDef = mkRre <$> (reserved "reaction" *> braces rreAttribs) <*> (reservedOp "=" *> rreSpecies) <*> (reservedOp "->" *> productList)
   where
     -- | parse a rre attribute definition
     rreAttribs = attrib "rate" compExpr

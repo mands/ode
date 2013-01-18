@@ -151,10 +151,10 @@ data Expr b = Var (VarId b) (Maybe RecId)             -- a reference to any let-
             | Ode (VarId b) (Expr b)            -- an Ode, uses a state variable defined in b,
                                                 -- and runs and returns the delta expression
 
-            | Sde (VarId b) (Expr b) (Expr b)   -- a Sde, uses a state variable defined in b, a weiner in 1st expr,
-                                                -- and runs and returns the delta expression
+            | Sde (VarId b) (Expr b) (Expr b)   -- a Sde, uses a state variable defined in b, a diffusion coeff in 1st expr,
+                                                -- and returns the drift coeff
 
-            | Rre [(Integer, VarId b)] [(Integer, VarId b)] (Expr b) -- an RRE, from var->var with dyn rate expr, returns unit
+            | Rre [(Integer, VarId b)] [(Integer, VarId b)] (Expr b) -- an elementary reaction, from var->var with dyn rate expr, returns unit
 
             | TypeCast (Expr b) (TypeCast b) -- type casts to expressions
             deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)

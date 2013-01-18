@@ -72,12 +72,12 @@ genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
             sdeDefs = vsep . map genSdeExpr $ zip3 (Set.toList states) detElems stocElems
             detElems = getDetElems ionChan
             (stocElems, stocTmps) = getStocElems ionChan
-            genSdeExpr (initVal, deltaExpr, weinerExpr) = text "sde" <+> genAttribs [("init", text initVal), ("weiner", genExpr weinerExpr)] <+> equals <+> genExpr deltaExpr
+            genSdeExpr (initVal, deltaExpr, weinerExpr) = text "sde" <+> genAttribs [("init", text initVal), ("diffusion", genExpr weinerExpr)] <+> equals <+> genExpr deltaExpr
 
         SimRRE -> vsep . concat . map genRreExpr $ transitions
           where
             genRreExpr Transition{..} = [genRreExpr' stateA stateB fRate, genRreExpr' stateB stateA rRate]
-            genRreExpr' x y eRate = text "ssa" <+> genAttribs [("rate", genExpr eRate)] <+> equals <+> text x <+> text "->" <+> text y
+            genRreExpr' x y eRate = text "rre" <+> genAttribs [("rate", genExpr eRate)] <+> equals <+> text x <+> text "->" <+> text y
       where
         stateComment = comment "Setup state values (based on ODE/SDE/SSA form)"
 
