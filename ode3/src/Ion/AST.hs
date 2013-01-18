@@ -97,14 +97,11 @@ optExpr :: IonExpr -> IonExpr
 optExpr e = until' optExpr' e
   where
     optExpr' :: IonExpr -> IonExpr
-    -- * Mul x 0 = 0,
-    optExpr' (Mul x y)  | isZero x = Num 0
+    optExpr' (Mul x y)  | isZero x = Num 0              -- Mul x 0 = 0,
                         | isZero y = Num 0
-    -- * Mul x 1 = x
-                        | isOne x = optExpr' y
+                        | isOne x = optExpr' y          -- Mul x 1 = x
                         | isOne y = optExpr' x
-    -- * Mul x -1 = -x
-                        | isNegOne x = Neg $ optExpr' y
+                        | isNegOne x = Neg $ optExpr' y -- Mul x -1 = -x
                         | isNegOne y = Neg $ optExpr' x
     -- * Add x 0 = x
     optExpr' (Add x y)  | isZero x = optExpr' y

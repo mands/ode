@@ -353,7 +353,7 @@ simSimOp (Sde initId vW vD) = do
     -- calc the sde
     let dt = Sys._timestep $ _simParams st
     randN <- getRandNormal
-    let n' = Num $ curN + dt*dN + dW -- *sqrt(dt)*randN
+    let n' = Num $ curN + dt*dN + dW -- prev => dW*sqrt(dt)*randN
     -- update the stateEnv -- we can do this destructively as the delta vars have already been calculated within the exprMap
     modify (\st -> st { _stateEnv = Map.insert initId n' (_stateEnv st) })
 

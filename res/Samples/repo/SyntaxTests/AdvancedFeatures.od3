@@ -211,7 +211,7 @@ module Adv7a {
 module Adv7b { 
   init x = 0.0
   ode { initVal : x, deltaVal : dx } = 5
-  //sde { initVal : x, deltaVal : dy, diffusion : 0.1 } = 10
+  //sde { initVal : x, deltaVal : dy, diffusion : 0.1*wiener } = 10
 }
 
 // same deltaVal name - OK - picked up by VL04

@@ -37,7 +37,7 @@ module Sde4 {
     val mu = 20
     val sigma = 10
     init y = 0.5
-    sde { initVal : y, deltaVal : dy, diffusion : sigma} = theta*(mu-y)
+    sde { initVal : y, deltaVal : dy, diffusion : sigma*wiener} = theta*(mu-y)
 }
 
 module Sde5 {
@@ -45,6 +45,6 @@ module Sde5 {
     val mu=1.2
     val sigma=0.3
     init y = 0
-    sde { initVal : y, deltaVal : dy, diffusion : sigma} = theta*(mu-y)
+    sde { initVal : y, deltaVal : dy, diffusion : sigma*wiener} = theta*(mu-y)
 }
 

@@ -147,12 +147,13 @@ instance OdeSolver EulerMSolver where
             updatePtrVal builder (stateRefMap Map.! i) $ \stateVal -> do
                 withPtrVal builder (wienerRefMap Map.! i) $ \wVal -> do
                     withPtrVal builder (deltaRefMap Map.! i) $ \dVal -> do
-                        -- y' = y + h*dy + dW*sqrt(dt)*rand(0,1)
-                        randVal <- buildCall builder (libOps Map.! "OdeRandNormal") [] ""
-                        wiener1 <- buildFMul builder randVal (constDouble . sqrt $ L.get Sys.lTimestep simParams) "wiener1"
-                        wiener2 <- buildFMul builder wiener1 wVal "wiener2"
+                        -- y' = y + h*dy + dW (where dW should include a wiener val)
+                        -- prev implicit weiner process generation
+                        -- randVal <- buildCall builder (libOps Map.! "OdeRandNormal") [] ""
+                        -- wiener1 <- buildFMul builder randVal (constDouble . sqrt $ L.get Sys.lTimestep simParams) "wiener1"
+                        -- wiener2 <- buildFMul builder wiener1 wVal "wiener2"
                         delta1 <- buildFMul builder dVal (constDouble $ L.get Sys.lTimestep simParams) "delta1"
-                        state1 <- buildFAdd builder wiener2 delta1 "state1"
+                        state1 <- buildFAdd builder wVal delta1 "state1"
                         buildFAdd builder stateVal state1 "state2"
 
 -- RK4 Solver ----------------------------------------------------------------------------------------------------------

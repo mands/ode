@@ -183,6 +183,14 @@ genVar (Num n) = return $ constReal doubleType (FFI.CDouble n)
 genVar (Boolean b) = return $ constInt int1Type (FFI.fromBool b) False
 genVar Unit = return $ constInt int1Type 0 False
 genVar Time = curTimeVal <$> get
+-- wiener val => sqrt(dt)*rand(0,1)
+genVar Wiener = do
+    GenState {builder, simParams, libOps} <- get
+    randVal <- liftIO $ buildCall builder (libOps Map.! "OdeRandNormal") [] "normalVal"
+    wienerVal <- liftIO $ buildFMul builder randVal (constDouble . sqrt $ L.get Sys.lTimestep simParams) "wienerVal"
+    return wienerVal
+
+
 genVar v = errorDump [MkSB v] "NYI" assert
 
 
