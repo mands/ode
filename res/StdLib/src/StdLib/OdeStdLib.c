@@ -88,6 +88,7 @@ inline double OdeRandUniform(void) {
 }
 
 // return a random number between 0 and 1 with normal distribution
+// used to generate weiner processes
 double OdeRandNormal(void) {
     static double y, cosVal, sinVal;
     static bool yExists = false;
@@ -102,4 +103,35 @@ double OdeRandNormal(void) {
         yExists = true;
         return ex1*cosVal;
     }
+}
+
+// Solver Helper Functions /////////////////////////////////////////////////////////////////////////
+// used by the Reflected SDE Solver to project an array of doubles onto a simplex (0 < x_n < 1 and sum(x) == 1)
+void OdeProjectVector(double* xs, const double xsSize) {
+    // sort into new array y
+    ys = calloc(sizeof(double), xsSize);
+    memcpy(ys, xs, xsSize * sizeof(double));
+    qsort(ys, xsSize, sizeof(double), cmpDouble);
+
+    // iterate over y elems w/ running sum
+
+    for (uint64_t i = 0; i < xsSize; ++i) {
+
+
+    }
+
+    // break on cond - tmax >= next elem
+
+
+    // if didn't break - set tmax
+
+    // update x based on y array - tmax
+}
+
+// double compare fucntion for qsort
+int cmpDouble(const void *x, const void *y) {
+    double xx = *(double*)x, yy = *(double*)y;
+    if (xx < yy) return -1;
+    if (xx > yy) return  1;
+    return 0;
 }

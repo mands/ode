@@ -40,7 +40,7 @@ import qualified Subsystem.SysState as Sys
 -- Monad and Helper Funcs -----------------------------------------------------------------------------------------------------
 
 type OptM = SupplyT Id (StateT OptState MExcept)
-data OptState = OptState { tMap :: TypeMap } deriving (Show)
+data OptState = OptState { tMap :: TypeMap, tUnit :: U.Unit } deriving (Show)
 
 
 -- Entry Point ---------------------------------------------------------------------------------------------------------
@@ -50,7 +50,7 @@ optimiseCoreAST Sys.SimParams{..} (LitMod modData@ModData{..}) = do
     -- run non-monad opts
     let exprMap' = opts modExprMap
     -- run monad-opts
-    ((exprMap'', freeIds'), _) <- runStateT (runSupplyT (optsM exprMap') [modFreeId ..]) $ OptState modTMap
+    ((exprMap'', freeIds'), _) <- runStateT (runSupplyT (optsM exprMap') [modFreeId ..]) $ OptState modTMap _timeUnit
     -- return the updated module
     return $ LitMod $ (updateModData2 modData exprMap'') { modFreeId = head freeIds' }
   where
@@ -148,7 +148,7 @@ expandPow e n  = do
     -- create an id to hold the val
     s@OptState{..} <- lift get
     -- get the type - tho it should (always?) be a TFloat
-    t <- lift . lift $ T.calcTypeExpr tMap e
+    t <- lift . lift $ T.calcTypeExpr (tMap, tUnit) e
     return $ ACR.Let False t [id] e $ createMultExpr id (floor n) (eRef id)
   where
     createMultExpr id 1 mE = mE

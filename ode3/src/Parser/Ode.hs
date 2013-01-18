@@ -50,7 +50,7 @@ typeIdentifier =    try (AO.ModId <$> upperIdentifier <*> (char '.' *> upperIden
 
 -- | value identifier, allows use of don't care vals
 valIdentifier :: Parser AO.BindId
-valIdentifier = reservedOp "_" *> pure AO.DontCare
+valIdentifier = reserved "_" *> pure AO.DontCare
                 <|> AO.BindId <$> identifier
                 <?> "value identifier"
 
@@ -264,6 +264,7 @@ compTerm' = try (parens compExpr)
             <|> AO.Number <$> number <*> optionMaybe (try unitAttrib)
             <|> AO.Boolean <$> boolean
             <|> (reserved "time" *> pure AO.Time) -- TODO - put into Environment module instead ??
+            <|> (reserved "weiner" *> pure AO.Weiner) -- TODO - put into Environment module instead ??
             <|> (reserved "None" *> pure AO.None)
             <|> reserved "piecewise" *> piecewiseTerm
             <|> try (hardcodedOps)

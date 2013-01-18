@@ -40,22 +40,22 @@ import AST.Module
 import qualified Subsystem.Units as U
 import qualified Subsystem.Types as T
 
-import Subsystem.SysState
+import qualified Subsystem.SysState as S
 
 
 -- Monad and Helper Funcs -----------------------------------------------------------------------------------------------------
 
 type UnitConvM = SupplyT Id (StateT UnitConvState MExcept)
 
-data UnitConvState = UnitConvState { _uState :: UnitsState, _tMap :: TypeMap } deriving (Show)
+data UnitConvState = UnitConvState { _uState :: S.UnitsState, _tMap :: TypeMap, _timeUnit :: U.Unit } deriving (Show)
 -- type UnitConvState = (UnitsState, TypeMap)
 mkUnitConvState = UnitConvState
 
 -- Entry Point ---------------------------------------------------------------------------------------------------------
 
-convertTypes :: UnitsState -> Module Id -> MExcept (Module Id)
-convertTypes uState (LitMod modData) = do
-    ((exprMap', freeIds'), _) <- runStateT (runSupplyT convTypesM [freeId ..]) $ mkUnitConvState uState (modTMap modData)
+convertTypes :: S.UnitsState -> U.Unit -> Module Id -> MExcept (Module Id)
+convertTypes uState tUnit (LitMod modData) = do
+    ((exprMap', freeIds'), _) <- runStateT (runSupplyT convTypesM [freeId ..]) $ mkUnitConvState uState (modTMap modData) tUnit
     -- update modData and return new module
     let exprMap'' = OrdMap.filter (\topLet -> case topLet of (AC.TopLet _ _ _ _) -> True; (AC.TopType _) -> False) exprMap'
     return $ LitMod $ (updateModData2 modData exprMap'') { modFreeId = (head freeIds') }
@@ -87,8 +87,10 @@ convertTypesExpr et@(AC.TypeCast e (AC.UnitCast toU)) = do
     e' <- convertTypesExpr e
     id <- supply
     tMap <- _tMap <$> lift get
+    tUnit <- _timeUnit <$> lift get
+
     -- get the type of the orig expression
-    AC.TFloat fromU <- lift . lift $ T.calcTypeExpr tMap e
+    AC.TFloat fromU <- lift . lift $ T.calcTypeExpr (tMap, tUnit) e
     AC.Let False (AC.TFloat U.NoUnit) [id] e' <$> (convertUnitCast id fromU toU)
 
 -- don't care about the rest, pass on to mapExprM
@@ -98,7 +100,7 @@ convertUnitCast :: Id -> U.Unit -> U.Unit -> UnitConvM (AC.Expr Id)
 convertUnitCast id u1 u2 = do
     -- need to use the unitstate to calc the correct expression and then convert it
     uState <- _uState <$> lift get
-    cExpr <- lift . lift $ U.convertCastUnit u1 u2 (L.get lUnitDimEnv uState) (L.get lConvEnv uState)
+    cExpr <- lift . lift $ U.convertCastUnit u1 u2 (L.get S.lUnitDimEnv uState) (L.get S.lConvEnv uState)
     return $ convertUnitExpr id cExpr
 
 -- converts an expression from the restrictred CExpr format into the general Core Expression for code-gen

@@ -2,7 +2,7 @@
 module Sde1 {
     //b = sde { init: 10.0, delta: 0, weiner: 1.0 }
     init b = 10.0
-    sde { init : b, delta : db, weiner : 1.0 } = 0
+    sde { init : b, delta : db, weiner : 1.0 * weiner } = 0
 }
 
 // module varient
@@ -12,7 +12,7 @@ module Sde1a {
 // basic sde
 module Sde1b {
     import SimTests.Sdes.Sde1a as A
-    sde { init : A.b, delta : db, weiner : 1.0 } = 0
+    sde { init : A.b, delta : db, weiner : 1.0*weiner } = 0
 }
 
 // more complex sde
@@ -20,14 +20,14 @@ module Sde2 {
     //b { type : sde, wrt: t, init: 45.3, weiner: 34 * a} = 23.0;
     //b = sde { wrt: t, init: 45.3, exp: 23.0 + t, weiner: 34 * a }
     init b = 45.3
-    sde { init : b, delta : db, weiner : 34 } = 23    
+    sde { init : b, delta : db, weiner : 34*weiner } = 23    
 }
 
 // expression in weiner
 module Sde3 {
     val a = 0.5
     init b = 45.3
-    sde { init : b, delta : db, weiner : 34 + a } = 23    
+    sde { init : b, deltaVal : db, drift: 23, diffusion: (34 + a)*weiner }
 }
 
 // Ornstein–Uhlenbeck process

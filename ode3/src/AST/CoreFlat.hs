@@ -56,7 +56,7 @@ data Expr   = Var Var
 data Var    = VarRef Id
             | TupleRef Id Integer
             | Tuple [Var]               -- needed from MRVs, should never be nested
-            | Num Double | Boolean Bool | Unit | Time
+            | Num Double | Boolean Bool | Unit | Time | Weiner
             deriving (Show, Eq, Ord)
 
 -- | Main simulation opersions

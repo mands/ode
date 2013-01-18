@@ -38,46 +38,49 @@ import qualified Subsystem.Units as U
 -- we need this as we only store types on at (top-)let points
 -- assumes both that type-checking hsa completed (hence non-poly typemap is present) and modules are inlined/not presesent
 -- also assumes that types within let-bound expressions are newer/take prcedence over tMap
-calcTypeExpr :: TypeMap -> AC.Expr Id -> MExcept AC.Type
-calcTypeExpr tMap (AC.Var (AC.LocalVar v) Nothing) = return $ tMap Map.! v
-calcTypeExpr tMap (AC.Var (AC.LocalVar v) (Just recId)) | (AC.TRecord ts) <- tMap Map.! v = return $ ts Map.! recId
 
-calcTypeExpr tMap (AC.App (AC.LocalVar f) _) | AC.TArr eT toT <- (tMap Map.! f) = return toT
+-- Takes as input the current type-map and the unit of the time keyword
+calcTypeExpr :: (TypeMap, U.Unit) -> AC.Expr Id -> MExcept AC.Type
+calcTypeExpr (tMap, _) (AC.Var (AC.LocalVar v) Nothing) = return $ tMap Map.! v
+calcTypeExpr (tMap, _) (AC.Var (AC.LocalVar v) (Just recId)) | (AC.TRecord ts) <- tMap Map.! v = return $ ts Map.! recId
+
+calcTypeExpr (tMap, _) (AC.App (AC.LocalVar f) _) | AC.TArr eT toT <- (tMap Map.! f) = return toT
 
 -- what is the type of the arg? AC.TArr Unit (calcTypeExpr tMap e)
 -- calcTypeExpr tMap (AC.Abs arg e) = undefined -- calcTypeExpr tMap e
 
 -- the t here holds the type of e1, not e2, hence have to calc e2
-calcTypeExpr tMap (AC.Let s t (b:[]) e1 e2) = calcTypeExpr (Map.insert b t tMap) e2
-calcTypeExpr tMap (AC.Let s (AC.TTuple ts) bs e1 e2) = calcTypeExpr tMap' e2
+calcTypeExpr (tMap, tUnit) (AC.Let s t (b:[]) e1 e2) = calcTypeExpr (Map.insert b t tMap, tUnit) e2
+calcTypeExpr (tMap, tUnit) (AC.Let s (AC.TTuple ts) bs e1 e2) = calcTypeExpr (tMap', tUnit) e2
   where
     tMap' = foldl (\tMap (b,t) -> Map.insert b t tMap) tMap $ zip bs ts
 
-calcTypeExpr _ (AC.Lit l) = case l of
+calcTypeExpr (_, tUnit) (AC.Lit l) = case l of
     AC.Boolean _ -> return AC.TBool
     AC.Num _ u -> return $ AC.TFloat u
-    AC.Time -> return $ AC.TFloat U.uSeconds
+    AC.Time -> return $ AC.TFloat tUnit
+    AC.Weiner -> return $ AC.TFloat U.NoUnit -- is the unit of weiner correct?
     AC.Unit -> return AC.TUnit
 
-calcTypeExpr tMap (AC.If eB eT eF) = calcTypeExpr tMap eT
+calcTypeExpr st (AC.If eB eT eF) = calcTypeExpr st eT
 
 -- are these unpacked yet?
-calcTypeExpr tMap (AC.Tuple es) = AC.TTuple <$> DT.mapM (calcTypeExpr tMap) es
+calcTypeExpr st (AC.Tuple es) = AC.TTuple <$> DT.mapM (calcTypeExpr st) es
 -- is a literal record, record this within the type
-calcTypeExpr tMap (AC.Record nEs) = AC.TRecord <$> DT.mapM (calcTypeExpr tMap) nEs
+calcTypeExpr st (AC.Record nEs) = AC.TRecord <$> DT.mapM (calcTypeExpr st) nEs
 
 -- sim ops - types of Odes & Sdes = type of eD, type of RRE = Unit
-calcTypeExpr tMap (AC.Ode lv@(AC.LocalVar _) eD) = calcTypeExpr tMap eD
-calcTypeExpr tMap (AC.Sde lv@(AC.LocalVar _) eW eD) = calcTypeExpr tMap eD
-calcTypeExpr tMap (AC.Rre _ _ _) = return AC.TUnit
+calcTypeExpr st (AC.Ode lv@(AC.LocalVar _) eD) = calcTypeExpr st eD
+calcTypeExpr st (AC.Sde lv@(AC.LocalVar _) eW eD) = calcTypeExpr st eD
+calcTypeExpr _ (AC.Rre _ _ _) = return AC.TUnit
 
 -- direct casts
-calcTypeExpr tMap (AC.TypeCast e (AC.UnitCast u)) = return $ AC.TFloat u
-calcTypeExpr tMap (AC.TypeCast e (AC.WrapType (AC.LocalVar tName))) = return $ tMap Map.! tName
-calcTypeExpr tMap (AC.TypeCast e (AC.UnwrapType (AC.LocalVar tName))) = return $ tMap Map.! tName
+calcTypeExpr _ (AC.TypeCast e (AC.UnitCast u)) = return $ AC.TFloat u
+calcTypeExpr (tMap, tUnit) (AC.TypeCast e (AC.WrapType (AC.LocalVar tName))) = return $ tMap Map.! tName
+calcTypeExpr (tMap, tUnit) (AC.TypeCast e (AC.UnwrapType (AC.LocalVar tName))) = return $ tMap Map.! tName
 
-calcTypeExpr tMap (AC.Op op e) = do
-    eT <- calcTypeExpr tMap e
+calcTypeExpr st (AC.Op op e) = do
+    eT <- calcTypeExpr st e
     case op of
        -- Basic Ops
         BasicOp x | x `elem` [Add, Sub]                 -> typeFFtoF_USame eT    -- (f u1, f u1) -> f u1

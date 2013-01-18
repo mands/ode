@@ -39,7 +39,8 @@ ionLangDef = emptyDef
     , T.commentLine     = "//"
 
     -- reuse the initial identifier parsers
-    -- , T.identStart     = letter <|> char '_'
+    -- identifiers can only begin with letters, we need to reuse '_' prefix for codegen
+    , T.identStart     = letter -- <|> char '_'
     -- , T.identLetter    = alphaNum <|> oneOf "_'"
 
     -- no user-defined operators

@@ -67,7 +67,7 @@ genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
 
           where
             wDefs = vsep . map genWeinerDef . fromJust $ weiners
-            genWeinerDef wId = text "weiner" <+> text wId
+            genWeinerDef wId = text "val" <+> text wId <+> equals <+> text "weiner"
 
             sdeDefs = vsep . map genSdeExpr $ zip3 (Set.toList states) detElems stocElems
             detElems = getDetElems ionChan

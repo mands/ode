@@ -52,9 +52,9 @@ commonLangDef = emptyDef
                         -- main ode lang
                         , "component", "where", "return"
                         , "val", "init"
-                        , "ode", "delta"
-                        , "sde", "weiner"
-                        , "rre", "reaction", "rate"
+                        , "ode", "delta", "deltaVal"
+                        , "sde", "drift", "diffusion", "weiner"
+                        , "ssa", "reaction", "rate"
                         , "piecewise", "default"
                         , "True", "False", "time", "None"
                         -- units lang

@@ -19,7 +19,7 @@
 //:vecMath
 :mathLib "gnu"
 // backend to use - interpreter, jitcompiler, aotcompiler, obj
-:backend "aotcompiler"
+:backend "interpreter"
 
 // setup the repo
 :addRepo ../res/Samples/repo
@@ -35,8 +35,9 @@ import SimTests.Sdes.*
 :timestep 1
 :period 1
 :output "./output_Sde1.bin"
-//:simulate Sde1
-//:simulate Sde1b
+:simulate Sde1
+:output "./output_Sde1b.bin"
+:simulate Sde1b
 
 :output "./output_Sde2.bin"
 //:simulate Sde2
@@ -49,7 +50,7 @@ import SimTests.Sdes.*
 :period 0.1
 :timestep 0.1
 :output "./output_Sde4.bin"
-:simulate Sde4
+//:simulate Sde4
 
 :startTime 0
 :stopTime 2

@@ -235,9 +235,15 @@ simVar (TupleRef i tupIdx) = do
     return $ vs !! (fromInteger $ tupIdx - 1)
 -- simple map over the vars
 simVar (Tuple vs) = Tuple <$> mapM simVar vs
--- lookup in env
+-- lookup in st env
 simVar v@Time = Num <$> (_curTime <$> get)
--- any other vars (will be literals) are just copied across
+-- calc a single/unique weiner - i.e. a normal-dist num, mean = 0, variance = sqrt(dt)
+simVar v@Weiner = do
+    dt <- Sys._timestep <$> _simParams <$> get
+    randN <- getRandNormal
+    return $ Num $ sqrt(dt)*randN
+
+-- any other vars (will be literals - Num, Bool, Unit) are just copied across
 simVar v = return v
 
 lookupId :: Id -> SimM Var
@@ -347,8 +353,7 @@ simSimOp (Sde initId vW vD) = do
     -- calc the sde
     let dt = Sys._timestep $ _simParams st
     randN <- getRandNormal
-    let n' = Num $ curN + dt*dN + dW*sqrt(dt)*randN
-
+    let n' = Num $ curN + dt*dN + dW -- *sqrt(dt)*randN
     -- update the stateEnv -- we can do this destructively as the delta vars have already been calculated within the exprMap
     modify (\st -> st { _stateEnv = Map.insert initId n' (_stateEnv st) })
 

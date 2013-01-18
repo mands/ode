@@ -27,7 +27,7 @@ import qualified Utils.OrdMap as OrdMap
 
 import Utils.CommonImports
 import Utils.MonadSupply
-import Subsystem.SysState
+-- import Subsystem.SysState
 import qualified Subsystem.Units as U
 import qualified Subsystem.Types as T
 import qualified AST.Core as AC
@@ -44,6 +44,7 @@ type ConvM = SupplyT Id (StateT FlatState MExcept)
 data FlatState = FlatState  { _curExprs :: ACF.ExprMap
                             , _simOps :: [ACF.SimOp]
                             , _curTMap :: TypeMap
+                            , _timeUnit :: U.Unit
                             } deriving (Show, Eq, Ord)
 mkFlatState = FlatState OrdMap.empty []
 
@@ -52,10 +53,10 @@ type InitMap = Map.Map Id Double
 -- TODO - need to create typedata in ACF.module too
 -- we run conversion twice to handle split between init and loop exprs
 -- this may result in redudnat/unused exprs in both blocks, however LLVM will remove these anyway, and can run interpreter over initExprs if needed
-convertAST :: (Module Id, InitMap) -> MExcept ACF.Module
-convertAST (LitMod modData, initMap) = do
+convertAST :: U.Unit -> (Module Id, InitMap) -> MExcept ACF.Module
+convertAST tUnit (LitMod modData, initMap) = do
     trace' [MkSB modData] "Flatten - Final Core AST input" $ return ()
-    ((_, freeIds'), fSt') <- runStateT (runSupplyT flatExprM freeIds) $ mkFlatState (modTMap modData)
+    ((_, freeIds'), fSt') <- runStateT (runSupplyT flatExprM freeIds) $ mkFlatState (modTMap modData) tUnit
 
     let simOps = reverse $ _simOps fSt'
     simType <- getSimType simOps
@@ -108,8 +109,9 @@ convertExpr e@(AC.Let isInit t bs e1 e2) = do
 -- Literals
 convertExpr e@(AC.Lit (AC.Num n U.NoUnit)) = return $ ACF.Var $ ACF.Num n
 convertExpr e@(AC.Lit (AC.Boolean b)) = return $ ACF.Var $ ACF.Boolean b
-convertExpr e@(AC.Lit (AC.Unit)) = return $ ACF.Var $ ACF.Unit
-convertExpr e@(AC.Lit (AC.Time)) = return $ ACF.Var $ ACF.Time
+convertExpr e@(AC.Lit (AC.Unit)) = return $ ACF.Var ACF.Unit
+convertExpr e@(AC.Lit (AC.Time)) = return $ ACF.Var ACF.Time
+convertExpr e@(AC.Lit (AC.Weiner)) = return $ ACF.Var ACF.Weiner
 
 -- Operators
 -- multi-input op
@@ -143,7 +145,8 @@ convertExpr e@(AC.If eB eT eF) = do
         st' <- lift $ get
         -- need to calc and convert the type here
         tMap <- _curTMap <$> lift get
-        fT <- convertType <$> (lift . lift $ T.calcTypeExpr tMap e)
+        tUnit <- _timeUnit <$> lift get
+        fT <- convertType <$> (lift . lift $ T.calcTypeExpr (tMap, tUnit) e)
         let es = OrdMap.insert id (ACF.ExprData e' fT) ( _curExprs st')
         -- restore the old env
         lift . put $ st' { _curExprs = oldCurMap }
@@ -242,7 +245,8 @@ insertAsTmpVar e = do
     e' <- convertExpr e
     -- need to calc and convert the type here
     tMap <- _curTMap <$> lift get
-    fT <- convertType <$> (lift . lift $ T.calcTypeExpr tMap e)
+    tUnit <- _timeUnit <$> lift get
+    fT <- convertType <$> (lift . lift $ T.calcTypeExpr (tMap, tUnit) e)
     insertExpr id e' fT
     return $ ACF.VarRef id
 
@@ -250,8 +254,9 @@ insertAsTmpVar e = do
 liftVarExpr :: AC.Expr Id -> ConvM (Maybe ACF.Var)
 liftVarExpr e@(AC.Lit (AC.Num n U.NoUnit)) = return $ Just $ ACF.Num n
 liftVarExpr e@(AC.Lit (AC.Boolean b)) = return $ Just $ ACF.Boolean b
-liftVarExpr e@(AC.Lit (AC.Unit)) = return $ Just $ ACF.Unit
-liftVarExpr e@(AC.Lit (AC.Time)) = return $ Just $ ACF.Time
+liftVarExpr e@(AC.Lit (AC.Unit)) = return $ Just ACF.Unit
+liftVarExpr e@(AC.Lit (AC.Time)) = return $ Just ACF.Time
+liftVarExpr e@(AC.Lit (AC.Weiner)) = return $ Just ACF.Weiner
 liftVarExpr e@(AC.Var (AC.LocalVar v) Nothing) = return $ Just $ ACF.VarRef v
 liftVarExpr e@(AC.Var (AC.LocalVar v) (Just recId)) = Just <$> convertRecId v recId
 liftVarExpr e = return Nothing

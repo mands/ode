@@ -268,6 +268,7 @@ constrain gModEnv modData mFuncArgs unitsCheck timeUnit = runStateT (evalSupplyT
         E.Num _ u       -> return $ if unitsCheck then E.TFloat u else E.TFloat U.NoUnit
         E.NumSeq _ u    -> return $ if unitsCheck then E.TFloat u else E.TFloat U.NoUnit
         E.Time          -> return $ if unitsCheck then E.TFloat timeUnit else E.TFloat U.NoUnit-- should this be uFloat ??
+        E.Weiner        -> return $ E.TFloat U.NoUnit -- is this correct for weiner??
         E.Unit          -> return E.TUnit
 
     -- test add, same code for most ops (not mul/div)

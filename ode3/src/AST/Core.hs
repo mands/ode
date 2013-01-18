@@ -168,7 +168,7 @@ data TypeCast b = UnitCast U.Unit -- a safe cast to the unit for the expr
 
 
 -- | Atomic, core values, will eventually become atomic args during ANF conversion
-data Literal =  Num Double U.Unit | NumSeq [Double] U.Unit | Boolean Bool | Time | Unit
+data Literal =  Num Double U.Unit | NumSeq [Double] U.Unit | Boolean Bool | Time | Weiner | Unit
                 deriving (Show, Eq, Ord)
 
 -- Expression Traversal Helper Funcs -----------------------------------------------------------------------------------

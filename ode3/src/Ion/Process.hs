@@ -181,7 +181,6 @@ getStocElems ionChan@IonChannel{..} = (map optExpr $ A.elems (matVecMult eMulF w
       where
         propExpr = Sqrt $ Add (Mul (Var stateA) fRate) (Mul (Var stateB) rRate)
 
-
     -- e.F(x) matrix - matrix mult
     eMulF = matMatMult (fromJust stocMatrix) fDiagMat
     -- a dummy array for representing the weiner for each transition (we actually require them per state)
