@@ -268,7 +268,7 @@ constrain gModEnv modData mFuncArgs unitsCheck timeUnit = runStateT (evalSupplyT
         E.Num _ u       -> return $ if unitsCheck then E.TFloat u else E.TFloat U.NoUnit
         E.NumSeq _ u    -> return $ if unitsCheck then E.TFloat u else E.TFloat U.NoUnit
         E.Time          -> return $ if unitsCheck then E.TFloat timeUnit else E.TFloat U.NoUnit-- should this be uFloat ??
-        E.Weiner        -> return $ E.TFloat U.NoUnit -- is this correct for weiner??
+        E.Wiener        -> return $ E.TFloat U.NoUnit -- is this correct for wiener??
         E.Unit          -> return E.TUnit
 
     -- test add, same code for most ops (not mul/div)
@@ -315,14 +315,14 @@ constrain gModEnv modData mFuncArgs unitsCheck timeUnit = runStateT (evalSupplyT
         -- TODO - return the type of the dExpr
         return eDT
 
-    -- Not fully unit-safe, weiner process unit cannot be checked in current units implementation
+    -- Not fully unit-safe, wiener process unit cannot be checked in current units implementation
     consExpr (E.Sde v eW eD) = do
         -- constrain the ode state val to be a float
         vT <- getVarType v gModEnv modData mFuncArgs
         uV1 <- newUnitVar
         addConsType $ ConEqual vT (E.TFloat uV1)
 
-        -- get the weiner type, it must be a (single) float, whose value should be Unit/s^0.5
+        -- get the wiener type, it must be a (single) float, whose value should be Unit/s^0.5
         -- however as don't allow non-integer units, cannot capture this
         eWT <- consExpr eW
         addConsType =<< ConEqual eWT <$> uFloat

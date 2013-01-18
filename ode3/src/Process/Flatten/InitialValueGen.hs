@@ -94,7 +94,7 @@ initIntExpr e@(AC.Lit (AC.Boolean b)) env = return (e, env)
 initIntExpr e@(AC.Lit (AC.Unit)) env = return (e, env)
 -- what should this return - as rand normal mean is 0 => 0 * sqrt(dt) => 0
 -- besides - initial vals should never be dependent on a random value
-initIntExpr e@(AC.Lit (AC.Weiner)) env = return (AC.Lit (AC.Num 0 U.NoUnit), env)
+initIntExpr e@(AC.Lit (AC.Wiener)) env = return (AC.Lit (AC.Num 0 U.NoUnit), env)
 
 -- TODO - fix time
 initIntExpr e@(AC.Lit (AC.Time)) env = do

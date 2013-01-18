@@ -109,7 +109,7 @@ instance OdeSolver EulerSolver where
 
 data EulerMSolver = EulerMSolver    { eulerMStateVals :: LocalMap
                                     , eulerMDeltaVals :: LocalMap
-                                    , eulerMWeinerVals :: LocalMap
+                                    , eulerMWienerVals :: LocalMap
                                     }
 
 
@@ -117,17 +117,17 @@ instance OdeSolver EulerMSolver where
     genVals ids = do    -- create the vals
         stateRefMap  <- createVals ids "StateRef"
         deltaRefMap  <- createVals ids "DeltaRef"
-        weinerRefMap <- createVals ids "WeinerRef"
-        return $ EulerMSolver stateRefMap deltaRefMap weinerRefMap
+        wienerRefMap <- createVals ids "WienerRef"
+        return $ EulerMSolver stateRefMap deltaRefMap wienerRefMap
 
     getStateVals e = eulerMStateVals e
 
-    genSolver (EulerMSolver stateRefMap deltaRefMap weinerRefMap) curTimeRef CF.Module{loopExprs, simOps} = do
+    genSolver (EulerMSolver stateRefMap deltaRefMap wienerRefMap) curTimeRef CF.Module{loopExprs, simOps} = do
         GenState {builder, curFunc, simParams, libOps} <- get
         -- gen the modelRHS code
         stateValMap <- loadRefMap stateRefMap
         _ <- withPtrVal builder curTimeRef $ \curTimeVal -> do
-            genModelRHS loopExprs simOps curTimeVal stateValMap deltaRefMap weinerRefMap
+            genModelRHS loopExprs simOps curTimeVal stateValMap deltaRefMap wienerRefMap
 
         -- update the states/run the forward euler
         liftIO $ mapM_ (updateState builder simParams libOps) simOps
@@ -145,14 +145,14 @@ instance OdeSolver EulerMSolver where
         updateState builder simParams libOps (Sde i _ _) = do
             -- get state val
             updatePtrVal builder (stateRefMap Map.! i) $ \stateVal -> do
-                withPtrVal builder (weinerRefMap Map.! i) $ \wVal -> do
+                withPtrVal builder (wienerRefMap Map.! i) $ \wVal -> do
                     withPtrVal builder (deltaRefMap Map.! i) $ \dVal -> do
                         -- y' = y + h*dy + dW*sqrt(dt)*rand(0,1)
                         randVal <- buildCall builder (libOps Map.! "OdeRandNormal") [] ""
-                        weiner1 <- buildFMul builder randVal (constDouble . sqrt $ L.get Sys.lTimestep simParams) "weiner1"
-                        weiner2 <- buildFMul builder weiner1 wVal "weiner2"
+                        wiener1 <- buildFMul builder randVal (constDouble . sqrt $ L.get Sys.lTimestep simParams) "wiener1"
+                        wiener2 <- buildFMul builder wiener1 wVal "wiener2"
                         delta1 <- buildFMul builder dVal (constDouble $ L.get Sys.lTimestep simParams) "delta1"
-                        state1 <- buildFAdd builder weiner2 delta1 "state1"
+                        state1 <- buildFAdd builder wiener2 delta1 "state1"
                         buildFAdd builder stateVal state1 "state2"
 
 -- RK4 Solver ----------------------------------------------------------------------------------------------------------

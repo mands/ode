@@ -64,7 +64,7 @@ data Stmt = -- each independent component, is basically function abstraction
 -- refernces to existing values, piecewise terms
 -- expressions are may be multiple types, these are determined later on
 data Expr   =   Op Op [Expr] | Number Double (Maybe UnitList) | NumSeq Double Double Double | Boolean Bool
-                | Time | Weiner | None | Call RefId [Expr] | ValueRef RefId (Maybe SrcId) | Piecewise [(Expr, Expr)] Expr
+                | Time | Wiener | None | Call RefId [Expr] | ValueRef RefId (Maybe SrcId) | Piecewise [(Expr, Expr)] Expr
                 | Tuple [Expr] | Record [(SrcId, Expr)]
                 -- type/unit commands
                 | ConvCast Expr UnitList | WrapType Expr RefId | UnwrapType Expr RefId

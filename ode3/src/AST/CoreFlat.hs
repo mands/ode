@@ -56,13 +56,13 @@ data Expr   = Var Var
 data Var    = VarRef Id
             | TupleRef Id Integer
             | Tuple [Var]               -- needed from MRVs, should never be nested
-            | Num Double | Boolean Bool | Unit | Time | Weiner
+            | Num Double | Boolean Bool | Unit | Time | Wiener
             deriving (Show, Eq, Ord)
 
 -- | Main simulation opersions
 data SimOp  = Ode Id Var    -- indicates the state val and a ref to an id holding the delta val
                             -- TODO - convert to an Id instead of Var
-            | Sde Id Var Var  -- indicates the state val and refs to ids holding the weiner and delta vals (note the order)
+            | Sde Id Var Var  -- indicates the state val and refs to ids holding the wiener and delta vals (note the order)
             | Rre [(Int, Id)] [(Int, Id)] Var -- indicates the src and dest products in the reaction, and the ref to id holding dyn reaction rate
             deriving (Show, Eq, Ord)
 

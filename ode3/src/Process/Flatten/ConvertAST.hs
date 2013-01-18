@@ -111,7 +111,7 @@ convertExpr e@(AC.Lit (AC.Num n U.NoUnit)) = return $ ACF.Var $ ACF.Num n
 convertExpr e@(AC.Lit (AC.Boolean b)) = return $ ACF.Var $ ACF.Boolean b
 convertExpr e@(AC.Lit (AC.Unit)) = return $ ACF.Var ACF.Unit
 convertExpr e@(AC.Lit (AC.Time)) = return $ ACF.Var ACF.Time
-convertExpr e@(AC.Lit (AC.Weiner)) = return $ ACF.Var ACF.Weiner
+convertExpr e@(AC.Lit (AC.Wiener)) = return $ ACF.Var ACF.Wiener
 
 -- Operators
 -- multi-input op
@@ -168,7 +168,7 @@ convertExpr e@(AC.Ode (AC.LocalVar v) eD) = do
 
 -- Sde
 convertExpr e@(AC.Sde (AC.LocalVar v) eW eD) = do
-    -- convert the weiner expr - insert in as an tmp binding
+    -- convert the wiener expr - insert in as an tmp binding
     wRef <- insertAsTmpVar eW
     -- convert the delta expr - insert in as an tmp binding
     dRef <- insertAsTmpVar eD
@@ -256,7 +256,7 @@ liftVarExpr e@(AC.Lit (AC.Num n U.NoUnit)) = return $ Just $ ACF.Num n
 liftVarExpr e@(AC.Lit (AC.Boolean b)) = return $ Just $ ACF.Boolean b
 liftVarExpr e@(AC.Lit (AC.Unit)) = return $ Just ACF.Unit
 liftVarExpr e@(AC.Lit (AC.Time)) = return $ Just ACF.Time
-liftVarExpr e@(AC.Lit (AC.Weiner)) = return $ Just ACF.Weiner
+liftVarExpr e@(AC.Lit (AC.Wiener)) = return $ Just ACF.Wiener
 liftVarExpr e@(AC.Var (AC.LocalVar v) Nothing) = return $ Just $ ACF.VarRef v
 liftVarExpr e@(AC.Var (AC.LocalVar v) (Just recId)) = Just <$> convertRecId v recId
 liftVarExpr e = return Nothing

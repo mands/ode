@@ -55,7 +55,7 @@ processIon im = do
 -- | Build the auxilary ion channel data structures, i.e. set of reactions and the reaction graph
 buildIonData :: IonChannel -> MExcept IonChannel
 buildIonData ionChan@IonChannel{..} = do
-    return ((ionChan { states=states', transitionGraph=transitionGraph', transitions=transitions', weiners=(Just weiners'), vals=vals' }) |> stocMatrix')
+    return ((ionChan { states=states', transitionGraph=transitionGraph', transitions=transitions', wieners=(Just wieners'), vals=vals' }) |> stocMatrix')
   where
     -- states are defined by initital state list
     states' = Set.fromList . map fst $ initialStates
@@ -69,8 +69,8 @@ buildIonData ionChan@IonChannel{..} = do
 
     stocMatrix' ionChan = ionChan { stocMatrix=(Just $ genStocMatrix ionChan) }
 
-    -- weiner gen
-    weiners' = take (length transitions) $ genUniqs "_w"
+    -- wiener gen
+    wieners' = take (length transitions) $ genUniqs "_w"
 
     -- tmp val gen - bit hacky but fuck it
     ((_, vals'), transitions') = DT.mapAccumL genTmpRateVals (genUniqs "_rate", vals) transitions
@@ -168,9 +168,9 @@ getDetElems ionChan@IonChannel{..} = map (optExpr . calcDetExpr) $ Set.toList st
 
 
 -- Stochastic Matrix Generation -------------------------------------------------------------------------------------
--- fold over the transition list, generating the weiner exprs as go along
+-- fold over the transition list, generating the wiener exprs as go along
 getStocElems :: IonChannel -> ([IonExpr], OrdMap.OrdMap Id IonExpr)
-getStocElems ionChan@IonChannel{..} = (map optExpr $ A.elems (matVecMult eMulF weinerVec), tmpVals)
+getStocElems ionChan@IonChannel{..} = (map optExpr $ A.elems (matVecMult eMulF wienerVec), tmpVals)
   where
     -- a 2D array represeting the diag matrix F
     fDiagMat = genDiagMat (Num 0) transitions'
@@ -183,8 +183,8 @@ getStocElems ionChan@IonChannel{..} = (map optExpr $ A.elems (matVecMult eMulF w
 
     -- e.F(x) matrix - matrix mult
     eMulF = matMatMult (fromJust stocMatrix) fDiagMat
-    -- a dummy array for representing the weiner for each transition (we actually require them per state)
-    weinerVec = A.listArray (1, length transitions) $ map (Var) (fromJust weiners)
+    -- a dummy array for representing the wiener for each transition (we actually require them per state)
+    wienerVec = A.listArray (1, length transitions) $ map (Var) (fromJust wieners)
 
 -- Helper functions ----------------------------------------------------------------------------------------------------
 

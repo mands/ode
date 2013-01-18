@@ -264,7 +264,7 @@ compTerm' = try (parens compExpr)
             <|> AO.Number <$> number <*> optionMaybe (try unitAttrib)
             <|> AO.Boolean <$> boolean
             <|> (reserved "time" *> pure AO.Time) -- TODO - put into Environment module instead ??
-            <|> (reserved "weiner" *> pure AO.Weiner) -- TODO - put into Environment module instead ??
+            <|> (reserved "wiener" *> pure AO.Wiener) -- TODO - put into Environment module instead ??
             <|> (reserved "None" *> pure AO.None)
             <|> reserved "piecewise" *> piecewiseTerm
             <|> try (hardcodedOps)

@@ -237,8 +237,8 @@ simVar (TupleRef i tupIdx) = do
 simVar (Tuple vs) = Tuple <$> mapM simVar vs
 -- lookup in st env
 simVar v@Time = Num <$> (_curTime <$> get)
--- calc a single/unique weiner - i.e. a normal-dist num, mean = 0, variance = sqrt(dt)
-simVar v@Weiner = do
+-- calc a single/unique wiener - i.e. a normal-dist num, mean = 0, variance = sqrt(dt)
+simVar v@Wiener = do
     dt <- Sys._timestep <$> _simParams <$> get
     randN <- getRandNormal
     return $ Num $ sqrt(dt)*randN
@@ -344,7 +344,7 @@ simSimOp (Ode initId v) = do
 -- solve a Sde using forward Euler-Maruyama
 simSimOp (Sde initId vW vD) = do
     st <- get
-    -- pickup the weiner via a VarRef into the loop state
+    -- pickup the wiener via a VarRef into the loop state
     (Num dW) <- simVar vW
     -- pickup the delta via a VarRef into the loop state
     (Num dN) <- simVar vD

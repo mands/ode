@@ -66,13 +66,13 @@ genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
             genTmpVals stocTmps <$> wDefs <$> sdeDefs
 
           where
-            wDefs = vsep . map genWeinerDef . fromJust $ weiners
-            genWeinerDef wId = text "val" <+> text wId <+> equals <+> text "weiner"
+            wDefs = vsep . map genWienerDef . fromJust $ wieners
+            genWienerDef wId = text "val" <+> text wId <+> equals <+> text "wiener"
 
             sdeDefs = vsep . map genSdeExpr $ zip3 (Set.toList states) detElems stocElems
             detElems = getDetElems ionChan
             (stocElems, stocTmps) = getStocElems ionChan
-            genSdeExpr (initVal, deltaExpr, weinerExpr) = text "sde" <+> genAttribs [("init", text initVal), ("diffusion", genExpr weinerExpr)] <+> equals <+> genExpr deltaExpr
+            genSdeExpr (initVal, deltaExpr, wienerExpr) = text "sde" <+> genAttribs [("init", text initVal), ("diffusion", genExpr wienerExpr)] <+> equals <+> genExpr deltaExpr
 
         SimRRE -> vsep . concat . map genRreExpr $ transitions
           where

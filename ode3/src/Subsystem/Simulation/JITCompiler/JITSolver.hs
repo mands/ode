@@ -131,7 +131,7 @@ genFFIModelInitials CF.Module{initVals} = do
 
 
 -- | C-compatible wrapper for the RHS function
--- takes severl ptrs->arrays for the state/detla/weiner vals
+-- takes severl ptrs->arrays for the state/detla/wiener vals
 -- OdeModelRHS(double, STATE*, DELTA*, WEINER*)
 genFFIModelRHS :: CF.Module -> GenM ()
 genFFIModelRHS CF.Module{..} = do
@@ -140,18 +140,18 @@ genFFIModelRHS CF.Module{..} = do
     liftIO $ setFuncParam curFunc 2 [NoAliasAttribute, NoCaptureAttribute]
     liftIO $ setFuncParam curFunc 3 [NoAliasAttribute, NoCaptureAttribute]
 
-    (curTimeVal : stateArrayRef : deltaArrayRef : weinerArrayRef : []) <- liftIO $ LLVM.getParams curFunc
+    (curTimeVal : stateArrayRef : deltaArrayRef : wienerArrayRef : []) <- liftIO $ LLVM.getParams curFunc
 
     -- use GEP to build list of ptrs into stateVals array, need to deref each one
     stateRefMap <- foldM (buildArrayRefMap builder stateArrayRef) Map.empty initValIdxs
     deltaRefMap <- foldM (buildArrayRefMap builder deltaArrayRef) Map.empty initValIdxs
-    weinerRefMap <-  if simType == CF.SimSDE
-                          then foldM (buildArrayRefMap builder weinerArrayRef) Map.empty initValIdxs
+    wienerRefMap <-  if simType == CF.SimSDE
+                          then foldM (buildArrayRefMap builder wienerArrayRef) Map.empty initValIdxs
                           else return Map.empty
 
     -- gen the rhs code
     stateValMap <- loadRefMap stateRefMap
-    genModelRHS loopExprs simOps curTimeVal stateValMap deltaRefMap weinerRefMap
+    genModelRHS loopExprs simOps curTimeVal stateValMap deltaRefMap wienerRefMap
 
     liftIO $ buildRetVoid builder
     return ()

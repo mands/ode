@@ -59,7 +59,7 @@ calcTypeExpr (_, tUnit) (AC.Lit l) = case l of
     AC.Boolean _ -> return AC.TBool
     AC.Num _ u -> return $ AC.TFloat u
     AC.Time -> return $ AC.TFloat tUnit
-    AC.Weiner -> return $ AC.TFloat U.NoUnit -- is the unit of weiner correct?
+    AC.Wiener -> return $ AC.TFloat U.NoUnit -- is the unit of wiener correct?
     AC.Unit -> return AC.TUnit
 
 calcTypeExpr st (AC.If eB eT eF) = calcTypeExpr st eT

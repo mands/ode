@@ -64,7 +64,7 @@ genModelInitials initVals stateRefMap = do
 -- | Generate the code that calculates the DELTA variables based on the current time and STATE, handles both Odes and Sdes
 -- odeModelRHS(time, STATE) -> (DELTA, WEINER), i.e. (y', w') = f(t, y)
 genModelRHS :: ExprMap -> [SimOp] -> LLVM.Value -> LocalMap -> LocalMap -> LocalMap -> GenM ()
-genModelRHS loopExprs simOps curTimeVal stateValMap deltaRefMap weinerRefMap = do
+genModelRHS loopExprs simOps curTimeVal stateValMap deltaRefMap wienerRefMap = do
     GenState {builder} <- get
     -- code gen the loop exprs
     trace' [MkSB curTimeVal, MkSB stateValMap] "State vals" $ return ()
@@ -78,14 +78,14 @@ genModelRHS loopExprs simOps curTimeVal stateValMap deltaRefMap weinerRefMap = d
         trace' [MkSB deltaVal, MkSB deltaOutRef] "ODE delta vals" $ return ()
         liftIO $ buildStore builder deltaVal deltaOutRef
 
-    genOutput builder (Sde initId (VarRef weinerId) (VarRef deltaId)) = do
+    genOutput builder (Sde initId (VarRef wienerId) (VarRef deltaId)) = do
         deltaVal <- lookupId deltaId
         let deltaOutRef = deltaRefMap Map.! initId
         liftIO $ buildStore builder deltaVal deltaOutRef
 
-        weinerVal <- lookupId weinerId
-        let weinerOutRef = weinerRefMap Map.! initId
-        liftIO $ buildStore builder weinerVal weinerOutRef
+        wienerVal <- lookupId wienerId
+        let wienerOutRef = wienerRefMap Map.! initId
+        liftIO $ buildStore builder wienerVal wienerOutRef
 
     genOutput _ simOp = errorDump [MkSB simOp] "Not supported by this simulation backend" assert
 
