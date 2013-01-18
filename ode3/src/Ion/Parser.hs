@@ -74,6 +74,8 @@ float       = T.float lexer
 parens      = T.parens lexer
 colon       = T.colon lexer
 comma       = T.comma lexer
+commaSep    = T.commaSep lexer
+commaSep1   = T.commaSep1 lexer
 identifier  = T.identifier lexer
 reserved    = T.reserved lexer
 reservedOp  = T.reservedOp lexer
@@ -142,10 +144,10 @@ ionChannelDef = do
                                         <||> (attrib "equilibrium_potential" number)
                                         <||> (attrib "channel_conductance" number)
                                         <|?> (1, attrib "subunits" natural) -- NYI
-                                        <|?> ([], attrib "additional_inputs" (braces (listSep identifier)))
-                                        <||> (attrib "initial_states" (braces (listSep ionInitial)))
-                                        <||> (attrib "open_states" (braces (listSep identifier)))
-                                        <||> (attrib "transitions" (braces (listSep ionTransition)))
+                                        <|?> ([], attrib "additional_inputs" (braces $ commaSep identifier))
+                                        <||> (attrib "initial_states" (braces $ commaSep1 ionInitial))
+                                        <||> (attrib "open_states" (braces $ commaSep1 identifier))
+                                        <||> (attrib "transitions" (braces $ commaSep1 ionTransition))
 
     ionSimType :: Parser SimType
     ionSimType =    reserved "ode" *> pure SimODE

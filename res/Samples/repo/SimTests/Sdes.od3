@@ -27,7 +27,7 @@ module Sde2 {
 module Sde3 {
     val a = 0.5
     init b = 45.3
-    sde { initVal : b, deltaValVal : db, diffusion: (34 + a)*wiener } = 23
+    sde { initVal : b, deltaVal : db, diffusion: (34 + a)*wiener } = 23
 }
 
 // Ornstein–Uhlenbeck process

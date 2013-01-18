@@ -60,7 +60,7 @@ genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
         SimODE -> vsep . map genOdeExpr $ zip (Set.toList states) detElems
           where
             detElems = getDetElems ionChan
-            genOdeExpr (initVal, deltaExpr) = text "ode" <+> genAttribs [("init", text initVal)] <+> equals <+> genExpr deltaExpr
+            genOdeExpr (initVal, deltaExpr) = text "ode" <+> genAttribs [("initVal", text initVal)] <+> equals <+> genExpr deltaExpr
 
         SimSDE -> -- trace' [MkSB detElems, MkSB stocElems] "Eqns" $
             genTmpVals stocTmps <$> wDefs <$> sdeDefs
@@ -72,12 +72,12 @@ genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
             sdeDefs = vsep . map genSdeExpr $ zip3 (Set.toList states) detElems stocElems
             detElems = getDetElems ionChan
             (stocElems, stocTmps) = getStocElems ionChan
-            genSdeExpr (initVal, deltaExpr, wienerExpr) = text "sde" <+> genAttribs [("init", text initVal), ("diffusion", genExpr wienerExpr)] <+> equals <+> genExpr deltaExpr
+            genSdeExpr (initVal, deltaExpr, wienerExpr) = text "sde" <+> genAttribs [("initVal", text initVal), ("diffusion", genExpr wienerExpr)] <+> equals <+> genExpr deltaExpr
 
         SimRRE -> vsep . concat . map genRreExpr $ transitions
           where
             genRreExpr Transition{..} = [genRreExpr' stateA stateB fRate, genRreExpr' stateB stateA rRate]
-            genRreExpr' x y eRate = text "rre" <+> genAttribs [("rate", genExpr eRate)] <+> equals <+> text x <+> text "->" <+> text y
+            genRreExpr' x y eRate = text "reaction" <+> genAttribs [("rate", genExpr eRate)] <+> equals <+> text x <+> text "->" <+> text y
       where
         stateComment = comment "Setup state values (based on ODE/SDE/SSA form)"
 
