@@ -10,15 +10,15 @@
 module BasicFlat1 {
     //val a = 1
     // val b = upow(2 + a, 2)
-    //val _ = not True // single input op
+    //val _ = not true // single input op
     //val _ = 1 + 2 // multi-input op
     //val _ = 1 + a // multi-multi input op
     //val _ = 1 + (2 - 3) // multi-multi input op
 
     // piecewises
-    //val _ = piecewise { True : 1, default : 0 }
-    //val _ = piecewise { True : 1, False : 0, default : 2 }
-    //val _ = piecewise { a == 0 : True, a < 0 : False, a > 0 : False , default : False}
+    //val _ = piecewise { true : 1, default : 0 }
+    //val _ = piecewise { true : 1, false : 0, default : 2 }
+    //val _ = piecewise { a == 0 : true, a < 0 : false, a > 0 : false , default : false}
 
     // odes & init vals
     init x = 0 { unit : m }

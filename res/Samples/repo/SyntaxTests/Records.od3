@@ -39,7 +39,7 @@ module Record2c {
 
     component f(x) {
       val y = x#i + x#j
-      return None
+      return none
     }
     
     // ? constrain the poly func    
@@ -54,7 +54,7 @@ module Record3 {
 
     component f(x) {
       val i, j, k = x
-      return None
+      return none
     }
     
     val b = f(a)
@@ -66,7 +66,7 @@ module Record3 {
 
     component f(x) {
       val i, j, k = x
-      return None
+      return none
     }
     
     val b = f(a)
@@ -77,7 +77,7 @@ module Record3 {
 // sub-typing within a piecewise
 module Record4 {
     // record creation
-    val rec = piecewise { True : {i : 1, j : 2}, default : { i : 2, j:2 } }
+    val rec = piecewise { true : {i : 1, j : 2}, default : { i : 2, j:2 } }
     // record selection
     val x = rec#i
 }
@@ -93,7 +93,7 @@ module Record5 {
 
     component f(x) {
       val y = x#i + x#j
-      return None
+      return none
     }
     
     // call the func with differing record super-types

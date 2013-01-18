@@ -10,10 +10,10 @@ module BasicOps {
     val _ = 1 > 2
 
     // log ops
-    val _ = False or True
+    val _ = false or true
 
-    // None
-    val _ = None
+    // none
+    val _ = none
 
     // test units within ops
     val _ = 1 { unit : m } + 2 { unit : m }
@@ -66,7 +66,7 @@ module MathOps {
 
 // test other ops
 module OtherOps {
-    //val _ = rand(None)
+    //val _ = rand(none)
 
     // basic upow/uroot operation
     val a = upow(1 { unit : m }, 9)   // 1m^9

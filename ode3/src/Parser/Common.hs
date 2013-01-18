@@ -48,18 +48,18 @@ commonLangDef = emptyDef
     -- add more later
     , T.reservedNames = [
                         -- module lang
-                          "module", "import", "as", "let"
+                          "module", "import", "as", "export"
                         -- main ode lang
-                        , "component", "where", "return"
+                        , "component", "return"
                         , "val", "init"
                         , "ode", "initVal", "deltaVal"
                         , "sde", "drift", "diffusion", "wiener"
-                        , "ssa", "reaction", "rate"
+                        , "reaction", "rate"
                         , "piecewise", "default"
-                        , "True", "False", "time", "None"
+                        , "true", "false", "time", "none"
                         -- units lang
                         , "quantity", "dim", "unit", "SI", "alias"
-                        , "conversion", "factor", "convert"
+                        , "conversion", "from", "to", "factor"
                         -- type lang
                         , "type", "wrap", "unwrap"
                         -- ion...implemented externally
@@ -134,8 +134,8 @@ paramList = parens . commaSep1
 
 -- | boolean parser, parses a case-sensitive, boolean literal
 boolean :: Parser Bool
-boolean =  reserved "True" *> pure True
-            <|> reserved "False"  *> pure False
+boolean =  reserved "true" *> pure True
+            <|> reserved "false"  *> pure False
             <?> "boolean"
 
 -- | number parser, parses most formats

@@ -33,7 +33,7 @@ module Comp {
 /*
 // odes / stateful vals
 module State {
-    unit m { dim : L, SI : False }
+    unit m { dim : L, SI : false }
     init x = 3 { unit : m } // create an initial value that sets the initial boundary condition for a stateful value
     init y = 3
     // other possible syntax for further boundary conditions

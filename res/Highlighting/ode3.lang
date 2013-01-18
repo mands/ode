@@ -35,38 +35,54 @@
         <context ref="def:decimal"/>
         <context ref="def:float"/>
         <context ref="def:string"/>
+        <!-- <context ref="def:boolean"/> -->
 
         <context id="keywords" style-ref="keyword">
+          <keyword>module</keyword>
           <keyword>import</keyword>
           <keyword>as</keyword>
-          <keyword>module</keyword>
+          <keyword>export</keyword>
 
           <keyword>component</keyword>
-          <keyword>val</keyword>
-          <!-- <keyword>init</keyword> -->
           <keyword>return</keyword>
+          <keyword>val</keyword>
+          <keyword>init</keyword>
           <keyword>piecewise</keyword>
 
           <keyword>ode</keyword>          
-          <keyword>rre</keyword>
           <keyword>sde</keyword>
+          <keyword>reaction</keyword>
+          
+          <keyword>quantity</keyword>
+          <keyword>unit</keyword>
+          <keyword>conversion</keyword>          
+
+          <keyword>type</keyword>
         </context>
 
         <context id="types" style-ref="type">
-          <keyword>init</keyword>
-          <keyword>delta</keyword>
-          <keyword>weiner</keyword>
-          <keyword>unit</keyword>
+          <keyword>initVal</keyword>
+          <keyword>deltaVal</keyword>
+          <keyword>diffusion</keyword>
+          <keyword>drift</keyword>
           <keyword>rate</keyword>
 
+          <keyword>wiener</keyword>
           <keyword>time</keyword>
+          <keyword>none</keyword>
           <keyword>default</keyword>
-<!--
+          <keyword>true</keyword>
+          <keyword>false</keyword>
 
-          <keyword>reaction</keyword>
-          <keyword>default</keyword>
-          <keyword>double</keyword>
--->
+          <!-- <keyword>unit</keyword> -->
+          <keyword>dim</keyword>
+          <keyword>SI</keyword>
+          <keyword>from</keyword>
+          <keyword>to</keyword>
+          <keyword>factor</keyword>
+
+          <keyword>wrap</keyword>
+          <keyword>unwrap</keyword>
         </context>
       </include>
     </context>

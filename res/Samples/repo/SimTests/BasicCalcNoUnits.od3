@@ -41,7 +41,7 @@ module BasicCalc3 {
 // piecewise - OK
 module BasicCalc4 {
     val a = time
-    val b = piecewise { a > 5 { unit : s} : True, default : False } 
+    val b = piecewise { a > 5 { unit : s} : true, default : false } 
 }
 
 // piecewise - OK
@@ -83,7 +83,7 @@ module BasicCalc6 {
 // tuples - OK
 module BasicCalc7a {
     val a = time
-    val b = (True, a)
+    val b = (true, a)
 
     val c,d = b
     val e = d * time
@@ -101,7 +101,7 @@ module BasicCalc7b {
 
 // gen a tuple ref inst
 module BasicCalc7c {
-    val b = piecewise { time > 5 : (True, 1), default : (False, 1) }
+    val b = piecewise { time > 5 : (true, 1), default : (false, 1) }
     val c,d = b
     val e = d + 1
 }

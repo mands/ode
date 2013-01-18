@@ -5,8 +5,8 @@ module A {
   
 
   // poss units
-  baseunit m {SI:True} :: Dim L
-  unit m {type: Base, SI:True} :: Dim L
+  baseunit m {SI:true} :: Dim L
+  unit m {type: Base, SI:true} :: Dim L
   unit m.s-1 {type: Derived } //infer the Dim, ( :: Dim L/T )
 
 
@@ -18,8 +18,8 @@ module A {
   unit m.s-1 // auto infer :: Dim L/T
 
   // base units w/ SI auto-creation
-  unit m {SI:True} :: Dim L
-  unit ft {SI:False} :: Dim L
+  unit m {SI:true} :: Dim L
+  unit ft {SI:false} :: Dim L
 
   // complex derived
   unit s-1 // or 1/s
@@ -30,10 +30,10 @@ module A {
 module B {
   quantity length {dim : L}
   
-  unit m {SI:True, dim : L}
-  unit ft {SI:False, dim : L}
+  unit m {SI:true, dim : L}
+  unit ft {SI:false, dim : L}
 
-  unit m.s-1 {alias : mps, base : False}
+  unit m.s-1 {alias : mps, base : false}
 
 }
 

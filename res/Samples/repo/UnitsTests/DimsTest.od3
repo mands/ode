@@ -14,7 +14,7 @@ module Dim1 {
 // create some unit in terms of a dimension
 module Dim2 {
     // base unit
-    unit m { dim : L, SI : False }
+    unit m { dim : L, SI : false }
 
     // operations on our units, consider a rectangular cube
     val vol = 1 { unit : m^3 }
@@ -27,8 +27,8 @@ module Dim3 {
     quantity length = dim L^1
 
     // base unit - by default are non-SI
-    unit m { dim : L, SI : False }
-    unit mm { dim : L, SI : False }
+    unit m { dim : L, SI : false }
+    unit mm { dim : L, SI : false }
 
     // conversion func
     conversion { from : m, to : mm, factor : x * 1000 }
@@ -48,8 +48,8 @@ module Dim3 {
 // conversion to incorrect dimensions
 module Dim4 {
     // base unit - by default are non-SI
-    unit m { dim : L, SI : False }
-    unit mg { dim : M, SI : False }
+    unit m { dim : L, SI : false }
+    unit mg { dim : M, SI : false }
 
     // invalid conversion func
     //conversion { from : m, to : mg, factor : x * 1000 }
@@ -64,8 +64,8 @@ module Dim5 {
     quantity length = dim L
 
     // base units
-    unit m { dim : L, SI : False }
-    unit mm { dim : L, SI : False }
+    unit m { dim : L, SI : false }
+    unit mm { dim : L, SI : false }
 
     // conversion func
     conversion { from : m, to : mm, factor : x * 1000 }
@@ -85,8 +85,8 @@ module Dim6 {
     quantity length = dim L
 
     // base units
-    unit m { dim : L, SI : False }
-    unit mm { dim : L, SI : False }
+    unit m { dim : L, SI : false }
+    unit mm { dim : L, SI : false }
 
     // conversion func
     conversion { from : m, to : mm, factor : x * 1000 }
@@ -105,7 +105,7 @@ module Dim6 {
 // test auto-SI creation
 module Dim7 {
     // base unit
-    unit m { dim : L, SI : True }
+    unit m { dim : L, SI : true }
 
     // need test conversion funcs here too
     val height = (1 { unit : km^3 } / 1 { unit : mm^2 }) { unit : m }

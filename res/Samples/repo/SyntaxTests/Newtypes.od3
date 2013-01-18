@@ -26,7 +26,7 @@ module NewType2b {
     type Test
     val a = wrap { type : Test, val : 3 }
     // this will fail
-    val b = wrap { type : Test, val : True }
+    val b = wrap { type : Test, val : true }
 }
 
 // create a new type and wrap/unwrap
@@ -52,7 +52,7 @@ module NewType3c {
     type Test
     val a = wrap { type : Test, val : 3 }
     // this will fail
-    val b = unwrap { type : Test, val : a } or True
+    val b = unwrap { type : Test, val : a } or true
 }
 */
 

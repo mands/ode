@@ -173,8 +173,8 @@ module Adv5b {
     return b  
   } 
 
-  init a = piecewise { time < 5 : compA(None)
-                     , default : compB(None)
+  init a = piecewise { time < 5 : compA(none)
+                     , default : compB(none)
                      }
 }
 
@@ -195,7 +195,7 @@ module Adv6b {
     return b
   } 
 
-  val a = piecewise { time < 5 : compA(None)
+  val a = piecewise { time < 5 : compA(none)
                     , default : 3
                     }
 }

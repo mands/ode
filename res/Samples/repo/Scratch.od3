@@ -4,8 +4,9 @@ module UnitsChaining {
     val rec = { i : 1 + 1, j : 2, k : 3 }
   
     
-    component f (x) => z where {
+    component f(x) {
       val z = rec#j + rec#k
+      return z
     }
     
     // ? constrain the poly func    

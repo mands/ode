@@ -71,7 +71,7 @@ module A {
 //    val Y9 = add + 2
 
 // PASS - tuple unpacking error
-  val a, b = (True,False,True)
+  val a, b = (true,false,true)
   val c,d,e = (1,2)
 
 

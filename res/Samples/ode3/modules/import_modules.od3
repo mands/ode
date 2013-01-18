@@ -4,7 +4,7 @@ import DirA.DirB.FileA.ModB
 
 module A {
   val x = 2 + 2
-  val y = True or False
+  val y = true or false
 }
 
 // now test usage...

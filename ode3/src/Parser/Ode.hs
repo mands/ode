@@ -265,7 +265,7 @@ compTerm' = try (parens compExpr)
             <|> AO.Boolean <$> boolean
             <|> (reserved "time" *> pure AO.Time) -- TODO - put into Environment module instead ??
             <|> (reserved "wiener" *> pure AO.Wiener) -- TODO - put into Environment module instead ??
-            <|> (reserved "None" *> pure AO.None)
+            <|> (reserved "none" *> pure AO.None)
             <|> reserved "piecewise" *> piecewiseTerm
             <|> try (hardcodedOps)
             <|> try (AO.Op <$> builtinOpParser <*> paramList compExpr)

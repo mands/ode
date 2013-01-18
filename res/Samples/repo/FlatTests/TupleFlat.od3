@@ -1,7 +1,7 @@
 /*
 module Tuple1 {
     // tuple creation
-    val tup = (1, 2, True)
+    val tup = (1, 2, true)
     val i,j,_ = tup
 
     // tuple selection
@@ -16,7 +16,7 @@ module Tuple2 {
 
     component f(i,j,_) {
       val y = i + j
-      return None
+      return none
     }
     
     val z = f(tup)
@@ -27,7 +27,7 @@ module Tuple2 {
 // tuple within a piecewise
 module Tuple3 {
     // tuple creation
-    val tup = piecewise { True : (1, 2), default : (3,4) }
+    val tup = piecewise { true : (1, 2), default : (3,4) }
     // tuple selection
     val _, x = tup
 }
@@ -38,12 +38,12 @@ module Tuple3 {
 // returning a tuple
 module Tuple4 {
     component f(i) {
-      val tup = (1, 2, True)
+      val tup = (1, 2, true)
       val tup1 = tup
       return tup1
     }
     // pass it around and unpack, works fine
-    val x = f(None)
+    val x = f(none)
     val _,_,_ = x
 }
 */
@@ -53,8 +53,8 @@ module Tuple4 {
 module Tuple5 {
     val a = (1, 2)
     val b,_ = a
-    val c = (a, True, b)
-    val _ = None
+    val c = (a, true, b)
+    val _ = none
 }
 */
 
@@ -73,7 +73,7 @@ module Tuple6 {
 // record creation and selection
 module Record1 {
     // record creation
-    val rec = { i : 1 + 1, j : True, k : 3 }
+    val rec = { i : 1 + 1, j : true, k : 3 }
     
     // record selection
     val x = rec#i + rec#k
@@ -83,11 +83,11 @@ module Record1 {
 /*
 module Record2 {
     // record creation
-    val rec = { i : 1 + 1, j : 2, k : True }
+    val rec = { i : 1 + 1, j : 2, k : true }
 
     component f(x) {
       val y = x#i + x#j
-      return None
+      return none
     }
     
     // ? constrain the poly func    
@@ -99,7 +99,7 @@ module Record2 {
 // sub-typing within a piecewise
 module Record3 {
     // record creation
-    val rec = piecewise { True : {i : 1, j : 2}, default : { i : 2, j:2 } }
+    val rec = piecewise { true : {i : 1, j : 2}, default : { i : 2, j:2 } }
     // record selection
     val x = rec#i
 }

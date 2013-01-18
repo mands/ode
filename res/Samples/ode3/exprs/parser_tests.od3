@@ -79,7 +79,7 @@ module E {
 // tuples type system - toplevel
 /*
 module F {
-    // val a,b = True
+    // val a,b = true
 
     val c,d = (1,2)
     

@@ -3,18 +3,19 @@ module Export1 {
     export (a)
 
     val a = 3
-    val b = True
+    val b = true
 }
 
 // export a component
 module Export2 {
     export (f)
 
-    component f a => b where {
+    component f(a) {
         val b = a + 1
+        return b
     }
     
-    val b = True
+    val b = true
 }
 
 // export a type
@@ -23,13 +24,13 @@ module Export3 {
 
     type TypeTest
     
-    val b = wrap { type : TypeTest, val : True }
+    val b = wrap { type : TypeTest, val : true }
 }
 
 // try export something that doesn't exist
 module Export4 {
     export (a)
 
-    val b = True
+    val b = true
 }
 

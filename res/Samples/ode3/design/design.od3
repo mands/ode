@@ -187,7 +187,7 @@ component environment(x, y) {
 component env () => () where {
   // existing syntax
   // create using ()-stynax
-  t1 = (1, 2, True)
+  t1 = (1, 2, true)
   // access via direct, full unpacking
   a1, _, c1 = t1
 

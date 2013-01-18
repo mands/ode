@@ -11,7 +11,7 @@ module BasicCalcUnits1 {
 module BasicCalcUnits2 {
     init x = 0 { unit : m }
     
-    unit m { dim : L, SI : True }
+    unit m { dim : L, SI : true }
 
     val speed = 300 { unit : m.min^-1 }
     ode { initVal : x, deltaVal : dx } = speed { unit : m.s^-1}
@@ -38,7 +38,7 @@ module BasicCalcUnits4 {
 // module in differing unit type to solver
 // solver set to seconds
 module BasicCalcUnits5 {
-    // unit m { dim : L, SI : True }
+    // unit m { dim : L, SI : true }
     init x = 0 { unit : m }
 
     ode {initVal : x, deltaVal : dx } = (5 { unit : m.ms^-1 }) { unit : m.s^-1 }

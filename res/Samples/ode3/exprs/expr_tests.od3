@@ -115,7 +115,7 @@ module K {
 // Comp Params (Open)
 /*
 module L {
-  val x = True
+  val x = true
   
   component comA comParam => comParam(1) where { }
   
@@ -140,7 +140,7 @@ module M {
 // nested tuples
 module N {
   // OK, standard tuple
-  val a = (True,False)
+  val a = (true,false)
   // OK, nested
   val b = (a, 3, 4)
 
