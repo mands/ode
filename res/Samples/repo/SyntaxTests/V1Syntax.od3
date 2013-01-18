@@ -42,13 +42,13 @@ module State {
 
 
     // ODEs
-    //ode dx = {init: x, delta: (1 + 1 - 1) };
-    //ode dV = {init: V, delta: -(-i_Stim + i_Na + i_K + i_L) / Cm}
+    //ode dx = {initVal : x, deltaVal: (1 + 1 - 1) };
+    //ode dV = {initVal : V, deltaVal: -(-i_Stim + i_Na + i_K + i_L) / Cm}
     // or
-    //ode { init : x, delta : dV } = -(-i_Stim + i_Na + i_K + i_L) / Cm
-    ode {init: x, delta : dV } = 1 { unit : m.s^-1 }
+    //ode { initVal : x, deltaVal : dV } = -(-i_Stim + i_Na + i_K + i_L) / Cm
+    ode {initVal : x, deltaVal : dV } = 1 { unit : m.s^-1 }
     // RREs
-    rre { rate : 3 } = x -> y
+    reaction { rate : 3 } = x -> y
 
 }
 */

@@ -3,7 +3,7 @@
 // Basic tests that everything is working
 module Ode1 {
     init x = 0 { unit : m }
-    ode {init: x, delta : dx } = 5 { unit : m.s^-1 }
+    ode {initVal : x, deltaVal : dx } = 5 { unit : m.s^-1 }
 }
 
 // module support
@@ -12,19 +12,19 @@ module Ode1a {
 }
 module Ode1b {
     import SimTests.Odes.Ode1a as A    
-    ode {init: A.x, delta : dx } = 5 { unit : m.s^-1 }
+    ode {initVal : A.x, deltaVal : dx } = 5 { unit : m.s^-1 }
 }
 
 module Ode2 {
     init x = 0 { unit : m }
-    ode {init: x, delta : dx } = 1 { unit : m.s^-1 } + (x / time)
+    ode {initVal : x, deltaVal : dx } = 1 { unit : m.s^-1 } + (x / time)
 }
 
 // from Ode1 (lang)
 /*
 module Ode2 {
     init y = 2 { unit : s }
-    ode {init: y, delta : dy } = y - time
+    ode {initVal : y, deltaVal : dy } = y - time
 }
 */
 
@@ -35,7 +35,7 @@ module PopGrowthUnits {
     val k = 1 { unit : pop^-1.s^-1}
     val mu = 20
 
-    ode { init : y, delta : dy } = k * ((1 { unit : pop }) - y / mu ) * y
+    ode { initVal : y, deltaVal : dy } = k * ((1 { unit : pop }) - y / mu ) * y
 }
 
 // no units varient
@@ -45,7 +45,7 @@ module PopGrowthNoUnits {
     val k = 1
     val mu = 20
 
-    ode { init : y, delta : dy } = k * (1 - y / mu ) * y
+    ode { initVal : y, deltaVal : dy } = k * (1 - y / mu ) * y
 }
 
 
@@ -57,8 +57,8 @@ module PredPreyNoUnits {
     init y1 = 400
     init y2 = 100
 
-    ode { init : y1, delta : dy1 } = (1 - y2/mu2) * y1
-    ode { init : y2, delta : dy2 } = -(1 - y1/mu1) * y2
+    ode { initVal : y1, deltaVal : dy1 } = (1 - y2/mu2) * y1
+    ode { initVal : y2, deltaVal : dy2 } = -(1 - y1/mu1) * y2
 }
 
 

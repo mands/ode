@@ -181,7 +181,7 @@ module Mahajan {
 	val xirp = po*Qr*abs(rxa)*gbarsr/1.0*exp(-ax*(y26+30.0))/(1.0+exp(-ax*(y26+30.0)))
 	val xicap = po*gdyad*abs(rxa)
 	val xiryr = xirp+xicap
-	ode { init : y2, delta : ydot2 } = xiryr-(y2-y4)/taups
+	ode { initVal : y2, deltaVal : ydot2 } = xiryr-(y2-y4)/taups
 	val jca = ScaleFactorGCaL*gca*po*rxa
 	val aloss = 1.0/(1.0+pow(xkdna/y4, 3.0))
 	val zw3 = pow(y25, 3.0)*Ca_o*exp(y26*0.35*FonRT)-pow(Na_o, 3.0)*csm*exp(y26*(0.35-1.0)*FonRT)
@@ -192,11 +192,11 @@ module Mahajan {
 	val yz4 = pow(y25, 3.0)*Ca_o+pow(Na_o, 3.0)*csm
 	val zw8 = yz1+yz2+yz3+yz4
 	val jNaCa = gNaCa*aloss*zw3/(zw4*zw8)
-	ode { init : y4, delta : ydot4 } = dcsib*(50.0*(y20-jd-jca+jNaCa)-xbs)
-	ode { init : y3, delta : ydot3 } = dciib*(jd-jup+jleak-xbi)
-	ode { init : y1, delta : ydot1 } = dCa_JSR
-	ode { init : y5, delta : ydot5 } = xbi
-	ode { init : y6, delta : ydot6 } = xbs
+	ode { initVal : y4, deltaVal : ydot4 } = dcsib*(50.0*(y20-jd-jca+jNaCa)-xbs)
+	ode { initVal : y3, deltaVal : ydot3 } = dciib*(jd-jup+jleak-xbi)
+	ode { initVal : y1, deltaVal : ydot1 } = dCa_JSR
+	ode { initVal : y5, deltaVal : ydot5 } = xbi
+	ode { initVal : y6, deltaVal : ydot6 } = xbs
 	val poinf = 1.0/(1.0+exp(-(y26-vth)/s6))
 	val alpha = poinf/taupo
 	val beta = (1.0-poinf)/taupo
@@ -219,12 +219,12 @@ module Mahajan {
 	val k5t = (1.0-Ps)/tauba
 	val k4 = k3*alpha/beta*k1/k2*k5/k6
 	val k4t = k3t*alpha/beta*k1t/k2t*k5t/k6t
-	ode { init : y7, delta : ydot7 } = alpha*y8+k2*y10+k2t*y9+r2*po-(beta+r1+k1t+k1)*y7
-	ode { init : y8, delta : ydot8 } = beta*y7+k5*y12+k5t*y11-(k6+k6t+alpha)*y8
-	ode { init : y10, delta : ydot10 } = k1*y7+k4*y12+s1*po-(k3+k2+s2)*y10
-	ode { init : y9, delta : ydot9 } = k1t*y7+k4t*y11+s1t*po-(k3t+k2t+s2t)*y9
-	ode { init : y12, delta : ydot12 } = k3*y10+k6*y8-(k5+k4)*y12
-	ode { init : y11, delta : ydot11 } = k3t*y9+k6t*y8-(k5t+k4t)*y11
+	ode { initVal : y7, deltaVal : ydot7 } = alpha*y8+k2*y10+k2t*y9+r2*po-(beta+r1+k1t+k1)*y7
+	ode { initVal : y8, deltaVal : ydot8 } = beta*y7+k5*y12+k5t*y11-(k6+k6t+alpha)*y8
+	ode { initVal : y10, deltaVal : ydot10 } = k1*y7+k4*y12+s1*po-(k3+k2+s2)*y10
+	ode { initVal : y9, deltaVal : ydot9 } = k1t*y7+k4t*y11+s1t*po-(k3t+k2t+s2t)*y9
+	ode { initVal : y12, deltaVal : ydot12 } = k3*y10+k6*y8-(k5+k4)*y12
+	ode { initVal : y11, deltaVal : ydot11 } = k3t*y9+k6t*y8-(k5t+k4t)*y11
 	val xica = 2.0*wca*jca
 	//y28 = xica
 	val ek = 1.0/FonRT*log(K_o/y27)
@@ -247,7 +247,7 @@ module Mahajan {
 	val rg = 1.0/(1.0+exp((y26+33.0)/22.4))
 	val xikr = ScaleFactorGKr*gkr*sqrt(K_o/5.4)*y13*rg*(y26-ek)
 	//y29 = xikr
-	ode { init : y13, delta : ydot13 } = (xkrinf-y13)/taukr
+	ode { initVal : y13, deltaVal : ydot13 } = (xkrinf-y13)/taukr
 	val xs1ss = 1.0/(1.0+exp(-(y26-1.5)/16.7))
 	val xs2ss = xs1ss
 
@@ -260,8 +260,8 @@ module Mahajan {
 	val eks = 1.0/FonRT*log((K_o+prNaK*Na_o)/(y27+prNaK*y25))
 	val xiks = ScaleFactorGKs*gks*gksx*y14*y15*(y26-eks)
 	//y30 = xiks
-	ode { init : y14, delta : ydot14 } = (xs1ss-y14)/tauxs1
-	ode { init : y15, delta : ydot15 } = (xs2ss-y15)/tauxs2
+	ode { initVal : y14, deltaVal : ydot14 } = (xs1ss-y14)/tauxs1
+	ode { initVal : y15, deltaVal : ydot15 } = (xs2ss-y15)/tauxs2
 
   val am = piecewise  { abs(y26+47.13) > 0.001 : 0.32*1.0*(y26+47.13)/(1.0-exp(-0.1*(y26+47.13)))
                       , default : 3.2
@@ -281,9 +281,9 @@ module Mahajan {
                                                 , 0.3*exp(-0.0000002535*y26)/(1.0+exp(-0.1*(y26+32.0)))
                                                 )
                                     }
-	ode { init : y16, delta : ydot16 } = ah*(1.0-y16)-bh*y16
-	ode { init : y17, delta : ydot17 } = aj*(1.0-y17)-bj*y17
-	ode { init : y18, delta : ydot18 } = am*(1.0-y18)-bm*y18
+	ode { initVal : y16, deltaVal : ydot16 } = ah*(1.0-y16)-bh*y16
+	ode { initVal : y17, deltaVal : ydot17 } = aj*(1.0-y17)-bj*y17
+	ode { initVal : y18, deltaVal : ydot18 } = am*(1.0-y18)-bm*y18
 	val ena = 1.0/FonRT*log(Na_o/y25)
 	val xina = gna*y16*y17*y18*y18*y18*(y26-ena)
 	val xiNaCa = wca*jNaCa
@@ -291,10 +291,10 @@ module Mahajan {
 	val xiNaK = ScaleFactorGNaK*gNaK*fNaK*y25/(y25+xkmnai)*K_o/(K_o+xkmko)
 	//y32 = xiNaK
 	val xika = fkatp*gkatp*akik*bkik*(y26-ek)
-	ode { init : y19, delta : ydot19 } = (y1-y19)/taua
+	ode { initVal : y19, deltaVal : ydot19 } = (y1-y19)/taua
 	val sparkV = exp(-ay*(y26+30.0))/(1.0+exp(-ay*(y26+30.0)))
 	val spark_rate = gryr/1.0*po*abs(rxa)*sparkV
-	ode { init : y20, delta : ydot20 } = spark_rate*Qr-y20*(1.0-taur*dCa_JSR/y1)/taur
+	ode { initVal : y20, deltaVal : ydot20 } = spark_rate*Qr-y20*(1.0-taur*dCa_JSR/y1)/taur
 	val rt1 = -(y26+3.0)/15.0
 	val rt2 = (y26+33.5)/10.0
 	val rt3 = (y26+60.0)/10.0
@@ -309,15 +309,15 @@ module Mahajan {
 	val tys = 3000.0/(1.0+exp(rt3))+30.0
 	val txf = 3.5*exp(rt4)+1.5
 	val tyf = 20.0/(1.0+exp(rt5))+20.0
-	ode { init : y22, delta : ydot22 } = (xtos_inf-y22)/txs
-	ode { init : y24, delta : ydot24 } = (ytos_inf-y24)/tys
-	ode { init : y21, delta : ydot21 } = (xtof_inf-y21)/txf
-	ode { init : y23, delta : ydot23 } = (ytof_inf-y23)/tyf
+	ode { initVal : y22, deltaVal : ydot22 } = (xtos_inf-y22)/txs
+	ode { initVal : y24, deltaVal : ydot24 } = (ytos_inf-y24)/tys
+	ode { initVal : y21, deltaVal : ydot21 } = (xtof_inf-y21)/txf
+	ode { initVal : y23, deltaVal : ydot23 } = (ytof_inf-y23)/tyf
 	val xitos = gtos*y22*(y24+0.5*rs_inf)*(y26-ek)
 	val xitof = gtof*y21*y23*(y26-ek)
 	val xito = ScaleFactorGto*gto*(xitos+xitof)
 	//y33 = xito
-	ode { init : y25, delta : ydot25 } = -(xina+3.0*xiNaK+3.0*xiNaCa)/(wca*1000.0)
+	ode { initVal : y25, deltaVal : ydot25 } = -(xina+3.0*xiNaK+3.0*xiNaCa)/(wca*1000.0)
 
   // stimulus current
 	val stim_amplitude = -15.0	/* nA_per_nF (in cell) */	
@@ -331,7 +331,7 @@ module Mahajan {
                           }
 
 	val Itotal = -(xina+xik1+xikr+xiks+xito+xiNaCa+xica+xiNaK+i_Stim)
-	ode { init : y26, delta : ydot26 } = Itotal
-	ode { init : y27, delta : ydot27 } = -(xikr+xiks+xik1+xito-xiNaK*2.0+i_Stim+xika)/(wca*1000.0)
+	ode { initVal : y26, deltaVal : ydot26 } = Itotal
+	ode { initVal : y27, deltaVal : ydot27 } = -(xikr+xiks+xik1+xito-xiNaK*2.0+i_Stim+xika)/(wca*1000.0)
 }
 

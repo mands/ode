@@ -212,7 +212,7 @@ odeDef = do
     expr <- reservedOp "=" *> compExpr
     return $ AO.OdeDef initRef deltaName expr
   where
-    odeAttribs  = (,)   <$$> attrib "init" modLocalIdentifier
+    odeAttribs  = (,)   <$$> attrib "initVal" modLocalIdentifier
                         <|?> (AO.DontCare, attrib "deltaVal" valIdentifier)
 
 sdeDef :: Parser AO.Stmt
@@ -221,7 +221,7 @@ sdeDef = do
     expr <- reservedOp "=" *> compExpr
     return $ sdeExpr expr
   where
-    sdeAttribs  = AO.SdeDef     <$$> attrib "init" modLocalIdentifier
+    sdeAttribs  = AO.SdeDef     <$$> attrib "initVal" modLocalIdentifier
                                 <|?> (AO.DontCare, attrib "deltaVal" valIdentifier)
                                 <||> attrib "diffusion" compExpr
 

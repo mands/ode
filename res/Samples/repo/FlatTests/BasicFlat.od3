@@ -22,7 +22,7 @@ module BasicFlat1 {
 
     // odes & init vals
     init x = 0 { unit : m }
-    ode { init : x, delta : dx} = 1 { unit : m.s^-1 }
+    ode { initVal : x, deltaVal : dx} = 1 { unit : m.s^-1 }
 
     // refs to inits
     init y1 = 1

@@ -194,12 +194,12 @@ module J {
 // state vals
 module K {
   // top level
-  sval a = 1
-  sval b = 2.0
+  init a = 1
+  init b = 2.0
   
   // nested
   val c = d where {
-    sval d = 0.2
+    init d = 0.2
   }
 }
 */
@@ -221,9 +221,9 @@ module L {
 /*
 module K {
   // top level
-  sval a = 1.0
-  sval b = 2
-  rre {rate : 0.3 } = a -> b
+  init a = 1.0
+  init b = 2
+  reaction {rate : 0.3 } = a -> b
   
   // nested
 }
@@ -246,11 +246,11 @@ module L {
 
 
 /*
-  ode c {unit : m, init: 70} = c + 1
+  ode c {unit : m, initVal : 70} = c + 1
 
-  sval c {unit : m} = 1.0
-  sval d {unit : m}= 2
-  rre {rate : 0.3 } = a -> b
+  init c {unit : m} = 1.0
+  init d {unit : m}= 2
+  reaction {rate : 0.3 } = a -> b
 */  
 }
 

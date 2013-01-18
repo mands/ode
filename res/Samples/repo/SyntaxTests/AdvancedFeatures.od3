@@ -57,7 +57,7 @@ module Adv2a {
 module Adv2b {
   component comp1(x) {
     init y = 1
-    ode { init : y, delta : dy } = x
+    ode { initVal : y, deltaVal : dy } = x
     return x
   }
 
@@ -72,7 +72,7 @@ module Adv2b {
 // OK - no prob
 module Adv3a {
   init y = 1
-  ode { init : y, delta : dy } = 2
+  ode { initVal : y, deltaVal : dy } = 2
   init a = y
 }
 */
@@ -204,37 +204,37 @@ module Adv6b {
 // non init val type - OK - SM03
 module Adv7a { 
   val x = 0.0
-  ode { init : x, delta : dx } = 5
+  ode { initVal : x, deltaVal : dx } = 5
 }
 
 // mixed ode/ode ode/sde - OK - SM01
 module Adv7b { 
   init x = 0.0
-  ode { init : x, delta : dx } = 5
-  //sde { init : x, delta : dy, weiner : 0.1 } = 10
+  ode { initVal : x, deltaVal : dx } = 5
+  //sde { initVal : x, deltaVal : dy, diffusion : 0.1 } = 10
 }
 
-// same delta name - OK - picked up by VL04
+// same deltaVal name - OK - picked up by VL04
 module Adv7c { 
   init x = 0.0
-  ode { init : x, delta : dx } = 5
-  //ode { init : x, delta : dx } = 10
+  ode { initVal : x, deltaVal : dx } = 5
+  //ode { initVal : x, deltaVal : dx } = 10
 }
 
 // multiple rres
 module Adv7d { 
   init x = 1000
   init z = 0
-  rre { rate: 0.5 } = x -> z
-  rre { rate: 0.5 } = z -> x
+  reaction { rate: 0.5 } = x -> z
+  reaction { rate: 0.5 } = z -> x
 }
 
 // multiple rres & ode, conflicting inits - OK - SMO1/SM02
 module Adv7e { 
   init x = 1000
   init z = 0
-  ode { init : z, delta : dx } = 5
-  rre { rate: 0.5 } = x -> z
+  ode { initVal : z, deltaVal : dx } = 5
+  reaction { rate: 0.5 } = x -> z
 }
 
 // multiple rres & ode, non-conflicting inits - OK - SMO4
@@ -242,7 +242,7 @@ module Adv7f {
   init x = 1000
   init z = 0
   init y = 0
-  ode { init : y, delta : dy } = 5
-  rre { rate: 0.5 } = x -> z
+  ode { initVal : y, deltaVal : dy } = 5
+  reaction { rate: 0.5 } = x -> z
 }
 

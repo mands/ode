@@ -18,7 +18,7 @@ module Test(A, B) {
 
   component gamma(x) => (c) where {
     val c = 50 + [1.0, 1.4 .. 2.0] // num
-    ode a = {init: 34, delta: 45}
+    ode a = {initVal : 34, deltaVal: 45}
   }
   
 }

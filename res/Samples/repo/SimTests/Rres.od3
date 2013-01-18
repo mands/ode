@@ -2,31 +2,31 @@
 module Rre1 {
     init x = 1000
     init z = 0
-    rre { rate: 0.5 } = x -> z
+    reaction { rate: 0.5 } = x -> z
 }
 
-// basic rre - test module init vals
+// basic reaction - test module init vals
 module Rre1a {
     init x = 1000
 }
 module Rre1b {
     import SimTests.Rres.Rre1a as A
     init z = 0
-    rre { rate: 0.5 } = A.x -> z
+    reaction { rate: 0.5 } = A.x -> z
 }
 
-// basic rre - test dyn rate exprs
+// basic reaction - test dyn rate exprs
 module Rre1c {
     init x = 1000
     init z = 0
-    rre { rate: ((time + 0.0001) / (time + 0.0001)) * 0.5 } = x -> z
+    reaction { rate: ((time + 0.0001) / (time + 0.0001)) * 0.5 } = x -> z
 }
 
-// basic rre - test dyn rate exprs
+// basic reaction - test dyn rate exprs
 module Rre1d {
     init x = 1000
     init z = 0
-    rre { rate: ((x + 0.0001) / (x + 0.0001)) * 0.5 } = x -> z
+    reaction { rate: ((x + 0.0001) / (x + 0.0001)) * 0.5 } = x -> z
 }
 
 
@@ -39,15 +39,15 @@ module Rre2 {
     
     // r1 = x + y1 -> x + 2y1 (rate : 10)
     // prey w/ static birth rate (thus can grow unbounded if all predators die)
-    rre { rate : 10, reaction: x + y1 -> x + 2.y1 }
+    reaction { rate : 10, reaction: x + y1 -> x + 2.y1 }
 
     // r2 = y1 + y2 -> 2y2 (rate : 0.01)
     // predator - created in responce to prey
-    rre { rate : 0.01 } = y1 + y2 -> 2.y2
+    reaction { rate : 0.01 } = y1 + y2 -> 2.y2
     
     // r3 = y2 -> z (rate : 10)
     // predator death
-    rre { rate : 10 } = y2 -> z
+    reaction { rate : 10 } = y2 -> z
 }
 
 
@@ -58,30 +58,30 @@ module Rre3 {
   init l = 6.022e17
   init r = 10000
   init rl = 0
-  rre { rate : 3.32e-18 } = l + r -> rl
-  rre { rate : 0.01 } = rl -> l + r
+  reaction { rate : 3.32e-18 } = l + r -> rl
+  reaction { rate : 0.01 } = rl -> l + r
   
   // r2 = Gd + Gbg -> G
   init gd = 3000
   init gbg = 3000
   init g = 7000
-  rre { rate : 1.0 } = gd + gbg -> g
+  reaction { rate : 1.0 } = gd + gbg -> g
   
   // r3 = RL + G -> Ga + Gbg + RL
   init ga = 1
-  rre { rate : 1.0e-5 } = rl + g -> ga + gbg + rl
+  reaction { rate : 1.0e-5 } = rl + g -> ga + gbg + rl
 
   // r4 = R <-> null
   init rNullSink = 1
   init rNullSource = 1
-  rre { rate : 4e-4 } = r -> rNullSink
-  rre { rate : 4 } = rNullSource -> r
+  reaction { rate : 4e-4 } = r -> rNullSink
+  reaction { rate : 4 } = rNullSource -> r
   
   // r5 = RL -> null
   init rlNullSink = 1
-  rre { rate : 0.004 } = rl -> rlNullSink
+  reaction { rate : 0.004 } = rl -> rlNullSink
 
   // r6 = Ga -> Gd
-  rre { rate : 0.11 } = ga -> gd
+  reaction { rate : 0.11 } = ga -> gd
 }
 

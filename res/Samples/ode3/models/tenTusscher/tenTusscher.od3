@@ -62,7 +62,7 @@ module TenTusscher {
       }
 
     // main AP calc
-    ode V {init:-86.2, unit:milli V} = (-1/1) * (i_K1 + i_to + i_Kr + i_Ks + i_CaL + i_NaK + i_Na + i_b_Na + i_NaCa + i_b_Ca + i_p_K + i_p_Ca + i_Stim)
+    ode V {initVal :-86.2, unit:milli V} = (-1/1) * (i_K1 + i_to + i_Kr + i_Ks + i_CaL + i_NaK + i_Na + i_b_Na + i_NaCa + i_b_Ca + i_p_K + i_p_Ca + i_Stim)
 
   }
 
@@ -102,7 +102,7 @@ module TenTusscher {
     val alpha_xr1 = 450 / (1 + exp((-45 - V) / 10 ))
     val beta_xr1 = 6 / (1 + exp((V + 30) / 11.5))
     val tau_xr1 = 1 * alpha_xr1 * beta_xr1
-    ode Xr1 {init: 0} = (xr1_inf - Xr1) / tau_xr1  
+    ode Xr1 {initVal : 0} = (xr1_inf - Xr1) / tau_xr1  
   }
   
   // :: Float -> Float
@@ -111,7 +111,7 @@ module TenTusscher {
     val alpha_xr2 = 3 / (1 + exp((-60 - V) / 20))
     val beta_xr2 = 1.12  / (1 + exp((V - 60 ) / 20 ))
     val tau_xr2 = 1 * alpha_xr2 * beta_xr2
-    ode Xr2 {init : 1} = (xr2_inf - Xr2) / tau_xr2
+    ode Xr2 {initVal : 1} = (xr2_inf - Xr2) / tau_xr2
   }
 
   // new current
@@ -128,7 +128,7 @@ module TenTusscher {
     val alpha_xs = 1100  / root(1 + exp(-10 - V) / 6 ))
     val beta_xs = 1 / (1 + exp((V - 60 ) / 20))
     val tau_xs = 1 * alpha_xs * beta_xs
-    ode Xs {init : 0} = (xs_inf - Xs) / tau_xs
+    ode Xs {initVal : 0} = (xs_inf - Xs) / tau_xs
   }
   
   // new current
@@ -147,7 +147,7 @@ module TenTusscher {
     val alpha_m = 1 / (1 + exp((-60 - V) / 5))
     val beta_m = 0.1 / (1 + exp((V + 35) / 5)) + 0.1 / (1 + exp((V - 50) / 200))
     val tau_m = 1 * alpha_m * beta_m
-    ode m {init : 0} = (m_inf - m) / tau_m
+    ode m {initVal : 0} = (m_inf - m) / tau_m
   }
   
   // :: Float -> Float
@@ -162,7 +162,7 @@ module TenTusscher {
       default : 0.77 / (0.13 * (1 + exp((V + 10.66) / -(11.1))))
     }
     val tau_h = 1 / (alpha_h + beta_h)
-    ode h {init : 0.75} = (h_inf - h) / tau_h
+    ode h {initVal : 0.75} = (h_inf - h) / tau_h
   }
   
   // :: Float -> Float
@@ -179,7 +179,7 @@ module TenTusscher {
       default : 0.6 * exp(0.057 * V) / (1 + exp(-0.1 * (V + 32)))
     }
     val tau_j = 1 / (alpha_j + beta_j)
-    ode j {init : 0.75} = (j_inf - j) / tau_j
+    ode j {initVal : 0.75} = (j_inf - j) / tau_j
   }
   
   // new current
@@ -208,14 +208,14 @@ module TenTusscher {
     val beta_d = 1.4 / (1 + exp((V + 5) / 5))
     val gamma_d = 1 / (1 + exp((50 - V) / 20))
     val tau_d = 1 * alpha_d * beta_d + gamma_d
-    ode d {init : 0} = (d_inf - d) / tau_d
+    ode d {initVal : 0} = (d_inf - d) / tau_d
   }
 
   // :: Float -> Float
   component L_type_Ca_current_f_gate V => f where {
     val f_inf = 1 / (1 + exp((V + 20) / 7))
     val tau_f = 1125 * exp(-(pow(V + 27, 2)) / 240) + 80 + 165 / (1 + exp((25 - V) / 10))
-    ode f {init : 1} = (f_inf - f) / tau_f
+    ode f {initVal : 1} = (f_inf - f) / tau_f
   }
 
   // :: Float -> Float
@@ -226,7 +226,7 @@ module TenTusscher {
     val fCa_inf = (alpha_fCa + beta_fCa + gama_fCa + 0.23) / 1.46
     val tau_fCa = 2
     val d_fCa = (fCa_inf - fCa) / tau_fCa
-    ode fCa {init : 1} = piecewise{
+    ode fCa {initVal : 1} = piecewise{
       fCa_inf > fCa and V > -(60 {unit: millivolt}) : 0,
       default : d_fCa
     }
@@ -253,14 +253,14 @@ module TenTusscher {
   component transient_outward_current_s_gateoutward V => s where {
     val s_inf = 1 / (1 + exp((V + 20) / 5))
     val tau_s = 85 * exp(-(pow(V + 45, 2)) / 320) + 5 / (1 + exp((V - 20) / 5)) + 3
-    ode s {init : 1} = (s_inf - s) / tau_s
+    ode s {initVal : 1} = (s_inf - s) / tau_s
   }
 
   // :: Float -> Float  
   component transient_outward_current_r_gate V => r where {
     val r_inf = 1 / (1 + exp((20 - V) / 6))
     val tau_r = 9.5 * exp(-(pow(V + 40, 2)) / 1800) + 0.8
-    ode r {init : 0} = (r_inf - r) / tau_r
+    ode r {initVal : 0} = (r_inf - r) / tau_r
   }
   
   // new current
@@ -327,29 +327,29 @@ module TenTusscher {
        default : 1 / (1 + pow(Ca_i / 0.00035, 16))}
     val d_g = (g_inf - g) / tau_g
 
-    ode g {init : 1} = piecewise {
+    ode g {initVal : 1} = piecewise {
       g_inf > g and V > -60 : 0,
       default : d_g }
 
     val Ca_i_bufc = 1 / (1 + Buf_c * K_buf_c / pow(Ca_i + K_buf_c, 2))
     val Ca_sr_bufsr = 1 / (1 + Buf_sr * K_buf_sr / pow(Ca_SR + K_buf_sr, 2))
 
-    ode Ca_i {init: 0.0002} = Ca_i_bufc * (i_leak - i_up + i_rel - 1 * (i_CaL + i_b_Ca + i_p_Ca - 2 * i_NaCa) / (2 * 1 * V_c * F) * Cm)
+    ode Ca_i {initVal : 0.0002} = Ca_i_bufc * (i_leak - i_up + i_rel - 1 * (i_CaL + i_b_Ca + i_p_Ca - 2 * i_NaCa) / (2 * 1 * V_c * F) * Cm)
     val Ca_o = 2
-    ode Ca_SR {init: 0.2} = Ca_sr_bufsr * V_c / V_sr * (i_up - (i_rel + i_leak))
+    ode Ca_SR {initVal : 0.2} = Ca_sr_bufsr * V_c / V_sr * (i_up - (i_rel + i_leak))
   }
     
   // new current
   // :: (Float x 8) -> (Float, Float)
   component sodium_dynamics (V, V_c, F, C_m, i_Na, i_NaCa, i_NaK, i_b_Na) => (Na_i, Na_o) where {
-    ode Na_i {init: 11.6} = -1 * (i_Na + i_b_Na + 3 * i_NaK + 3 * i_NaCa) * Cm / (1 * V_c * F)
+    ode Na_i {initVal : 11.6} = -1 * (i_Na + i_b_Na + 3 * i_NaK + 3 * i_NaCa) * Cm / (1 * V_c * F)
     val Na_o = 140
   }
   
   // new current
   // :: (Float x 11) -> (Float, Float)
   component potassium_dynamics (V, V_c, F, C_m, i_K1, i_to, i_NaK, i_Kr, i_Ks, i_p_K, i_Stim) => (K_i, K_o) where {
-    ode K_i {init: 138.3} = -1 * (i_K1 + i_to + i_Kr + i_Ks + i_p_K + i_Stim - 2 * i_NaK) * Cm / (1 * V_c * F)
+    ode K_i {initVal : 138.3} = -1 * (i_K1 + i_to + i_Kr + i_Ks + i_p_K + i_Stim - 2 * i_NaK) * Cm / (1 * V_c * F)
     val K_o = 5.4
   }
   

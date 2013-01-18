@@ -3,7 +3,7 @@
 // basic ode - OK
 module BasicCalcUnits1 {
     init x = 0 { unit : m }
-    ode {init: x, delta : dx } = 5 { unit : m.s^-1 }
+    ode {initVal : x, deltaVal : dx } = 5 { unit : m.s^-1 }
 }
 
 
@@ -14,7 +14,7 @@ module BasicCalcUnits2 {
     unit m { dim : L, SI : True }
 
     val speed = 300 { unit : m.min^-1 }
-    ode { init : x, delta : dx } = speed { unit : m.s^-1}
+    ode { initVal : x, deltaVal : dx } = speed { unit : m.s^-1}
 }
 
 // units conv 2
@@ -22,7 +22,7 @@ module BasicCalcUnits3 {
     init x = 0 { unit : m }
     
     val speed = 18 { unit : km.hr^-1 }
-    ode { init : x, delta : dx } = speed { unit : m.s^-1}
+    ode { initVal : x, deltaVal : dx } = speed { unit : m.s^-1}
 }
 
 // units conv 3 - in init
@@ -32,7 +32,7 @@ module BasicCalcUnits4 {
     init x = 1 { unit : m } + y { unit : m } + z { unit : m }
     init w = 18 { unit : km.hr^-1 }
 
-    ode { init : x, delta : dx } = 5 { unit : m.s^-1} + w { unit : m.s^-1 } // speed = 10m.s^-1
+    ode { initVal : x, deltaVal : dx } = 5 { unit : m.s^-1} + w { unit : m.s^-1 } // speed = 10m.s^-1
 }
 
 // module in differing unit type to solver
@@ -41,6 +41,6 @@ module BasicCalcUnits5 {
     // unit m { dim : L, SI : True }
     init x = 0 { unit : m }
 
-    ode {init: x, delta : dx } = (5 { unit : m.ms^-1 }) { unit : m.s^-1 }
+    ode {initVal : x, deltaVal : dx } = (5 { unit : m.ms^-1 }) { unit : m.s^-1 }
 }
 

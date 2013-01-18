@@ -18,7 +18,7 @@ component environment(x, y) {
   a = 1.0 * (33.0 + 3.0);
   c = 34.0 + t;
 
-  d = ode {init : 34, delta: cur + 1};
+  d = ode {initVal : 34, deltaVal: cur + 1};
 
   // mult-return vals
   e, f = beta2(3.0, 44.0 + 34.0);
@@ -58,22 +58,22 @@ component beta2(a, b, d) {
     //initial c = 0;
 
     // potential ode syntax
-    ode {name : c, init: 0.0, delta: (1 + 1 - 1) };
-    c = ode {init: 0.0, delta: (1 + 1 - 1) };
+    ode {name : c, initVal : 0.0, deltaVal: (1 + 1 - 1) };
+    c = ode {initVal : 0.0, deltaVal: (1 + 1 - 1) };
     //c' = 1 + 1 - 1 with init = 0.0;
     //c' = 1 + 1 - 1 and c(0) = 0.0;
     //c' = 1 + 1 - 1;
 
     // odes are statments rather than terms - as are descructive
-    ode {c, delta: (1 + 1 - 1) };
-    ode {c, init: 0.0, delta: (1 + 1 - 1) };
-    //c = ode {delta: (1 + 1 - 1) };
+    ode {c, deltaVal: (1 + 1 - 1) };
+    ode {c, initVal : 0.0, deltaVal: (1 + 1 - 1) };
+    //c = ode {deltaVal: (1 + 1 - 1) };
     
     // defines a reaction between two previously defined vals
     // must be separate statement as modifies two vals
     // should scheme be overidable/in the REPL - if so then reactions need a name
-    rre {C1 -> C2, rate: alpha};
-    d = rre {C1 -> C2, rate: alpha, scheme: {propensity > 1.0 : ssa, default: tau}};
+    reaction {C1 -> C2, rate: alpha};
+    d = reaction {C1 -> C2, rate: alpha, scheme: {propensity > 1.0 : ssa, default: tau}};
     // C1 -> C2 {rate: alpha, scheme: {propensity > 1.0 : ssa, default: tau}};
 
 
@@ -87,9 +87,9 @@ component beta2(a, b, d) {
 }
 
 /*
-rre {C1 -> C2, rate: alpha, scheme: {propensity > 1.0 : ssa, default: tau}}
-rre {C2 -> C1, rate: beta, scheme: ssa}
-rre {C3 -> C4, rate: alpha, scheme: {population > 10 : ode, default: sde}}
+reaction {C1 -> C2, rate: alpha, scheme: {propensity > 1.0 : ssa, default: tau}}
+reaction {C2 -> C1, rate: beta, scheme: ssa}
+reaction {C3 -> C4, rate: alpha, scheme: {population > 10 : ode, default: sde}}
 */
 
 
@@ -115,10 +115,10 @@ component test(sa) {
     init c1 = 2.0;
     
     // ode - can return () or float val?
-    ode c = {init: 0.0, delta: (1 + 1 - 1) };
+    ode c = {initVal : 0.0, deltaVal: (1 + 1 - 1) };
 
-    // rre - can return () or (float, float)
-    rre f = {C1 -> C2, rate: alpha};
+    // reaction - can return () or (float, float)
+    reaction f = {C1 -> C2, rate: alpha};
     
     return (c1,c2)
 }
@@ -142,10 +142,10 @@ component test_1(sa) {
     c1 : init{2.0};
     
     // ode - can return () or float val?
-    c = ode {init: 0.0, delta: (1 + 1 - 1) };
+    c = ode {initVal : 0.0, deltaVal: (1 + 1 - 1) };
 
-    // rre - can return () or (float, float)
-    f = rre {C1 -> C2, rate: alpha};
+    // reaction - can return () or (float, float)
+    f = reaction {C1 -> C2, rate: alpha};
 }
 
 
@@ -159,14 +159,14 @@ component environment(x, y) {
   // possible ode syntax
   
   // name not linked to ode, 
-  d = ode {init : 34, delta: cur + 1};
+  d = ode {initVal : 34, deltaVal: cur + 1};
   // could allow - not wanted
-  d = ode {init : 34, delta: cur + 1} + 1??;
+  d = ode {initVal : 34, deltaVal: cur + 1} + 1??;
 
   // single statement - allows side-effects
-  ode d {init: 32, delta: d + 1, unit:m/s}
+  ode d {initVal : 32, deltaVal: d + 1, unit:m/s}
   // or  
-  ode d {init:32, unit:m} = 30 // delta expr {unit:m/s}
+  ode d {initVal :32, unit:m} = 30 // deltaVal expr {unit:m/s}
   // syntatic sugar for the below,
   init d {unit: m} = 32
   ode _ {val : d} = d + 1
@@ -177,7 +177,7 @@ component environment(x, y) {
   // requires 2 state vars
   init e {unit: m} = 2.3
   init f {unit: m} = 0.1
-  rre  _ {rate: 2} = e -> f
+  reaction  _ {rate: 2} = e -> f
 
 }
 
@@ -236,13 +236,13 @@ component env () => () where {
 }
 
 
-// new sval syntax
+// new init syntax
 component environment(x, y) {
   // normal, static and computied every ts
   val x = 1.0
 
   // sval, allow simple exprs, computed only once at start of sim, available throughtout comp
-  sval y = 1.0 + 2.0  
+  init y = 1.0 + 2.0  
   
   // when inlined   
 

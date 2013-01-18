@@ -9,14 +9,14 @@ component environment(x, y) {
   // possible ode syntax
   
   // name not linked to ode, 
-  d = ode {init : 34, delta: cur + 1};
+  d = ode {initVal : 34, deltaVal: cur + 1};
   // could allow - not wanted
-  d = ode {init : 34, delta: cur + 1} + 1??;
+  d = ode {initVal : 34, deltaVal: cur + 1} + 1??;
 
   // single statement - allows side-effects
-  ode d {init: 32, delta: d + 1, unit:m/s}
+  ode d {initVal : 32, deltaVal: d + 1, unit:m/s}
   // or  
-  ode d {init:32, unit:m} = 30 // delta expr {unit:m/s}
+  ode d {initVal :32, unit:m} = 30 // deltaVal expr {unit:m/s}
   // syntatic sugar for the below,
   init d {unit: m} = 32
   ode _ {val : d} = d + 1
@@ -27,7 +27,7 @@ component environment(x, y) {
   // requires 2 state vars
   init e {unit: m} = 2.3
   init f {unit: m} = 0.1
-  rre  _ {rate: 2} = e -> f
+  reaction  _ {rate: 2} = e -> f
 
 }
 

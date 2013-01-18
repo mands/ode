@@ -3,8 +3,8 @@ module TestSde {
   init x = 0.1
   
   // Current Syntax
-  // implies one weiner process (dW) per sde
-  sde { init : x, weiner : wExpr} = dExpr // (delta expr)
+  // implies one diffusion process (dW) per sde
+  sde { initVal : x, diffusion : wExpr} = dExpr // (deltaVal expr)
 
 
 
@@ -14,15 +14,15 @@ module TestSde {
     sde= ode = -P1
     ............P1+P2}
 
-    sde { init : X1
+    sde { initVal : X1
         , drift : ...
-        , weiner 
+        , diffusion 
         }
 
   // possible scheme
-  weiner w1
-  weiner w2
-  sde { init : x, delta : dExpr, weiner : P1*w1 + P2*w2 }
+  diffusion w1
+  diffusion w2
+  sde { initVal : x, deltaVal : dExpr, diffusion : P1*w1 + P2*w2 }
 
 
 }

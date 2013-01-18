@@ -30,7 +30,7 @@ module PotassiumChannel {
     component potassium_channel_n_gate (v) = {
         val alpha_n = (-0.01 * (v + 65)) / (exp(-(v + 65) / 10) - 1) // :: Num
         val beta_n = 0.125 * exp((v + 75) / 80) // :: Num
-        ode n = {init: 0.325, delta: (alpha_n*(1-n) - (beta_n*n))} // :: Num/Ode
+        ode n = {initVal : 0.325, deltaVal: (alpha_n*(1-n) - (beta_n*n))} // :: Num/Ode
     }
 }
 
@@ -50,7 +50,7 @@ module SodiumChannel {
     component sodium_channel_m_gate(v) { 
         val alpha_m = -0.1 * (v + 50) / (exp(-(v + 50) / 10) - 1)  // :: Num
         val beta_m = 4 * exp(-(V + 75) / 18) // :: Num
-        ode m = {init: 0.05, delta: (alpha_m * (1 - m) - beta_m * m)} // :: Num/Ode
+        ode m = {initVal : 0.05, deltaVal: (alpha_m * (1 - m) - beta_m * m)} // :: Num/Ode
         return (m)
     }
 
@@ -58,7 +58,7 @@ module SodiumChannel {
     component sodium_channel_h_gate(t, v) {
         val alpha_h = 0.07 * exp(-(v + 75) / 20) // :: Num
         val beta_h = 1 / (exp(-(v + 45) / 10) + 1) // :: Num
-        ode h = {init: 0.6, delta: (alpha_h * (1 - h) - beta_h * h)} // :: Num/Ode
+        ode h = {initVal : 0.6, deltaVal: (alpha_h * (1 - h) - beta_h * h)} // :: Num/Ode
         return (h)
     }
 }
@@ -77,7 +77,7 @@ module HodgkinHuxleyF(Params, PotChan, SodChan) {
         val i_Na = SodChan.sodium_channel(v, e_R) // i_Na :: Num, mod_comp :: (Num, Num) -> Num
         val i_L = leakage_current(v, e_R) // :: Num
 
-        ode v = {init: -75, delta: -(-i_Stim + i_Na + i_K + i_L) / cm} // :: Num/Ode
+        ode v = {initVal : -75, deltaVal: -(-i_Stim + i_Na + i_K + i_L) / cm} // :: Num/Ode
 
         return ()
     }

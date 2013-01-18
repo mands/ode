@@ -26,10 +26,10 @@ component test(sa) {
 
     // ode - can return () or float val?
 */
-//    ode c = {init: 0.0, delta: (1 + 1 - 1) };
+//    ode c = {initVal : 0.0, deltaVal: (1 + 1 - 1) };
 
-    // rre - can return () or (float, float)
-    rre f = {reaction: C1 -> C2, rate: alpha};
+    // reaction - can return () or (float, float)
+    reaction f = {reaction: C1 -> C2, rate: alpha};
     
     return (c1,c2)
 }

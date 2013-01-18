@@ -39,7 +39,7 @@ module HodgkinHuxley {
         val i_Na = sodium_channel(V, E_R)
         val i_L = leakage_current(V, E_R)
 
-        ode V = {init: -75, delta: -(-i_Stim + i_Na + i_K + i_L) / Cm}
+        ode V = {initVal : -75, deltaVal: -(-i_Stim + i_Na + i_K + i_L) / Cm}
 
         return (V)
     }
@@ -62,7 +62,7 @@ module HodgkinHuxley {
     component potassium_channel_n_gate(V) {
         val alpha_n = (-0.01 * (V + 65)) / (exp(-(V + 65) / 10) - 1)
         val beta_n = 0.125 * exp((V+75) / 80)
-        ode n = {init: 0.325, delta: (alpha_n*(1-n) - (beta_n*n))}
+        ode n = {initVal : 0.325, deltaVal: (alpha_n*(1-n) - (beta_n*n))}
         return (n)
     }
  
