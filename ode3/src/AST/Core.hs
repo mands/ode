@@ -157,6 +157,9 @@ data Expr b = Var (VarId b) (Maybe RecId)             -- a reference to any let-
             | Rre [(Integer, VarId b)] [(Integer, VarId b)] (Expr b) -- an elementary reaction, from var->var with dyn rate expr, returns unit
 
             | TypeCast (Expr b) (TypeCast b) -- type casts to expressions
+
+            | Group [VarId b]                   -- grouping of state variable references
+
             deriving (Show, Eq, Ord, Functor, DF.Foldable, DT.Traversable)
 
 

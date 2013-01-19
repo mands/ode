@@ -104,7 +104,7 @@ desugarOde elems = do
 -- throws an error if a top-level is already defined
 -- place in the front of the expr list, we reverse this later
 dsTopStmt :: M.ExprList -> O.Stmt -> TmpSupply (M.ExprList)
-dsTopStmt es stmt@(O.SValue _ _) = do
+dsTopStmt es stmt@(O.SValue _ _ _) = do
     (ids, expr) <- dsStmt stmt
     return $ C.TopLet True C.TUnit ids expr : es
 
@@ -124,11 +124,15 @@ dsTopStmt es stmt = do
 dsNestedStmt :: [O.Stmt] -> O.Expr  -> TmpSupply (C.Expr C.DesId)
 dsNestedStmt [] outs = dsExpr outs
 
+dsNestedStmt (s@(O.Component _ _ _):xs) outs = do
+    (ids, expr) <- dsStmt s
+    C.Let False C.TUnit ids expr <$> dsNestedStmt xs outs
+
 dsNestedStmt (s@(O.Value _ _):xs) outs = do
     (ids, expr) <- dsStmt s
     C.Let False C.TUnit ids expr <$> dsNestedStmt xs outs
 
-dsNestedStmt (s@(O.SValue _ _):xs) outs = do
+dsNestedStmt (s@(O.SValue _ _ _):xs) outs = do
     (ids, expr) <- dsStmt s
     C.Let True C.TUnit ids expr <$> dsNestedStmt xs outs
 
@@ -144,9 +148,10 @@ dsNestedStmt (s@(O.RreDef _ _ _):xs) outs = do
     (rreVar, rreExpr) <- dsStmt s
     C.Let False C.TUnit rreVar rreExpr <$> dsNestedStmt xs outs
 
-dsNestedStmt (s@(O.Component _ _ _):xs) outs = do
-    (ids, expr) <- dsStmt s
-    C.Let False C.TUnit ids expr <$> dsNestedStmt xs outs
+dsNestedStmt (s@(O.GroupDef _):xs) outs = do
+    (groupVar, groupExpr) <- dsStmt s
+    C.Let False C.TUnit groupVar groupExpr <$> dsNestedStmt xs outs
+
 
 -- Main desugaring, called by top-level and nested level wrappers
 dsStmt :: O.Stmt -> TmpSupply ([C.DesId], C.Expr C.DesId)
@@ -155,7 +160,7 @@ dsStmt (O.Value ids (body, value)) = do
     ids' <- DT.mapM subDontCares ids
     return $ (ids', v')
 
-dsStmt (O.SValue id expr) = do
+dsStmt (O.SValue id output expr) = do
     sExpr <- dsExpr expr
     return $ ([id], sExpr)
 
@@ -190,6 +195,11 @@ dsStmt (O.Component name arg (body, out)) = do
     desugarComp :: O.SrcId -> [C.DesId] -> TmpSupply (C.Expr C.DesId)
     desugarComp _ (singArg:[]) = dsNestedStmt body out
     desugarComp argName ins = C.Let False C.TUnit ins (C.Var (C.LocalVar argName) Nothing) <$> dsNestedStmt body out
+
+-- GroupDef, generate a dummy let-binding, and return a unit
+dsStmt (O.GroupDef initRefs) = do
+    groupVar <- supply
+    return $ ([groupVar], C.Group $ map dsRefId initRefs)
 
 dsStmt stmt = throw $ printf "(DS01) Found an unhandled stmt that is top-level only - not nested \n%s" (show stmt)
 

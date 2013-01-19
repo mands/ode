@@ -46,5 +46,6 @@ module Sde5 {
     val sigma=0.3
     init y = 0
     sde { initVal : y, deltaVal : dy, diffusion : sigma*wiener} = theta*(mu-y)
+    group {y}
 }
 

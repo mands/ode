@@ -202,6 +202,11 @@ defineExtOps p llvmMod = do
                                 )
         , ("OdeRandUniform",    addFunction llvmMod "OdeRandUniform" (functionType doubleType [] False))
         , ("OdeRandNormal",     addFunction llvmMod "OdeRandNormal" (functionType doubleType [] False))
+        , ("OdeProjectVector", do
+                                f <- addFunction llvmMod "OdeProjectVector" (functionType voidType [pointerType doubleType 0, doubleType] False)
+                                setFuncParam f 0 [NoAliasAttribute, NoCaptureAttribute]
+                                return f
+                                )
         -- access to printf, for debugging
         , ("printf",            addFunction llvmMod "printf" (functionType voidType [(pointerType int8Type 0)] True))
         ]

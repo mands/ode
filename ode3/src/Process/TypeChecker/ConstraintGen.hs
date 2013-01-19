@@ -355,6 +355,13 @@ constrain gModEnv modData mFuncArgs unitsCheck timeUnit = runStateT (evalSupplyT
             vT <- getVarType v gModEnv modData mFuncArgs
             addConsType =<< ConEqual vT <$> uFloat
 
+    consExpr (E.Group vs) = do
+        forM_ vs $ \v -> do
+            -- constrain each state val to be a float
+            vT <- getVarType v gModEnv modData mFuncArgs
+            uV1 <- newUnitVar
+            addConsType $ ConEqual vT (E.TFloat uV1)
+        return E.TUnit
 
     -- Type/Unit-casting constraints
     consExpr (E.TypeCast e (E.UnitCast u)) = do

@@ -26,7 +26,7 @@ import AST.Common as AC
 
 -- not really a module, but datatype to hold the exeutable simulation expressions and related metadata
 data Module = Module    { loopExprs :: ExprMap, initVals :: InitMap
-                        , simOps :: [SimOp], simType :: SimType, freeId :: Id }
+                        , simOps :: [SimOp], simType :: SimType, freeId :: Id } -- groupOps :: [GroupOp],
                         deriving (Show, Eq, Ord)
 
 -- this becomes our 'let' now - both toplevel and 'nested', creates a new binding for the expression
@@ -66,8 +66,11 @@ data SimOp  = Ode Id Var    -- indicates the state val and a ref to an id holdin
             | Rre [(Int, Id)] [(Int, Id)] Var -- indicates the src and dest products in the reaction, and the ref to id holding dyn reaction rate
             deriving (Show, Eq, Ord)
 
--- | we only allow a simulation to be of a certain type, while ODEs are allowed in SDEs (using EulerMaruyama), no other
--- hybrid simulation is supported
+-- | Group operations - used to group state values that belong to a set as needed by certain solvers
+-- NYI in backend
+data GroupOp = Group [Id] deriving (Show, Eq, Ord)
+
+-- | we only allow a simulation to be of a certain types, while ODEs are allowed in SDEs (using EulerMaruyama)
 data SimType = SimODE | SimSDE | SimRRE | SimHybrid deriving (Show, Eq, Ord)
 
 -- | Used to handle both input and output args to a library/runtime operator

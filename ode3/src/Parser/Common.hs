@@ -51,7 +51,7 @@ commonLangDef = emptyDef
                           "module", "import", "as", "export"
                         -- main ode lang
                         , "component", "return"
-                        , "val", "init"
+                        , "val", "init", "group", "output"
                         , "ode", "initVal", "deltaVal"
                         , "sde", "drift", "diffusion", "wiener"
                         , "reaction", "rate"

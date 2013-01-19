@@ -47,13 +47,15 @@ data Stmt = -- each independent component, is basically function abstraction
             -- they are constant, at least during single timestep
             | Value { vName :: [BindId], vValue :: ([Stmt], Expr) }
             -- state value defintion - indirectly mutable, stateful, values - only single bind name
-            | SValue { svName :: SrcId, svValue :: Expr }
+            | SValue { svName :: SrcId, svOutput :: Bool, svValue :: Expr }
             -- ODE - a SValue and ODE def combined
             | OdeDef { odeInit :: RefId, odeDeltaName :: BindId, odeDeltaExpr :: Expr}
             -- SDE - a SValue and SDE def combined
             | SdeDef { sdeInit :: RefId, sdeDeltaName :: BindId, sdeDiffusionExpr :: Expr, sdeDriftExpr :: Expr}
             -- RRE - takes two SValues and a rate parameter
             | RreDef { rreSrc :: [(Integer, RefId)], rreDest :: [(Integer, RefId)], rreRate :: Expr }
+            -- Group def
+            | GroupDef { grInits :: [RefId] }
             -- or they may be a reference to a component defined in a module param and re-exported here
             -- ComponentRef SrcId ModLocalId
             deriving (Show, Eq, Ord)

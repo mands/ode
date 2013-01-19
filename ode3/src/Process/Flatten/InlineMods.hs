@@ -134,6 +134,7 @@ appendModule modIdVarMap srcMod = do
         updateExpr (AC.Ode mv e1) = AC.Ode (updateIds mv) (updateExpr e1)
         updateExpr (AC.Sde mv e1 e2) = AC.Sde (updateIds mv) (updateExpr e1) (updateExpr e2)
         updateExpr (AC.Rre srcs dests e1) = AC.Rre (map (mapSnd updateIds) srcs) (map (mapSnd updateIds) dests) (updateExpr e1)
+        updateExpr (AC.Group mvs) = AC.Group $ map updateIds mvs
         updateExpr e = AC.mapExpr updateExpr e
 
         updateIds mv@(AC.ModVar modId id) | (Just idVarMap) <- Map.lookup modId modIdVarMap = AC.LocalVar (idVarMap Map.! id)

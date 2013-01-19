@@ -2,7 +2,7 @@ module Test3 {
     /* Externally called component to generate channel current */
     component getCurrent(V) {
         /* Setup initial values */
-        init X1 = 0.3
+        init X1 { output : false } = 0.3
         init X2 = 0.2
         init X3 = 0.6
         
@@ -24,6 +24,8 @@ module Test3 {
             ,diffusion : _prop1*_w1+_prop2*_w2} = -(X2*_rate4*_rate2)+X1*_rate3+X3*_rate1
         sde {initVal : X3
             ,diffusion : -_prop1*_w1} = -(X3*_rate1)+X2*_rate2
+
+        group { X1, X2, X3 }
         
         /* Calculate channel current */
         val current = 7.0*1.0*(X3)*(V-1.0)

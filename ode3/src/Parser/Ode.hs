@@ -180,17 +180,22 @@ exprStmt    = compDef
             <|> odeDef
             <|> sdeDef
             <|> rreDef
+            <|> groupDef
             <?> "component, value or simulation defintion"
 
 -- |parse a sval/initial condition def
--- TODO - do we allowed blockStmt for inits?
 sValueDef :: Parser AO.Stmt
-sValueDef = AO.SValue <$> (reserved "init" *> identifier) <*> (reservedOp "=" *> compExpr)
+sValueDef = do
+    name <- reserved "init" *> identifier
+    -- a bit odd this, as all attribs are optional
+    (output) <- option (True) (singAttrib "output" boolean)
+    expr <- reservedOp "=" *> compExpr
+    return $ AO.SValue name output expr
 
 -- | parse a value definition
 -- e.g., val x = expr
 valueDef :: Parser AO.Stmt
-valueDef = AO.Value  <$> (reserved "val" *> commaSep1 valIdentifier <* reservedOp "=")
+valueDef = AO.Value <$> (reserved "val" *> commaSep1 valIdentifier <* reservedOp "=")
                     <*> (try singVal <|> blockStmt)
   where
     singVal = (,) <$> pure [] <*> compExpr
@@ -244,6 +249,8 @@ rreDef = mkRre <$> (reserved "reaction" *> braces rreAttribs) <*> (reservedOp "=
 
     mkRre rate srcs dests = AO.RreDef srcs dests rate
 
+groupDef :: Parser AO.Stmt
+groupDef = AO.GroupDef <$> (reserved "group" *> braces $ commaSep1 modLocalIdentifier)
 
 -- Ode Terms -----------------------------------------------------------------------------------------------------------
 

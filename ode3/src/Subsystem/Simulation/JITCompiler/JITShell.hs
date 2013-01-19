@@ -158,7 +158,7 @@ linkStdlibScript p@(Sys.SimParams{..}) = do
     odeStdLib   = toTextIgnore $ odeLibPath </> "libOde.bc" -- TODO - change to opt stdlib?
     odeCvodeSim = toTextIgnore $ odeLibPath </> "CvodeSim.bc" -- TODO - change to opt stdlib?
     linkOpts    = ["-std-link-opts", "-std-compile-opts"]
-    simLtoBC    = "sim.pre-lto.ll"
+    simLtoBC    = "./.Sim.pre-lto.ll"
 
 
 -- | Embedded script to compile a native AOT represetnation of the model (& optional simulation)

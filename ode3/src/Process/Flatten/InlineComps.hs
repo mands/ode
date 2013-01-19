@@ -128,6 +128,7 @@ shiftExprIds (AC.Rre vs1 vs2 eR) = AC.Rre <$> shiftRres vs1 <*> shiftRres vs2 <*
   where
     shiftRres = mapM (mapSndM calcReboundVar)
 
+shiftExprIds (AC.Group vs) = AC.Group <$> mapM calcReboundVar vs
 
 shiftExprIds (AC.Let isInit t (b:[]) e1 e2) = do
     e1' <- shiftExprIds e1

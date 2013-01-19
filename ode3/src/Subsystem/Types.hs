@@ -73,6 +73,7 @@ calcTypeExpr st (AC.Record nEs) = AC.TRecord <$> DT.mapM (calcTypeExpr st) nEs
 calcTypeExpr st (AC.Ode lv@(AC.LocalVar _) eD) = calcTypeExpr st eD
 calcTypeExpr st (AC.Sde lv@(AC.LocalVar _) eW eD) = calcTypeExpr st eD
 calcTypeExpr _ (AC.Rre _ _ _) = return AC.TUnit
+calcTypeExpr _ (AC.Group _) = return AC.TUnit
 
 -- direct casts
 calcTypeExpr _ (AC.TypeCast e (AC.UnitCast u)) = return $ AC.TFloat u

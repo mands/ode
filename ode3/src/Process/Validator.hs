@@ -122,6 +122,7 @@ validExpr (E.Record nEs) st = DF.mapM_ (\e -> validExpr e st) nEs >> return st
 validExpr (E.Ode (E.LocalVar initRef) eD) st = validExpr eD st
 validExpr (E.Sde (E.LocalVar initRef) eW eD) st = validExpr eW st >> validExpr eD st
 validExpr (E.Rre srcs dests eR) st = validExpr eR st -- mapM (mapSndM checkVarId) srcs >> mapM (mapSndM checkVarId) srcs >> validExpr eR st
+
 --  where
 --    checkVarId (E.LocalVar lv) = return ()
 --    checkVarId v = errorDump [MkSB v] "Intra-module init vals for Simops not handled correctly!" assert

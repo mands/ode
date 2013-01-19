@@ -188,12 +188,15 @@ renExpr (E.Rre srcs dests eR) = E.Rre <$> rreLookup srcs <*> rreLookup dests  <*
   where
     rreLookup = mapM (mapSndM renVarId)
 
+renExpr (E.Group vIds) = E.Group <$> mapM renVarId vIds
+
 renExpr (E.TypeCast e tC ) = E.TypeCast <$> renExpr e <*> tC'
   where
     tC' = case tC of
         E.UnitCast u        -> return $ E.UnitCast u
         E.WrapType tId      -> E.WrapType <$> renVarId tId
         E.UnwrapType tId    -> E.UnwrapType <$> renVarId tId
+
 
 -- any unknown/unimplemented paths - not needed as match all
 renExpr a = errorDump [MkSB a] "(RN) Unknown Core expression" assert

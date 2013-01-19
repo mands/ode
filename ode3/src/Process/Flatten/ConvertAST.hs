@@ -188,6 +188,9 @@ convertExpr e@(AC.Rre srcs dests eR) = do
   where
     convProduct = map (\(i, AC.LocalVar v) -> (fromInteger i, v))
 
+-- Group function -- NYI in backend, we just replace with a unit val for now
+convertExpr e@(AC.Group vs) = trace' [MkSB e] "Group function - NYI" $ return $ ACF.Var ACF.Unit
+
 -- anything else,
 convertExpr expr = errorDump [MkSB expr] "Cannot convert expression to CoreFlat" assert
 

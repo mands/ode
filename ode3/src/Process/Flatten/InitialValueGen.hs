@@ -20,6 +20,8 @@ initialValueGen
 ) where
 
 import Control.Monad.State
+import Control.Conditional(unlessM)
+
 import qualified Data.Map as Map
 import qualified Data.List as List
 import qualified Data.Foldable as DF
@@ -131,10 +133,10 @@ initIntExpr e@(AC.Record nEs) env = do
 -- SimOps
 -- should check that these actual reference svals, and are refereced correctly (i.e once per ode/sde)
 -- Odes
-initIntExpr e@(AC.Ode vId e1) env = do
-    (e1', _) <- initIntExpr e1 env
+initIntExpr e@(AC.Ode vId eD) env = do
+    (eD', _) <- initIntExpr eD env
     checkSimOp vId SimODE
-    return (e1', env)
+    return (eD', env)
 
 -- Sdes - only return the delta expr
 initIntExpr e@(AC.Sde vId eW eD) env = do
@@ -147,9 +149,14 @@ initIntExpr e@(AC.Sde vId eW eD) env = do
 initIntExpr e@(AC.Rre srcs dests eR) env = do
     (eR', _) <- initIntExpr eR env
     mapM checkRreOp srcs >> mapM checkRreOp dests
-    return (e, env)
+    return (AC.Lit AC.Unit, env)
   where
     checkRreOp (i, vId) = checkSimOp vId SimRRE
+
+initIntExpr e@(AC.Group vIds) env = do
+    unlessM (and <$> mapM isInitVar vIds)
+        (throwError $ printf "(SM05) Group contains a reference to a non-init/state value")
+    return (AC.Lit AC.Unit, env)
 
 
 initIntExpr e env = errorDump [MkSB e, MkSB env] "InitValGen - Cannot interpret expression" assert
@@ -182,6 +189,13 @@ checkSimOp (AC.LocalVar v) simOp = do
         Just (Just prevOp)  ->   case simOp of
                                 _ | simOp `elem` [ SimODE, SimSDE] ->  throwError $ printf "(SM01) Value %s is already bound to an existing simOp %s" (show v) (show prevOp)
                                 SimRRE  ->   unless (prevOp == SimRRE) $ throwError $ printf "(SM02) Value %s is already bound to an incompatible simOp %s" (show v) (show prevOp)
+
+-- just check a given value exists and is an init val
+isInitVar :: AC.VarId Id -> InitM Bool
+isInitVar (AC.LocalVar v) = do
+    InitState{initCheck = i} <- get
+    return $ Map.member v i
+
 
 runOp :: AC.Op -> [AC.Expr Id] -> AC.Expr Id
 runOp op es = case op of
