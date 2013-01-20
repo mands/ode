@@ -189,11 +189,11 @@ genDiffSolver odeMod@CF.Module{..} = do
     trace' [MkSB simType, MkSB $ L.get Sys.lOdeSolver simParams, MkSB $ L.get Sys.lSdeSolver simParams] "Sim params" $ return ()
     solver <- case simType of
         CF.SimSDE   -> case (L.get Sys.lSdeSolver simParams) of
-            Sys.EM          -> MkSolver <$> (genVals $ (Map.keys initVals) :: GenM EulerMSolver)
-            Sys.ReflectedEM -> MkSolver <$> (genVals $ (Map.keys initVals) :: GenM EulerMSolver)
+            Sys.EM          -> MkSolver <$> (genVals (Map.keys initVals) simOps :: GenM EulerMSolver)
+            Sys.ProjEM      -> MkSolver <$> (genVals (Map.keys initVals) simOps :: GenM ProjSolver)
         CF.SimODE   -> case (L.get Sys.lOdeSolver simParams) of
-            Sys.FEuler      -> MkSolver <$> (genVals $ (Map.keys initVals) :: GenM EulerSolver)
-            Sys.RK4         -> MkSolver <$> (genVals $ (Map.keys initVals) :: GenM RK4Solver)
+            Sys.FEuler      -> MkSolver <$> (genVals (Map.keys initVals) simOps :: GenM EulerSolver)
+            Sys.RK4         -> MkSolver <$> (genVals (Map.keys initVals) simOps :: GenM RK4Solver)
 
     -- create mutable sim params (static sim params embeedded as constants)
     simParamVs@(curPeriodRef, curLoopRef, curTimeRef, outStateArray) <- createSimParams outDataSize

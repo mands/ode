@@ -13,7 +13,7 @@
 -----------------------------------------------------------------------------
 
 module Subsystem.Simulation.JITCompiler.JITDiffSolvers (
-OdeSolver(..), Solver(..), EulerSolver, EulerMSolver, RK4Solver
+OdeSolver(..), Solver(..), EulerSolver, EulerMSolver, ProjSolver, RK4Solver
 ) where
 
 -- Labels
@@ -29,6 +29,7 @@ import qualified LLVM.FFI.Core as LFFI
 
 import Data.Int
 import Data.Word
+import Data.Maybe(mapMaybe)
 import qualified Foreign as FFI
 import qualified Foreign.C as FFI
 
@@ -55,7 +56,7 @@ import Subsystem.Simulation.JITCompiler.JITModel
 
 -- A solver class for abstracting over the differing code-gen requriements for Odes/Sdes
 class OdeSolver a where
-    genVals :: [Id] -> GenM a
+    genVals :: [Id] -> [SimOp] -> GenM a
     genSolver :: a -> LLVM.Value -> CF.Module -> GenM ()
     getStateVals :: a -> LocalMap
 
@@ -64,7 +65,7 @@ data Solver :: * where
     MkSolver :: OdeSolver a => a -> Solver
 
 instance OdeSolver Solver where
-    genVals ids = genVals ids
+    genVals ids simOps = genVals ids simOps
     genSolver (MkSolver s) curTimeRef = genSolver s curTimeRef
     getStateVals (MkSolver s) = getStateVals s
 
@@ -76,7 +77,7 @@ data EulerSolver = EulerSolver  { eulerStateVals :: LocalMap
 
 
 instance OdeSolver EulerSolver where
-    genVals ids = do    -- create the vals
+    genVals ids _ = do    -- create the vals
         stateRefMap <- createVals ids "StateRef"
         deltaRefMap <- createVals ids "DeltaRef"
         return $ EulerSolver stateRefMap deltaRefMap
@@ -114,7 +115,7 @@ data EulerMSolver = EulerMSolver    { eulerMStateVals :: LocalMap
 
 
 instance OdeSolver EulerMSolver where
-    genVals ids = do    -- create the vals
+    genVals ids _ = do    -- create the vals
         stateRefMap  <- createVals ids "StateRef"
         deltaRefMap  <- createVals ids "DeltaRef"
         wienerRefMap <- createVals ids "WienerRef"
@@ -156,13 +157,118 @@ instance OdeSolver EulerMSolver where
                         state1 <- buildFAdd builder wVal delta1 "state1"
                         buildFAdd builder stateVal state1 "state2"
 
+-- Euler-Maruyama Projected (SDE) Solver --------------------------------------------------------------------------------------------------------
+
+data ProjSolver = ProjSolver    { projStateVals :: LocalMap
+                                , projDeltaVals :: LocalMap
+                                , projWienerVals :: LocalMap
+                                , projArray :: LLVM.Value
+                                }
+
+instance OdeSolver ProjSolver where
+    genVals ids simOps = do    -- create the vals
+        stateRefMap  <- createVals ids "StateRef"
+        deltaRefMap  <- createVals ids "DeltaRef"
+        wienerRefMap <- createVals ids "WienerRef"
+
+        -- build an array to hold the values
+        GenState {builder} <- get
+        -- projArr <- FFI.withCString "projArray" $ \cStr ->
+            -- LFFI.buildArrayAlloca builder (arrayType doubleType (fromIntegral $ length projIds)) projArrSize cStr
+            -- LFFI.buildArrayAlloca builder doubleType projArrSize cStr
+        projArr <- liftIO $ buildAlloca builder (arrayType doubleType $ fromIntegral projIdsSize) "projArray"
+        return $ ProjSolver stateRefMap deltaRefMap wienerRefMap projArr
+      where
+        projIdsSize = length . filter (\op -> case op of (Sde i _ _) -> True; _ -> False) $ simOps
+
+    getStateVals e = projStateVals e
+
+    genSolver (ProjSolver stateRefMap deltaRefMap wienerRefMap projArr) curTimeRef CF.Module{loopExprs, simOps} = do
+        GenState {builder, curFunc, simParams, libOps} <- get
+        -- gen the modelRHS code
+        stateValMap <- loadRefMap stateRefMap
+        _ <- withPtrVal builder curTimeRef $ \curTimeVal -> do
+            genModelRHS loopExprs simOps curTimeVal stateValMap deltaRefMap wienerRefMap
+
+        -- update the states/run the forward euler
+        liftIO $ mapM_ (updateState builder simParams libOps) simOps
+
+        -- run the max/min state val check
+        projBB <- liftIO $ appendBasicBlock curFunc "projBB"
+        endBB <- liftIO $ appendBasicBlock curFunc "endBB"
+        liftIO $ stateMinMaxCheck builder curFunc projBB endBB
+        -- _ <- liftIO $ buildBr builder projBB
+        -- now run the projection function for all init vals bound to SDEs (not just groups)
+        liftIO $ genProjVal builder libOps projBB endBB
+
+      where
+        updateState :: Builder -> Sys.SimParams -> LibOps -> SimOp -> IO ()
+        updateState builder simParams _ (Ode i _) = do
+            -- get state val
+            updatePtrVal builder (stateRefMap Map.! i) $ \stateVal -> do
+                withPtrVal builder (deltaRefMap Map.! i) $ \dVal -> do
+                    -- y' = y + h*dy
+                    dValTime <- buildFMul builder dVal (constDouble $ L.get Sys.lTimestep simParams) "deltaTime"
+                    buildFAdd builder stateVal dValTime "newState"
+
+        updateState builder simParams libOps (Sde i _ _) = do
+            -- get state val
+            updatePtrVal builder (stateRefMap Map.! i) $ \stateVal -> do
+                withPtrVal builder (wienerRefMap Map.! i) $ \wVal -> do
+                    withPtrVal builder (deltaRefMap Map.! i) $ \dVal -> do
+                        -- y' = y + h*dy + dW (where dW should include a wiener val)
+                        delta1 <- buildFMul builder dVal (constDouble $ L.get Sys.lTimestep simParams) "delta1"
+                        state1 <- buildFAdd builder wVal delta1 "state1"
+                        buildFAdd builder stateVal state1 "state2"
+
+        -- run the project function
+        genProjVal :: Builder -> LibOps -> BasicBlock -> BasicBlock -> IO ()
+        genProjVal builder libOps projBB endBB = do
+            liftIO $ positionAtEnd builder projBB
+            -- store the values in the array
+            gatherArray builder projArr projIds
+            -- call the project function
+            arrRef <- buildInBoundsGEP builder projArr [constInt64 0, constInt64 0] "arrRef"
+            _ <- buildCall builder (libOps Map.! "OdeProjectVector") [arrRef, projArrSize] ""
+            -- unload the values from the array
+            scatterArray builder projArr projIds
+            buildBr builder endBB
+            return ()
+
+        -- find the valueRef of all stateVals pointed to by an SDE
+        projIds = mapMaybe (\op -> case op of (Sde i _ _) -> Just (stateRefMap Map.! i); _ -> Nothing) simOps
+        projArrSize = constInt64 $ length projIds
+
+        -- min and max checks
+        stateMinMaxCheck :: Builder -> LLVM.Value -> BasicBlock -> BasicBlock -> IO ()
+        stateMinMaxCheck builder curFunc projBB endBB = do
+            startBB <- liftIO $ appendBasicBlock curFunc "startBB"
+            liftIO $ buildBr builder startBB
+            liftIO $ positionAtEnd builder startBB
+            -- run the loop
+            forM projIds $ \projIdRef -> do
+                withPtrVal builder projIdRef $ \projId -> do
+                    gtZero <- buildFCmp builder FPOGE projId constZero "greaterZero"
+                    lsOne <- buildFCmp builder FPOLE projId constOne "lesssOne"
+                    inBounds <- buildAnd builder gtZero lsOne "inBounds"
+
+                    nextBB <- liftIO $ appendBasicBlock curFunc "nextBB"
+                    buildCondBr builder inBounds nextBB projBB
+                    liftIO $ positionAtEnd builder nextBB
+            -- brnach to end
+            buildBr builder endBB
+            return ()
+
+
+
+
 -- RK4 Solver ----------------------------------------------------------------------------------------------------------
 
 data RK4Solver = RK4Solver  { rk4StateVals :: LocalMap, rk4Delta1Vals :: LocalMap, rk4Delta2Vals :: LocalMap
                             , rk4Delta3Vals :: LocalMap, rk4Delta4Vals :: LocalMap}
 
 instance OdeSolver RK4Solver where
-    genVals ids = do    -- create the vals
+    genVals ids _ = do    -- create the vals
         stateRefMap <- createVals ids "StateRef"
         deltaRef1Map <- createVals ids "DeltaRef1"
         deltaRef2Map <- createVals ids "DeltaRef2"

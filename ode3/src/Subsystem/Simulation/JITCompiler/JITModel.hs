@@ -181,7 +181,7 @@ genVar (Tuple vs) = do
 -- Basic vars
 genVar (Num n) = return $ constReal doubleType (FFI.CDouble n)
 genVar (Boolean b) = return $ constInt int1Type (FFI.fromBool b) False
-genVar Unit = return $ constInt int1Type 0 False -- we treat unit as Num 0 - will be optimised away as can never be called
+genVar Unit = return $ constFalse -- we treat unit as False, will be optimised away as can never be called
 genVar Time = curTimeVal <$> get
 -- wiener val => sqrt(dt)*rand(0,1)
 genVar Wiener = do

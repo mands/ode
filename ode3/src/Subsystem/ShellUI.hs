@@ -180,7 +180,7 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, simStartCmd,
       where
         f :: String -> Sh SysState ()
         f str | map toLower str == "em"          = modifyShellSt $ set (lSdeSolver . lSimParams) EM
-        f str | map toLower str == "reflectedem" = modifyShellSt $ set (lSdeSolver . lSimParams) ReflectedEM
+        f str | map toLower str == "projem" = modifyShellSt $ set (lSdeSolver . lSimParams) ProjEM
         f _ = shellPutInfoLn "Possible options <em, reflectedem>"
 
     simBackendCmd = cmd "backend" f "Simulation backend to use <interpreter, jitcompiler, aotcompiler>"

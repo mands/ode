@@ -3,6 +3,7 @@
 
 // sim backend params
 :odeSolver "euler"
+:sdeSolver "projem"
 // linker - dynamic, static
 :linker "dynamic"
 // disable exe
@@ -58,7 +59,15 @@ import SimTests.Sdes.*
 :timestep 0.00001
 :output "./output_Sde5.bin"
 //:output "/dev/null"
-:simulate Sde5
+//:simulate Sde5
+
+:startTime 0
+:stopTime 2
+:period 0.0001
+:timestep 0.0000001
+:output "./output_Sde6.bin"
+//:output "/dev/null"
+:simulate Sde6
 
 //all done
 :quit
