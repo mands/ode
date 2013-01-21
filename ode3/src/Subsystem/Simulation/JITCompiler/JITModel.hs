@@ -72,11 +72,12 @@ genModelRHS loopExprs simOps curTimeVal stateValMap deltaRefMap wienerRefMap = d
     -- generate the output LocalMaps
     mapM_ (genOutput builder) simOps
   where
+    genOutput :: Builder -> SimOp -> GenM ()
     genOutput builder (Ode initId (VarRef deltaId)) = do
         deltaVal <- lookupId deltaId
         let deltaOutRef = deltaRefMap Map.! initId
         trace' [MkSB deltaVal, MkSB deltaOutRef] "ODE delta vals" $ return ()
-        liftIO $ buildStore builder deltaVal deltaOutRef
+        liftIO . void $ buildStore builder deltaVal deltaOutRef
 
     genOutput builder (Sde initId (VarRef wienerId) (VarRef deltaId)) = do
         deltaVal <- lookupId deltaId
@@ -85,13 +86,15 @@ genModelRHS loopExprs simOps curTimeVal stateValMap deltaRefMap wienerRefMap = d
 
         wienerVal <- lookupId wienerId
         let wienerOutRef = wienerRefMap Map.! initId
-        liftIO $ buildStore builder wienerVal wienerOutRef
+        liftIO . void $ buildStore builder wienerVal wienerOutRef
 
-    genOutput _ simOp = errorDump [MkSB simOp] "Not supported by this simulation backend" assert
+    genOutput _ simOp = trace' [MkSB simOp] "RRE op found in genModelRHS - ignoring" $ return ()
 
 
 -- a top-level wrapper to setup the initate state, and generate code to evlaute an expression map
 -- returns the map containing all top-level values
+-- NOTE - this clears all state from the localmap except the state values, hence can be called multiple times and
+-- generates a new env
 genExprEval :: ExprMap -> LLVM.Value -> LocalMap -> GenM ()
 genExprEval exprMap curTimeVal stateValMap = do
     GenState {builder} <- get

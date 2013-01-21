@@ -358,18 +358,21 @@ shSimulate initMod = do
     -- TODO - should this be placed elsewhere?
     checkParams :: SimParams -> MExcept ()
     checkParams SimParams{..} = do
+        let simDuration = _stopTime - _startTime
         when (_outputPeriod < _timestep)
             (throwError $ printf "Output period (%g) must be equal or greater to timestep (%g)\n" _outputPeriod _timestep)
         when ((_backend == ObjectFile || _odeSolver == Adaptive) && _maxTimestep < _timestep)
             (throwError $ printf "Max timestep (%g) must be equal or greater to timestep (%g)\n" _maxTimestep _timestep)
         when (_stopTime <= _startTime)
             (throwError $ printf "Stop time (%g) must be greater than start time (%g)\n" _stopTime _startTime)
-        when (_timestep > (_stopTime - _startTime))
-            (throwError $ printf "Timestep (%g) must be smaller or equal to simulation time interval (%g)\n" _timestep (_stopTime - _startTime))
+        when (_timestep > simDuration)
+            (throwError $ printf "Timestep (%g) must be smaller or equal to simulation time interval (%g)\n" _timestep simDuration)
         when (_startTime < 0)
             (throwError $ printf "Start time (%g) cannot be negative \n" _startTime)
         when (_timestep < 0 || _maxTimestep < 0)
             (throwError $ printf "Timesteps (%g, %g) cannot be negative \n" _timestep _maxTimestep)
+        when (simDuration / _timestep > 2 ** 52) -- 2** 52 = max int in a GHC double
+            (throwError $ printf "Timestep (%g) is too small for the time duration (%g), not supported by fixed solvers\n" _timestep simDuration)
 
         return ()
 

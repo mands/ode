@@ -487,13 +487,12 @@ createSimParams outDataSize = do
 
 
 -- | Write the current time and STATE to disk
+-- TODO - update to use gatherArray
 writeOutData :: LLVM.Value -> LLVM.Value -> [LLVM.Value] -> GenM ()
 writeOutData outStateArray curTimeRef stateRefs = do
     GenState {builder, libOps} <- get
     -- fill the state array
-    forM_ (zip [0..] stateRefs) $ \(i, ptrVal) -> liftIO $ do
-        outV <- buildInBoundsGEP builder outStateArray [constInt64 0, constInt64 i] $ "stateArrayPtr" ++ (show i)
-        withPtrVal builder ptrVal $ \loadV -> liftIO $ buildStore builder loadV outV
+    liftIO $ gatherArray builder outStateArray stateRefs
     -- write to output func
     simStateArrayPtr <- liftIO $ buildInBoundsGEP builder outStateArray [constInt64 0, constInt64 0] $ "storeOutPtr"
     liftIO $ withPtrVal builder curTimeRef $ \curTimeVal ->

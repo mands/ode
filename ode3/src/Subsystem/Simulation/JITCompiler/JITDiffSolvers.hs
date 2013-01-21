@@ -104,6 +104,7 @@ instance OdeSolver EulerSolver where
                     dValTime <- buildFMul builder dVal (constDouble $ L.get Sys.lTimestep simParams) "deltaTime"
                     buildFAdd builder stateVal dValTime "newState"
 
+        updateState builder simParams _ = return ()
 
 
 -- Euler Maruyama (SDE) Solver --------------------------------------------------------------------------------------------------------

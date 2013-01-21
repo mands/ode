@@ -312,17 +312,15 @@ setFuncParam f idx attrs = do
 gatherArray :: Builder -> LLVM.Value -> [LLVM.Value] -> IO ()
 gatherArray builder arr valRefs = do
     forM_ (zip valRefs [0..]) $ \(valRef, idx) -> do
-        arrRef <- buildInBoundsGEP builder arr [constInt64 0, constInt64 idx] "arrRef"
-        withPtrVal builder valRef $ \val -> do
-            buildStore builder val arrRef
+        arrRef <- buildInBoundsGEP builder arr [constInt64 0, constInt64 idx] $ "arrRef" ++ (show idx)
+        withPtrVal builder valRef $ \val -> buildStore builder val arrRef
 
 -- save the data from an array into the list of value refs of the same size
 scatterArray :: Builder -> LLVM.Value -> [LLVM.Value] -> IO ()
 scatterArray builder arr valRefs = do
     forM_ (zip valRefs [0..]) $ \(valRef, idx) -> do
-        arrRef <- buildInBoundsGEP builder arr [constInt64 0, constInt64 idx] "arrRef"
-        withPtrVal builder arrRef $ \arrVal -> do
-            buildStore builder arrVal valRef
+        arrRef <- buildInBoundsGEP builder arr [constInt64 0, constInt64 idx] $ "arrRef" ++ (show idx)
+        withPtrVal builder arrRef $ \arrVal -> buildStore builder arrVal valRef
 
 
 --runFunction' :: LLVM.ExecutionEngine -> LLVM.Value -> [LFFI.GenericValue] -> IO LFFI.GenericValue

@@ -1,0 +1,23 @@
+module Hybrid1 {
+
+    init x = 0
+
+    init y = 1000
+    init z = 0
+    reaction { rate: 0.5 } = y -> z
+
+    ode {initVal : x, deltaVal : dx } = 5 * y
+}
+
+module Hybrid2 {
+
+    init x = 0
+
+    init y = 1
+    init z = 0
+    reaction { rate: 0.5 } = y -> z
+    reaction { rate: 0.5 } = z -> y
+
+    ode {initVal : x, deltaVal : dx } = 5 * y
+}
+
