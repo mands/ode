@@ -186,14 +186,13 @@ genHybridSolver odeMod@CF.Module{..} = do
         createSSALoopBody breakBB = do
             GenState {builder, curFunc, simParams, libOps} <- get
 
-
             -- SSA - calc sum Props using new SSATime
             -- run the loop exprs (for dyn rate values)
             evalExprs ssaTimeRef stateRefMap
             -- update sumprops
             sumPropensities sumPropRef stateRefMap
 
-            -- SSA - cont if sumProps >= 0
+            -- SSA - cont only if sumProps >= 0
             contStmt builder curFunc breakBB $ \builder -> do
                 liftIO $ withPtrVal builder sumPropRef $ \sumProp -> buildFCmp builder FPOGT sumProp constZero "propCheck"
 

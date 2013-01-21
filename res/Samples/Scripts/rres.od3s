@@ -19,7 +19,7 @@
 //:vecMath
 :mathLib "gnu"
 // backend to use - interpreter, jitcompiler, aotcompiler, obj, cvode
-:backend "interpreter"
+:backend "aotcompiler"
 
 // setup the repo
 :addRepo ../res/Samples/repo
@@ -36,9 +36,9 @@ import SimTests.Rres.*
 :period 0.1
 :output "./output_Rre1.bin"
 :exeOutput "Rre1"
-:simulate Rre1
+//:simulate Rre1
 
-:period 0.001
+:period 0.1
 :stopTime 100
 :output "./output_Rre2.bin"
 :exeOutput "Rre2"
@@ -48,7 +48,7 @@ import SimTests.Rres.*
 :stopTime 500
 :output "./output_Rre3.bin"
 :exeOutput "Rre3"
-:simulate Rre3
+//:simulate Rre3
 
 
 // all done

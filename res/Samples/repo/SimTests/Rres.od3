@@ -39,7 +39,7 @@ module Rre2 {
     
     // r1 = x + y1 -> x + 2y1 (rate : 10)
     // prey w/ static birth rate (thus can grow unbounded if all predators die)
-    reaction { rate : 10, reaction: x + y1 -> x + 2.y1 }
+    reaction { rate : 10 } = x + y1 -> x + 2.y1
 
     // r2 = y1 + y2 -> 2y2 (rate : 0.01)
     // predator - created in responce to prey
