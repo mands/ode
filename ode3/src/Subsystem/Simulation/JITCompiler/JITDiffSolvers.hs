@@ -197,10 +197,10 @@ instance OdeSolver ProjSolver where
         -- run the max/min state val check
         projBB <- liftIO $ appendBasicBlock curFunc "projBB"
         endBB <- liftIO $ appendBasicBlock curFunc "endBB"
-        liftIO $ stateMinMaxCheck builder curFunc projBB endBB
+        stateMinMaxCheck builder curFunc projBB endBB
         -- _ <- liftIO $ buildBr builder projBB
         -- now run the projection function for all init vals bound to SDEs (not just groups)
-        liftIO $ genProjVal builder libOps projBB endBB
+        genProjVal builder libOps projBB endBB
 
       where
         updateState :: Builder -> Sys.SimParams -> LibOps -> SimOp -> IO ()
@@ -223,17 +223,17 @@ instance OdeSolver ProjSolver where
                         buildFAdd builder stateVal state1 "state2"
 
         -- run the project function
-        genProjVal :: Builder -> LibOps -> BasicBlock -> BasicBlock -> IO ()
+        genProjVal :: Builder -> LibOps -> BasicBlock -> BasicBlock -> GenM ()
         genProjVal builder libOps projBB endBB = do
-            liftIO $ positionAtEnd builder projBB
+            positionAtEnd' builder projBB
             -- store the values in the array
-            gatherArray builder projArr projIds
+            liftIO $ gatherArray builder projArr projIds
             -- call the project function
-            arrRef <- buildInBoundsGEP builder projArr [constInt64 0, constInt64 0] "arrRef"
-            _ <- buildCall builder (libOps Map.! "OdeProjectVector") [arrRef, projArrSize] ""
+            arrRef <- liftIO $ buildInBoundsGEP builder projArr [constInt64 0, constInt64 0] "arrRef"
+            liftIO . void $ buildCall builder (libOps Map.! "OdeProjectVector") [arrRef, projArrSize] ""
             -- unload the values from the array
-            scatterArray builder projArr projIds
-            buildBr builder endBB
+            liftIO $ scatterArray builder projArr projIds
+            liftIO $ buildBr builder endBB
             return ()
 
         -- find the valueRef of all stateVals pointed to by an SDE
@@ -241,23 +241,23 @@ instance OdeSolver ProjSolver where
         projArrSize = constInt64 $ length projIds
 
         -- min and max checks
-        stateMinMaxCheck :: Builder -> LLVM.Value -> BasicBlock -> BasicBlock -> IO ()
+        stateMinMaxCheck :: Builder -> LLVM.Value -> BasicBlock -> BasicBlock -> GenM ()
         stateMinMaxCheck builder curFunc projBB endBB = do
             startBB <- liftIO $ appendBasicBlock curFunc "startBB"
             liftIO $ buildBr builder startBB
-            liftIO $ positionAtEnd builder startBB
+            positionAtEnd' builder startBB
             -- run the loop
             forM projIds $ \projIdRef -> do
                 withPtrVal builder projIdRef $ \projId -> do
-                    gtZero <- buildFCmp builder FPOGE projId constZero "greaterZero"
-                    lsOne <- buildFCmp builder FPOLE projId constOne "lesssOne"
-                    inBounds <- buildAnd builder gtZero lsOne "inBounds"
+                    gtZero <- liftIO $ buildFCmp builder FPOGE projId constZero "greaterZero"
+                    lsOne <- liftIO $ buildFCmp builder FPOLE projId constOne "lesssOne"
+                    inBounds <- liftIO $ buildAnd builder gtZero lsOne "inBounds"
 
                     nextBB <- liftIO $ appendBasicBlock curFunc "nextBB"
-                    buildCondBr builder inBounds nextBB projBB
-                    liftIO $ positionAtEnd builder nextBB
+                    liftIO $ buildCondBr builder inBounds nextBB projBB
+                    positionAtEnd' builder nextBB
             -- brnach to end
-            buildBr builder endBB
+            liftIO $ buildBr builder endBB
             return ()
 
 

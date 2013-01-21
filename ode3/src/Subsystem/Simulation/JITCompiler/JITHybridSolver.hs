@@ -87,7 +87,7 @@ genHybridSolver odeMod@CF.Module{..} = do
     -- create the main solver loop
     doWhileStmt builder curFunc
         -- doBody
-        (\builder ->  createSolverLoopBody solver odeMod simParamVs ssaVs >> (liftIO $ buildNoOp builder))
+        (createSolverLoopBody solver odeMod simParamVs ssaVs)
         -- doCond
         (\builder _ ->  do
             liftIO $ withPtrVal builder curTimeRef $ \curTime -> do
@@ -105,9 +105,9 @@ genHybridSolver odeMod@CF.Module{..} = do
 
     -- | Create the main body of the solver loop
     createSolverLoopBody  :: (OdeSolver a) => a -> CF.Module -> (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value) ->
-        (LLVM.Value, LLVM.Value) -> GenM ()
-    createSolverLoopBody solver odeMod simParamVs@(curPeriodRef, curLoopRef, curTimeRef, outStateArray) ssaVs@(sumPropRef, ssaTimeRef) = do
-        GenState {builder, curFunc, simParams, libOps} <- get
+        (LLVM.Value, LLVM.Value) -> Builder -> BasicBlock -> GenM LLVM.Value
+    createSolverLoopBody solver odeMod simParamVs@(curPeriodRef, curLoopRef, curTimeRef, outStateArray) ssaVs@(sumPropRef, ssaTimeRef) builder breakBB = do
+        GenState {curFunc, simParams, libOps} <- get
         -- get the state vals
         let stateRefMap = getStateVals solver
         -- SSA - store cur time in ssaTimeRef
@@ -143,8 +143,8 @@ genHybridSolver odeMod@CF.Module{..} = do
 
         liftIO $ withPtrVal builder curTimeRef $ \curTime ->
             debugStmt builder libOps "Ran Ode - time : %g\n" [curTime]
-
-        return ()
+        -- return noop
+        liftIO $ buildNoOp builder
 
 
     -- SSA Code --------------------------------------------------------------------------------------------------------
@@ -165,7 +165,6 @@ genHybridSolver odeMod@CF.Module{..} = do
     runSSA odeMod stateRefMap curTimeRef (sumPropRef, ssaTimeRef) = do
         GenState {builder, curFunc} <- get
         -- SSA - loop converted to run until dt only, not adjustedStopTime
-        breakBB <- liftIO $ appendBasicBlock curFunc "breakBB"
 
         -- create the main solver loop - use while stmt
         whileStmt builder curFunc
@@ -175,16 +174,13 @@ genHybridSolver odeMod@CF.Module{..} = do
                 liftIO $ withPtrVal builder curTimeRef $ \curTime ->
                     buildFCmp builder FPOLT ssaTime curTime "bWhileTime")
             -- whileBody
-            (\builder ->  createSSALoopBody breakBB >> (liftIO $ buildNoOp builder))
-        -- branch to end BB
-        liftIO $ buildBr builder breakBB
-        liftIO $ positionAtEnd builder breakBB
+            (createSSALoopBody)
 
       where
         -- | Create the main body of the SSA solver loop
-        createSSALoopBody  :: BasicBlock -> GenM ()
-        createSSALoopBody breakBB = do
-            GenState {builder, curFunc, simParams, libOps} <- get
+        createSSALoopBody  :: Builder -> BasicBlock -> GenM LLVM.Value
+        createSSALoopBody builder breakBB = do
+            GenState {curFunc, simParams, libOps} <- get
 
             -- SSA - calc sum Props using new SSATime
             -- run the loop exprs (for dyn rate values)
@@ -217,8 +213,8 @@ genHybridSolver odeMod@CF.Module{..} = do
             liftIO $    withPtrVal builder sumPropRef $ \sumProp ->
                         withPtrVal builder ssaTimeRef $ \ssaTime ->
                             debugStmt builder libOps "Ran SSA - sumProp : %g, new SSA time : %g\n" [sumProp, ssaTime]
-
-            return ()
+            -- return a noop
+            liftIO $ buildNoOp builder
 
     chooseTimestep :: LLVM.Value -> GenM (LLVM.Value)
     chooseTimestep sumPropRef = do
@@ -247,13 +243,13 @@ genHybridSolver odeMod@CF.Module{..} = do
         startBB <- liftIO $ appendBasicBlock curFunc "start.TR"
         liftIO $ buildBr builder startBB
         checkTrigger builder curFunc endProp endBB constZero startBB rreSimOps -- gen code to both check if reaction is chosen and to handle trigger
-        liftIO $ positionAtEnd builder endBB
+        positionAtEnd' builder endBB
         return ()
       where
         -- manual fold over rres - as we need to ensure trigger occurs on last elem, plus codegen is a bit neater & optmised
         checkTrigger builder curFunc endProp endBB curProp curBB (rreOp@(CF.Rre srcs dests rate):simOps) = do
             GenState {libOps} <- get
-            liftIO $ positionAtEnd builder curBB
+            positionAtEnd' builder curBB
             reactionProp <- calcPropensity builder stateValsRefMap rreOp
             curProp' <- liftIO $ buildFAdd builder reactionProp curProp "accProp"
 
@@ -273,7 +269,7 @@ genHybridSolver odeMod@CF.Module{..} = do
                             return nextBB
 
             -- build triggerbb - actually trigger the reaction and update populations
-            liftIO $ positionAtEnd builder triggerBB
+            positionAtEnd' builder triggerBB
             mapM_ decPop srcs
             mapM_ incPop dests
             liftIO $ buildBr builder endBB -- we're done, jump to the endBB

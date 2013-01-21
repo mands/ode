@@ -208,7 +208,7 @@ genDiffSolver odeMod@CF.Module{..} = do
     -- create the main solver loop
     doWhileStmt builder curFunc
         -- doBody
-        (\builder ->  createSolverLoopBody solver odeMod simParamVs >> (liftIO $ buildNoOp builder))
+        (createSolverLoopBody solver odeMod simParamVs)
         -- doCond
         (\builder _ ->  do
             liftIO $ withPtrVal builder curTimeRef $ \curTime -> do
@@ -225,9 +225,10 @@ genDiffSolver odeMod@CF.Module{..} = do
     outDataSize = Map.size initVals
 
     -- | Create the main body of the solver loop
-    createSolverLoopBody  :: (OdeSolver a) => a -> CF.Module -> (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value) -> GenM ()
-    createSolverLoopBody solver odeMod (curPeriodRef, curLoopRef, curTimeRef, outStateArray) = do
-        GenState {builder, curFunc, simParams} <- get
+    createSolverLoopBody  :: (OdeSolver a) => a -> CF.Module -> (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value)
+        -> Builder -> BasicBlock -> GenM LLVM.Value
+    createSolverLoopBody solver odeMod (curPeriodRef, curLoopRef, curTimeRef, outStateArray) builder breakBB = do
+        GenState {curFunc, simParams} <- get
         let stateRefMap = getStateVals solver
         -- inc loop counter & calc the time
         liftIO $ updatePtrVal builder curLoopRef (\curLoop -> buildAdd builder curLoop (constInt64 1) "incCurLoop")
@@ -253,9 +254,8 @@ genDiffSolver odeMod@CF.Module{..} = do
             (\builder -> do
                 liftIO $ updatePtrVal builder curPeriodRef $ \curPeriod -> buildAdd builder curPeriod (constInt64 1) "incCurPeriod"
                 liftIO $ buildNoOp builder)
-
-        return ()
-
+        -- return noop
+        liftIO $ buildNoOp builder
 
 -- | Generate the solver for simulations RREs using the SSA
 genSSASolver :: CF.Module -> GenM LLVM.Value
@@ -288,8 +288,6 @@ genSSASolver CF.Module{..} = do
                                            (constDouble $ L.get Sys.lOutputPeriod simParams) "nextOutputInitial"
     nextOutputRef <- liftIO $ buildAllocaWithInit builder nextOutputInitial doubleType "nextOutput"
 
-    breakBB <- liftIO $ appendBasicBlock curFunc "breakBB"
-
     -- create the main solver loop - use while stmt
     whileStmt builder curFunc
         -- whileCond
@@ -298,10 +296,7 @@ genSSASolver CF.Module{..} = do
                 -- debugStmt "While conds - sumProp : %g, time : %g\n" [dbgStr, sumProp, curTime]
                 buildFCmp builder FPOLT curTime (constDouble $ Sys.calcAdjustedStopTime simParams) "bWhileTime")
         -- whileBody
-        (\builder ->  createSolverLoopBody breakBB sumPropRef nextOutputRef stateRefMap simParamVs >> (liftIO $ buildNoOp builder))
-    -- branch to end BB
-    liftIO $ buildBr builder breakBB
-    liftIO $ positionAtEnd builder breakBB
+        (createSolverLoopBody sumPropRef nextOutputRef stateRefMap simParamVs)
 
     -- end sim
     _ <- liftIO $ buildCall builder (libOps Map.! "OdeStopSim") [] ""
@@ -327,9 +322,10 @@ genSSASolver CF.Module{..} = do
 
 
     -- | Create the main body of the SSA solver loop
-    createSolverLoopBody  :: BasicBlock -> LLVM.Value -> LLVM.Value -> LocalMap -> (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value) -> GenM ()
-    createSolverLoopBody  breakBB sumPropRef nextOutputRef stateRefMap (curPeriodRef, curLoopRef, curTimeRef, outStateArray) = do
-        GenState {builder, curFunc, simParams} <- get
+    createSolverLoopBody  :: LLVM.Value -> LLVM.Value -> LocalMap -> (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value)
+        -> Builder -> BasicBlock -> GenM LLVM.Value
+    createSolverLoopBody sumPropRef nextOutputRef stateRefMap (curPeriodRef, curLoopRef, curTimeRef, outStateArray) builder breakBB = do
+        GenState {curFunc, simParams} <- get
 
         -- run the loop exprs (for dyn rate values)
         evalExprs curTimeRef stateRefMap
@@ -371,7 +367,8 @@ genSSASolver CF.Module{..} = do
             -- ifFalse
             (\builder -> liftIO $ buildNoOp builder)
 
-        return ()
+        -- return a noop
+        liftIO $ buildNoOp builder
 
     chooseTimestep :: LLVM.Value -> GenM (LLVM.Value)
     chooseTimestep sumPropRef = do
@@ -397,12 +394,12 @@ genSSASolver CF.Module{..} = do
         startBB <- liftIO $ appendBasicBlock curFunc "start.TR"
         liftIO $ buildBr builder startBB
         checkTrigger builder curFunc endProp endBB constZero startBB simOps' -- gen code to both check if reaction is chosen and to handle trigger
-        liftIO $ positionAtEnd builder endBB
+        positionAtEnd' builder endBB
         return ()
       where
         -- manual fold over rres - as we need to ensure trigger occurs on last elem, plus codegen is a bit neater & optmised
         checkTrigger builder curFunc endProp endBB curProp curBB (rreOp@(CF.Rre srcs dests rate):simOps) = do
-            liftIO $ positionAtEnd builder curBB
+            positionAtEnd' builder curBB
             reactionProp <- calcPropensity builder stateValsRefMap rreOp
             curProp' <- liftIO $ buildFAdd builder reactionProp curProp "sumProp"
             triggerBB <- liftIO $ appendBasicBlock curFunc "trigger.TR"
@@ -419,7 +416,7 @@ genSSASolver CF.Module{..} = do
                             return nextBB
 
             -- build triggerbb - actually trigger the reaction and update populations
-            liftIO $ positionAtEnd builder triggerBB
+            positionAtEnd' builder triggerBB
             mapM_ decPop srcs
             mapM_ incPop dests
             liftIO $ buildBr builder endBB -- we're done, jump to the endBB
