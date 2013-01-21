@@ -15,7 +15,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Subsystem.Simulation.JITCompiler.JITSolver (
-genDiffSolver, genSSASolver, genAOTMain, genFFIParams, genFFIModelInitials, genFFIModelRHS
+genDiffSolver, genSSASolver, genAOTMain, genFFIParams, genFFIModelInitials, genFFIModelRHS,
+-- useful combinators
+createSimParams, writeOutData
 ) where
 
 -- Labels
@@ -103,6 +105,7 @@ genFFIParams numParams simType = do
         CF.SimODE   -> liftIO $ addGlobalWithInit llvmMod (constInt32 $ 0) int32Type True "OdeParamSimType"
         CF.SimSDE   -> liftIO $ addGlobalWithInit llvmMod (constInt32 $ 1) int32Type True "OdeParamSimType"
         CF.SimRRE   -> liftIO $ addGlobalWithInit llvmMod (constInt32 $ 2) int32Type True "OdeParamSimType"
+        CF.SimHybrid   -> liftIO $ addGlobalWithInit llvmMod (constInt32 $ 4) int32Type True "OdeParamSimType"
 
     -- model size
     liftIO $ addGlobalWithInit llvmMod (constInt64 $ numParams) int64Type True "OdeParamStateSize"

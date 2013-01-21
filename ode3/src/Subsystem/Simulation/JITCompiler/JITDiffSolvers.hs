@@ -260,8 +260,6 @@ instance OdeSolver ProjSolver where
             return ()
 
 
-
-
 -- RK4 Solver ----------------------------------------------------------------------------------------------------------
 
 data RK4Solver = RK4Solver  { rk4StateVals :: LocalMap, rk4Delta1Vals :: LocalMap, rk4Delta2Vals :: LocalMap

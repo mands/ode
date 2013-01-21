@@ -56,6 +56,7 @@ import Subsystem.Simulation.JITCompiler.JITCommon
 import Subsystem.Simulation.JITCompiler.JITSolver
 import Subsystem.Simulation.JITCompiler.JITShell
 import Subsystem.Simulation.JITCompiler.JITModel(genModelInitials, genModelRHS)
+import Subsystem.Simulation.JITCompiler.JITHybridSolver
 
 
 -- Entry ---------------------------------------------------------------------------------------------------------------

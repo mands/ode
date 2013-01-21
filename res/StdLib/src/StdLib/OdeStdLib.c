@@ -110,14 +110,24 @@ double OdeRandNormal(void) {
 // Solver Helper Functions /////////////////////////////////////////////////////////////////////////
 // used by the Reflected SDE Solver to project an array of doubles onto a simplex (0 < x_n < 1 and sum(x) == 1)
 // adapted from paper - "Projection Onto A Simplex" - Chen, Yunmei & Ye, Xiaojing
-int cmpInvDouble(const void * const x, const void * const y);
+int _cmpInvDouble(const void * const x, const void * const y);
+void _printArray(const double* const restrict xs, const uint64_t xsSize);
+
+void _printArray(const double* const restrict xs, const uint64_t xsSize) {
+    printf("[");
+    for (uint64_t i = 0; i < (xsSize-1); ++i) {
+        printf("%g, ", xs[i]);
+    }
+    printf("%g]\n", xs[xsSize-1]);
+}
 
 void OdeProjectVector(double* const restrict xs, const uint64_t xsSize) {
+    //_printArray(xs, xsSize);
     // stack-alloc the tmp array  - should be fine as array not large, plus v.quick, only dec the SP
     double ss[xsSize];
     // sort into decending order in new array s
     memcpy(ss, xs, xsSize * sizeof(double));
-    qsort(ss, xsSize, sizeof(double), cmpInvDouble);
+    qsort(ss, xsSize, sizeof(double), _cmpInvDouble);
 
     // iterate over y elems w/ running sum
     double tmpSum = 0;
@@ -138,11 +148,11 @@ finish:
     for (uint64_t i = 0; i < xsSize; ++i) {
         xs[i] = fmax(xs[i] - tMax, 0);
     }
-
+    //_printArray(xs, xsSize);
 }
 
 // double compare fucntion for qsort
-int cmpInvDouble(const void * const x, const void * const y) {
+int _cmpInvDouble(const void * const x, const void * const y) {
     double xx = *(double*)x, yy = *(double*)y;
     if (xx < yy) return 1;
     if (xx > yy) return -1;

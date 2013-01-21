@@ -80,7 +80,7 @@ void solverRun(double* const restrict state) {
             // update the state - y' = y + dy*h + dW*sqrt(h)*rand
             for (stateIdx = 0; stateIdx < OdeParamStateSize; ++stateIdx) {
                 state[stateIdx] += (delta[stateIdx] * OdeParamTimestep)
-                        + (weiner[stateIdx]*sqrtTimestep*OdeRandNormal());
+                        + (weiner[stateIdx]); // wiener val already includes *sqrt(dt)*OdeRandNormal()
                 //printf("Weiner - %g\n", weiner[stateIdx]);
             }
             break;

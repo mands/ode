@@ -57,7 +57,8 @@ extern const char OdeParamOutput[];
 enum OdeParamSimTypes {
     Ode = 0,
     Sde = 1,
-    Rre = 2
+    Rre = 2,
+    Hybrid = 2
 };
 
 extern const enum OdeParamSimTypes OdeParamSimType;

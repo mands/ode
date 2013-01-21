@@ -31,6 +31,9 @@ void dumpParams(void) {
     case Rre:
         printf("OdeParamSimType\t\t\t- %s\n", "RRE");
         break;
+    case Hybrid:
+        printf("OdeParamSimType\t\t\t- %s\n", "Hybrid");
+        break;
     }
 
     puts("\nOde Model Timing");

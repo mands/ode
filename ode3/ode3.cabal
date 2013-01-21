@@ -33,16 +33,16 @@ executable ion
                 DisambiguateRecordFields OverloadedStrings GADTs GADTSyntax
                 DeriveFunctor DeriveTraversable DeriveFoldable
     hs-source-dirs: src
-    other-modules: Parser.Ode Parser.Common Parser.Module
-                   Utils.CommonImports Utils.Utils Utils.ShellHandleBackend
-                   Utils.OrdMap Utils.OrdSet Utils.MonadSupply Utils.Graph
-                   Subsystem.ShellUI Subsystem.Types Subsystem.ModDriver
-                   Subsystem.Units Subsystem.SysState Subsystem.Units.UnitsDims
-                   Subsystem.Units.Conversion Subsystem.Units.Builtins
-                   Subsystem.ModDriver.ModCmd Subsystem.ModDriver.ModDef
-                   Subsystem.Simulation.Interpreter Subsystem.Simulation.Common
-                   Process.TypeChecker Process.Desugarer Process.Validator
-                   Process.Flatten Process.Renamer Process.Reorderer
+    other-modules: Subsystem.Simulation.JITCompiler.JITHybridSolver
+                   Parser.Ode Parser.Common Parser.Module Utils.CommonImports
+                   Utils.Utils Utils.ShellHandleBackend Utils.OrdMap Utils.OrdSet
+                   Utils.MonadSupply Utils.Graph Subsystem.ShellUI Subsystem.Types
+                   Subsystem.ModDriver Subsystem.Units Subsystem.SysState
+                   Subsystem.Units.UnitsDims Subsystem.Units.Conversion
+                   Subsystem.Units.Builtins Subsystem.ModDriver.ModCmd
+                   Subsystem.ModDriver.ModDef Subsystem.Simulation.Interpreter
+                   Subsystem.Simulation.Common Process.TypeChecker Process.Desugarer
+                   Process.Validator Process.Flatten Process.Renamer Process.Reorderer
                    Process.TypeChecker.Unification Process.TypeChecker.ConstraintGen
                    Process.TypeChecker.Common Process.Flatten.OptimiseAST
                    Process.Flatten.ConvertAST Process.Flatten.UnpackTuples
@@ -68,15 +68,15 @@ executable ode3
                 DisambiguateRecordFields OverloadedStrings GADTs GADTSyntax
                 DeriveFunctor DeriveTraversable DeriveFoldable
     hs-source-dirs: src
-    other-modules: Parser.Ode Parser.Common Parser.Module
-                   Utils.CommonImports Utils.Utils Utils.ShellHandleBackend
-                   Utils.OrdMap Utils.OrdSet Utils.MonadSupply Utils.Graph
-                   Subsystem.ShellUI Subsystem.Types Subsystem.ModDriver
-                   Subsystem.Units Subsystem.SysState Subsystem.Units.UnitsDims
-                   Subsystem.Units.Conversion Subsystem.Units.Builtins
-                   Subsystem.ModDriver.ModCmd Subsystem.ModDriver.ModDef
-                   Subsystem.Simulation.Interpreter Subsystem.Simulation.JITCompiler
-                   Subsystem.Simulation.Common
+    other-modules: Subsystem.Simulation.JITCompiler.JITHybridSolver
+                   Parser.Ode Parser.Common Parser.Module Utils.CommonImports
+                   Utils.Utils Utils.ShellHandleBackend Utils.OrdMap Utils.OrdSet
+                   Utils.MonadSupply Utils.Graph Subsystem.ShellUI Subsystem.Types
+                   Subsystem.ModDriver Subsystem.Units Subsystem.SysState
+                   Subsystem.Units.UnitsDims Subsystem.Units.Conversion
+                   Subsystem.Units.Builtins Subsystem.ModDriver.ModCmd
+                   Subsystem.ModDriver.ModDef Subsystem.Simulation.Interpreter
+                   Subsystem.Simulation.JITCompiler Subsystem.Simulation.Common
                    Subsystem.Simulation.JITCompiler.JITShell
                    Subsystem.Simulation.JITCompiler.JITSolver
                    Subsystem.Simulation.JITCompiler.JITModel
