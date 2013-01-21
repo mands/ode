@@ -434,3 +434,13 @@ whileStmt builder curFunc condF bodyF = do
     -- leave loop
     liftIO $ positionAtEnd builder whileEndBB
     setBB whileEndBB
+
+
+-- | Takes a condition and continues only if cond is true, else breaks to the given breakBB
+contStmt :: Builder -> LLVM.Value -> BasicBlock -> (Builder -> GenM LLVM.Value) -> GenM ()
+contStmt builder curFunc breakBB condF = do
+    contBB <- liftIO $ appendBasicBlock curFunc "contBB"
+    cond <- condF builder
+    liftIO $ buildCondBr builder cond contBB breakBB
+    liftIO $ positionAtEnd builder contBB
+

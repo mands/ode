@@ -147,36 +147,30 @@ genHybridSolver odeMod@CF.Module{..} = do
     -- SSA Code --------------------------------------------------------------------------------------------------------
 
     rreSimOps = filter (\op -> case op of (CF.Rre _ _ _) -> True; _ -> False) simOps
+
+    -- alloc vars needed for SSA loop
     initSSA :: LLVM.Value -> LocalMap -> GenM (LLVM.Value, LLVM.Value)
     initSSA curTimeRef stateRefMap = do
         GenState {builder} <- get
-        -- SSA - eval init expr using start time/global time
-        evalExprs curTimeRef stateRefMap
-        sumPropRef <- liftIO $ buildAlloca builder doubleType "sumProp"
         ssaTimeRef <- liftIO $ buildAlloca builder doubleType "ssaTime"
-        sumPropensities sumPropRef stateRefMap
+        sumPropRef <- liftIO $ buildAlloca builder doubleType "sumProp"
         return (sumPropRef, ssaTimeRef)
 
 
     -- SSA - runs an SSA from t -> t + dt, for all RRE simOps - this code taken direct from SSA solver, needs to be integrated properly
     runSSA :: CF.Module -> LocalMap -> LLVM.Value -> (LLVM.Value, LLVM.Value) -> GenM ()
-    runSSA odeMod stateRefMap curTimeRef ssaVs@(sumPropRef, ssaTimeRef) = do
+    runSSA odeMod stateRefMap curTimeRef (sumPropRef, ssaTimeRef) = do
         GenState {builder, curFunc} <- get
         -- SSA - loop converted to run until dt only, not adjustedStopTime
         breakBB <- liftIO $ appendBasicBlock curFunc "breakBB"
 
         -- create the main solver loop - use while stmt
         whileStmt builder curFunc
-            -- whileCond, ssaTime <= curTime & sumProps > 0
+            -- whileCond, ssaTime < curTime
             (\builder ->
                 liftIO $ withPtrVal builder ssaTimeRef $ \ssaTime ->
                 liftIO $ withPtrVal builder curTimeRef $ \curTime ->
-                liftIO $ withPtrVal builder sumPropRef $ \sumProp -> do
-                    -- dbgStr <- buildGlobalStringPtr builder "While conds - sumProp : %g, time : %g\n" "dbgStr"
-                    -- _ <- buildCall builder (libOps Map.! "printf") [dbgStr, sumProp, curTime] ""
-                    cond1 <- buildFCmp builder FPOGT sumProp constZero "bSumPropPos"
-                    cond2 <- buildFCmp builder FPOLT ssaTime curTime "bWhileTime"
-                    buildAnd builder cond1 cond2 "bAllConds")
+                    buildFCmp builder FPOLT ssaTime curTime "bWhileTime")
             -- whileBody
             (\builder ->  createSSALoopBody breakBB >> (liftIO $ buildNoOp builder))
         -- branch to end BB
@@ -188,16 +182,26 @@ genHybridSolver odeMod@CF.Module{..} = do
         createSSALoopBody  :: BasicBlock -> GenM ()
         createSSALoopBody breakBB = do
             GenState {builder, curFunc, simParams} <- get
+
+            -- SSA - calc sum Props using new SSATime
+            -- run the loop exprs (for dyn rate values)
+            evalExprs ssaTimeRef stateRefMap
+            -- update sumprops
+            sumPropensities sumPropRef stateRefMap
+
+            -- SSA - cont if sumProps >= 0
+            contStmt builder curFunc breakBB $ \builder -> do
+                liftIO $ withPtrVal builder sumPropRef $ \sumProp -> buildFCmp builder FPOGT sumProp constZero "propCheck"
+
+            -- choose timestep (constly, so break earlier when poss)
             tau <- chooseTimestep sumPropRef
 
-            -- SSA todo - break out if tau + ssaTime > curTime
-            contBB <- liftIO $ appendBasicBlock curFunc "contBB"
-            liftIO $    withPtrVal builder ssaTimeRef $ \ssaTime ->
-                        withPtrVal builder curTimeRef $ \curTime -> do
-                            ssaTime' <- buildFAdd builder ssaTime tau "nextSSATime"
-                            cond <- buildFCmp builder FPOLE ssaTime' curTime "tauCheck"
-                            buildCondBr builder cond contBB breakBB
-                            positionAtEnd builder contBB
+            -- SSA - cont if tau + ssaTime <= curTime
+            contStmt builder curFunc breakBB $ \builder -> do
+                liftIO $    withPtrVal builder ssaTimeRef $ \ssaTime ->
+                            withPtrVal builder curTimeRef $ \curTime -> do
+                                ssaTime' <- buildFAdd builder ssaTime tau "nextSSATime"
+                                buildFCmp builder FPOLE ssaTime' curTime "tauCheck"
 
             -- choose and trigger reaction
             chooseTriggerReaction sumPropRef stateRefMap
@@ -205,12 +209,6 @@ genHybridSolver odeMod@CF.Module{..} = do
             -- update time
             liftIO $ updatePtrVal builder ssaTimeRef $ \ssaTime ->
                 buildFAdd builder ssaTime tau "incTime"
-
-            -- run the loop exprs (for dyn rate values)
-            -- SSA - using new SSATime
-            evalExprs ssaTimeRef stateRefMap
-            -- update sumprops
-            sumPropensities sumPropRef stateRefMap
 
             return ()
 
