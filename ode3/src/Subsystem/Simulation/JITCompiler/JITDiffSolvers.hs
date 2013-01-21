@@ -227,14 +227,13 @@ instance OdeSolver ProjSolver where
         genProjVal builder libOps projBB endBB = do
             positionAtEnd' builder projBB
             -- store the values in the array
-            liftIO $ gatherArray builder projArr projIds
+            gatherArray builder projArr projIds
             -- call the project function
             arrRef <- liftIO $ buildInBoundsGEP builder projArr [constInt64 0, constInt64 0] "arrRef"
             liftIO . void $ buildCall builder (libOps Map.! "OdeProjectVector") [arrRef, projArrSize] ""
             -- unload the values from the array
-            liftIO $ scatterArray builder projArr projIds
-            liftIO $ buildBr builder endBB
-            return ()
+            scatterArray builder projArr projIds
+            liftIO . void $ buildBr builder endBB
 
         -- find the valueRef of all stateVals pointed to by an SDE
         projIds = mapMaybe (\op -> case op of (Sde i _ _) -> Just (stateRefMap Map.! i); _ -> Nothing) simOps

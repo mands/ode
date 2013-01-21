@@ -269,8 +269,8 @@ constArray t llVs = withArrayLen llVs $ \len ptr ->
     return $ LFFI.constArray t ptr (fromIntegral len)
 
 -- | LLVM No-Op - sometimes needed for funcs a LLVM value is required (i.e. FP-style if stmts)
-buildNoOp :: Builder -> IO LLVM.Value
-buildNoOp builder = buildBitCast builder (constInt64 0) int64Type "noop"
+buildNoOp :: MonadIO m => Builder -> m LLVM.Value
+buildNoOp builder = liftIO $ buildBitCast builder (constInt64 0) int64Type "noop"
 
 -- | Add a global value, with initial value, to the module that may be set as constant
 addGlobalWithInit :: LLVM.Module -> LLVM.Value -> LLVM.Type -> Bool -> String -> IO LLVM.Value
@@ -283,8 +283,7 @@ addGlobalWithInit mod initVal typ isConst name = do
 updatePtrVal :: MonadIO m => Builder -> LLVM.Value -> (LLVM.Value -> m LLVM.Value) -> m ()
 updatePtrVal builder ptrVal updateFunc = do
     val' <- withPtrVal builder ptrVal updateFunc
-    _ <- liftIO $ buildStore builder val' ptrVal
-    return ()
+    liftIO . void $ buildStore builder val' ptrVal
 
 withPtrVal :: MonadIO m => Builder -> LLVM.Value -> (LLVM.Value -> m a) -> m a
 withPtrVal builder ptrVal runFunc = do
@@ -309,24 +308,24 @@ setFuncParam f idx attrs = do
 
 
 -- load a selection of value refs into an array iof the same size
-gatherArray :: Builder -> LLVM.Value -> [LLVM.Value] -> IO ()
-gatherArray builder arr valRefs = do
+gatherArray :: MonadIO m => Builder -> LLVM.Value -> [LLVM.Value] -> m ()
+gatherArray builder arr valRefs = liftIO $ do
     forM_ (zip valRefs [0..]) $ \(valRef, idx) -> do
         arrRef <- buildInBoundsGEP builder arr [constInt64 0, constInt64 idx] $ "arrRef" ++ (show idx)
         withPtrVal builder valRef $ \val -> buildStore builder val arrRef
 
 -- save the data from an array into the list of value refs of the same size
-scatterArray :: Builder -> LLVM.Value -> [LLVM.Value] -> IO ()
-scatterArray builder arr valRefs = do
+scatterArray :: MonadIO m => Builder -> LLVM.Value -> [LLVM.Value] -> m ()
+scatterArray builder arr valRefs = liftIO $ do
     forM_ (zip valRefs [0..]) $ \(valRef, idx) -> do
         arrRef <- buildInBoundsGEP builder arr [constInt64 0, constInt64 idx] $ "arrRef" ++ (show idx)
         withPtrVal builder arrRef $ \arrVal -> buildStore builder arrVal valRef
 
 -- | Wrapper around Printf - assumes vals are in correct form
-debugStmt :: Builder -> LibOps -> String -> [LLVM.Value] -> IO ()
-debugStmt builder libOps str vals = do
-    dbgStr <- liftIO $ buildGlobalStringPtr builder str "dbgStr"
-    liftIO . void $ buildCall builder (libOps Map.! "printf") (dbgStr : vals) ""
+debugStmt :: MonadIO m => Builder -> LibOps -> String -> [LLVM.Value] -> m ()
+debugStmt builder libOps str vals = liftIO $ do
+    dbgStr <- buildGlobalStringPtr builder str "dbgStr"
+    void $ buildCall builder (libOps Map.! "printf") (dbgStr : vals) ""
 
 
 

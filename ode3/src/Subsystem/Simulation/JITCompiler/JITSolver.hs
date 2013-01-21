@@ -253,9 +253,9 @@ genDiffSolver odeMod@CF.Module{..} = do
             -- ifFalse
             (\builder -> do
                 liftIO $ updatePtrVal builder curPeriodRef $ \curPeriod -> buildAdd builder curPeriod (constInt64 1) "incCurPeriod"
-                liftIO $ buildNoOp builder)
+                buildNoOp builder)
         -- return noop
-        liftIO $ buildNoOp builder
+        buildNoOp builder
 
 -- | Generate the solver for simulations RREs using the SSA
 genSSASolver :: CF.Module -> GenM LLVM.Value
@@ -363,12 +363,12 @@ genSSASolver CF.Module{..} = do
                     return curLoop'
                 -- write data
                 writeOutData outStateArray curTimeRef $ Map.elems stateRefMap
-                liftIO $ buildNoOp builder)
+                buildNoOp builder)
             -- ifFalse
-            (\builder -> liftIO $ buildNoOp builder)
+            (\builder -> buildNoOp builder)
 
         -- return a noop
-        liftIO $ buildNoOp builder
+        buildNoOp builder
 
     chooseTimestep :: LLVM.Value -> GenM (LLVM.Value)
     chooseTimestep sumPropRef = do
@@ -488,12 +488,11 @@ createSimParams outDataSize = do
 
 
 -- | Write the current time and STATE to disk
--- TODO - update to use gatherArray
 writeOutData :: LLVM.Value -> LLVM.Value -> [LLVM.Value] -> GenM ()
 writeOutData outStateArray curTimeRef stateRefs = do
     GenState {builder, libOps} <- get
     -- fill the state array
-    liftIO $ gatherArray builder outStateArray stateRefs
+    gatherArray builder outStateArray stateRefs
     -- write to output func
     simStateArrayPtr <- liftIO $ buildInBoundsGEP builder outStateArray [constInt64 0, constInt64 0] $ "storeOutPtr"
     liftIO $ withPtrVal builder curTimeRef $ \curTimeVal ->

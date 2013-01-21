@@ -28,7 +28,6 @@ import LLVM.Wrapper.Core as LLVM hiding (constGEP)
 import LLVM.Wrapper.BitWriter as LLVM
 import qualified LLVM.FFI.Core as LFFI
 
-
 import Data.Int
 import Data.Word
 import qualified Foreign as FFI
@@ -139,12 +138,12 @@ genHybridSolver odeMod@CF.Module{..} = do
             -- ifFalse
             (\builder -> do
                 liftIO $ updatePtrVal builder curPeriodRef $ \curPeriod -> buildAdd builder curPeriod (constInt64 1) "incCurPeriod"
-                liftIO $ buildNoOp builder)
+                buildNoOp builder)
 
         liftIO $ withPtrVal builder curTimeRef $ \curTime ->
             debugStmt builder libOps "Ran Ode - time : %g\n" [curTime]
         -- return noop
-        liftIO $ buildNoOp builder
+        buildNoOp builder
 
 
     -- SSA Code --------------------------------------------------------------------------------------------------------
@@ -214,7 +213,7 @@ genHybridSolver odeMod@CF.Module{..} = do
                         withPtrVal builder ssaTimeRef $ \ssaTime ->
                             debugStmt builder libOps "Ran SSA - sumProp : %g, new SSA time : %g\n" [sumProp, ssaTime]
             -- return a noop
-            liftIO $ buildNoOp builder
+            buildNoOp builder
 
     chooseTimestep :: LLVM.Value -> GenM (LLVM.Value)
     chooseTimestep sumPropRef = do
