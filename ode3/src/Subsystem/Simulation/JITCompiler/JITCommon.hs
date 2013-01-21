@@ -32,7 +32,7 @@ import qualified LLVM.FFI.ExecutionEngine as LFFI
 
 import Data.Int
 import Data.Word
-import Foreign
+import Foreign hiding (void)
 import Foreign.C
 
 import qualified Data.Foldable as DF
@@ -322,6 +322,13 @@ scatterArray builder arr valRefs = do
         arrRef <- buildInBoundsGEP builder arr [constInt64 0, constInt64 idx] $ "arrRef" ++ (show idx)
         withPtrVal builder arrRef $ \arrVal -> buildStore builder arrVal valRef
 
+-- | Wrapper around Printf - assumes vals are in correct form
+debugStmt :: Builder -> LibOps -> String -> [LLVM.Value] -> IO ()
+debugStmt builder libOps str vals = do
+    dbgStr <- liftIO $ buildGlobalStringPtr builder str "dbgStr"
+    liftIO . void $ buildCall builder (libOps Map.! "printf") (dbgStr : vals) ""
+
+
 
 --runFunction' :: LLVM.ExecutionEngine -> LLVM.Value -> [LFFI.GenericValue] -> IO LFFI.GenericValue
 --runFunction' ee f args
@@ -443,4 +450,6 @@ contStmt builder curFunc breakBB condF = do
     cond <- condF builder
     liftIO $ buildCondBr builder cond contBB breakBB
     liftIO $ positionAtEnd builder contBB
+
+
 

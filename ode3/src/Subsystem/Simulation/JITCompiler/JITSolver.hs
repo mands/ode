@@ -296,8 +296,7 @@ genSSASolver CF.Module{..} = do
         (\builder ->
             liftIO $ withPtrVal builder curTimeRef $ \curTime ->
             liftIO $ withPtrVal builder sumPropRef $ \sumProp -> do
-                -- dbgStr <- buildGlobalStringPtr builder "While conds - sumProp : %g, time : %g\n" "dbgStr"
-                -- _ <- buildCall builder (libOps Map.! "printf") [dbgStr, sumProp, curTime] ""
+                -- debugStmt "While conds - sumProp : %g, time : %g\n" [dbgStr, sumProp, curTime]
                 cond1 <- buildFCmp builder FPOGT sumProp constZero "bSumPropPos"
                 cond2 <- buildFCmp builder FPOLT curTime (constDouble $ Sys.calcAdjustedStopTime simParams) "bWhileTime"
                 buildAnd builder cond1 cond2 "bAllConds")

@@ -32,8 +32,8 @@ import SimTests.Hybrids.*
 // set sim params
 :startTime 0
 :stopTime 10
-:timestep 0.00001
-:period 0.001
+:timestep 1
+:period 1
 :output "./output.bin"
 :exeOutput "Hybrid1"
 :simulate Hybrid1

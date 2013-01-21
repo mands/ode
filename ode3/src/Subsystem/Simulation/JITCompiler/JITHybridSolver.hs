@@ -107,7 +107,7 @@ genHybridSolver odeMod@CF.Module{..} = do
     createSolverLoopBody  :: (OdeSolver a) => a -> CF.Module -> (LLVM.Value, LLVM.Value, LLVM.Value, LLVM.Value) ->
         (LLVM.Value, LLVM.Value) -> GenM ()
     createSolverLoopBody solver odeMod simParamVs@(curPeriodRef, curLoopRef, curTimeRef, outStateArray) ssaVs@(sumPropRef, ssaTimeRef) = do
-        GenState {builder, curFunc, simParams} <- get
+        GenState {builder, curFunc, simParams, libOps} <- get
         -- get the state vals
         let stateRefMap = getStateVals solver
         -- SSA - store cur time in ssaTimeRef
@@ -140,6 +140,9 @@ genHybridSolver odeMod@CF.Module{..} = do
             (\builder -> do
                 liftIO $ updatePtrVal builder curPeriodRef $ \curPeriod -> buildAdd builder curPeriod (constInt64 1) "incCurPeriod"
                 liftIO $ buildNoOp builder)
+
+        liftIO $ withPtrVal builder curTimeRef $ \curTime ->
+            debugStmt builder libOps "Ran Ode - time : %g\n" [curTime]
 
         return ()
 
@@ -181,7 +184,8 @@ genHybridSolver odeMod@CF.Module{..} = do
         -- | Create the main body of the SSA solver loop
         createSSALoopBody  :: BasicBlock -> GenM ()
         createSSALoopBody breakBB = do
-            GenState {builder, curFunc, simParams} <- get
+            GenState {builder, curFunc, simParams, libOps} <- get
+
 
             -- SSA - calc sum Props using new SSATime
             -- run the loop exprs (for dyn rate values)
@@ -201,6 +205,7 @@ genHybridSolver odeMod@CF.Module{..} = do
                 liftIO $    withPtrVal builder ssaTimeRef $ \ssaTime ->
                             withPtrVal builder curTimeRef $ \curTime -> do
                                 ssaTime' <- buildFAdd builder ssaTime tau "nextSSATime"
+                                debugStmt builder libOps "In SSA - curTime : %.6f, ssaTime : %.6f, tau : %.6f, nextSSATime - %.6f\n" [curTime, ssaTime, tau, ssaTime']
                                 buildFCmp builder FPOLE ssaTime' curTime "tauCheck"
 
             -- choose and trigger reaction
@@ -209,6 +214,10 @@ genHybridSolver odeMod@CF.Module{..} = do
             -- update time
             liftIO $ updatePtrVal builder ssaTimeRef $ \ssaTime ->
                 buildFAdd builder ssaTime tau "incTime"
+
+            liftIO $    withPtrVal builder sumPropRef $ \sumProp ->
+                        withPtrVal builder ssaTimeRef $ \ssaTime ->
+                            debugStmt builder libOps "Ran SSA - sumProp : %g, new SSA time : %g\n" [sumProp, ssaTime]
 
             return ()
 
@@ -232,6 +241,9 @@ genHybridSolver odeMod@CF.Module{..} = do
         endProp <- liftIO $ withPtrVal builder sumPropRef $ \sumProp ->
             buildFMul builder r2 sumProp "endProp"
 
+        liftIO $ debugStmt builder libOps "In SSA - endProp : %g\n" [endProp]
+
+
         endBB <- liftIO $ appendBasicBlock curFunc "end.TR"
         startBB <- liftIO $ appendBasicBlock curFunc "start.TR"
         liftIO $ buildBr builder startBB
@@ -241,9 +253,13 @@ genHybridSolver odeMod@CF.Module{..} = do
       where
         -- manual fold over rres - as we need to ensure trigger occurs on last elem, plus codegen is a bit neater & optmised
         checkTrigger builder curFunc endProp endBB curProp curBB (rreOp@(CF.Rre srcs dests rate):simOps) = do
+            GenState {libOps} <- get
             liftIO $ positionAtEnd builder curBB
             reactionProp <- calcPropensity builder stateValsRefMap rreOp
-            curProp' <- liftIO $ buildFAdd builder reactionProp curProp "sumProp"
+            curProp' <- liftIO $ buildFAdd builder reactionProp curProp "accProp"
+
+            liftIO $ debugStmt builder libOps "In SSA - accProp : %g\n" [curProp']
+
             triggerBB <- liftIO $ appendBasicBlock curFunc "trigger.TR"
             -- if we're on lastOp - reaction must be triggered
             nextBB <-   liftIO $ if lastOp then do
