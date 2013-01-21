@@ -396,7 +396,7 @@ genSSASolver CF.Module{..} = do
         liftIO $ positionAtEnd builder endBB
         return ()
       where
-        -- manual fold over rres - general case
+        -- manual fold over rres - as we need to ensure trigger occurs on last elem, plus codegen is a bit neater & optmised
         checkTrigger builder curFunc endProp endBB curProp curBB (rreOp@(CF.Rre srcs dests rate):simOps) = do
             liftIO $ positionAtEnd builder curBB
             reactionProp <- calcPropensity builder stateValsRefMap rreOp
