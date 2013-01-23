@@ -2,9 +2,9 @@ module Test3 {
     /* Externally called component to generate channel current */
     component getCurrent(V) {
         /* Setup initial values */
-        init X1 { output : false } = 0.3
-        init X2 = 0.2
-        init X3 = 0.6
+        init X1 = 6.0
+        init X2 = 4.0
+        init X3 = 0.0
         
         /* Temporary values to hold repeated/costly calculations */
         val _rate1 = (exp(V)/V    +3)
@@ -13,22 +13,13 @@ module Test3 {
         val _rate4 = (0.1)
         
         /* Setup state values (based on ODE/SDE/SSA form) */
-        /* Temporary values to hold repeated/costly calculations */
-        val _prop1 = sqrt(X3*_rate1+X2*_rate2)
-        val _prop2 = sqrt(X1*_rate3+X2*_rate4)
-        val _w1 = wiener
-        val _w2 = wiener
-        sde {initVal : X1
-            ,diffusion : -_prop2*_w2} = -(X1*_rate3)+X2*_rate4
-        sde {initVal : X2
-            ,diffusion : _prop1*_w1+_prop2*_w2} = -(X2*_rate4*_rate2)+X1*_rate3+X3*_rate1
-        sde {initVal : X3
-            ,diffusion : -_prop1*_w1} = -(X3*_rate1)+X2*_rate2
-
-        group { X1, X2, X3 }
+        reaction {rate : _rate1} = X3 -> X2
+        reaction {rate : _rate2} = X2 -> X3
+        reaction {rate : _rate3} = X1 -> X2
+        reaction {rate : _rate4} = X2 -> X1
         
         /* Calculate channel current */
-        val current = 7.0*1.0*(X3)*(V-1.0)
+        val current = 7.0*10.0*(X3)*(V-1.0)
         return current
         }
     }

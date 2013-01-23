@@ -50,7 +50,7 @@ genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
     compComment = comment "Externally called component to generate channel current"
 
     -- initial vals
-    initVals = initComment <$> (vsep . map genInitVal $ initialStates)
+    initVals = initComment <$> (vsep . map genInitVal $ getInitialVals ionChan)
       where
         genInitVal (stateId, val) = text "init" <+> text stateId <+> text "=" <+> double val
         initComment = comment "Setup initial values"

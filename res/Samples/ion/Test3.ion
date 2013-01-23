@@ -2,12 +2,12 @@
 // cool, eh?!
 
 channel test3 {
-  sim_type : sde,
-  density : 1,
+  sim_type : ssa,
+  density : 10,
   equilibrium_potential : 1,
-  channel_conductance : 7,
+  channel_conductance : 7, // max channel conductance (for all channels)
   subunits : 1,
-  initial_states: { X1 : 0.3, X2 : 0.2, X3: 0.6 }
+  initial_states: { X1 : 0.55, X2 : 0.45, X3: 0.0 }
   additional_inputs: {}
   open_states : {X3},
   transitions : {

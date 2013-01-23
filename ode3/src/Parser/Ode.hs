@@ -250,7 +250,7 @@ rreDef = mkRre <$> (reserved "reaction" *> braces rreAttribs) <*> (reservedOp "=
     mkRre rate srcs dests = AO.RreDef srcs dests rate
 
 groupDef :: Parser AO.Stmt
-groupDef = AO.GroupDef <$> (reserved "group" *> braces $ commaSep1 modLocalIdentifier)
+groupDef = AO.GroupDef <$> (reserved "group" *> (braces $ commaSep1 modLocalIdentifier))
 
 -- Ode Terms -----------------------------------------------------------------------------------------------------------
 

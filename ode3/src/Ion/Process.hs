@@ -14,27 +14,27 @@
 
 module Ion.Process (
 processIon, matrixToTable,
-getDetElems, getStocElems
+getDetElems, getStocElems, getInitialVals
 ) where
-
-import Ion.AST
-import Utils.CommonImports
 
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import qualified Data.Traversable as DT
-
+import qualified Data.Array as A
+import Data.Monoid
 import Data.Maybe(fromJust)
 
 import qualified Data.Graph.Inductive as G
 import qualified Data.Graph.Inductive.NodeMap as NM
 import Data.Graph.Inductive.Tree
 import qualified Data.Graph.Inductive.Basic as GB
+import Data.Graph.Inductive.Query.DFS(noComponents)
+
+import Ion.AST
+import Utils.CommonImports
 import qualified Utils.Graph as UG
 import qualified Utils.OrdMap as OrdMap
-import Data.Graph.Inductive.Query.DFS(noComponents)
-import qualified Data.Array as A
-import Data.Monoid
+import AST.CoreFlat(SimType(..))
 
 -- Process Entry -------------------------------------------------------------------------------------------------------
 
@@ -89,6 +89,10 @@ validateIonChan ionChan@IonChannel{..} = do
     unless (listUniqs . map fst $ initialStates)
         (throwError $ printf "(ION01) Repeated state values found in initial state definition")
 
+    -- check initial vals between 0 >= x <= 1, and all sum to 1
+    unless (stateBoundaries)
+        (throwError $ printf "(IONXX) Initial values are not between 0 and 1 or sum to 1 with sufficent precision (%g)" epsilon)
+
     -- check all states in transitions exist
     mapM_ checkTransitionState transitions
 
@@ -105,12 +109,45 @@ validateIonChan ionChan@IonChannel{..} = do
     -- check reactions have no loops (in terms of direct loops)
     unless (GB.isSimple $ UG.graph transitionGraph)
         (throwError $ printf "(ION04) The set of reactions is invalid, it contains loops into the same state")
+
+
     return ionChan
   where
     checkStateExists s = Set.member s states
 
     checkTransitionState t@(Transition sA sB _ _) = unless (checkStateExists sA && checkStateExists sB)
         (throwError $ printf "(ION02) Transition %s references undefined state" (show t))
+
+    -- epsilon indiactes the max error when setting final initial val as remainder of 1 - (sum other initial vals)
+    epsilon = 1e-9
+    stateBoundaries = maximum stateVals <= 1 && minimum stateVals >= 0 && abs (1 - sum stateVals) < epsilon
+    stateVals = map snd $ initialStates
+
+-- Setup Initial Values ----------------------------------------------------------------------------
+
+-- | Generate the initial values based on ODE/SDE (prop based) or SSA (whole number based)
+getInitialVals :: IonChannel -> [(Id, Double)]
+getInitialVals ionChan@IonChannel{..} =
+    case simType of
+        SimRRE  -> rreStates ++ [(finId, rreFinVal)]
+        -- ODE / SDE
+        _       -> odeStates ++ [(finId, odeFinVal)]
+  where
+    (finId, finVal) = last initialStates
+
+    -- ODE / SDE form, final val = 1 - (sum other initial vals)
+    odeStates = init $ initialStates
+    odeFinVal = 1 - (sum . map snd $ odeStates)
+
+    -- RRE form, round the vals - this should be fine as round-even mode used, however can be subverted by careful use of vals under epsilon
+    -- TODO - need to add check that vals = density
+    rreStates = map (\(i,v) -> (i, roundDouble $ density * v)) . init $ initialStates
+    rreFinVal = max (density - (sum . map snd $ rreStates)) 0
+
+    -- round a double to the nearest integer (valid for n < 2**52)
+    roundDouble :: Double -> Double
+    roundDouble d = fromIntegral $ round d
+
 
 -- Subunit handling ----------------------------------------------------------------------------------------------------
 -- | NYI - This fucntions expands the set of reactions, initial and open states to accomodate n-identical subunits

@@ -19,6 +19,7 @@ res/samples/output
 *.exe
 *.out
 *.dot
+.directory
 
 # LLVM bitcode
 *.bc
