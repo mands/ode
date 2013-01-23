@@ -86,8 +86,14 @@ genChannel ionChan@IonChannel{..} = codeBlock modHeader mainComponent
         curComment = comment "Calculate channel current"
         defI = text "val" <+> text "current" <+> equals <+> exprI
         retI = text "return" <+> text "current"
-        -- eqn taken from rudy/silva paper
-        exprI = double chanConductance <> mul <> double density <> mul <> parenSep (map text openStates) <> mul <> parens (voltage <> minus <> double eqPot)
+
+        -- eqns taken from rudy/silva paper, assume chanConductance is total, for whole num chans
+        exprI = curConductance <> mul <> parens (voltage <> minus <> double eqPot)
+        curConductance = case simType of
+                            SimRRE  -> double chanConductance <> mul <> parens (sumOpenStates <> div <> double density)
+                            -- ODE/SDE -
+                            _       -> double chanConductance <> mul <> sumOpenStates
+        sumOpenStates = parenSep (map text openStates)
         parenSep = encloseSep lparen rparen plus
 
 -- independent gen combinators

@@ -19,7 +19,7 @@ module Test3 {
         reaction {rate : _rate4} = X2 -> X1
         
         /* Calculate channel current */
-        val current = 7.0*10.0*(X3)*(V-1.0)
+        val current = 7.0*((X3)/10.0)*(V-1.0)
         return current
         }
     }
