@@ -69,8 +69,9 @@ convertAST tUnit (LitMod modData, initMap) = do
     flatExprM = foldM_ convertTop () $ OrdMap.toList (modExprMap modData)
 
     -- determine if this module may be simulated, has any simOps, and the mechanism to use
-    getSimType simOps   | null simOps = throwError "(SM05) Final model does not contain any simulation operations (i.e. ODEs/SDEs/RREs)"
-                        | hasRREs && (hasODEs || hasSDEs) = return ACF.SimHybrid
+    getSimType simOps   | null simOps = throwError "(SM05) Final model does not contain any simulation operations (i.e. ODEs/SDEs/SSAs)"
+                        | hasRREs && hasSDEs = throwError "(SM06) Hybrid simulation does not support mixed SSA and SDE simulation"
+                        | hasRREs && hasODEs = return ACF.SimHybrid
                         | allRREs = return ACF.SimRRE
                         | hasSDEs = return ACF.SimSDE
                         | hasODEs = return ACF.SimODE
@@ -78,10 +79,10 @@ convertAST tUnit (LitMod modData, initMap) = do
         hasODEs = any checkODE simOps
         hasSDEs = any checkSDE simOps
         hasRREs = any checkRRE simOps
+        allRREs = all checkRRE simOps
         checkODE op = case op of ACF.Ode _ _ -> True; _ -> False
         checkSDE op = case op of ACF.Sde _ _ _ -> True; _ -> False
         checkRRE op = case op of ACF.Rre _ _ _ -> True; _ -> False
-        allRREs = all checkRRE simOps
 
 
 -- convert the toplet - we ensure that only TopLets with exist at this point

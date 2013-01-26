@@ -93,7 +93,7 @@ genLLVMModule p odeMod = do
     (mathOps, libOps) <- liftIO $ defineExtOps p llvmMod
     modify (\st -> st { llvmMod, mathOps, libOps })
 
-    -- TODO - check and clean up selection logic
+    -- TODO - clean up selection logic
     case CF.simType odeMod of
         CF.SimRRE -> do
             simF <- genSSASolver odeMod
@@ -110,7 +110,7 @@ genLLVMModule p odeMod = do
                 simF <- liftIO $ addFunction llvmMod "modelSolver" (functionType voidType [] False)
                 -- gen a main func if AOT-compiling
                 when (L.get Sys.lBackend p == Sys.AOTCompiler) $ genAOTMain simF
-        -- default - built-in solvers - euler, eulerM, rk4
+        -- default - built-in diff solvers - euler, eulerM, rk4
         _ | otherwise -> do
                 simF <- genDiffSolver odeMod
                 -- gen a main func if AOT-compiling
