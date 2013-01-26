@@ -201,7 +201,8 @@ instance OdeSolver ProjSolver where
         -- _ <- liftIO $ buildBr builder projBB
         -- now run the projection function for all init vals bound to SDEs (not just groups)
         genProjVal builder libOps projBB endBB
-
+        -- make sure we're in the endBB
+        positionAtEnd' builder endBB
       where
         updateState :: Builder -> Sys.SimParams -> LibOps -> SimOp -> IO ()
         updateState builder simParams _ (Ode i _) = do
@@ -239,7 +240,8 @@ instance OdeSolver ProjSolver where
         projIds = mapMaybe (\op -> case op of (Sde i _ _) -> Just (stateRefMap Map.! i); _ -> Nothing) simOps
         projArrSize = constInt64 $ length projIds
 
-        -- min and max checks
+        -- min and max checks (and optional sum == 1 check)
+        -- TODO - abstract forloop/multi-BB branch logic into LLVM combinator
         stateMinMaxCheck :: Builder -> LLVM.Value -> BasicBlock -> BasicBlock -> GenM ()
         stateMinMaxCheck builder curFunc projBB endBB = do
             startBB <- liftIO $ appendBasicBlock curFunc "startBB"
@@ -249,15 +251,47 @@ instance OdeSolver ProjSolver where
             forM projIds $ \projIdRef -> do
                 withPtrVal builder projIdRef $ \projId -> do
                     gtZero <- liftIO $ buildFCmp builder FPOGE projId constZero "greaterZero"
-                    lsOne <- liftIO $ buildFCmp builder FPOLE projId constOne "lesssOne"
+                    lsOne <- liftIO $ buildFCmp builder FPOLE projId constOne "lessOne"
                     inBounds <- liftIO $ buildAnd builder gtZero lsOne "inBounds"
 
                     nextBB <- liftIO $ appendBasicBlock curFunc "nextBB"
                     liftIO $ buildCondBr builder inBounds nextBB projBB
                     positionAtEnd' builder nextBB
-            -- brnach to end
+            -- sum loop, debug only
+            runSumCheck
+
+            -- branch to end
             liftIO $ buildBr builder endBB
+
             return ()
+          where
+            -- this invovles a second loop - should integrate with the max/min loop, but f'it
+            runSumCheck :: GenM ()
+            runSumCheck = do
+                GenState {libOps} <- get
+                -- collect the sum vals
+                (Just sumProjs) <- DF.foldlM sumCheck Nothing projIds
+                -- instead of costly fabs, gen 2 cmps => 1-eps < sumProjs < 1+eps
+                let epsilon = constDouble 1e-9
+                cond1 <- liftIO $ buildFCmp builder FPOLE sumProjs (constFAdd constOne epsilon) "upperBound"
+                cond2 <- liftIO $ buildFCmp builder FPOGE sumProjs (constFSub constOne epsilon) "lowerBound"
+                inBounds <- liftIO $ buildAnd builder cond1 cond2 "inBounds"
+
+                _ <- ifStmt builder curFunc inBounds
+                    (buildNoOp)
+                    -- doesn't sum to 1 (within epsilon), exit
+                    (\builder -> do
+                        liftIO $ debugStmt builder libOps "ERROR - Vals do not sum to 1 - %g\n" [sumProjs]
+                        buildNoOp builder
+                        liftIO $ buildCall builder (libOps Map.! "exit") [constInt64 1] "")
+                return ()
+
+            sumCheck :: (Maybe LLVM.Value) -> LLVM.Value -> GenM (Maybe LLVM.Value)
+            sumCheck Nothing projIdRef = withPtrVal builder projIdRef $ \projId -> return (Just projId)
+            sumCheck (Just curAccum) projIdRef = withPtrVal builder projIdRef $ \projId -> do
+                a <- liftIO $ buildFAdd builder curAccum projId "curAccum"
+                return $ Just a
+
 
 
 -- RK4 Solver ----------------------------------------------------------------------------------------------------------

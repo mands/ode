@@ -209,6 +209,8 @@ defineExtOps p llvmMod = do
                                 )
         -- access to printf, for debugging
         , ("printf",            addFunction llvmMod "printf" (functionType voidType [(pointerType int8Type 0)] True))
+        , ("exit",              addFunction llvmMod "exit" (functionType voidType [int64Type] False))
+
         ]
 
 -- | A helper function that performs much of the boiler-plate code in creating a function
