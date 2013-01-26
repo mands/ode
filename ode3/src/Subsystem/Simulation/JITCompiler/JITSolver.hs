@@ -241,6 +241,7 @@ genDiffSolver odeMod@CF.Module{..} = do
         -- call the solver
         genSolver solver curTimeRef odeMod
 
+        -- determine if should write simulation state
         bWriteOut <- liftIO $ withPtrVal builder curPeriodRef $ \curPeriod -> do
             buildICmp builder IntEQ curPeriod (constInt64 $ Sys.calcOutputInterval simParams) "bWriteOut"
 
@@ -487,15 +488,23 @@ createSimParams outDataSize = do
     return (curPeriodRef, curLoopRef, curTimeRef, outStateArray)
 
 
--- | Write the current time and STATE to disk
+-- | Write the current time and STATE to disk, checks that time is >= outputTime if exists
 writeOutData :: LLVM.Value -> LLVM.Value -> [LLVM.Value] -> GenM ()
 writeOutData outStateArray curTimeRef stateRefs = do
-    GenState {builder, libOps} <- get
-    -- fill the state array
-    gatherArray builder outStateArray stateRefs
-    -- write to output func
-    simStateArrayPtr <- liftIO $ buildInBoundsGEP builder outStateArray [constInt64 0, constInt64 0] $ "storeOutPtr"
-    liftIO $ withPtrVal builder curTimeRef $ \curTimeVal ->
-        buildCall builder (libOps Map.! "OdeWriteState") [curTimeVal, simStateArrayPtr] ""
-    -- liftIO $ setInstructionCallConv callInst Fast
-    return ()
+    GenState {builder, simParams, curFunc} <- get
+    case (L.get Sys.lMStartOutput simParams) of
+        Just startOutput -> withPtrVal builder curTimeRef $ \curTimeVal -> do
+            bDoOutput <- liftIO $ buildFCmp builder FPOGE curTimeVal (constDouble startOutput) "bDoOutput"
+            void $ ifStmt builder curFunc bDoOutput (\_ -> writeOutData') (buildNoOp)
+        Nothing -> void writeOutData'
+  where
+    writeOutData' :: GenM LLVM.Value
+    writeOutData' = do
+        GenState {builder, libOps} <- get
+        -- fill the state array
+        gatherArray builder outStateArray stateRefs
+        -- write to output func
+        simStateArrayPtr <- liftIO $ buildInBoundsGEP builder outStateArray [constInt64 0, constInt64 0] $ "storeOutPtr"
+        liftIO $ withPtrVal builder curTimeRef $ \curTimeVal ->
+            buildCall builder (libOps Map.! "OdeWriteState") [curTimeVal, simStateArrayPtr] ""
+        -- liftIO $ setInstructionCallConv callInst Fast

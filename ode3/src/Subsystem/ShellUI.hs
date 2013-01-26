@@ -113,7 +113,7 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, simStartCmd,
                 -- sim params
                 , simStartTimeCmd, simStopTimeCmd, simTimestepCmd
                 , simMaxTimestepCmd, simMaxNumStepsCmd, simRelErrorCmd, simAbsErrorCmd, simModelType
-                , simDisableUnitsCmd, simTimeUnitCmd, simOutPeriodCmd, simOutFilenameCmd
+                , simDisableUnitsCmd, simTimeUnitCmd, simOutPeriodCmd, simStartOutputCmd, simOutFilenameCmd
                 , simOdeSolverCmd, simSdeSolverCmd, simBackendCmd, simExeFilenameCmd, simLinkerCmd, simExecuteCmd
                 , simMathModelCmd, simMathLibCmd, simVecMathCmd
                 , simOptimiseCmd, simShortCircuitCmd, simPowerExpanCmd
@@ -125,17 +125,17 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, simStartCmd,
     -- basic cmds
     -- damn record update syntax!
     -- helper func to set a type-safe double val
-    setDouble :: (:->) SysState Double -> Double -> Sh SysState ()
-    setDouble lbl val = modifyShellSt $ set lbl val
+    setVal :: (:->) SysState a -> a -> Sh SysState ()
+    setVal lbl val = modifyShellSt $ set lbl val
 
     -- basic params
-    simStartTimeCmd = cmd "startTime" (setDouble $ lStartTime . lSimParams) "Initial simulation time"
-    simStopTimeCmd = cmd "stopTime" (setDouble $ lStopTime . lSimParams) "Final simulation time"
-    simTimestepCmd = cmd "timestep" (setDouble $ lTimestep . lSimParams) "Timestep to use for simulation"
+    simStartTimeCmd = cmd "startTime" (setVal $ lStartTime . lSimParams) "Initial simulation time"
+    simStopTimeCmd = cmd "stopTime" (setVal $ lStopTime . lSimParams) "Final simulation time"
+    simTimestepCmd = cmd "timestep" (setVal $ lTimestep . lSimParams) "Timestep to use for simulation"
 
     -- unit params
     simDisableUnitsCmd = toggle "disableUnits" "Toggle Units Checking" (get $ lUnitsCheck . lSimParams) (set $ lUnitsCheck . lSimParams)
-    simTimeUnitCmd = cmd "timeUnit" f "Set the unit used for the independent time parameter (only s fully supported!)"
+    simTimeUnitCmd = cmd "timeUnit" f "Set the unit used for the independent time parameter (only seconds (s) fully supported!)"
       where
         f :: String -> Sh SysState ()
         f str | map toLower str == "ns"  = modifyShellSt $ set (lTimeUnit . lSimParams) U.uNanoSeconds
@@ -146,13 +146,13 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, simStartCmd,
         f _  = shellPutInfoLn "Possible options <ns, ms, s, min, hr> (only s fully supported!)"
 
     -- adaptive params
-    simMaxTimestepCmd = cmd "maxTimestep" (setDouble $ lMaxTimestep . lSimParams) "Max timestep to use for simulation"
+    simMaxTimestepCmd = cmd "maxTimestep" (setVal $ lMaxTimestep . lSimParams) "Max timestep to use for simulation"
     simMaxNumStepsCmd = cmd "maxNumSteps" f "Max number of steps to use from current to next output time"
       where
         f :: Integer -> Sh SysState ()
         f x = modifyShellSt $ set (lMaxNumSteps . lSimParams) x
-    simRelErrorCmd = cmd "relError" (setDouble $ lRelError . lSimParams) "Relative error for adaptive simulation"
-    simAbsErrorCmd = cmd "absError" (setDouble $ lAbsError . lSimParams) "Absolute error for adaptive simulation"
+    simRelErrorCmd = cmd "relError" (setVal $ lRelError . lSimParams) "Relative error for adaptive simulation"
+    simAbsErrorCmd = cmd "absError" (setVal $ lAbsError . lSimParams) "Absolute error for adaptive simulation"
     simModelType = cmd "modelType" f "Model Type to use for adaptive simulation <stiff, nonstiff>"
       where
         f :: String -> Sh SysState ()
@@ -161,7 +161,9 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, simStartCmd,
         f _ = shellPutInfoLn "Possible options <stiff, nonstiff>"
 
     -- output params
-    simOutPeriodCmd = cmd "period" (setDouble $ lOutputPeriod . lSimParams) "Interval period to save simulation state to disk (seconds)"
+    simOutPeriodCmd = cmd "period" (setVal $ lOutputPeriod . lSimParams) "Interval period to save simulation state to disk"
+    simStartOutputCmd = cmd "startOutput" (\x -> setVal (lMStartOutput . lSimParams) (Just x)) "(Optional) Time at which to start writing simulation state"
+
     simOutFilenameCmd = cmd "output" f "Filename to save simulation results"
       where
         f :: File -> Sh SysState ()
@@ -365,6 +367,12 @@ shSimulate initMod = do
             (throwError $ printf "Max timestep (%g) must be equal or greater to timestep (%g)\n" _maxTimestep _timestep)
         when (_stopTime <= _startTime)
             (throwError $ printf "Stop time (%g) must be greater than start time (%g)\n" _stopTime _startTime)
+
+        case _mStartOutput of
+            Just startOutput -> when (startOutput <= _startTime)
+                (throwError $ printf "StartOutput time (%g) must be greater than start time (%g)\n" startOutput _startTime)
+            Nothing -> return ()
+
         when (_timestep > simDuration)
             (throwError $ printf "Timestep (%g) must be smaller or equal to simulation time interval (%g)\n" _timestep simDuration)
         when (_startTime < 0)

@@ -114,6 +114,7 @@ data SimParams = SimParams
 
     -- output params
     , _outputPeriod :: Double           -- period interval with which to save simulation state to outfile, should be multiple of timestep
+    , _mStartOutput  :: Maybe Double     --
     , _filename     :: FilePath         -- output filename to save data to
 
     -- compilation params
@@ -150,6 +151,7 @@ defSimParams = SimParams
     , _timeUnit     = U.uSeconds        -- time set to seconds
 
     , _outputPeriod = 0.5               -- 0.5s
+    , _mStartOutput  = Nothing           -- start output immedietly
     , _filename     = "output.bin"      -- default output file
 
     , _odeSolver    = FEuler            -- default solver
@@ -221,7 +223,7 @@ def genLens(recName, fields):
 
 genLens("SysState",     ['_debug', '_simParams', '_modState', '_unitsState'])
 genLens("SimParams",    ['_startTime', '_stopTime', '_timestep', '_maxTimestep', '_maxNumSteps', '_relError', '_absError', '_modelType'
-                        , '_unitsCheck', '_timeUnit', '_filename', '_outputPeriod', '_odeSolver', '_sdeSolver', '_backend', '_linker', '_execute'
+                        , '_unitsCheck', '_timeUnit', '_filename', '_outputPeriod', '_mStartOutput', '_odeSolver', '_sdeSolver', '_backend', '_linker', '_execute'
                         , '_exeName', '_mathModel', '_mathLib', '_vecMath', '_optimise', '_optShortCircuit', '_optPowerExpan'])
 genLens("ModState",     ['_repos', '_modEnv', '_parsedFiles', '_replFile'])
 genLens("UnitsState",   ['_quantities', '_unitDimEnv', '_convEnv'])
@@ -249,6 +251,7 @@ lUnitsCheck = lens (_unitsCheck) (\x rec -> rec { _unitsCheck = x })
 lTimeUnit = lens (_timeUnit) (\x rec -> rec { _timeUnit = x })
 lFilename = lens (_filename) (\x rec -> rec { _filename = x })
 lOutputPeriod = lens (_outputPeriod) (\x rec -> rec { _outputPeriod = x })
+lMStartOutput = lens (_mStartOutput) (\x rec -> rec { _mStartOutput = x })
 lOdeSolver = lens (_odeSolver) (\x rec -> rec { _odeSolver = x })
 lSdeSolver = lens (_sdeSolver) (\x rec -> rec { _sdeSolver = x })
 lBackend = lens (_backend) (\x rec -> rec { _backend = x })
@@ -272,7 +275,7 @@ lReplFile = lens (_replFile) (\x rec -> rec { _replFile = x })
 lQuantities = lens (_quantities) (\x rec -> rec { _quantities = x })
 lUnitDimEnv = lens (_unitDimEnv) (\x rec -> rec { _unitDimEnv = x })
 lConvEnv = lens (_convEnv) (\x rec -> rec { _convEnv = x })
---[[[end]]] (checksum: bcd24fc368ca87c9213903c0014cd07e)
+--[[[end]]] (checksum: d7d45a2b68d79186c1195c16e69d1333)
 
 -- a few useful views from top SysState into nested labels
 vModEnv :: SysState :-> MA.GlobalModEnv
