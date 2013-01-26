@@ -188,9 +188,9 @@ compileScript p@(Sys.SimParams{..}) = do
     -- need to switch depending on the mathmodel
     mathLibs    = if _optimise && (L.get Sys.lMathModel p == Sys.Fast)
                     then case _mathLib of
-                        Sys.GNU     -> ["-lm", crtFastMath]
-                        Sys.AMD     -> ["-lamdlibm", "-lm", crtFastMath]
-                        Sys.Intel   -> ["-lsvml", "-limf", "-lirc", "-lm", crtFastMath]
+                        Sys.GNU     -> ["-lm"]
+                        Sys.AMD     -> ["-lamdlibm", "-lm"]
+                        Sys.Intel   -> ["-lsvml", "-limf", "-lirc", "-lm"]
                     else ["-lm"]
 
     cvodeLibs   = if (_odeSolver == Sys.Adaptive)
@@ -198,8 +198,6 @@ compileScript p@(Sys.SimParams{..}) = do
                     else []
 
     -- odeVecMathLib = toTextIgnore $ odeLibPath </> odeVecMathFile
-    crtFastMath = LT.append "-Wl,--no-as-needed," (toTextIgnore $ odeLibPath </> "crtfastmath.o")
-
     optLevel    = if (L.get Sys.lOptimise p) then "-O3" else "-O0"
     fastMath    = if _optimise && (L.get Sys.lMathModel p == Sys.Fast) then Just "-ffast-math" else Nothing
     -- check dyn/static linking

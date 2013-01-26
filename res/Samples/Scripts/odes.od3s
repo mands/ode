@@ -56,7 +56,6 @@ import SimTests.Odes.*
 :timestep 0.03125
 :period 1
 :output "./output_PredPrey.bin"
-:startOutput 10
 :simulate PredPreyNoUnits
 
 // all done

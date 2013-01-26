@@ -42,13 +42,14 @@ import SimTests.Rres.*
 :stopTime 100
 :output "./output_Rre2.bin"
 :exeOutput "Rre2"
-:simulate Rre2
+//:simulate Rre2
 
 :period 0.1
 :stopTime 500
 :output "./output_Rre3.bin"
+:startOutput 50
 :exeOutput "Rre3"
-//:simulate Rre3
+:simulate Rre3
 
 
 // all done
