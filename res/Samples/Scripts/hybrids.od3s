@@ -19,7 +19,7 @@
 //:vecMath
 :mathLib "gnu"
 // backend to use - interpreter, jitcompiler, aotcompiler, obj, cvode
-:backend "aotcompiler"
+:backend "jitcompiler"
 
 // setup the repo
 :addRepo ../res/Samples/repo
@@ -36,7 +36,7 @@ import SimTests.Hybrids.*
 :period 1
 :output "./output.bin"
 :exeOutput "Hybrid1"
-:simulate Hybrid1
+//:simulate Hybrid1
 
 :exeOutput "Hybrid2"
 :simulate Hybrid2

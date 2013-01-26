@@ -146,10 +146,11 @@ linkStdlibScript p@(Sys.SimParams{..}) = do
     if (_odeSolver == Sys.Adaptive)
         then run_ "llvm-link" ["-o", simBC, modelOptBC, odeStdLib, odeCvodeSim]
         else run_ "llvm-link" ["-o", simBC, modelOptBC, odeStdLib]
-    -- perform LTO
-    when (L.get Sys.lOptimise p) $ do
+    -- perform LTO (only for AOT atm, need to investigate JIT support)
+    when (L.get Sys.lOptimise p && L.get Sys.lBackend p == Sys.AOTCompiler) $ do
         run_ "llvm-dis" ["-o", simLtoBC, simBC]
         run_ "opt" (["-o", simBC] ++ linkOpts ++ [simBC])
+
     -- DEBUG - dis-assemble sim.bc and gen graphs
     run_ "llvm-dis" [simBC]
     -- run_ "opt" ["-analyze", "-dot-callgraph", "-dot-cfg", "-dot-dom", simBC]
@@ -159,6 +160,7 @@ linkStdlibScript p@(Sys.SimParams{..}) = do
     odeCvodeSim = toTextIgnore $ odeLibPath </> "CvodeSim.bc" -- TODO - change to opt stdlib?
     linkOpts    = ["-std-link-opts", "-std-compile-opts"]
     simLtoBC    = "./.Sim.pre-lto.ll"
+    simLtoBC'    = "./.Sim.pre-lto.bc"
 
 
 -- | Embedded script to compile a native AOT represetnation of the model (& optional simulation)

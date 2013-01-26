@@ -139,7 +139,7 @@ runJITSimulation p = do
     liftIO $ warningM "ode3.sim" $ "JIT Simulation is experimental - only GNU linking tested"
 
     -- load the linked/optimised module
-    simMod <- readBitcodeFromFile "./Sim.bc"
+    simMod <- readBitcodeFromFile "./.Sim.bc"
 
     -- setup the jitter
     LFFI.initializeNativeTarget
