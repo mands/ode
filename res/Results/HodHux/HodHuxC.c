@@ -28,7 +28,7 @@ int main(void) {
 void modelSolver(void) {
     OdeInit();
     // setup file output
-    OdeStartSim("./HodHux_C.bin", STATE_SIZE);
+    OdeStartSim("./HodHuxC.bin", STATE_SIZE);
 
     // sim params
     static const double start_time = 0; 

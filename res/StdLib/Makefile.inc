@@ -7,7 +7,6 @@ ODE_LIB_DIR = $(ROOT_DIR)/lib
 ODE_INC_DIR = $(ROOT_DIR)/include
 ODE_BIN_DIR = $(ROOT_DIR)/bin
 ODE_LIB     = -lOde
-CRTFAST     = -Wl,--no-as-needed,$(ODE_LIB_DIR)/crtfastmath.o
 
 # Project Root
 PROJ_ROOT_DIR   = $(ROOT_DIR)/../../../root

@@ -103,9 +103,4 @@ OPT="
 call_ode "$OPT" "Sim_VecMath1.exe"
 
 
-
-
-
-
-
 echo "done"

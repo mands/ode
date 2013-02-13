@@ -1,0 +1,11 @@
+Running set of simulation at 19:43:35 on 13/02/2013
+
+
+Results from HodHuxOde
+Average time taken : 6.52 for 5 simulations
+Finished HodHuxOde
+
+Results from HodHuxC
+Average time taken : 6.76 for 5 simulations
+Finished HodHuxC
+

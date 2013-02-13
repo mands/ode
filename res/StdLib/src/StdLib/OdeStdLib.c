@@ -44,13 +44,14 @@ static double* outData;
 static uint64_t outSize;
 static uint64_t stateSize;
 
-void OdeStartSim(const char* const restrict filename, const uint64_t numArgs) {
+// takes input filename and the number of STATE args (i.e. not including time)
+void OdeStartSim(const char* const restrict filename, const uint64_t inStateSize) {
     printf("Starting simulation with output to %s\n", filename);
     outFile = fopen(filename, "wb");
 
     // allocate the outData buffer
-    outSize = numArgs+1;
-    stateSize = numArgs;
+    outSize = inStateSize+1;
+    stateSize = inStateSize;
     outData = calloc(sizeof(double), outSize);
 
     // setup file header/first_run init here

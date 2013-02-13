@@ -8,7 +8,7 @@ extern void OdeInit(void);
 extern void OdeShutdown(void);
 
 // individual iteration specific
-extern void OdeStartSim(const char* const restrict filename, const uint64_t numArgs);
+extern void OdeStartSim(const char* const restrict filename, const uint64_t inStateSize);
 extern void OdeStopSim(void);
 
 // iteration output
