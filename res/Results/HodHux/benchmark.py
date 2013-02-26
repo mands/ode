@@ -35,9 +35,11 @@ if __name__ == '__main__':
     init()
     # HodHux model
     hod_hux_params = get_ode_params(timestep=0.00001, output="./HodHuxOde.bin", exeOutput="./HodHuxOde.exe")
+    hod_hux1_params = get_ode_params(timestep=0.001, output="./HodHuxOde1.bin", exeOutput="./HodHuxOde1.exe")
 
     # run set of simulations
-    sims = [OdeSimulation("HodHuxOde", "HodHux", hod_hux_params, run_root=False),
-            Simulation("HodHuxC", exe_sim="./HodHuxC.exe")]
+    sims = [OdeSimulation("HodHuxOde", "HodHux", hod_hux_params, run_root=True, num_sims=1, res_ref="./HodHuxRef.bin"),
+            #OdeSimulation("HodHuxOde1", "HodHux", hod_hux1_params, src_name="./HodHuxOde.od3", num_sims=2, res_ref="./HodHuxRef.bin"),
+            Simulation("HodHuxC", src_name="./HodHuxC.c", num_sims=1, run_root=True, res_ref="./HodHuxRef.bin")]
 
     runSims(sims)

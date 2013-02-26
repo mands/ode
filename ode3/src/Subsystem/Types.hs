@@ -84,7 +84,7 @@ calcTypeExpr st (AC.Op op e) = do
     eT <- calcTypeExpr st e
     case op of
        -- Basic Ops
-        BasicOp x | x `elem` [Add, Sub]                 -> typeFFtoF_USame eT    -- (f u1, f u1) -> f u1
+        BasicOp x | x `elem` [Add, Sub, Mod]            -> typeFFtoF_USame eT    -- (f u1, f u1) -> f u1
         BasicOp x | x `elem` [Mul, Div]                 -> typeFFtoF_UAdd eT     -- (f u1, f u2) -> f u3
         BasicOp x | x `elem` [ACO.LT, LE, ACO.GT, GE, ACO.EQ, NEQ]  -> typeFFtoB_USame eT     -- (f u1, f u1) -> b
         BasicOp x | x `elem` [And, Or]                  -> typeBBtoB             -- (b, b) -> b

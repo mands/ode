@@ -305,7 +305,7 @@ exprOpTable :: OperatorTable String () Identity AO.Expr
 exprOpTable =
     [
     [prefix "-" AC.Neg, prefix "!" AC.Not, prefix "not" AC.Not]
-    ,[binary "*" AC.Mul AssocLeft, binary "/" AC.Div AssocLeft] -- , binary "%" AC.Mod AssocLeft]
+    ,[binary "*" AC.Mul AssocLeft, binary "/" AC.Div AssocLeft, binary "%" AC.Mod AssocLeft]
     ,[binary "+" AC.Add AssocLeft, binary "-" AC.Sub AssocLeft]
     ,[binary "<=" AC.LE AssocLeft, binary ">=" AC.GE AssocLeft, binary "<" AC.LT AssocLeft, binary ">" AC.GT AssocLeft]
     ,[binary "==" AC.EQ AssocLeft, binary "!=" AC.NEQ AssocLeft]

@@ -30,15 +30,16 @@ import logging
 import argparse
 import sh
 import io
-from functools import wraps
-from itertools import chain
 import inspect
+import re
 from time import gmtime, strftime
+from Compare import compare_files
+import Build
 
 
 # Globals
 ODE_DIR = os.path.abspath("/home/mandeep/DPhil/Projects/ode/ode3")
-CUR_DIR = os.getcwd()
+CUR_DIR = os.path.abspath(os.getcwd())
 
 
 # TOTO - get working initializer decorator
@@ -58,39 +59,53 @@ def initializer1(fun):
 
 
 class Simulation:
-    def __init__(self, sim_name, *, do_build=True, do_benchmark=True, do_analyse=True, exe_sim=None, res_name=None, run_root = False,
-                 num_sims=5):
+    def __init__(self, sim_name, *, do_build=True, do_benchmark=True, do_analyse=True, exe_cmd=None, exe_name=None,
+                 is_exe=True, res_name=None, res_ref=None, src_name=None, run_root=False, num_sims=5):
         self.sim_name = sim_name
         self.do_build = do_build
         self.do_benchmark = do_benchmark
         self.do_analyse = do_analyse
         self.run_root = run_root
-        self.exe_sim = exe_sim if exe_sim else ("./" + sim_name + ".exe")
+        self.exe_cmd = exe_cmd if exe_cmd else ("./" + sim_name + ".exe", )
+
+        # check the executable name, if exists, for analysis
+        if exe_name:
+            self.exe_name = exe_name
+        elif is_exe:
+            self.exe_name = ("./" + sim_name + ".exe")
+        else:
+            self.exe_name = None
+
         self.res_name = res_name if res_name else ("./" + sim_name + ".bin")
+        self.res_ref = res_ref
+        self.src_name = src_name
         self.num_sims = num_sims
+        self.startup_offset = 0.0
 
     def execute(self):
         logging.debug("Running performance benchmarks for {}, with results output to {}".format(self.sim_name, self.res_name))
-        print("Results from {}".format(self.sim_name), file=res_file)
+
+        print("**********", file=res_file)
+        print("Model Name : {}".format(self.sim_name), file=res_file)
         if self.do_build: self.build()
         if self.do_benchmark: self.benchmark()
         if self.do_analyse: self.analyse()
-        print("Finished {}\n".format(self.sim_name), file=res_file)
+        print("**********\n", file=res_file)
 
     def build(self):
         pass
 
     def parse_time_res(self, time_buf):
-        time_lines = time_buf.splitlines()
-        user_time = time_lines[1].split(sep=':')[1]
-        sys_time = time_lines[2].split(sep=':')[1]
+        user_time = re.compile('User time \(seconds\): ([\d.]+)$', re.MULTILINE).search(time_buf).group(1)
+        sys_time = re.compile('System time \(seconds\): ([\d.]+)$', re.MULTILINE).search(time_buf).group(1)
+        # logging.debug("user time - {}, sys time {}".format(user_time, sys_time))
         return float(user_time) + float(sys_time)
 
     def benchmark(self):
         if self.run_root:
-            (run_cmd, run_opts) = ("sudo", ("chrt", "-f", "99", "/usr/bin/time", "-v", self.exe_sim))
+            (run_cmd, run_opts) = ("sudo", ("chrt", "-f", "99", "/usr/bin/time", "-v") + self.exe_cmd)
         else:
-            (run_cmd, run_opts) = ("/usr/bin/time", ("-v", self.exe_sim))
+            (run_cmd, run_opts) = ("/usr/bin/time", ("-v", ) + self.exe_cmd)
 
         total_time = 0.0
         for i in range(self.num_sims):
@@ -100,90 +115,75 @@ class Simulation:
 
             time_out_buf = sh.Command(run_cmd)(run_opts, _err=time_err_buf)
 
-            log.debug("Simulation output - \n{}".format(time_out_buf))
+            logging.debug("Simulation output - \n{}".format(time_out_buf))
             time_buf = time_err_buf.getvalue()
             time_err_buf.close()
             # accum the time
             total_time += self.parse_time_res(time_buf)
 
-        avg_time = total_time / self.num_sims
-        print("Average time taken : {:.3g} for {} simulations".format(avg_time, self.num_sims), file=res_file)
+        avg_time = (total_time / self.num_sims) - self.startup_offset
+        print("* Average time taken : {:.3g} (determined over {} simulations)".format(avg_time, self.num_sims), file=res_file)
 
     def analyse(self):
-        pass
+        if self.exe_name:
+            # check compile size
+            stat_res = sh.stat('-c', '%s', self.exe_name)
+            print("* Sim exe ({}) file size (bytes) : {}".format(self.exe_name, stat_res), file=res_file, end="")
 
+            # check exe inst size
+            size_res = sh.size(self.exe_name)
+            print("* ELF segment breakdown : \n{}".format(size_res), file=res_file, end="")
+        else:
+            print("* No exe file given\n", file=res_file, end="")
+
+        # check loc
+        if self.src_name:
+            wc_res = sh.wc('-l', self.src_name)
+            print("* Source LOC : {}".format(wc_res), file=res_file, end="")
+
+        # check against ref results
+        if self.res_name and self.res_ref:
+            col = 1  # only compare V (starts at col 1)
+            _, diffMax, diffEps = compare_files(self.res_name, self.res_ref, col, col)
+            print("* Max difference between results files {} and {} for col {} :\n"
+                  "\t{:+.16g} ({:+.16g} machine epsilons)".format(self.res_name, self.res_ref, col, diffMax, diffEps),
+                  file=res_file)
 
 
 class OdeSimulation(Simulation):
     def __init__(self, sim_name, mod_name, sim_params, **kwargs):
+        # update the src name with the default if not given
+        # kwargs['src_name'] = kwargs.get('src_name', sim_name + ".od3")
+        # NOTE - each Ode simulation must have it's own src file (use symlinks if req'd)
+        kwargs['src_name'] = sim_name + ".od3"
         super().__init__(sim_name, **kwargs)
         self.mod_name = mod_name
         self.sim_params = sim_params
 
-    def gen_sim_script(self):
-        script = ""
-        for (k, v) in self.sim_params.items():
-            if v is True:
-                script += ":{}\n".format(k)
-            elif v is False:
-                pass
-            elif isinstance(v, str):
-                script += ":{} \"{}\"\n".format(k, v)
-            else:
-                script += ":{} {}\n".format(k, v)
-
-        script += "import {}.{}\n".format(self.sim_name, self.mod_name)
-        script += ":simulate {}\n".format(self.mod_name)
-        script += ":quit\n"
-        logging.debug("Sim Script - \n{}".format(script))
-        return script
-
     def build(self):
-        script_name = self.sim_name + ".od3s"
-        src_name = self.sim_name + ".od3"
-        exe_name = self.sim_name + ".exe"
-
-        # need gen the config script
-        script_path = os.path.join(CUR_DIR, script_name)
-        # build the exe
-        os.chdir(ODE_DIR)
-        # TODO - update to stdin, generate the od3s file dynamically
-
-        # build the script
-        script = self.gen_sim_script()
-
-        sh.Command("./ode3")(_in=script)
-        os.chdir(CUR_DIR)
-        # move exe to cur dir
-        sh.mv(os.path.join(ODE_DIR, exe_name), CUR_DIR)
+        # just a wrapper around the build module
+        Build.build(self.sim_name, self.mod_name, self.sim_params)
 
 
-def get_ode_params(**kwargs):
-    params = {'disableUnits': True,  # disable unit checking
-              'addRepo': os.path.relpath(CUR_DIR, ODE_DIR),  # setup the repo
-              # set sim params
-              'startTime': 0,
-              'stopTime': 60,
-              'timestep': 0.1,
-              'period': 1,
-              'output': "./output.bin",
-              'exeOutput': "./Sim.exe",
-              # sim backend params
-              'odeSolver': 'euler',  # odeSolver - euler, rk4, adaptive
-              'sdeSolver': 'projem',  # sdeSolver - eulerm, projem
-              'linker': 'dynamic',  # linker - dynamic, static
-              'disableExecute': True,
-              'disableOptimise': False,
-              'disableShortCircuit': False,
-              'disablePowerExpan': False,
-              'mathModel': 'fast',  # math model - strict, fast
-              'vecMath' : False,
-              'mathLib': 'gnu',  # mathLib - gnu, amd, intel
-              'backend': 'aotcompiler'  # backend to use - interpreter, jitcompiler, aotcompiler, obj
-              }
+class MatSimulation(Simulation):
+    def __init__(self, sim_name, **kwargs):
+        # update the src name with the default if not given
+        # kwargs['src_name'] = kwargs.get('src_name', sim_name + ".od3")
+        kwargs['exe_cmd'] = ('matlab', '-nodisplay', '-nojvm', '-r "{}; exit"'.format(sim_name))
+        kwargs['is_exe'] = False
+        super().__init__(sim_name, **kwargs)
+        self.startup_offset = 2.22
 
-    # override params with func kwargs and return merge
-    return dict(list(params.items()) + list(kwargs.items()))
+
+class PySimulation(Simulation):
+    def __init__(self, sim_name, **kwargs):
+        # update the src name with the default if not given
+        # kwargs['src_name'] = kwargs.get('src_name', sim_name + ".od3")
+        kwargs['exe_cmd'] = ('./{}.py'.format(sim_name), )
+        kwargs['is_exe'] = False
+        super().__init__(sim_name, **kwargs)
+        self.startup_offset = 0.02
+
 
 # class GenericSimulation(Simulation):
 #     """
@@ -203,25 +203,15 @@ def init():
     )
 
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose mode")
-    parser.add_argument("-o", "--ode-dir", type=str, help="Location of Ode compiler")
-
-    # parser.add_argument("-c", "--compare", action="store_true", help="Compare results to reference file (ref.bin)")
-    # parser.add_argument("-n", "--num-iterations", type=int, default=5,  help="Num iterations when running benchmark")
-    # parser.add_argument("-f", "--compare-file", type=str, default="ref.bin", help="Reference file for comparison")
-    # parser.add_argument("-r", "--run-root", action="store_true", default=False, help="Run as high-priority process under root for more accurate results")
-
+    # parser.add_argument("-o", "--ode-dir", type=str, help="Location of Ode compiler")
     args = parser.parse_args()
-
     ## setup globals
-    if args.ode_dir:
-        ODE_DIR = args.ode_dir
 
+
+def runSims(sims, res_file_name="results.txt"):
     # make all non-Ode exes
     logging.debug("Running make all")
     sh.make('all')
-
-
-def runSims(sims, res_file_name = "results.txt"):
 
     global res_file
     res_file = open(res_file_name, 'w')

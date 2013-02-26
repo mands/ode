@@ -423,7 +423,7 @@ constrain gModEnv modData mFuncArgs unitsCheck timeUnit = runStateT (evalSupplyT
 getOpType :: Op -> TypeConsM E.Type
 getOpType op = case op of
     -- Basic Ops
-    BasicOp x | x `elem` [Add, Sub]                 -> typeFFtoF_USame   -- (f u1, f u1) -> f u1
+    BasicOp x | x `elem` [Add, Sub, Mod]            -> typeFFtoF_USame   -- (f u1, f u1) -> f u1
     BasicOp x | x `elem` [Mul, Div]                 -> typeFFtoF_UAdd    -- (f u1, f u2) -> f u3
     BasicOp x | x `elem` [AC.LT, LE, AC.GT, GE, AC.EQ, NEQ]  -> typeFFtoB_USame     -- (f u1, f u1) -> b
     BasicOp x | x `elem` [And, Or]                  -> typeBBtoB         -- (b, b) -> b

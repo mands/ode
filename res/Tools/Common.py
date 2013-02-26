@@ -2,6 +2,7 @@ import struct
 import logging
 import scipy as sp
 
+
 def openFile(filename):
     # parse the file
     with open(filename, 'rb') as f:
@@ -16,6 +17,17 @@ def openFile(filename):
 
     return a, cols
 
+
+def saveFile(data, filename):
+    with open(filename, 'wb') as f:
+        # write the header
+        (r, c) = data.shape
+        cols = struct.pack('=Q', c)
+        f.write(cols)
+        # write the data
+        data.tofile(f)
+
+
 # setup the cols
 def getCols(num_cols, col_list=None, add_zero=False):
     if col_list:
@@ -27,6 +39,7 @@ def getCols(num_cols, col_list=None, add_zero=False):
         return cols
     else:
         return cols
+
 
 def setupPrint():
     sp.set_printoptions(edgeitems=3, linewidth=400, precision=16,suppress=False, threshold=10000)

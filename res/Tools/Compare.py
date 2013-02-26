@@ -12,12 +12,45 @@ import sys
 
 from Common import *
 
+
+def compare_arrays(a, b):
+    diffAbs = (sp.absolute(sp.subtract(a, b)))
+    diffMax = sp.nanmax(diffAbs)
+    diffEps = (diffMax / sys.float_info.epsilon) * 2 # we have to mult by two as python epsilon is not correct
+
+    return diffAbs, diffMax, diffEps
+
+
+def compare_files(filename1, filename2, col1=None, col2=None):
+    ## get the files
+    (a, colsA) = openFile(filename1)
+    (b, colsB) = openFile(filename2)
+
+    # get columns (if needed)
+    if (col1 is not None) and (col2 is not None):
+        logging.debug("In column mode")
+        if col1 < 0 or col1 >= colsA:
+            raise Exception("Col1 index not contained within File1")
+        if col2 < 0 or col2 >= colsB:
+            raise Exception("Col2 index not contained within File2")
+        logging.debug("Got col args {} and {}".format(col1, col2))
+        # destructively update a and b
+        a = a[:,col1]
+        b = b[:,col2]
+    else:
+        # we are performing a whole-matrix diff
+        if colsA != colsB:
+            raise Exception("Files are not of the same size")
+
+    return compare_arrays(a, b)
+
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
 
     parser = argparse.ArgumentParser(
-        description = 'Compare takes two Ode output files and determines the FP difference between them', # main description for help
-        epilog = 'Tested on Linux only' # displayed after help
+        description = 'Compare takes two Ode output files and determines the FP difference between them',  # main description for help
+        epilog = 'Tested on Linux only'  # displayed after help
     )
     parser.add_argument("file1", help="First file to compare")
     parser.add_argument("file2", help="Second file to compare")
@@ -29,33 +62,10 @@ if __name__ == '__main__':
     filename1 = os.path.abspath(args.file1)
     filename2 = os.path.abspath(args.file2)
 
-    ## get the files
-    (a, colsA) = openFile(filename1)
-    (b, colsB) = openFile(filename2)
-
-    # get columns (if needed)
-    if (args.col1 is not None) and (args.col2 is not None):
-        logging.debug("In column mode")
-        if args.col1 < 0 or args.col1 >= colsA:
-            raise Exception("Col1 index not contained within File1")
-        if args.col2 < 0 or args.col2 >= colsB:
-            raise Exception("Col2 index not contained within File2")
-        logging.debug("Got col args {} and {}".format(args.col1, args.col2))
-        # destructively update a and b
-        a = a[:,args.col1]
-        b = b[:,args.col2]
-    else:
-        # we are performing a whole-matrix diff
-        if colsA != colsB:
-            raise Exception("Files are not of the same size")
-
-    diffAbs = (sp.absolute(sp.subtract(a, b)))
-    diffMax = sp.nanmax(diffAbs)
-    diffEps = (diffMax / sys.float_info.epsilon) * 2 # we have to mult by two as python epsilon is not correct
-
+    (diffAbs, diffMax, diffEps) = compare_files(filename1, filename2, args.col1, args.col2)
     print("Max difference is {:+.16g} ({:+.16g} machine epsilons)".format(diffMax, diffEps))
 
     if args.verbose:
         setupPrint()
-        print (diffAbs)
+        print(diffAbs)
     logging.debug("Done")

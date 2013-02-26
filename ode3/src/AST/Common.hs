@@ -117,7 +117,7 @@ data BasicOp    =
                 | Sub           -- (f, f) -> f
                 | Mul           -- (f, f) -> f
                 | Div           -- (f, f) -> f
-                -- Mod           -- (f, f) -> f -- doesn't make sense for floating point vals
+                | Mod           -- (f, f) -> f
                 -- Relational Ops
                 | LT            -- (f, f) -> b
                 | LE            -- (f, f) -> b

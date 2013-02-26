@@ -8,7 +8,7 @@ ODE_INC_DIR = $(ROOT_DIR)/include
 ODE_BIN_DIR = $(ROOT_DIR)/bin
 ODE_LIB     = -lOde
 
-# Project Root
+# Project Root - DPhil Proj Root
 PROJ_ROOT_DIR   = $(ROOT_DIR)/../../../root
 PROJ_LIB_DIR    = $(PROJ_ROOT_DIR)/lib
 PROJ_INC_DIR    = $(PROJ_ROOT_DIR)/include

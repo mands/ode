@@ -27,6 +27,7 @@ import qualified Data.List as List
 import qualified Data.Foldable as DF
 import qualified Data.Traversable as DT
 import qualified Utils.OrdMap as OrdMap
+import Data.Fixed(mod')
 
 import Utils.CommonImports
 import qualified Subsystem.Units as U
@@ -204,6 +205,7 @@ runOp op es = case op of
     (ACO.BasicOp ACO.Sub)   -> runOpFF_F (-) es
     (ACO.BasicOp ACO.Mul)   -> runOpFF_F (*) es
     (ACO.BasicOp ACO.Div)   -> runOpFF_F (/) es
+    (ACO.BasicOp ACO.Mod)   -> runOpFF_F (rem') es
 
     (AC.BasicOp ACO.LT)     -> runOpFF_B (<) es
     (AC.BasicOp ACO.LE)     -> runOpFF_B (<=) es

@@ -31,6 +31,7 @@ import qualified Data.Foldable as DF
 import qualified Data.Traversable as DT
 import qualified Data.Map as Map
 import qualified Utils.OrdMap as OrdMap
+import Data.Fixed(mod')
 
 import Control.Monad.State
 import Utils.MonadSupply
@@ -263,6 +264,7 @@ simOp (AC.BasicOp AC.Add)  ((Num n1):(Num n2):[])  = Num (n1 + n2)
 simOp (AC.BasicOp AC.Sub)  ((Num n1):(Num n2):[])  = Num (n1 - n2)
 simOp (AC.BasicOp AC.Mul)  ((Num n1):(Num n2):[])  = Num (n1 * n2)
 simOp (AC.BasicOp AC.Div)  ((Num n1):(Num n2):[])  = Num (n1 / n2)
+simOp (AC.BasicOp AC.Mod)  ((Num n1):(Num n2):[])  = Num (rem' n1 n2)
 
 simOp (AC.BasicOp AC.LT)   ((Num n1):(Num n2):[])  = Boolean (n1 < n2)
 simOp (AC.BasicOp AC.LE)   ((Num n1):(Num n2):[])  = Boolean (n1 <= n2)
