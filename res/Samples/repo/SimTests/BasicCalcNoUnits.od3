@@ -25,6 +25,13 @@ module BasicCalc1 {
     val c = a * 2
 }
 
+// mod op test
+module BasicCalc1d {
+    init x = 5
+    ode { initVal : x, deltaVal : _ } = 13.5 % 5 // 3.5
+}
+
+
 // accessing time - OK
 module BasicCalc2 {
     val a = time + 1

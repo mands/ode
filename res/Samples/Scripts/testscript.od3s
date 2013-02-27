@@ -15,7 +15,7 @@ import SimTests.BasicCalcNoUnits.*
 :startTime 0
 :stopTime 10
 :timestep 1
-:period 3
+:period 1
 :output "./output.bin"
 
 // sim backend params
@@ -37,7 +37,7 @@ import SimTests.BasicCalcNoUnits.*
 //:vecMath
 :mathLib "gnu"
 // backend to use - interpreter, jitcompiler, aotcompiler, objectfile
-:backend "aotcompiler"
+:backend "interpreter"
 
 
 // adaptive params
@@ -48,6 +48,6 @@ import SimTests.BasicCalcNoUnits.*
 
 // all done
 //:simulate HodHux
-:simulate BasicCalc7f
+:simulate BasicCalc1d
 :quit
 

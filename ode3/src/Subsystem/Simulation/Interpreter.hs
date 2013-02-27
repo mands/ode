@@ -64,7 +64,7 @@ interpret m@Module{..} = do
 
     -- setup the initial data, wrap doubles into Var (Num d)
     randS <- liftIO $ newStdGen
-    let initState = SimState Map.empty (Num <$> initVals) (Sys._startTime p) (Sys.calcOutputInterval p) outHandle p randS
+    let initState = SimState Map.empty (Num <$> initVals) (Sys._startTime p) 1 outHandle p randS
 
     -- choose and start the correct the simulation model
     let simM =  case simType of

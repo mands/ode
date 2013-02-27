@@ -236,7 +236,7 @@ instance OdeSolver ProjSolver where
             scatterArray builder projArr projIds
             liftIO . void $ buildBr builder endBB
 
-        -- find the valueRef of all stateVals pointed to by an SDE
+        -- find the valueRef of all stateVals pointed to by an SDE (NOTE - this is why can only have one SDE subsystem in solver)
         projIds = mapMaybe (\op -> case op of (Sde i _ _) -> Just (stateRefMap Map.! i); _ -> Nothing) simOps
         projArrSize = constInt64 $ length projIds
 

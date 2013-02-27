@@ -60,12 +60,11 @@ def initializer1(fun):
 
 class Simulation:
     def __init__(self, sim_name, *, do_build=True, do_benchmark=True, do_analyse=True, exe_cmd=None, exe_name=None,
-                 is_exe=True, res_name=None, res_ref=None, src_name=None, run_root=False, num_sims=5):
+                 is_exe=True, res_name=None, res_ref=None, src_name=None, num_sims=5):
         self.sim_name = sim_name
         self.do_build = do_build
         self.do_benchmark = do_benchmark
         self.do_analyse = do_analyse
-        self.run_root = run_root
         self.exe_cmd = exe_cmd if exe_cmd else ("./" + sim_name + ".exe", )
 
         # check the executable name, if exists, for analysis
@@ -98,31 +97,35 @@ class Simulation:
     def parse_time_res(self, time_buf):
         user_time = re.compile('User time \(seconds\): ([\d.]+)$', re.MULTILINE).search(time_buf).group(1)
         sys_time = re.compile('System time \(seconds\): ([\d.]+)$', re.MULTILINE).search(time_buf).group(1)
+        max_rss = re.compile('Maximum resident set size \(kbytes\): ([\d.]+)$', re.MULTILINE).search(time_buf).group(1)
+
         # logging.debug("user time - {}, sys time {}".format(user_time, sys_time))
-        return float(user_time) + float(sys_time)
+        return (float(user_time) + float(sys_time), int(max_rss) / 1024)
+
+    def run_sim(self):
+        (run_cmd, run_opts) = ("/usr/bin/time", ("-v", ) + self.exe_cmd)
+        print(run_cmd, run_opts)
+        time_err_buf = io.StringIO()
+        time_out_buf = sh.Command(run_cmd)(run_opts, _err=time_err_buf)
+        logging.debug("Simulation output - \n{}".format(time_out_buf))
+        time_buf = time_err_buf.getvalue()
+        time_err_buf.close()
+        return time_buf
 
     def benchmark(self):
-        if self.run_root:
-            (run_cmd, run_opts) = ("sudo", ("chrt", "-f", "99", "/usr/bin/time", "-v") + self.exe_cmd)
-        else:
-            (run_cmd, run_opts) = ("/usr/bin/time", ("-v", ) + self.exe_cmd)
-
         total_time = 0.0
+        total_mem = 0
         for i in range(self.num_sims):
-            print(run_cmd, run_opts)
-
-            time_err_buf = io.StringIO()
-
-            time_out_buf = sh.Command(run_cmd)(run_opts, _err=time_err_buf)
-
-            logging.debug("Simulation output - \n{}".format(time_out_buf))
-            time_buf = time_err_buf.getvalue()
-            time_err_buf.close()
+            time_buf = self.run_sim()
             # accum the time
-            total_time += self.parse_time_res(time_buf)
+            (run_time, run_mem) = self.parse_time_res(time_buf)
+            total_time += run_time
+            total_mem += run_mem
 
         avg_time = (total_time / self.num_sims) - self.startup_offset
-        print("* Average time taken : {:.3g} (determined over {} simulations)".format(avg_time, self.num_sims), file=res_file)
+        avg_mem = (total_mem / self.num_sims)
+        print("* Average time taken (s) : {:.3g} (determined over {} simulations)".format(avg_time, self.num_sims), file=res_file)
+        print("* Average max RSS (Mb) : {:.3g} (determined over {} simulations)".format(avg_mem, self.num_sims), file=res_file)
 
     def analyse(self):
         if self.exe_name:
@@ -163,6 +166,32 @@ class OdeSimulation(Simulation):
     def build(self):
         # just a wrapper around the build module
         Build.build(self.sim_name, self.mod_name, self.sim_params)
+
+
+class OdeIntSimulation(Simulation):
+    def __init__(self, sim_name, mod_name, sim_params, **kwargs):
+        # update the src name with the default if not given
+        # kwargs['src_name'] = kwargs.get('src_name', sim_name + ".od3")
+        # NOTE - each Ode simulation must have it's own src file (use symlinks if req'd)
+        kwargs['src_name'] = sim_name + ".od3"
+        kwargs['is_exe'] = False
+        super().__init__(sim_name, **kwargs)
+        self.startup_offset = 1.0  # on average for comp. time
+        self.mod_name = mod_name
+        self.sim_params = sim_params
+        self.sim_params['backend'] = 'interpreter'
+        self.sim_params['output'] = os.path.join(CUR_DIR, self.sim_params['output'])
+        self.script = Build._gen_sim_script(self.sim_name, self.mod_name, self.sim_params)
+
+    def run_sim(self):
+        os.chdir(ODE_DIR)
+        time_err_buf = io.StringIO()
+        time_out_buf = sh.Command("/usr/bin/time")("-v", "./ode3", _in=self.script, _err=time_err_buf)
+        os.chdir(CUR_DIR)
+        logging.debug("Simulation output - \n{}".format(time_out_buf))
+        time_buf = time_err_buf.getvalue()
+        time_err_buf.close()
+        return time_buf
 
 
 class MatSimulation(Simulation):

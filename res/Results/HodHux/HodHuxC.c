@@ -32,9 +32,9 @@ void modelSolver(void) {
 
     // sim params
     static const double start_time = 0; 
-    static const double stop_time = 60; // switch upto 600s for 10m of sim, 20 APs and long (~1m) computational time
-    static const double time_step = 0.00001; 
-    static const uint64_t period = 100000;
+    static const double stop_time = 600;
+    static const double time_step = 0.01; 
+    static const uint64_t period = 0.06;
 
     // alloc state vals
     static double time;
@@ -147,7 +147,7 @@ void modelLoop  ( const double time, const double V, const double m, const doubl
 
 
     // stimulus current
-    const double i_Stim = (time >= 10.0 && time <= 10.5) ? 20.0 : 0.0;
+    const double i_Stim = (time % 60 >= 10.0 && time % 60 <= 10.5) ? 20.0 : 0.0;
     // main double
     *d_V = ((-1.0 * (-1.0 * i_Stim + i_Na + i_K + i_L)) / Cm);
 }

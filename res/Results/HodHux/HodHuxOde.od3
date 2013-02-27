@@ -1,5 +1,5 @@
-// single module
-module HodHux { 
+// MODEL - HH52
+module Model { 
     val E_R = -75
     val Cm = 1
 
@@ -24,11 +24,10 @@ module HodHux {
         val h = sodium_channel_h_gate(V)
         val g_Na = 120
         val E_Na = E_R + 115
-        val i_Na = g_Na * pow(m, 3.000001) * h * (V - E_Na)
-        //val i_Na = g_Na * pow(m, 3.0) * h * (V - E_Na)
+        // val i_Na = g_Na * pow(m, 3.000001) * h * (V - E_Na)
+        val i_Na = g_Na * pow(m, 3.0) * h * (V - E_Na)
         return (i_Na)
     }
-
 
     component potassium_channel_n_gate(V) {
         val alpha_n = (-0.01 * (V + 65)) / (exp((-1 * (V + 65)) / 10) - 1)
@@ -42,8 +41,8 @@ module HodHux {
         val n = potassium_channel_n_gate(V)
         val g_K = 36
         val E_K = E_R - 12
-        val i_K = g_K * pow(n, 4.000001) * (V - E_K)
-        //val i_K = g_K * pow(n, 4.0) * (V - E_K)
+        // val i_K = g_K * pow(n, 4.000001) * (V - E_K)
+        val i_K = g_K * pow(n, 4.0) * (V - E_K)
         return (i_K)
     }
 
@@ -58,8 +57,10 @@ module HodHux {
     val i_Na = sodium_channel(V, E_R)
     val i_K = potassium_channel(V, E_R)
     val i_L = leakage_current(V, E_R)
+    // MG - hardcoded stimulus train - every 1000ms
+    val period = 1000
     val i_Stim = piecewise {
-        time >= 10 and time <= 10.5 : 20,
+        time % period >= 10 and time % period <= 10.5 : 20,
         default: 0
     }
 

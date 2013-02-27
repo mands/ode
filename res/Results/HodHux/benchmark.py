@@ -21,7 +21,7 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-    Benchmarks for the HodHux model
+    Benchmarks for the HH52 model
 """
 
 import os
@@ -30,16 +30,20 @@ import argparse
 import sh
 import io
 from Benchmarks import *
+import Build
 
 if __name__ == '__main__':
     init()
-    # HodHux model
-    hod_hux_params = get_ode_params(timestep=0.00001, output="./HodHuxOde.bin", exeOutput="./HodHuxOde.exe")
-    hod_hux1_params = get_ode_params(timestep=0.001, output="./HodHuxOde1.bin", exeOutput="./HodHuxOde1.exe")
+
+    # ode setup
+    ode_params = Build.get_ode_params("HodHuxOde", startTime=0.0, stopTime=600.0, period=0.06, timestep=0.01, disablePowerExpan=True)
+
+    # src locations
+    c_model_name = 'HodHuxC'
 
     # run set of simulations
-    sims = [OdeSimulation("HodHuxOde", "HodHux", hod_hux_params, run_root=True, num_sims=1, res_ref="./HodHuxRef.bin"),
-            #OdeSimulation("HodHuxOde1", "HodHux", hod_hux1_params, src_name="./HodHuxOde.od3", num_sims=2, res_ref="./HodHuxRef.bin"),
-            Simulation("HodHuxC", src_name="./HodHuxC.c", num_sims=1, run_root=True, res_ref="./HodHuxRef.bin")]
+    sims = [OdeSimulation("HodHuxOde", "Model", ode_params),
+            Simulation(c_model_name, src_name=c_model_name+'.c', res_ref=c_model_name+'.bin'),
+            ]
 
     runSims(sims)

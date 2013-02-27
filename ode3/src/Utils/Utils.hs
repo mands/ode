@@ -16,7 +16,7 @@
 
 module Utils.Utils (
 MExcept, MExceptIO, mkExceptIO, maybeToExcept, maybeToExcept', maybeToExceptIO,
-mapFst, mapSnd, mapFstM, mapSndM, pairM, notEqual, inc, dec, isWholeNumber, quot', quotRem', rem'
+mapFst, mapSnd, mapFstM, mapSndM, pairM, notEqual, inc, dec, isWholeNumber, quot', quotRem', rem',
 (|>),
 SB(..), trace', errorDump,
 openPipe, closePipe, readLoop,
@@ -86,17 +86,19 @@ isWholeNumber :: Double -> Bool
 isWholeNumber n = (fromInteger $ floor n) == n
 
 -- | generalisation of 'quot' to any instance of Real
-quot' :: (Real a,Integral b) => a -> a -> b
+quot' :: (Real a, Integral b) => a -> a -> b
 quot' n d = truncate ((toRational n) / (toRational d))
 
 -- | generalisation of 'quotRem' to any instance of Real
-quotRem' :: (Real a,Integral b) => a -> a -> (b,a)
-quotRem' n d = (f,n - (fromIntegral f) * d) where
+quotRem' :: (Real a, Integral b) => a -> a -> (b, a)
+quotRem' n d = (f, n - (fromIntegral f) * d)
+  where
     f = quot' n d
 
 -- | generalisation of 'rem' to any instance of Real
 rem' :: (Real a) => a -> a -> a
-rem' n d = n - (fromIntegral f) * d where
+rem' n d = n - (fromIntegral f) * d
+  where
     f = quot' n d
 
 
