@@ -91,6 +91,8 @@ optScript p@(Sys.SimParams{..}) = do
                         ,"-bb-vectorize-vecmath-pass=1", "-bb-vectorize-req-chain-depth=2", "-bb-vectorize-use-chain-depth=1", "-bb-vectorize-aligned-only=1", "-bb-vectorize-splat-breaks-chain=1"
                         -- debug output
                         -- ,"-bb-vectorize-debug-instruction-examination=0", "-bb-vectorize-debug-candidate-selection=1", "-bb-vectorize-debug-pair-selection=0"
+                        -- vector length (TODO - make a sim param) (NOTE - broken atm, SSE->AVX has probs)
+                        -- ,"-bb-vectorize-vector-bits=256"
                         ,"-stats", modelVec1]
                     run_ "llvm-dis" [modelVec2]
                     linkVecMath modelVec2
@@ -175,12 +177,12 @@ compileScript p@(Sys.SimParams{..}) = do
     if (L.get Sys.lBackend p == Sys.ObjectFile)
         -- use clang to create a object file
         then do
-                run "clang" $ ["-integrated-as", "-c", "-o", toTextIgnore odeObjFile, optLevel]
+                run "clang" $ ["-march=x86-64", "-integrated-as", "-c", "-o", toTextIgnore odeObjFile, optLevel]
                     ++ maybeToList fastMath ++ [modelOptBC]
                 cp odeObjFile (fromText . LT.pack $ FP.addExtension outName "o")
         -- use clang to link our llvm-linked sim module to the system
         else do
-            run "clang" $ (maybeToList linkType) ++ ["-integrated-as", "-o", toTextIgnore exeOutput, optLevel]
+            run "clang" $ (maybeToList linkType) ++ ["-march=x86-64", "-integrated-as", "-o", toTextIgnore exeOutput, optLevel]
                 ++ maybeToList fastMath ++ [simBC] ++ ["-L", toTextIgnore projLibPath] ++ cvodeLibs ++ mathLibs
             cp exeOutput (fromText . LT.pack $ FP.addExtension outName "exe")
     return ()

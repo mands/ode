@@ -28,6 +28,7 @@
 import os
 import logging
 import argparse
+import platform
 import sh
 import io
 import inspect
@@ -124,8 +125,8 @@ class Simulation:
 
         avg_time = (total_time / self.num_sims) - self.startup_offset
         avg_mem = (total_mem / self.num_sims)
-        print("* Average time taken (s) : {:.3g} (determined over {} simulations)".format(avg_time, self.num_sims), file=res_file)
-        print("* Average max RSS (Mb) : {:.3g} (determined over {} simulations)".format(avg_mem, self.num_sims), file=res_file)
+        print("* Average time taken (s) : {:.3f} (determined over {} simulations)".format(avg_time, self.num_sims), file=res_file)
+        print("* Average max RSS (Mb) : {:.3f} (determined over {} simulations)".format(avg_mem, self.num_sims), file=res_file)
 
     def analyse(self):
         if self.exe_name:
@@ -180,8 +181,7 @@ class OdeIntSimulation(Simulation):
         self.mod_name = mod_name
         self.sim_params = sim_params
         self.sim_params['backend'] = 'interpreter'
-        self.sim_params['output'] = os.path.join(CUR_DIR, self.sim_params['output'])
-        self.script = Build._gen_sim_script(self.sim_name, self.mod_name, self.sim_params)
+        self.script = Build._gen_sim_script(self.sim_name, self.mod_name, self.sim_params, True)
 
     def run_sim(self):
         os.chdir(ODE_DIR)
@@ -237,16 +237,26 @@ def init():
     ## setup globals
 
 
-def runSims(sims, res_file_name="results.txt"):
+def runSims(sims, make=True, res_file_name="results"):
+    res_file_name = "{}_{}.txt".format(res_file_name, platform.node())
+
+    # quit is results already exist, don't want to clobber existing results
+    if os.path.isfile(res_file_name):
+        raise Exception("Results file {} already exists, please delete and rerun".format(res_file_name))
+    
     # make all non-Ode exes
-    logging.debug("Running make all")
-    sh.make('all')
+    if make:
+        logging.debug("Running make all")
+        sh.make('all')
 
     global res_file
     res_file = open(res_file_name, 'w')
-    print("Running set of simulation at {}\n".format(strftime("%H:%M:%S on %d/%m/%Y", gmtime())), file=res_file)
+    print("Running set of simulations at {}".format(strftime("%H:%M:%S on %d/%m/%Y", gmtime())), file=res_file)
+    print("Benchmarks run on {} under OS {}".format(platform.node(), platform.release()), file=res_file)
+    print("", file=res_file)
 
     for sim in sims:
+        res_file.flush()
         sim.execute()
 
     # run a sim (<filename.exe>)

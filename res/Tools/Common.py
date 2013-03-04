@@ -35,10 +35,31 @@ def getCols(num_cols, col_list=None, add_zero=False):
     else:
         cols = list(range(1, num_cols))
     if add_zero:
-        cols.insert(0,0)
+        cols.insert(0, 0)
         return cols
     else:
         return cols
+
+
+def plot(data, num_cols, col_list=None, save=None, title="AP Plot", xlabel="Time (s)", ylabel="State Values"):
+    import pylab
+    # plot the data
+    logging.debug("Setting up a plot")
+    # get and plot the specified columns
+    cols = getCols(num_cols, col_list)
+    pylab.plot(data[:,0], data[:,cols])
+
+    # add the labels
+    pylab.xlabel(xlabel)
+    pylab.ylabel(ylabel)
+    pylab.title(title)
+
+    # save or display the graph
+    if save:
+        pylab.savefig(save, format='pdf')
+    else:
+        pylab.grid(True)
+        pylab.show()
 
 
 def setupPrint():

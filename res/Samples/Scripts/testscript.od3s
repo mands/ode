@@ -37,8 +37,8 @@ import SimTests.BasicCalcNoUnits.*
 //:vecMath
 :mathLib "gnu"
 // backend to use - interpreter, jitcompiler, aotcompiler, objectfile
-:backend "interpreter"
-
+// :backend "interpreter"
+:backend "aotcompiler"
 
 // adaptive params
 :relError 1e-4

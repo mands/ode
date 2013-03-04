@@ -27,15 +27,12 @@
 
 import os
 import logging
-import pylab
 import argparse
 
-from Common import openFile, getCols
+from Common import openFile, plot
 
 if __name__ == '__main__':
-
     logging.basicConfig(level=logging.DEBUG)
-
 
     # arg parsing
     parser = argparse.ArgumentParser(
@@ -44,7 +41,7 @@ if __name__ == '__main__':
     )
     parser.add_argument("file", help="File to plot")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose mode")
-    parser.add_argument("--title", type=str, help="Title to use for graph")
+    parser.add_argument("--title", type=str, default="AP Plot", help="Title to use for graph")
     parser.add_argument("-s", "--save", type=str, help="Write the output to file")
     parser.add_argument("-c", "--cols", type=str, help="Plot this subset of cols=x,y,z")
     parser.add_argument("-x", "--xlabel", type=str, default="Time (s)", help="Label for the x-axis")
@@ -56,22 +53,5 @@ if __name__ == '__main__':
     (data, num_cols) = openFile(filename)
 
     # plot the data
-    logging.debug("Setting up a plot")
-    # get and plot the specified columns
-    cols = getCols(num_cols, args.cols)
-    pylab.plot(data[:,0], data[:,cols])
-
-    # add the labels
-    pylab.xlabel(args.xlabel)
-    pylab.ylabel(args.ylabel)
-    if args.title:
-        pylab.title(args.title)
-
-    # save or display the graph
-    if args.save:
-        pylab.savefig(args.save, format='pdf')
-    else:
-        pylab.grid(True)
-        pylab.show()
-
+    plot(data, num_cols, args.cols, args.save, args.title, args.xlabel, args.ylabel)
     logging.debug("Done")
