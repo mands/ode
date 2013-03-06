@@ -43,7 +43,7 @@ void solverInit(double* const restrict state) {
     OdeStartSim(OdeParamOutput, OdeParamStateSize);
     // populate the initial vals and write to disk
     OdeModelInitials(OdeParamStartTime, state);
-    OdeWriteState(OdeParamStartTime, state);
+    if (OdeParamStartTime >= OdeParamStartOutputTime) OdeWriteState(OdeParamStartTime, state);
 }
 
 void solverRun(double* const restrict state) {

@@ -8,7 +8,7 @@
 -- Stability   :  alpha
 -- Portability :
 --
--- |
+-- | Removes type defs, converts unit expressions into std expressions and removes units annotations, removes newtype wraps
 --
 -----------------------------------------------------------------------------
 
@@ -56,8 +56,9 @@ mkUnitConvState = UnitConvState
 convertTypes :: S.UnitsState -> U.Unit -> Module Id -> MExcept (Module Id)
 convertTypes uState tUnit (LitMod modData) = do
     ((exprMap', freeIds'), _) <- runStateT (runSupplyT convTypesM [freeId ..]) $ mkUnitConvState uState (modTMap modData) tUnit
-    -- update modData and return new module
+    -- drop the toptypes from AST
     let exprMap'' = OrdMap.filter (\topLet -> case topLet of (AC.TopLet _ _ _ _) -> True; (AC.TopType _) -> False) exprMap'
+    -- update modData and return new module
     return $ LitMod $ (updateModData2 modData exprMap'') { modFreeId = (head freeIds') }
   where
     freeId = modFreeId modData
@@ -67,13 +68,13 @@ convertTypes uState tUnit (LitMod modData) = do
 
 convertTypesTop :: AC.TopLet Id -> UnitConvM (AC.TopLet Id)
 convertTypesTop (AC.TopLet isInit t bs tE) = do
-    AC.TopLet isInit (removeTypeUnits t) bs <$> convertTypesExpr tE
+    AC.TopLet isInit (removeTypeCasts t) bs <$> convertTypesExpr tE
 convertTypesTop tLet = return tLet
 
 
 convertTypesExpr :: AC.Expr Id -> UnitConvM (AC.Expr Id)
 convertTypesExpr (AC.Let isInit t bs e1 e2) = do
-    AC.Let isInit (removeTypeUnits t) bs <$> convertTypesExpr e1 <*> convertTypesExpr e2
+    AC.Let isInit (removeTypeCasts t) bs <$> convertTypesExpr e1 <*> convertTypesExpr e2
 
 -- drop units from lit nums
 convertTypesExpr (AC.Lit (AC.Num n u)) = return $ AC.Lit (AC.Num n U.NoUnit)
@@ -115,8 +116,9 @@ convertUnitExpr id (U.CExpr op e1 e2) = AC.Op (convertUnitOp op) $ AC.Tuple [con
 convertUnitExpr id (U.CNum n) = AC.Lit $ AC.Num n U.NoUnit
 convertUnitExpr id U.CFromId = AC.Var (AC.LocalVar id) Nothing
 
--- takes a type, and removes all units from it
-removeTypeUnits :: AC.Type -> AC.Type
-removeTypeUnits (AC.TFloat _) = AC.TFloat U.NoUnit
-removeTypeUnits t = AC.mapType removeTypeUnits t
+-- takes a type, and removes all units/newtype info from it
+removeTypeCasts :: AC.Type -> AC.Type
+removeTypeCasts (AC.TFloat _) = AC.TFloat U.NoUnit
+removeTypeCasts (AC.TWrap _ _) = AC.TUnit
+removeTypeCasts t = AC.mapType removeTypeCasts t
 

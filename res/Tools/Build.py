@@ -158,7 +158,7 @@ if __name__ == '__main__':
     filename, module, interpreter, verbose = init()
     # run the build
     # ode setup
-    params = get_ode_params(filename)
+    params = get_ode_params()
     if interpreter:
         interpret(filename, module, params, verbose)
     else:

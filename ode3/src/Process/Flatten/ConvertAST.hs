@@ -294,4 +294,5 @@ convertType (AC.TFloat _)   = ACF.TFloat
 convertType (AC.TUnit)      = ACF.TUnit
 convertType (AC.TTuple ts)  = ACF.TTuple $ map convertType ts
 convertType (AC.TRecord nTs)  = ACF.TTuple $ map convertType (AC.dropLabels nTs)
+convertType t = errorDump [MkSB t] "unknown type" assert
 

@@ -64,7 +64,7 @@ inlineRefMod lMod@(RefMod modFullName isClosed _ lModEnv) = do
     inMods <- stInModMap <$> get
     case Map.lookup modFullName inMods of
         Just idMap  -> return idMap  -- module already loaded/inlined
-        Nothing     -> do                            -- module not loaded/inlined
+        Nothing     -> do            -- module not loaded/inlined
             -- load the module
             gModEnv <- stGModEnv <$> get
             inMod <- lift $ getModuleGlobal modFullName gModEnv
@@ -125,6 +125,7 @@ appendModule modIdVarMap srcMod = do
       where
         updateTop :: AC.TopLet Id -> AC.TopLet Id
         updateTop (AC.TopLet b t bs e) = AC.TopLet b t bs $ updateExpr e
+        updateTop (AC.TopType b) = AC.TopType b
 
         -- switch all vars eithin the expression to reference localvars within our inlined Mod
         updateExpr :: AC.Expr Id -> AC.Expr Id

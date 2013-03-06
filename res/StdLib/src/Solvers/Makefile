@@ -23,5 +23,5 @@ install: SSASolver.exe OdeSolver.exe CvodeSim.exe CvodeSim.bc
 	cp CvodeSim.bc $(ODE_LIB_DIR)
 
 clean:
-	rm -f *.o *~ *.bin *.exe
+	rm -f *~ *.bin *.exe
 

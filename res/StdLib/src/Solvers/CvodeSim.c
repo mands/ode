@@ -87,7 +87,7 @@ void solverInit(double* const restrict state, void** const restrict cvodeMemOut,
     OdeStartSim(OdeParamOutput, OdeParamStateSize);
     // populate the initial vals and write to disk
     OdeModelInitials(OdeParamStartTime, state);
-    OdeWriteState(OdeParamStartTime, state);
+    if (OdeParamStartTime >= OdeParamStartOutputTime) OdeWriteState(OdeParamStartTime, state);
 
     // Setup CVODE
     int32_t flag;

@@ -1,0 +1,53 @@
+// New Sample //////////////////////////////
+module Types {
+  type A
+  val _ = 1 { wrap : A } // just to constrain it
+}
+
+
+module ModA {
+  import Newtypes1.Types
+
+  val b = 0.1 { wrap : Types.A }
+}
+
+/*
+module ModC(T) {
+  val b = 0.1 { wrap : T.T }
+}
+*/
+
+module ModB {
+  import Newtypes1.Types
+  import Newtypes1.ModA
+
+  val c = ModA.b { unwrap : Types.A } + 0
+}
+
+// New Sample //////////////////////////////
+module ModD {
+  type A
+
+  val b = 0.1 { wrap : A }
+}
+
+module ModE {
+  import Newtypes1.ModD
+
+  val c = ModD.b { unwrap : ModD.A }
+}
+
+// New Sample //////////////////////////////
+/*
+module ModF {
+  type A
+
+  val b = 0.1 { wrap : A }
+}
+
+module ModG(ModA) {
+  val c = ModA.b { unwrap : ModA.A }
+}
+
+module ModH = ModG(ModF)
+*/
