@@ -60,6 +60,7 @@ void dumpParams(void) {
     puts("\nOde Model Output");
     printf("OdeParamPeriod (s)\t\t- %g\n", OdeParamPeriod);
     printf("OdeParamPeriodInterval\t\t- %" PRIu64 "\n", OdeParamPeriodInterval);
+    printf("OdeParamStartOutputTime (s)\t- %g\n", OdeParamStartOutputTime);
     printf("OdeParamOutput\t\t\t- %s\n", OdeParamOutput);
 
 // dummy code - ignore

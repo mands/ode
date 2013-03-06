@@ -15,7 +15,7 @@ void solverRun(double* const restrict state);
 void solverShutdown(void);
 
 int main(void) {
-    if (OdeParamSimType == Rre) {
+    if (OdeParamSimType == Rre || OdeParamSimType == Hybrid) {
         fprintf(stderr, "Cannot simulation an RRE model\n");
         return(1);
     }
@@ -53,7 +53,7 @@ void solverRun(double* const restrict state) {
 
     // euler loop params
     double time;
-    const double sqrtTimestep = sqrt(OdeParamTimestep);
+    // const double sqrtTimestep = sqrt(OdeParamTimestep); -- not needed anymore
     uint64_t curPeriod = 1;
     uint64_t curLoop = 0;
     uint64_t stateIdx;
@@ -88,7 +88,7 @@ void solverRun(double* const restrict state) {
 
         // write out at sample period
         if (curPeriod == OdeParamPeriodInterval) {
-            OdeWriteState(time, state);
+            if (time >= OdeParamStartOutputTime) OdeWriteState(time, state);
             curPeriod = 1;
         } else {
             ++curPeriod;

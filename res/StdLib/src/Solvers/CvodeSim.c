@@ -167,7 +167,7 @@ void solverRun(void* const restrict cvodeMem, N_Vector const restrict yOut) {
             break;
         }
         // save state to disk
-        OdeWriteState(tRet, NV_DATA_S(yOut));
+        if (tRet >= OdeParamStartOutputTime) OdeWriteState(tRet, NV_DATA_S(yOut));
     }
     printf("Simulation stop time - %g, OdeParamAdjustedStopTime - %g\n", tRet, OdeParamAdjustedStopTime);
 }

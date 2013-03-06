@@ -95,6 +95,7 @@ genFFIParams numParams simType = do
     -- output params
     liftIO $ addGlobalWithInit llvmMod (constDouble $ _outputPeriod) doubleType True "OdeParamPeriod"
     liftIO $ addGlobalWithInit llvmMod (constInt64 $ Sys.calcOutputInterval simParams) int64Type True "OdeParamPeriodInterval"
+    liftIO $ addGlobalWithInit llvmMod (constDouble $ maybe _startTime id _mStartOutput) doubleType True "OdeParamStartOutputTime"
 
     -- HACK to build global string outside of a func (as buildGlobalString fails)
     liftIO $ addGlobalWithInit llvmMod (constString _filename False) (arrayType int8Type (fromIntegral $ length _filename + 1)) True "OdeParamOutput"

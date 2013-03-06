@@ -114,7 +114,7 @@ data SimParams = SimParams
 
     -- output params
     , _outputPeriod :: Double           -- period interval with which to save simulation state to outfile, should be multiple of timestep
-    , _mStartOutput  :: Maybe Double     --
+    , _mStartOutput :: Maybe Double     -- time T1 at which to start output to datafile
     , _filename     :: FilePath         -- output filename to save data to
 
     -- compilation params

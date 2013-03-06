@@ -177,12 +177,12 @@ compileScript p@(Sys.SimParams{..}) = do
     if (L.get Sys.lBackend p == Sys.ObjectFile)
         -- use clang to create a object file
         then do
-                run "clang" $ ["-march=x86-64", "-integrated-as", "-c", "-o", toTextIgnore odeObjFile, optLevel]
+                run "clang" $ archDetails ++ ["-integrated-as", "-c", "-o", toTextIgnore odeObjFile, optLevel]
                     ++ maybeToList fastMath ++ [modelOptBC]
                 cp odeObjFile (fromText . LT.pack $ FP.addExtension outName "o")
         -- use clang to link our llvm-linked sim module to the system
         else do
-            run "clang" $ (maybeToList linkType) ++ ["-march=x86-64", "-integrated-as", "-o", toTextIgnore exeOutput, optLevel]
+            run "clang" $ (maybeToList linkType) ++ archDetails ++ ["-integrated-as", "-o", toTextIgnore exeOutput, optLevel]
                 ++ maybeToList fastMath ++ [simBC] ++ ["-L", toTextIgnore projLibPath] ++ cvodeLibs ++ mathLibs
             cp exeOutput (fromText . LT.pack $ FP.addExtension outName "exe")
     return ()
@@ -209,6 +209,7 @@ compileScript p@(Sys.SimParams{..}) = do
         Sys.Static -> Just "-static"
         Sys.Dynamic -> Nothing
 
+    archDetails = ["-march=x86-64"] -- ["-march=core-avx-i", "-mllvm", "-x86-use-vzeroupper"]
     outName     = FP.dropExtension $ L.get Sys.lExeName p
 
 -- | Executes simulation of standalone executable in sub-process (any required libs must be on LD_LIBRARY_PATH)

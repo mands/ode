@@ -155,7 +155,7 @@ class Simulation:
 
 
 class OdeSimulation(Simulation):
-    def __init__(self, sim_name, mod_name, sim_params, **kwargs):
+    def __init__(self, sim_name, mod_name, sim_params, log_prefix="ode", **kwargs):
         # update the src name with the default if not given
         # kwargs['src_name'] = kwargs.get('src_name', sim_name + ".od3")
         # NOTE - each Ode simulation must have it's own src file (use symlinks if req'd)
@@ -163,10 +163,11 @@ class OdeSimulation(Simulation):
         super().__init__(sim_name, **kwargs)
         self.mod_name = mod_name
         self.sim_params = sim_params
+        self.log_prefix = log_prefix
 
     def build(self):
         # just a wrapper around the build module
-        Build.build(self.sim_name, self.mod_name, self.sim_params)
+        Build.build(self.sim_name, self.mod_name, self.sim_params, self.log_prefix)
 
 
 class OdeIntSimulation(Simulation):
@@ -246,8 +247,8 @@ def runSims(sims, make=True, res_file_name="results"):
     
     # make all non-Ode exes
     if make:
-        logging.debug("Running make all")
-        sh.make('all')
+        logging.debug("Running make -B all")
+        sh.make('-B', 'all')
 
     global res_file
     res_file = open(res_file_name, 'w')

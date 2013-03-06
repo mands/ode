@@ -36,8 +36,9 @@ import SimTests.HodHux.*
 :vecMath
 :mathLib "gnu"
 // backend to use - interpreter, jitcompiler, aotcompiler, objectfile
-:backend "aotcompiler"
+:backend "objectfile"
 :exeOutput "Hodhux"
+:startOutput 20
 // adaptive params
 :relError 1e-4
 :absError 1e-6

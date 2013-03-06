@@ -86,9 +86,9 @@ def get_ode_params(**alt_params):
     return dict(params, **alt_params)
 
 
-def execute_ode(cur_dir, script, verbose=False):
-    err_log_filename = os.path.join(cur_dir, ".ode.err.log")
-    out_log_filename = os.path.join(cur_dir, ".ode.out.log")
+def execute_ode(cur_dir, script, verbose=False, log_prefix="ode"):
+    out_log_filename = os.path.join(cur_dir, ".{}.out.log".format(log_prefix))
+    err_log_filename = os.path.join(cur_dir, ".{}.err.log".format(log_prefix))
     os.chdir(ODE_DIR)
     # run ode - sending output to log-files in the cur dir
     sh.Command("./ode3")(_in=script, _err=err_log_filename, _out=out_log_filename)
@@ -101,14 +101,14 @@ def execute_ode(cur_dir, script, verbose=False):
     os.chdir(cur_dir)
 
 
-def build(filename, module, params, verbose=False):
+def build(filename, module, params, log_prefix, verbose=False):
     cur_dir = os.path.abspath(os.getcwd())
     exe_name = filename + '.exe'
     # build the script
     params['backend'] = 'aotcompiler'
     params['disableExecute'] = True
     script = _gen_sim_script(filename, module, params)
-    execute_ode(cur_dir, script, verbose)
+    execute_ode(cur_dir, script, verbose=verbose, log_prefix=log_prefix)
     # move exe to cur dir
     sh.mv(os.path.join(ODE_DIR, exe_name), cur_dir)
 
@@ -119,7 +119,7 @@ def interpret(filename, module, params, verbose=False):
     # build the script
     params['backend'] = 'interpreter'
     script = _gen_sim_script(filename, module, params)
-    execute_ode(cur_dir, script, verbose)
+    execute_ode(cur_dir, script, verbose=verbose)
     # move res to cur dir
     sh.mv(os.path.join(ODE_DIR, res_name), cur_dir)
 
@@ -131,7 +131,7 @@ def build_obj(filename, module, params, verbose=False):
     params['backend'] = 'objectfile'
     params['disableExecute'] = True
     script = _gen_sim_script(filename, module, params)
-    execute_ode(cur_dir, script, verbose)
+    execute_ode(cur_dir, script, verbose=verbose)
     # move exe to cur dir
     sh.mv(os.path.join(ODE_DIR, exe_name), cur_dir)
 
@@ -162,4 +162,4 @@ if __name__ == '__main__':
     if interpreter:
         interpret(filename, module, params, verbose)
     else:
-        build(filename, module, params, verbose)
+        build(filename, module, params, "ode", verbose)

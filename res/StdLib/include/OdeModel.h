@@ -19,7 +19,6 @@ extern const double OdeParamAdjustedStopTime;
 // the timestep to be used for a fixed solver, or the minimum timestep within an adaptive solver
 extern const double OdeParamTimestep;
 
-
 // Adative Solver Parameteres (i.e. for use with CVODE) ////////////////////////////////////////////
 // the max timestep to be used for an adaptive solver, used to ensure we don't skip
 // pass the stimulus current - set to half the stimulus interval
@@ -47,6 +46,9 @@ extern const double OdeParamPeriod;
 
 // pre-calculated period interval in terms of multiples of the timestep
 extern const uint64_t OdeParamPeriodInterval;
+
+// the time at which to start output to data file
+extern const double OdeParamStartOutputTime;
 
 // this is actually statically alloc'd string literal, need to take the address to use it as a string
 extern const char OdeParamOutput[];
