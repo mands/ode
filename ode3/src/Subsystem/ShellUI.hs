@@ -138,12 +138,12 @@ defaultCmds =   [ helpCommand "help" , showCmd, clearCmd, debugCmd, simStartCmd,
     simTimeUnitCmd = cmd "timeUnit" f "Set the unit used for the independent time parameter (only seconds (s) fully supported!)"
       where
         f :: String -> Sh SysState ()
-        f str | map toLower str == "ns"  = modifyShellSt $ set (lTimeUnit . lSimParams) U.uNanoSeconds
+        f str | map toLower str == "us"  = modifyShellSt $ set (lTimeUnit . lSimParams) U.uMicroSeconds
         f str | map toLower str == "ms"  = modifyShellSt $ set (lTimeUnit . lSimParams) U.uMilliSeconds
         f str | map toLower str == "s"   = modifyShellSt $ set (lTimeUnit . lSimParams) U.uSeconds
         f str | map toLower str == "min" = modifyShellSt $ set (lTimeUnit . lSimParams) U.uMinutes
         f str | map toLower str == "hr"  = modifyShellSt $ set (lTimeUnit . lSimParams) U.uHours
-        f _  = shellPutInfoLn "Possible options <ns, ms, s, min, hr> (only s fully supported!)"
+        f _  = shellPutInfoLn "Possible options <us, ms, s, min, hr> (only s fully supported!)"
 
     -- adaptive params
     simMaxTimestepCmd = cmd "maxTimestep" (setVal $ lMaxTimestep . lSimParams) "Max timestep to use for simulation"
