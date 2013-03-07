@@ -91,7 +91,7 @@ odeStmt =   AO.ImportStmt <$> importCmd
             <|> quantityDef     -- units support
             <|> unitDef
             <|> convDef
-            <|> typeDef
+            -- <|> typeDef -- newtypes broken
             <?> "import, expression, or unit defintion"
 
 
@@ -261,8 +261,9 @@ compTerm = do
     option e $ exprAttrib e
   where
     exprAttrib e =  try (AO.ConvCast <$> pure e <*> unitAttrib)
-                    <|> try (AO.WrapType <$> pure e <*> singAttrib "wrap" typeIdentifier)
-                    <|> try (AO.UnwrapType <$> pure e <*> singAttrib "unwrap" typeIdentifier)
+                    -- newtypes broken atm
+                    -- <|> try (AO.WrapType <$> pure e <*> singAttrib "wrap" typeIdentifier)
+                    -- <|> try (AO.UnwrapType <$> pure e <*> singAttrib "unwrap" typeIdentifier)
 
 -- | parse a term - the value on either side of an operator
 -- these should not be stateful, however we could call a component that in turn creates state/init values

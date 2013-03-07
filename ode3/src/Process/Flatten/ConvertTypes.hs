@@ -55,10 +55,16 @@ mkUnitConvState = UnitConvState
 
 convertTypes :: S.UnitsState -> U.Unit -> Module Id -> MExcept (Module Id)
 convertTypes uState tUnit (LitMod modData) = do
+
+    trace' [MkSB modData] "Initial Types" $ return ()
+
     ((exprMap', freeIds'), _) <- runStateT (runSupplyT convTypesM [freeId ..]) $ mkUnitConvState uState (modTMap modData) tUnit
     -- drop the toptypes from AST
     let exprMap'' = OrdMap.filter (\topLet -> case topLet of (AC.TopLet _ _ _ _) -> True; (AC.TopType _) -> False) exprMap'
     -- update modData and return new module
+
+    trace' [MkSB exprMap''] "Converted Types" $ return ()
+
     return $ LitMod $ (updateModData2 modData exprMap'') { modFreeId = (head freeIds') }
   where
     freeId = modFreeId modData
@@ -119,6 +125,6 @@ convertUnitExpr id U.CFromId = AC.Var (AC.LocalVar id) Nothing
 -- takes a type, and removes all units/newtype info from it
 removeTypeCasts :: AC.Type -> AC.Type
 removeTypeCasts (AC.TFloat _) = AC.TFloat U.NoUnit
-removeTypeCasts (AC.TWrap _ _) = AC.TUnit
+-- removeTypeCasts (AC.TWrap _ _) = AC.TUnit
 removeTypeCasts t = AC.mapType removeTypeCasts t
 

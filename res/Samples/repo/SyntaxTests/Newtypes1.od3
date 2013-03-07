@@ -34,7 +34,7 @@ module ModD {
 module ModE {
   import Newtypes1.ModD
 
-  val c = ModD.b { unwrap : ModD.A }
+  val c = ModD.b { unwrap : ModD.A } + 1
 }
 
 // New Sample //////////////////////////////
