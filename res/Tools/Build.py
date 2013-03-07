@@ -149,16 +149,30 @@ def init():
     # parser.add_argument("-d", "--default-params", action="store_true", default=True, help="Module name")
     parser.add_argument("-i", "--interpreter", action="store_true", default=False, help="Module name")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose mode")
+    parser.add_argument("dictionary", nargs='*')
     args = parser.parse_args()
 
-    return (args.file, args.module, args.interpreter, args.verbose)
+
+    def convert_arg_param(param):
+        try:
+            return float(param)
+        except:
+            if param.lower() == "true":
+                return True
+            elif param.lower() == "false":
+                return False
+            else:
+                return param
+
+    alt_params = {k: convert_arg_param(v) for (k, v) in [x.split('=') for x in args.dictionary]}
+    return (args.file, args.module, args.interpreter, args.verbose, alt_params)
 
 
 if __name__ == '__main__':
-    filename, module, interpreter, verbose = init()
+    filename, module, interpreter, verbose, alt_params = init()
     # run the build
     # ode setup
-    params = get_ode_params()
+    params = get_ode_params(**alt_params)
     if interpreter:
         interpret(filename, module, params, verbose)
     else:

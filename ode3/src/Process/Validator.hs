@@ -36,6 +36,8 @@ import Utils.CommonImports
 import qualified Utils.OrdMap as OrdMap
 import qualified AST.Core as E
 import qualified AST.Module as M
+import qualified AST.Common as AC
+
 
 -- Process Entry -------------------------------------------------------------------------------------------------------
 validate :: M.Module E.DesId -> MExcept (M.Module E.DesId)

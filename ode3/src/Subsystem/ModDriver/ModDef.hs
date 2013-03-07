@@ -61,6 +61,7 @@ import {-# SOURCE #-} Subsystem.ModDriver.ModCmd (evalImport) -- special import 
 import Process.Renamer (rename)
 import Process.Validator (validate)
 import Process.TypeChecker (typeCheck)
+import Process.ExpandUnits (expandUnits)
 
 -- Evaluate Module Defintions ------------------------------------------------------------------------------------------
 
@@ -103,6 +104,8 @@ evalModDef fd mod = do
                 -- units
                 St.modSysStateM St.vUnitDimEnv (\unitDimEnv ->
                     St.liftExSys $ U.addUnitsToEnv unitDimEnv (modUnits modData))
+                -- derived units
+                St.modSysState St.vDerivedEnv (\dEnv -> U.addDerivedUnitsToEnv dEnv (modDerived modData))
                 -- conv defs
                 unitDimEnv <- St.getSysState St.vUnitDimEnv
                 St.modSysStateM St.vConvEnv (\convEnv ->
@@ -184,7 +187,7 @@ evalModDef' gModEnv fileData unitsState unitsCheck timeUnit mod = do
     -- reorder - place the expressions from args ahead of thos withing the func module
     -- renaming, use the free vars to deteermine a safe renaimg scheme
     -- typecheck, check the args are valid, then typecheck the signatures, using the same alogirthm as typechecking an app
-    mod' <- validate mod >>= rename >>= typeCheck gModEnv fileData unitsState unitsCheck timeUnit
+    mod' <- validate mod >>= expandUnits unitsState >>= rename >>= typeCheck gModEnv fileData unitsState unitsCheck timeUnit
     return mod'
 
 -- Ref Mod Helper Funcs ------------------------------------------------------------------------------------------------

@@ -1,0 +1,64 @@
+module Units {
+    // quantity aliases
+    quantity length = dim L
+    quantity mass = dim M
+    //quantity time = dim T
+    quantity current = dim I
+    quantity temperature = dim O
+    quantity amount_substance = dim N
+    quantity luminous_intensity = dim J
+
+
+    // base units - remember, quantity time, and units us, ms, s, min and hr already exist
+    // units defs - ampere, metre & volt, siemens, farad,
+    // only bsae units supported in defs - no aliasas for dervied units yet
+    unit m { dim : L, SI : true }
+    unit A { dim : I, SI : true }
+    unit g { dim : M, SI : true }    
+
+    derived V { unit : kg.m^2.A^-1.s^3 }
+    // derived mV { base : g.m^2.A^-1.s^3 }
+    // derived mV { base : V.m^1.mm^-1 }
+
+    // derived S { base : m^-2.kg^-1.s^3.A^2 }
+    // derived mS { base : m^-2.kg^-1.s^3.mA.A }
+
+    // derived F { base : m^-2.kg^-1.s^4.A^2 }
+    // derived uF { base : m^-2.kg^-1.s^4.mA^2 }    
+}
+
+// MODEL - HH52
+module Model1 { 
+    import DerivedUnits.Units as U
+
+    init V = -75 { unit : V }
+}
+/*
+module Model2 { 
+    import DerivedUnits.Units as U
+    init V = -75 { unit : V } + 2
+}
+*/
+module Model3 { 
+    import DerivedUnits.Units as U
+    init V = -75 { unit : V } + 2 { unit : V }
+}
+/*
+module Model4 { 
+    import DerivedUnits.Units as U
+    init V = -75 { unit : V } + 2 { unit : m^2 }
+}
+*/
+
+module Model5 { 
+    import DerivedUnits.Units as U
+    val V1 = 2 { unit : V }
+    init V = -75 { unit : V } + V1
+}
+
+module Model6 { 
+    import DerivedUnits.Units as U
+    init V = -75 { unit : V }
+    val V1 = V { unit : g.m^2.A^-1.s^3 } // convert to mV - OK!
+}
+

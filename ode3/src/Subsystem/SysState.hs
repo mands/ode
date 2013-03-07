@@ -191,16 +191,18 @@ defModState = ModState
 
 
 data UnitsState = UnitsState
-    { _quantities   :: U.QuantityBimap    -- a bimap of all quantities <-> dimension
---    , _unitAliases :: U.UnitAliasBimap  -- a bimap from unit <-> alias
-    , _unitDimEnv   :: U.UnitDimEnv       -- mapping from unit -> dimension
-    , _convEnv      :: U.ConvEnv             -- a mapping from dimension -> conv graph
+    { _quantities   :: U.QuantityBimap      -- a bimap of all quantities <-> dimension
+--    , _unitAliases :: U.UnitAliasBimap    -- a bimap from unit <-> alias
+    , _unitDimEnv   :: U.UnitDimEnv         -- mapping from unit -> dimension
+    , _derivedEnv   :: U.DerivedUnitEnv     -- mapping from derived unit -> base units
+    , _convEnv      :: U.ConvEnv            -- a mapping from dimension -> conv graph
     } deriving Show
 
 defUnitsState = UnitsState
     { _quantities   = U.defQuantities
 --    , _unitAliases = Bimap.empty
     , _unitDimEnv   = U.defUnits
+    , _derivedEnv   = Map.empty
     , _convEnv      = U.defConvs
     }
 
@@ -226,7 +228,7 @@ genLens("SimParams",    ['_startTime', '_stopTime', '_timestep', '_maxTimestep',
                         , '_unitsCheck', '_timeUnit', '_filename', '_outputPeriod', '_mStartOutput', '_odeSolver', '_sdeSolver', '_backend', '_linker', '_execute'
                         , '_exeName', '_mathModel', '_mathLib', '_vecMath', '_optimise', '_optShortCircuit', '_optPowerExpan'])
 genLens("ModState",     ['_repos', '_modEnv', '_parsedFiles', '_replFile'])
-genLens("UnitsState",   ['_quantities', '_unitDimEnv', '_convEnv'])
+genLens("UnitsState",   ['_quantities', '_unitDimEnv', '_derivedEnv', '_convEnv'])
 
 
 
@@ -274,8 +276,9 @@ lReplFile = lens (_replFile) (\x rec -> rec { _replFile = x })
 -- UnitsState
 lQuantities = lens (_quantities) (\x rec -> rec { _quantities = x })
 lUnitDimEnv = lens (_unitDimEnv) (\x rec -> rec { _unitDimEnv = x })
+lDerivedEnv = lens (_derivedEnv) (\x rec -> rec { _derivedEnv = x })
 lConvEnv = lens (_convEnv) (\x rec -> rec { _convEnv = x })
---[[[end]]] (checksum: d7d45a2b68d79186c1195c16e69d1333)
+--[[[end]]] (checksum: 1d4add76207dc6219d165882e3b5d19c)
 
 -- a few useful views from top SysState into nested labels
 vModEnv :: SysState :-> MA.GlobalModEnv
@@ -295,6 +298,9 @@ vQuantities = lQuantities . lUnitsState
 
 vUnitDimEnv :: SysState :-> U.UnitDimEnv
 vUnitDimEnv = lUnitDimEnv . lUnitsState
+
+vDerivedEnv :: SysState :-> U.DerivedUnitEnv
+vDerivedEnv = lDerivedEnv . lUnitsState
 
 vConvEnv :: SysState :-> U.ConvEnv
 vConvEnv = lConvEnv . lUnitsState

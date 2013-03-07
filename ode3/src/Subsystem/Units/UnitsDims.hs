@@ -20,12 +20,13 @@ module Subsystem.Units.UnitsDims (
     DimVec(..), addDim, subDim, mulUnit, divUnit, mkDimVec, dimensionless, isZeroDim,
     BaseDim(..), dimToDimVec,
     UnitList, UnitDef(..), Unit(..), BaseUnit, mkUnit, addUnit, subUnit, isBaseUnit,
+    DerivedUnits,
 
     -- data structures
-    QuantityBimap, UnitDimEnv,
+    QuantityBimap, UnitDimEnv, DerivedUnitEnv,
 
     -- high-level accessor funcs
-    addQuantitiesToBimap, addUnitsToEnv, getBaseDim,
+    addQuantitiesToBimap, addUnitsToEnv, addDerivedUnitsToEnv, getBaseDim, expandDerivedUnit,
     calcUnitDim, getDimForUnits, unitsSameDim,
     getBDimForBUnits, lookupBUnitDim
 ) where
@@ -144,6 +145,7 @@ data Unit   = UnitC UnitList -- an actual unit with a known dimensionless
             | UnitVar Integer                -- A unit variable, used for unit & dimension polymorphism
                                             -- we can't do much with such types, can operate on the number but always retains it's unit type
             | DMLess        -- an expression that previously had units that were cancelled out
+            | DerivedUnit UnitList
             deriving (Eq, Ord, Show)
 
 type UnitList = [(BaseUnit, Integer)]
@@ -161,7 +163,17 @@ data UnitDef = UnitDef BaseUnit BaseDim
 -- mapping from (base?) units to dimensions
 type UnitDimEnv = Map.Map BaseUnit BaseDim
 
+type DerivedUnitEnv = Map.Map String UnitList
+type DerivedUnits = [(String, UnitList)]
+
+-- Quantity helper funcs
+addDerivedUnitsToEnv :: DerivedUnitEnv -> DerivedUnits -> DerivedUnitEnv
+addDerivedUnitsToEnv = foldl (\dEnv (dName, dUnit) -> Map.insert dName dUnit dEnv)
+
 -- Unit helper funcs ---------------------------------------------------------------------------------------------------------------
+
+expandDerivedUnit :: Unit -> Unit
+expandDerivedUnit (DerivedUnit ul) = mkUnit ul
 
 -- need to filter dups, process indices, and define ordering
 -- we consider an (passed or dervied) empty list as a NoUnit - may be better have a Dmless value instead

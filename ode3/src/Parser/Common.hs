@@ -58,7 +58,7 @@ commonLangDef = emptyDef
                         , "piecewise", "default"
                         , "true", "false", "time", "none"
                         -- units lang
-                        , "quantity", "dim", "unit", "SI", "alias"
+                        , "quantity", "dim", "unit", "derived", "SI", "alias"
                         , "conversion", "from", "to", "factor"
                         -- type lang
                         , "type", "wrap", "unwrap"

@@ -98,9 +98,9 @@ moduleDef modRoot = do
                 <?> "module definition"
 
     modData modName = do
-        (exports, DesugarModData exprList q u importCmds c) <- braces modBody
+        (exports, DesugarModData exprList q u d importCmds c) <- braces modBody
         return $ mkModData  { modImportCmds = importCmds, modExprList = exprList, modQuantities = q
-                            , modUnits = u, modConvs = c, modExportSet = Set.fromList exports
+                            , modUnits = u, modDerived = d, modConvs = c, modExportSet = Set.fromList exports
                             , modFullName = ModFullName modRoot modName
                             }
 

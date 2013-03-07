@@ -35,6 +35,7 @@ data OdeStmt =  ExprStmt Stmt
                 | QuantityStmt { qName :: SrcId, qDim :: DimVec }
                 -- a unit defntions, in terms of a unit sequence for a particular dimension
                 | UnitStmt { uName :: BaseUnit, uDim :: Maybe Char, uAlias :: Maybe String, uSI :: Bool}
+                | DerivedStmt { dName :: BaseUnit, dUnits :: UnitList }
                 | ConvDefStmt { cFrom :: BaseUnit, cTo :: BaseUnit, cExpr :: CExpr }
                 | TypeStmt { tType :: SrcId }
                 deriving (Show, Eq, Ord)

@@ -104,7 +104,7 @@ data ModData a = ModData    { modExprMap :: ExprMap a, modIdMap :: IdMap, modTMa
                             -- tmp data
                             , modImportCmds :: [ModImport], modExprList :: ExprList, modExportSet :: Set.Set SrcId
                             -- units data
-                            , modQuantities :: U.Quantities, modUnits :: [U.UnitDef], modConvs :: [U.ConvDef]
+                            , modQuantities :: U.Quantities, modUnits :: [U.UnitDef], modDerived :: U.DerivedUnits, modConvs :: [U.ConvDef]
                             } deriving (Show, Eq, Ord)
 
 mkModData = ModData { modExprMap = OrdMap.empty, modIdMap = Map.empty, modTMap = Map.empty
@@ -112,7 +112,7 @@ mkModData = ModData { modExprMap = OrdMap.empty, modIdMap = Map.empty, modTMap =
                     -- tmp data
                     , modImportCmds = [], modExprList = [], modExportSet = Set.empty
                     -- units data
-                    , modQuantities = [], modUnits = [], modConvs = []
+                    , modQuantities = [], modUnits = [], modDerived = [], modConvs = []
                     }
 
 -- Module ModData accessors

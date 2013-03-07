@@ -90,6 +90,7 @@ odeStmt =   AO.ImportStmt <$> importCmd
             <|> AO.ExprStmt <$> exprStmt -- main lang
             <|> quantityDef     -- units support
             <|> unitDef
+            <|> derivedDef
             <|> convDef
             -- <|> typeDef -- newtypes broken
             <?> "import, expression, or unit defintion"
@@ -141,6 +142,10 @@ unitDef = do
     unitDefAttrib = AO.UnitStmt ""  <$$> attrib "dim" (Just <$> oneOf "LMTIOJN")
                                     <|?> (Nothing, attrib "alias" (Just <$> identifier))
                                     <||> attrib "SI" boolean -- <?> "unit definition"
+
+-- | Parses a quantity "alias" for a given dimension
+derivedDef :: Parser AO.OdeStmt
+derivedDef = AO.DerivedStmt <$> (reserved "derived" *> alphaIdentifier) <*> unitAttrib
 
 
 -- | Parses a conversion defintion stmt for 2 units within a given dimension

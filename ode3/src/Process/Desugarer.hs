@@ -57,16 +57,16 @@ evalSupplyVars x = evalSupplyT x $ map (\x -> tmpPrefix ++ x) vars
     tmpPrefix = "_des"
 
 data DesugarModData = DesugarModData    { mdE :: M.ExprList, mdQ :: U.Quantities, mdU :: [U.UnitDef]
-                                        , mdI :: [ModImport], mdC :: [U.ConvDef]}
+                                        , mdD :: U.DerivedUnits, mdI :: [ModImport], mdC :: [U.ConvDef]}
 
 -- Desguar Top-Level Statements ----------------------------------------------------------------------------------------
-
+-- TODO - this code is nasty - must be a better way!!
 desugarOde :: [O.OdeStmt] -> MExcept DesugarModData
 desugarOde elems = do
-    modData <- evalSupplyVars $ DF.foldlM desugarOde' (DesugarModData [] [] [] [] []) elems
+    modData <- evalSupplyVars $ DF.foldlM desugarOde' (DesugarModData [] [] [] [] [] []) elems
     return $ updateDSModData modData
   where
-    updateDSModData (DesugarModData e q u i c) = DesugarModData (reverse e) (reverse q) (reverse u) (reverse i) (reverse c)
+    updateDSModData (DesugarModData e q u d i c) = DesugarModData (reverse e) (reverse q) (reverse u) (reverse d) (reverse i) (reverse c)
 
     -- wrapper around the fold, matches on the top-level stmt type
     desugarOde' :: DesugarModData -> O.OdeStmt -> TmpSupply DesugarModData
@@ -87,6 +87,9 @@ desugarOde elems = do
         unitDef = U.UnitDef baseUnit $ U.getBaseDim baseDimChar
         (u', c') = if isSI then (siUnitDefs ++ unitDef:(mdU dsModData), siConvDefs ++ (mdC dsModData)) else (unitDef:(mdU dsModData), (mdC dsModData))
         (siUnitDefs, siConvDefs) = U.createSIs unitDef
+
+    -- add derived units into the derived assoc-list
+    desugarOde' dsModData stmt@(O.DerivedStmt dName dUnits) = return $ dsModData { mdD = (dName, dUnits):(mdD dsModData) }
 
     -- add the conv statments to the module metadata
     desugarOde' dsModData stmt@(O.ConvDefStmt fromUnit toUnit cExpr) = return $ dsModData { mdC = c' }
@@ -224,7 +227,7 @@ dsExpr (O.Op (BasicOp Neg) (e:[])) = do
 dsExpr (O.Op op es) = C.Op op <$> packElems es
 
 dsExpr (O.Number n Nothing) = return $ C.Lit (C.Num n U.NoUnit)
-dsExpr (O.Number n (Just u)) = return $ C.Lit (C.Num n (U.mkUnit u))
+dsExpr (O.Number n (Just u)) = return $ C.Lit (C.Num n (U.DerivedUnit u))
 
 dsExpr (O.NumSeq a b c) = return $ C.Lit (C.NumSeq (enumFromThenTo a b c) U.NoUnit)
 
@@ -257,7 +260,7 @@ dsExpr (O.Piecewise cases e) = dsIf cases
 dsExpr (O.Call refId exprs) = C.App (dsRefId refId) <$> packElems exprs
 
 -- type experessions
-dsExpr (O.ConvCast e u) = C.TypeCast <$> dsExpr e <*> pure (C.UnitCast $ U.mkUnit u)
+dsExpr (O.ConvCast e u) = C.TypeCast <$> dsExpr e <*> pure (C.UnitCast $ U.DerivedUnit u)
 dsExpr (O.WrapType e refId) = C.TypeCast <$> dsExpr e <*> pure (C.WrapType $ dsRefId refId)
 dsExpr (O.UnwrapType e refId) = C.TypeCast <$> dsExpr e <*> pure (C.UnwrapType $ dsRefId refId)
 
