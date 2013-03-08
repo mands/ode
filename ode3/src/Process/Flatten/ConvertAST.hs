@@ -55,7 +55,7 @@ type InitMap = Map.Map Id Double
 -- this may result in redudnat/unused exprs in both blocks, however LLVM will remove these anyway, and can run interpreter over initExprs if needed
 convertAST :: U.Unit -> (Module Id, InitMap) -> MExcept ACF.Module
 convertAST tUnit (LitMod modData, initMap) = do
-    trace' [MkSB modData] "Flatten - Final Core AST input" $ return ()
+    -- trace' [MkSB modData] "Flatten - Final Core AST input" $ return ()
     ((_, freeIds'), fSt') <- runStateT (runSupplyT flatExprM freeIds) $ mkFlatState (modTMap modData) tUnit
 
     let simOps = reverse $ _simOps fSt'

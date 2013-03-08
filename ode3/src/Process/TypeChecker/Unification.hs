@@ -140,8 +140,9 @@ occursCheck t1 t@(E.TTypeCons tName tUnwrap)
     | otherwise = occursCheck t1 tUnwrap
 occursCheck t1 t = if t == t1 then True else False
 
--- TODO - inline these trivial functions ?
+-- TODO - inline these trivial functions ? they are mirrors of the type sub funcs above
 -- | only need to test equality on the top-level of the unit, as composite units are not allowed
+-- replaces all occurances of (uVar x) with y in uEnv, then add [x->y] to the uEnv
 subAddUnit u1 u2 uEnv =
     case u1 of
         (U.UnitVar uV1) -> Map.insert uV1 u2 uEnv'
@@ -173,18 +174,22 @@ unify uState tCons = snd <$> S.runStateT unifyM (Map.empty, Map.empty)
         -- trace' [MkSB tCons] "Start type unify" $ return ()
         conTypeS' <- unifyTypes (conTypeS tCons)
         -- return set should be empty
-        unless (Set.null conTypeS') $ errorDump [MkSB conTypeS'] "Unification Error - set not empty" assert
+        unless (Set.null conTypeS') $ errorDump [MkSB conTypeS'] "Type Unification Error - constraint set not empty" assert
 
         tCons' <- updateStack (tCons { conTypeS = conTypeS' })
         unifyUnitsLoop (conUnitS tCons')
 
     -- need to repeat unifyUnits until we can infer no more from tCons
     unifyUnitsLoop conUnitS = do
-        -- trace' [MkSB conUnitS] "Start units unify loop" $ return ()
+        trace' [MkSB conUnitS] "Start new/recursive units unify loop" $ return ()
         conUnitS' <- unifyUnits uState conUnitS
         if (conUnitS /= conUnitS') then unifyUnitsLoop conUnitS'
             else do
-                -- trace' [MkSB conUnitS'] "Finish units unify loop" $ return ()
+                trace' [MkSB conUnitS'] "Finish units unify loop - no more changes found" $ return ()
+                unless (Set.null conUnitS') $ errorDump [MkSB conUnitS'] "Units Unification Error - constraint set not empty" assert
+                (tVEnv, uVEnv) <- S.get
+                trace' [MkSB tVEnv, MkSB uVEnv] "Final envs" $ return ()
+
                 return conUnitS'
 
 
@@ -373,7 +378,7 @@ unifyUnits uState conUnitS = unifyUnitLoop conUnitS
 
 
     -- anything else - pass on to the newS for next iteration
-    processUnit con (curS, newS) = trace' [MkSB con] "Rule not processed" $ return (curS, Set.insert con newS)
+    processUnit con (curS, newS) = trace' [MkSB con] "Rule not processed this iteration" $ return (curS, Set.insert con newS)
         -- errorDump [MkSB con, MkSB curS, MkSB newS] "Found an invalid ConSameDim state"
 
     -- update all units x->y
@@ -384,7 +389,10 @@ unifyUnits uState conUnitS = unifyUnitLoop conUnitS
                 -- unlike the unifyEqual rule, we do not need to check the TypeMap to see if uVar already exists, as we
                 -- already substitute the map/tCons and there are not compositite cases where this subsitituion would not be sufficcent
                 -- just add and sub
-                S.modify (\(tEnv, uEnv) -> (tEnv, subAddUnit u1 u2 uEnv))
+                -- NOTE - the above is incorrect, whilst we can/do substitue after checking is complete,
+                -- if a complex cast op is required dfuring checking we need updated tEnv too
+
+                S.modify (\(tEnv, uEnv) -> (subAddType (E.TFloat u1) (E.TFloat u2) tEnv, subAddUnit u1 u2 uEnv))
                 let curS' = subUnitS u1 u2 curS
                 let newS' = subUnitS u1 u2 newS
                 return (curS', newS')

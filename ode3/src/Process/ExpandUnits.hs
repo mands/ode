@@ -59,11 +59,11 @@ expandUnits' dEnv modData@M.ModData{modExprMap, modDerived} = do
 
     -- need to fold over ul - checking against unitstate and cur mod data
     dUnitExpandExpr :: E.Expr E.DesId -> E.Expr E.DesId
-    dUnitExpandExpr e@(E.Lit (E.Num n (U.DerivedUnit ul))) = trace' [MkSB jointDEnv, MkSB e, MkSB e'] "Derived unit expansion" $ e'
+    dUnitExpandExpr e@(E.Lit (E.Num n (U.DerivedUnit ul))) = e' -- trace' [MkSB jointDEnv, MkSB e, MkSB e'] "Derived unit expansion" $ e'
       where
         e' = E.Lit (E.Num n $ expandUnit ul)
 
-    dUnitExpandExpr e@(E.TypeCast e1 (E.UnitCast (U.DerivedUnit ul))) = trace' [MkSB jointDEnv, MkSB e, MkSB e'] "Derived unit expansion" $ e'
+    dUnitExpandExpr e@(E.TypeCast e1 (E.UnitCast (U.DerivedUnit ul))) = e' -- trace' [MkSB jointDEnv, MkSB e, MkSB e'] "Derived unit expansion" $ e'
       where
         e' = E.TypeCast (dUnitExpandExpr e1) (E.UnitCast $ expandUnit ul)
 

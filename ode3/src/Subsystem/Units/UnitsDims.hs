@@ -197,6 +197,7 @@ addUnit :: Unit -> Unit -> Unit
 addUnit (UnitC u1') (UnitC u2') = mkUnit $ u1' ++ u2'
 addUnit NoUnit u2 = u2
 addUnit u1 NoUnit = u1
+addUnit u1 u2 = errorDump [MkSB u1, MkSB u2] "addunit" assert
 
 -- just negate the second unit
 subUnit :: Unit -> Unit -> Unit
@@ -231,8 +232,9 @@ calcUnitDim u@(UnitC units) uEnv = mconcat <$> mapM getDim units
     getDim (baseUnit, index) = mulDim <$> (dimToDimVec <$> lookupBUnitDim baseUnit uEnv) <*> pure index
 
 lookupBUnitDim :: BaseUnit -> UnitDimEnv -> MExcept BaseDim
-lookupBUnitDim u uEnv =
-    maybeToExcept (Map.lookup u uEnv) $ printf "Reference to unknown base unit \'%s\' found" u
+lookupBUnitDim u uEnv = u' -- trace' [MkSB u, MkSB uEnv] "unit lookup" $ u'
+  where
+    u' = maybeToExcept (Map.lookup u uEnv) $ printf "Reference to unknown base unit \'%s\' found" u
 
 -- Add a list of units to the UnitEnv
 -- if a baseUnit, add it directly with the associated dimension-- if a dervied unit, ignore

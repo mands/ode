@@ -47,19 +47,20 @@ data OptState = OptState { tMap :: TypeMap, tUnit :: U.Unit } deriving (Show)
 -- we pass SimParams direct as need access to variety of opt options
 optimiseCoreAST :: Sys.SimParams -> Module Id -> MExcept (Module Id)
 optimiseCoreAST Sys.SimParams{..} (LitMod modData@ModData{..}) = do
-    -- run non-monad opts
-    let exprMap' = opts modExprMap
     -- run monad-opts
     ((exprMap'', freeIds'), _) <- runStateT (runSupplyT (optsM exprMap') [modFreeId ..]) $ OptState modTMap _timeUnit
     -- return the updated module
     return $ LitMod $ (updateModData2 modData exprMap'') { modFreeId = head freeIds' }
   where
+    -- run non-monad opts
+    exprMap' = opts modExprMap
+
     -- TODO - need to create generalised handler for multiple optimisations
     opts :: ExprMap Id -> ExprMap Id
     opts exprMap = (if _optShortCircuit then fmap optSCETop exprMap else exprMap) |> fmap optLibSubTop
 
     optsM :: ExprMap Id -> OptM (ExprMap Id)
-    optsM exprMap = if _mathModel == Sys.Fast && _optPowerExpan then DT.mapM optPowerTop exprMap else return modExprMap
+    optsM exprMap = if _mathModel == Sys.Fast && _optPowerExpan then DT.mapM optPowerTop exprMap else return exprMap
 
 
 -- Perform Short-Circuit Evaluation ------------------------------------------------------------------------------------
@@ -116,6 +117,7 @@ optPowerTop (ACR.TopLet isInit t bs tE) = do
     ACR.TopLet isInit t bs <$> optPowerExpr tE
 
 optPowerExpr :: ACR.Expr Id -> OptM (ACR.Expr Id)
+-- TOOD - why is this here?
 optPowerExpr (ACR.Let isInit t bs e1 e2) = do
     ACR.Let isInit t bs <$> optPowerExpr e1 <*> optPowerExpr e2
 

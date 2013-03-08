@@ -3,28 +3,11 @@
 ** NOTE
 ** - Unit Aliases not implemented
 ******************************************************************************/
-
-// create some quantities in terms of a dimension
-module Dim1 {
+// create some quantities in terms of a dimension, base units and conversions
+module Units {
+    quantity length = dim L^1
     quantity mass = dim M^1
     quantity speed = dim L^1.T^-1
-
-}
-
-// create some unit in terms of a dimension
-module Dim2 {
-    // base unit
-    unit m { dim : L, SI : false }
-
-    // operations on our units, consider a rectangular cube
-    val vol = 1 { unit : m^3 }
-    val area = 1 { unit : m^2 }
-    val height = vol / area
-}
-
-// mult base units per dimenstion with conversion func
-module Dim3 {
-    quantity length = dim L^1
 
     // base unit - by default are non-SI
     unit m { dim : L, SI : false }
@@ -34,6 +17,19 @@ module Dim3 {
     conversion { from : m, to : mm, factor : x * 1000 }
     conversion { from : mm, to : m, factor : x / 1000 }
 
+}
+
+
+// create some unit in terms of a dimension
+module Dim2 {
+    // operations on our units, consider a rectangular cube
+    val vol = 1 { unit : m^3 }
+    val area = 1 { unit : m^2 }
+    val height = vol / area
+}
+
+// mult base units per dimenstion with conversion func
+module Dim3 {
     // cast
     val x = 1 { unit : m }
     val y = x { unit : mm }
@@ -45,10 +41,10 @@ module Dim3 {
     val w = x { unit : m }
 }
 
+/*
 // conversion to incorrect dimensions
 module Dim4 {
     // base unit - by default are non-SI
-    unit m { dim : L, SI : false }
     unit mg { dim : M, SI : false }
 
     // invalid conversion func
@@ -58,40 +54,22 @@ module Dim4 {
     val x = 1 { unit : m }
     val y = x { unit : mg }
 }
+*/
 
 // dervied units, casting, and operations
 module Dim5 {
-    quantity length = dim L
-
-    // base units
-    unit m { dim : L, SI : false }
-    unit mm { dim : L, SI : false }
-
-    // conversion func
-    conversion { from : m, to : mm, factor : x * 1000 }
-    conversion { from : mm, to : m, factor : x / 1000 }
-
     // convert an area from mm2 to m2
     val area = (1e6 { unit : mm^2 }) {unit : m^2}
 
     // more complicated ops -- unit resolved to m2/mm, otherwise would be ambigous
     val length = area / ((1 { unit : m }) {unit : mm})
     // have to cast it to the desired result unit - results in 1m as required
-    val length1 = length { unit : m }
+    // val length1 = length + 1 { unit : m } // invalid as length is m2/mm, not m (even tho same dim, needs manual cast)
+    val length1 = length { unit : m } + 1 { unit : m }
 }
 
 // funky/nounit/non-dimensionalised casting
 module Dim6 {
-    quantity length = dim L
-
-    // base units
-    unit m { dim : L, SI : false }
-    unit mm { dim : L, SI : false }
-
-    // conversion func
-    conversion { from : m, to : mm, factor : x * 1000 }
-    conversion { from : mm, to : m, factor : x / 1000 }
-
     // convert an area from mm2 to m2
     val area = (1e6 { unit : mm^2 }) {unit : m^2}
 
@@ -105,9 +83,9 @@ module Dim6 {
 // test auto-SI creation
 module Dim7 {
     // base unit
-    unit m { dim : L, SI : true }
+    unit metre { dim : L, SI : true }
 
     // need test conversion funcs here too
-    val height = (1 { unit : km^3 } / 1 { unit : mm^2 }) { unit : m }
+    val height = (1 { unit : kmetre^3 } / 1 { unit : mmetre^2 }) { unit : metre }
 }
 
