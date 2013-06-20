@@ -209,7 +209,8 @@ compileScript p@(Sys.SimParams{..}) = do
         Sys.Static -> Just "-static"
         Sys.Dynamic -> Nothing
 
-    archDetails = ["-march=x86-64"] -- ["-march=core-avx-i", "-mllvm", "-x86-use-vzeroupper"]
+    archDetails = ["-march=x86-64"] -- std 64bit support, SSE2
+    -- archDetails = ["-march=core-avx-i", "-mllvm", "-x86-use-vzeroupper"] -- for AVX support
     outName     = FP.dropExtension $ L.get Sys.lExeName p
 
 -- | Executes simulation of standalone executable in sub-process (any required libs must be on LD_LIBRARY_PATH)

@@ -64,16 +64,17 @@ flatten initModStr = do
     replFD <- getSysState vLocalFile
     initMod <- lift $  maybeToExcept (Map.lookup (ModName initModStr) (fileModEnv replFD))
                         (printf "Cannot find module %s loaded to simulate" (show initModStr))
-    -- trace' [MkSB initMod] "Flatten - Initial Core AST input" $ return ()
+    trace' [MkSB initMod] "Flatten - Initial Core AST input" $ return ()
     -- now run the flatten pipeline in the MExcept monad
     let gModEnv = _modEnv . _modState $ sysSt
     let simParams = _simParams sysSt
     let unitsState = _unitsState sysSt
     let tUnit = _timeUnit simParams -- TODO - need to pass to several filters (optimiseCoreAST, convertAST, convertTypes)
+    -- run the mail flatten pipeline
     coreFlatMod <- lift $ inlineMod gModEnv initMod >>= inlineComps >>= convertTypes unitsState tUnit >>= optimiseCoreAST simParams
         >>= initialValueGen simParams >>= convertAST tUnit >>= unpackTuples
     -- TODO - add the optimiseCoreFlatAST?
-    -- trace' [MkSB coreFlatMod] "Flatten - Final CoreFlat AST output" $ return coreFlatMod
+    trace' [MkSB coreFlatMod] "Flatten - Final CoreFlat AST output" $ return coreFlatMod
     return coreFlatMod
 
 

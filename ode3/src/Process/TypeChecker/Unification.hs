@@ -305,7 +305,10 @@ unifyUnits uState conUnitS = unifyUnitLoop conUnitS
     -- however we assume that such uV will eventually be infered, and thus the other rules will then come into play
     -- need to test if true. Hoever we do add some NoUnit rules
     processUnit :: ConUnit -> (ConUnitS, ConUnitS) -> UnifyM (ConUnitS, ConUnitS)
-    -- 3 uVars - can do fuck all, copy to newSums
+    -- 3 same uVars - must be nounit
+    processUnit con@(ConSum u1@(U.UnitVar _) u2@(U.UnitVar _) u3@(U.UnitVar _)) st | u1 == u2 && u1 == u3 =
+        replaceUnit u1 U.NoUnit st
+    -- 3 diff uVars - can do fuck all, copy to newSums
     processUnit con@(ConSum (U.UnitVar _) (U.UnitVar _) (U.UnitVar _)) (curS, newS) = return (curS, Set.insert con newS)
 
     -- 2 uVars - can only do something if have a NoUnit, otherwise fuck all

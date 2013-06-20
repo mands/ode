@@ -1,8 +1,11 @@
+# -*- coding: utf-8 -*-
+
 import struct
 import logging
 import scipy as sp
 
-
+### File I/O
+################################################
 def openFile(filename):
     # parse the file
     with open(filename, 'rb') as f:
@@ -40,7 +43,8 @@ def getCols(num_cols, col_list=None, add_zero=False):
     else:
         return cols
 
-
+### Visual Plotting/Output
+################################################
 def plot(data, num_cols, col_list=None, save=None, title="AP Plot", xlabel="Time (s)", ylabel="State Values"):
     import pylab
     # plot the data
@@ -64,3 +68,4 @@ def plot(data, num_cols, col_list=None, save=None, title="AP Plot", xlabel="Time
 
 def setupPrint():
     sp.set_printoptions(edgeitems=3, linewidth=400, precision=16,suppress=False, threshold=10000)
+

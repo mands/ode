@@ -1,0 +1,12 @@
+// no units varient
+module VecMathSample {
+    init V = -75
+
+    val a = exp(V+1)
+    val b = exp(a)
+    val c = exp(V+2)
+    val d = a + b + c
+
+    ode { initVal : V, deltaVal : dV } = d
+}
+

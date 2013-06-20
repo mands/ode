@@ -1,14 +1,11 @@
 // disable unit checking
-//:disableUnits
-:timeUnit "ms"
+:disableUnits
 
 // setup the repo
 :addRepo ../res/Samples/repo
 
 // import our modules
-import UnitsTests.ComplexOps.*
-//import SimTests.BasicCalcNoUnits.*
-//import SimTests.Odes.*
+import SimTests.ThesisSamples.*
 
 // :show all
 //:show modState
@@ -36,7 +33,7 @@ import UnitsTests.ComplexOps.*
 // math model - strict, fast
 :mathModel "fast"
 // vecmath enable?
-//:vecMath
+:vecMath
 :mathLib "gnu"
 // backend to use - interpreter, jitcompiler, aotcompiler, objectfile
 // :backend "interpreter"
@@ -50,7 +47,6 @@ import UnitsTests.ComplexOps.*
 
 // all done
 //:simulate HodHux
-//:simulate BasicCalc1d
-:simulate InverseConv
+:simulate VecMathSample
 :quit
 

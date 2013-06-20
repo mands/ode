@@ -28,6 +28,9 @@ module Units {
     derived mS { unit : m^-2.kg^-1.s^3.mA.A }
     derived F { unit : m^-2.kg^-1.s^4.A^2 }
     derived uF { unit : m^-2.kg^-1.s^4.mA^2 }
+
+    derived curcm { unit : uA.cm^-2 }
+    derived curmm { unit : uA.mm^-2 }
 }
 
 
@@ -116,3 +119,13 @@ module CompModel1 {
     ode { initVal : V, deltaVal : dV } = (y / x) { unit : m.s^-1 }
 }
 */
+
+module InverseConv {
+
+  val x = 1 { unit : curmm }
+  val y = x { unit : curcm }
+
+  init a = 100
+  ode { initVal : a } = 101 { unit : ms^-1 }
+}
+
