@@ -197,11 +197,11 @@ getDetElems ionChan@IonChannel{..} = map (optExpr . calcDetExpr) $ Set.toList st
       where
         nodeId = fromJust $ UG.getNodeInt transitionGraph state
         -- outgoing edges from node are neg, ingoing edges are pos
-        outgoingEdges = Neg $ Mul (Var state) (getProduct . mconcat . map prodEdges $ G.lsuc g nodeId)
-        prodEdges (_, rateExpr) = Product rateExpr
+        outgoingEdges = Mul (Neg (getSum . mconcat . map prodEdges $ G.lsuc g nodeId)) (Var state)
+        prodEdges (_, rateExpr) = Sum rateExpr
 
         ingoingEdges = getSum . mconcat . map sumEdges $ G.lpre g nodeId
-        sumEdges (preNodeId, rateExpr) = Sum $ Mul (Var . fromJust $ G.lab g preNodeId) rateExpr
+        sumEdges (preNodeId, rateExpr) = Sum $ Mul rateExpr (Var . fromJust $ G.lab g preNodeId)
 
 
 -- Stochastic Matrix Generation -------------------------------------------------------------------------------------
