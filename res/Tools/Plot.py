@@ -41,7 +41,8 @@ if __name__ == '__main__':
     )
     parser.add_argument("file", help="File to plot")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose mode")
-    parser.add_argument("--title", type=str, default="AP Plot", help="Title to use for graph")
+    parser.add_argument("-l", "--legend", action="store_true", help="Add legend")
+    parser.add_argument("--title", type=str, default=None, help="Title to use for graph")
     parser.add_argument("-s", "--save", type=str, help="Write the output to file")
     parser.add_argument("-c", "--cols", type=str, help="Plot this subset of cols=x,y,z")
     parser.add_argument("-x", "--xlabel", type=str, default="Time (s)", help="Label for the x-axis")
@@ -52,6 +53,10 @@ if __name__ == '__main__':
     filename = os.path.abspath(args.file)
     (data, num_cols) = openFile(filename)
 
+    # set title to filename
+    if args.title is None:
+      args.title = args.file    
+    
     # plot the data
-    plot(data, num_cols, args.cols, args.save, args.title, args.xlabel, args.ylabel)
+    plot(data, num_cols, args.cols, args.save, args.title, args.xlabel, args.ylabel, args.legend)
     logging.debug("Done")

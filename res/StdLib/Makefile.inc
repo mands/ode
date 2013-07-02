@@ -1,6 +1,7 @@
 ####### Compiler, tools and options
 CC            = clang
-CFLAGS        = -std=c11 -O3 -pedantic -Weverything -ffast-math -integrated-as
+#CFLAGS        = -std=c11 -O3 -pedantic -Weverything -ffast-math -integrated-as
+CFLAGS        = -std=c11 -O3 -pedantic -Weverything -integrated-as
 
 ####### Ode Support
 ODE_LIB_DIR = $(ROOT_DIR)/lib

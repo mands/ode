@@ -48,6 +48,7 @@ def save_show(name):
   if args.tex:
     plt.savefig(name, format='pgf')
   else:
+    plt.title(name)
     plt.grid(True)
     plt.show()
 

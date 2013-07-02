@@ -312,13 +312,13 @@ genSSASolver CF.Module{..} = do
     outDataSize = Map.size initVals
 
     -- attempt at optimised reaction selection by presorting reactions by probability
-    simOps' = simOps -- List.sortBy f simOps
+    simOps' = trace' [MkSB simOps] "Sim Ops order" $ simOps -- List.sortBy f simOps
 --      where
 --        f r1 r2 | calcProp r1 == calcProp r2 = Prelude.EQ
 --        f r1 r2 | calcProp r1 > calcProp r2 = Prelude.GT
 --        f r1 r2 | calcProp r1 < calcProp r2 = Prelude.LT
 --
---        calcProp (Rre srcs _ rate) =  (product srcPops) * rate
+--        calcProp (Rre srcs _ rate) =  (product srcPops) -- * rate
 --          where
 --            srcPops = map (\(i, v) -> (initVals Map.! v) * fromIntegral i) srcs
 

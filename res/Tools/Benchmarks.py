@@ -26,6 +26,7 @@
 """
 
 import os
+import shutil
 import logging
 import argparse
 import platform
@@ -61,7 +62,7 @@ def initializer1(fun):
 
 class Simulation:
     def __init__(self, sim_name, *, do_build=True, do_benchmark=True, do_analyse=True, exe_cmd=None, exe_name=None,
-                 is_exe=True, res_name=None, res_ref=None, src_name=None, num_sims=5):
+                 is_exe=True, res_name=None, res_ref=None, src_name=None, num_sims=5, unique_res=False, res_dir='./'):
         self.sim_name = sim_name
         self.do_build = do_build
         self.do_benchmark = do_benchmark
@@ -76,11 +77,18 @@ class Simulation:
         else:
             self.exe_name = None
 
-        self.res_name = res_name if res_name else ("./" + sim_name + ".bin")
+        self.res_name = res_name if res_name else (sim_name + ".bin")
         self.res_ref = res_ref
         self.src_name = src_name
         self.num_sims = num_sims
         self.startup_offset = 0.0
+        self.unique_res = unique_res
+        #self.res_dir = res_dir
+        self.res_path = os.path.normpath(os.path.join(res_dir, self.res_name))
+        # empty/create the res_dir
+        if res_dir != './':
+           os.makedirs(res_dir, exist_ok=True)
+
 
     def execute(self):
         logging.debug("Running performance benchmarks for {}, with results output to {}".format(self.sim_name, self.res_name))
@@ -122,6 +130,15 @@ class Simulation:
             (run_time, run_mem) = self.parse_time_res(time_buf)
             total_time += run_time
             total_mem += run_mem
+            # move the results file
+            logging.debug("Moving results from {} to {}".format(self.res_name, self.res_path))
+            shutil.move(self.res_name, self.res_path)
+            # rename the results file if needed
+            if self.unique_res:
+                (res_root, res_ext) = os.path.splitext(self.res_path)
+                new_res_path = res_root + "_" + str(i) + res_ext
+                logging.debug("Renaming results from {} to {}".format(self.res_path, new_res_path))
+                os.rename(self.res_path, new_res_path)
 
         avg_time = (total_time / self.num_sims) - self.startup_offset
         avg_mem = (total_mem / self.num_sims)
@@ -146,12 +163,13 @@ class Simulation:
             print("* Source LOC : {}".format(wc_res), file=res_file, end="")
 
         # check against ref results
-        if self.res_name and self.res_ref:
+        if self.res_name and self.res_ref and not self.unique_res:
             col = 1  # only compare V (starts at col 1)
-            _, diffMax, diffEps = compare_files(self.res_name, self.res_ref, col, col)
+            _, diffMax, diffEps = compare_files(self.res_path, self.res_ref, col, col)
             print("* Max difference between results files {} and {} for col {} :\n"
                   "\t{:+.16g} ({:+.16g} machine epsilons)".format(self.res_name, self.res_ref, col, diffMax, diffEps),
                   file=res_file)
+
 
 
 class OdeSimulation(Simulation):
@@ -203,6 +221,16 @@ class MatSimulation(Simulation):
         kwargs['is_exe'] = False
         super().__init__(sim_name, **kwargs)
         self.startup_offset = 2.22
+
+
+class OctSimulation(Simulation):
+    def __init__(self, sim_name, **kwargs):
+        # update the src name with the default if not given
+        # kwargs['src_name'] = kwargs.get('src_name', sim_name + ".od3")
+        kwargs['exe_cmd'] = ('octave', '--silent', '--no-window-system', '{}.m'.format(sim_name), )
+        kwargs['is_exe'] = False
+        super().__init__(sim_name, **kwargs)
+        self.startup_offset = 0.0
 
 
 class PySimulation(Simulation):

@@ -140,8 +140,10 @@ genHybridSolver odeMod@CF.Module{..} = do
                 liftIO $ updatePtrVal builder curPeriodRef $ \curPeriod -> buildAdd builder curPeriod (constInt64 1) "incCurPeriod"
                 buildNoOp builder)
 
-        liftIO $ withPtrVal builder curTimeRef $ \curTime ->
-            debugStmt builder libOps "Ran Ode - time : %g\n" [curTime]
+        -- debug output
+        -- liftIO $ withPtrVal builder curTimeRef $ \curTime ->
+        --    debugStmt builder libOps "Ran Ode - time : %g\n" [curTime]
+
         -- return noop
         buildNoOp builder
 
@@ -199,7 +201,8 @@ genHybridSolver odeMod@CF.Module{..} = do
                 liftIO $    withPtrVal builder ssaTimeRef $ \ssaTime ->
                             withPtrVal builder curTimeRef $ \curTime -> do
                                 ssaTime' <- buildFAdd builder ssaTime tau "nextSSATime"
-                                debugStmt builder libOps "In SSA - curTime : %.6f, ssaTime : %.6f, tau : %.6f, nextSSATime - %.6f\n" [curTime, ssaTime, tau, ssaTime']
+                                -- debug output
+                                -- debugStmt builder libOps "In SSA - curTime : %.6f, ssaTime : %.6f, tau : %.6f, nextSSATime - %.6f\n" [curTime, ssaTime, tau, ssaTime']
                                 buildFCmp builder FPOLE ssaTime' curTime "tauCheck"
 
             -- choose and trigger reaction
@@ -209,9 +212,10 @@ genHybridSolver odeMod@CF.Module{..} = do
             liftIO $ updatePtrVal builder ssaTimeRef $ \ssaTime ->
                 buildFAdd builder ssaTime tau "incTime"
 
-            liftIO $    withPtrVal builder sumPropRef $ \sumProp ->
-                        withPtrVal builder ssaTimeRef $ \ssaTime ->
-                            debugStmt builder libOps "Ran SSA - sumProp : %g, new SSA time : %g\n" [sumProp, ssaTime]
+            -- debug output
+            -- liftIO $    withPtrVal builder sumPropRef $ \sumProp ->
+            --             withPtrVal builder ssaTimeRef $ \ssaTime ->
+            --                 debugStmt builder libOps "Ran SSA - sumProp : %g, new SSA time : %g\n" [sumProp, ssaTime]
             -- return a noop
             buildNoOp builder
 
@@ -235,8 +239,8 @@ genHybridSolver odeMod@CF.Module{..} = do
         endProp <- liftIO $ withPtrVal builder sumPropRef $ \sumProp ->
             buildFMul builder r2 sumProp "endProp"
 
-        liftIO $ debugStmt builder libOps "In SSA - endProp : %g\n" [endProp]
-
+        -- debug output
+        -- liftIO $ debugStmt builder libOps "In SSA - endProp : %g\n" [endProp]
 
         endBB <- liftIO $ appendBasicBlock curFunc "end.TR"
         startBB <- liftIO $ appendBasicBlock curFunc "start.TR"
@@ -252,7 +256,8 @@ genHybridSolver odeMod@CF.Module{..} = do
             reactionProp <- calcPropensity builder stateValsRefMap rreOp
             curProp' <- liftIO $ buildFAdd builder reactionProp curProp "accProp"
 
-            liftIO $ debugStmt builder libOps "In SSA - accProp : %g\n" [curProp']
+            -- debug output
+            -- liftIO $ debugStmt builder libOps "In SSA - accProp : %g\n" [curProp']
 
             triggerBB <- liftIO $ appendBasicBlock curFunc "trigger.TR"
             -- if we're on lastOp - reaction must be triggered

@@ -45,7 +45,7 @@ def getCols(num_cols, col_list=None, add_zero=False):
 
 ### Visual Plotting/Output
 ################################################
-def plot(data, num_cols, col_list=None, save=None, title="AP Plot", xlabel="Time (s)", ylabel="State Values"):
+def plot(data, num_cols, col_list=None, save=None, title="AP Plot", xlabel="Time (s)", ylabel="State Values", legend=False):
     import pylab
     # plot the data
     logging.debug("Setting up a plot")
@@ -57,6 +57,8 @@ def plot(data, num_cols, col_list=None, save=None, title="AP Plot", xlabel="Time
     pylab.xlabel(xlabel)
     pylab.ylabel(ylabel)
     pylab.title(title)
+    if legend:
+      pylab.legend(tuple(map(str, cols)), loc='upper right', bbox_to_anchor=(1.10, 1.05), ncol=1, fancybox=True, shadow=True)
 
     # save or display the graph
     if save:

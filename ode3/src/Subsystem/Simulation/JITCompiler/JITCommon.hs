@@ -97,8 +97,13 @@ lookupId i = do
     -- trace' [MkSB localMap] "Localmap of vals" $ return ()
     case Map.lookup i localMap of
         Just v -> return v
-        -- use fromJust as this can't fail
-        Nothing -> liftIO $ fromJust <$> getNamedGlobal llvmMod (getValidIdName i) -- errorDump [MkSB i, MkSB localMap] "can't find localval in map" assert --
+        -- use fromJust as this can't fail --- BUG - IT FAILS !! :)
+        Nothing -> do
+            gName <- liftIO $ getNamedGlobal llvmMod (getValidIdName i)
+            case gName of
+                Just n -> return n
+                Nothing -> errorDump [MkSB i, MkSB localMap] "Can't find localval in map" assert --
+        -- Nothing -> liftIO $ fromJust <$> getNamedGlobal llvmMod (getValidIdName i) -- errorDump [MkSB i, MkSB localMap] "can't find localval in map" assert --
 
 
 getValidIdName :: Id -> String

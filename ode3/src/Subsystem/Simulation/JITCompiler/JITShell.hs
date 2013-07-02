@@ -98,13 +98,14 @@ optScript p@(Sys.SimParams{..}) = do
                     linkVecMath modelVec2
 
                 -- just fastmath, run lift and lowering (as implies linking to finite-funcs)
+                -- HACK - lift/lowering seems to cause problesm - remove for now, maybe conflict with compile opts
                 else do
-                    let modelLift = "./.Model.lift.bc"
-                    run_ "opt" (["-load", llvmVecMath, "-o", modelLift ] ++
-                        ["-liftvecmath", "-lowervecmath", "-std-compile-opts", "-stats", modelBC])
-                    run_ "llvm-dis" [modelLift]
-                    linkVecMath modelLift
-
+--                    let modelLift = "./.Model.lift.bc"
+--                    run_ "opt" (["-load", llvmVecMath, "-o", modelLift ] ++
+--                        ["-liftvecmath", "-lowervecmath", "-std-compile-opts", "-stats", modelBC])
+--                    run_ "llvm-dis" [modelLift]
+--                    linkVecMath modelLift
+                    run_ "opt" (["-o", modelBC] ++ modelOpts ++ [modelBC]) >> return modelBC
             -- no fastmath - just optimise
             else run_ "opt" (["-o", modelBC] ++ modelOpts ++ [modelBC]) >> return modelBC
         else return modelBC
@@ -177,9 +178,9 @@ compileScript p@(Sys.SimParams{..}) = do
     if (L.get Sys.lBackend p == Sys.ObjectFile)
         -- use clang to create a object file
         then do
-                run "clang" $ archDetails ++ ["-integrated-as", "-c", "-o", toTextIgnore odeObjFile, optLevel]
-                    ++ maybeToList fastMath ++ [modelOptBC]
-                cp odeObjFile (fromText . LT.pack $ FP.addExtension outName "o")
+            run "clang" $ archDetails ++ ["-integrated-as", "-c", "-o", toTextIgnore odeObjFile, optLevel]
+                ++ maybeToList fastMath ++ [modelOptBC]
+            cp odeObjFile (fromText . LT.pack $ FP.addExtension outName "o")
         -- use clang to link our llvm-linked sim module to the system
         else do
             run "clang" $ (maybeToList linkType) ++ archDetails ++ ["-integrated-as", "-o", toTextIgnore exeOutput, optLevel]
@@ -203,7 +204,8 @@ compileScript p@(Sys.SimParams{..}) = do
 
     -- odeVecMathLib = toTextIgnore $ odeLibPath </> odeVecMathFile
     optLevel    = if (L.get Sys.lOptimise p) then "-O3" else "-O0"
-    fastMath    = if _optimise && (L.get Sys.lMathModel p == Sys.Fast) then Just "-ffast-math" else Nothing
+    -- HACK - --fast-math flag seems invalid in clang 3.2 atm, causes many perf regressions, disable for now?
+    fastMath    = Nothing -- if _optimise && (L.get Sys.lMathModel p == Sys.Fast) then Just "-ffast-math" else Nothing
     -- check dyn/static linking
     linkType    = case (L.get Sys.lLinker p) of
         Sys.Static -> Just "-static"

@@ -136,6 +136,7 @@ instance OdeSolver EulerMSolver where
 
       where
         updateState :: Builder -> Sys.SimParams -> LibOps -> SimOp -> IO ()
+        -- Hybrid solver - supports ODEs too with same timestep
         updateState builder simParams _ (Ode i _) = do
             -- get state val
             updatePtrVal builder (stateRefMap Map.! i) $ \stateVal -> do
@@ -205,6 +206,7 @@ instance OdeSolver ProjSolver where
         positionAtEnd' builder endBB
       where
         updateState :: Builder -> Sys.SimParams -> LibOps -> SimOp -> IO ()
+        -- Hybrid solver - supports ODEs too with same timestep
         updateState builder simParams _ (Ode i _) = do
             -- get state val
             updatePtrVal builder (stateRefMap Map.! i) $ \stateVal -> do
@@ -247,7 +249,7 @@ instance OdeSolver ProjSolver where
             startBB <- liftIO $ appendBasicBlock curFunc "startBB"
             liftIO $ buildBr builder startBB
             positionAtEnd' builder startBB
-            -- run the loop
+            -- run the loop - is bit simple - could be optimised on the cond check and early break
             forM projIds $ \projIdRef -> do
                 withPtrVal builder projIdRef $ \projId -> do
                     gtZero <- liftIO $ buildFCmp builder FPOGE projId constZero "greaterZero"
@@ -258,7 +260,7 @@ instance OdeSolver ProjSolver where
                     liftIO $ buildCondBr builder inBounds nextBB projBB
                     positionAtEnd' builder nextBB
             -- sum loop, debug only
-            runSumCheck
+            -- runSumCheck
 
             -- branch to end
             liftIO $ buildBr builder endBB
@@ -281,7 +283,7 @@ instance OdeSolver ProjSolver where
                     (buildNoOp)
                     -- doesn't sum to 1 (within epsilon), exit
                     (\builder -> do
-                        liftIO $ debugStmt builder libOps "ERROR - Vals do not sum to 1 - %g\n" [sumProjs]
+                        liftIO $ debugStmt builder libOps "ERROR - SDE Proj - Vals do not sum to 1 - %.17g\n" [sumProjs]
                         buildNoOp builder
                         liftIO $ buildCall builder (libOps Map.! "exit") [constInt64 1] "")
                 return ()

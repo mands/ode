@@ -60,7 +60,8 @@ enum OdeParamSimTypes {
     Ode = 0,
     Sde = 1,
     Rre = 2,
-    Hybrid = 3
+    Hybrid = 3,
+    ProjSde = 4
 };
 
 extern const enum OdeParamSimTypes OdeParamSimType;
