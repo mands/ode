@@ -65,8 +65,25 @@ def save_show(name, show_grid=True):
     #plt.title(name)
     plt.show()
 
+#"""Plot a line graph"""
+#def plot_data(filename, col, color=None, start=1000, stop=1500, period=1, shift=0):
+#  logging.debug("Setting up a plot for col {} from {}".format(col, filename))
+#  (data, num_cols) = openFile(filename)
+#  # plot the data
+#  # get and plot the specified columns
+#  mod_start = start/period
+#  mod_stop = stop/period
+#  mod_shift = shift/period
+#  time_data = data[mod_start:mod_stop,0]
+#  res_data = data[mod_start+mod_shift:mod_stop+mod_shift,col]
+#  if color is None:
+#    plt.plot(time_data, res_data)
+#  else:
+#    plt.plot(time_data, res_data, color=color)
+
+
 """Plot a line graph"""
-def plot_data(filename, col, color=None, start=1000, stop=1500, period=1, shift=0):
+def plot_data(filename, col, color=None, start=1000, stop=1500, period=1, shift=0, linestyle=None):
   logging.debug("Setting up a plot for col {} from {}".format(col, filename))
   (data, num_cols) = openFile(filename)
   # plot the data
@@ -76,10 +93,13 @@ def plot_data(filename, col, color=None, start=1000, stop=1500, period=1, shift=
   mod_shift = shift/period
   time_data = data[mod_start:mod_stop,0]
   res_data = data[mod_start+mod_shift:mod_stop+mod_shift,col]
-  if color is None:
+  if color is None and linestyle is None:
     plt.plot(time_data, res_data)
-  else:
+  elif linestyle is None:
     plt.plot(time_data, res_data, color=color)
+  else:
+    plt.plot(time_data, res_data, color=color, linestyle=linestyle)
+
 
 """Plotting helper functions for chaing together operations"""
 def sum_res(cols, data):
@@ -87,6 +107,9 @@ def sum_res(cols, data):
 
 def open_res(col, data):
   return (data[:,0], data[:,col])
+
+#def multi_cols(cols, data):
+#  return (data[:,0], data[:,cols])
 
 def ssa_res(div_total, data_f, data):
   time_d, res_d = data_f(data)
