@@ -21,7 +21,7 @@ The accompanying D.Phil thesis resulting from this work may be also be downloade
 
 Several papers were published supporting this work, 
 
-* M. Gill, S. McKeever, and D.J. Gavaghan. "Modular Mathematical Modelling of Biological Systems". In: _Symposium on Theory of Modeling and Simulation (TMS’12)_. 2012.
+* M. Gill, S. McKeever, and D.J. Gavaghan. “Modular Mathematical Modelling of Biological Systems”. In: _Symposium on Theory of Modeling and Simulation (TMS’12)_. 2012.
 * M. Gill, S. McKeever, and D.J. Gavaghan. “Modules for Reusable and Collaborative Modelling of Biological Mathematical Systems”. In: _21ST IEEE International WETICE Conference (WETICE-2012)_. 2012.
 * S. McKeever, M. Gill, A.J. Connor, and D. Johnson. “Abstraction in physiological modelling languages”. In: _Symposium on Theory of Modeling & Simulation (TMS’13)_. 2013.
 * M. Gill, S. McKeever, and D.J. Gavaghan. “Model Composition for Biological Mathematical Systems”. In: _International Conference on Model-Driven Engineering and Software Development (Modelsward 2014)_. 2014.
@@ -42,7 +42,7 @@ Further details and simulation benchmarks can be found in the accompanying thesi
 
 Several versions of the Hodgkin-Huxley giant-squid axon neuronal model [1] are included to demonstrate the language functionality. Further, cardiac electrophysiological, models are to be added.
 
-[1] - A.L. Hodgkin, and A.L. Huxley. "A quantitative description of membrane current and its application to conduction and excitation in nerve". In: _The Journal of physiology 117 (4): 500–544_. (1952).
+[1] - A.L. Hodgkin, and A.L. Huxley. “A quantitative description of membrane current and its application to conduction and excitation in nerve”. In: _The Journal of physiology 117 (4): 500–544_. (1952).
 
 ## Building
 

@@ -1,0 +1,51 @@
+// MODEL - HH52
+module Model { 
+    val E_R = -75
+    val Cm = 1
+    init V = -75
+
+    // sodium_channel_m_gate
+    val alpha_m = -0.1 * (V + 50) / (exp(-(V + 50) / 10) - 1)
+    val beta_m = 4 * exp(-(V + 75) / 18)
+    init m = 0.05
+    ode {initVal : m, deltaVal : dm } = alpha_m*(1 - m) - beta_m*m
+
+    // sodium_channel_h_gate
+    val alpha_h = 0.07 * exp(-(V + 75) / 20)
+    val beta_h = 1 / (exp(-(V + 45) / 10) + 1)
+    init h = 0.6
+    ode {initVal : h, deltaVal: dh } = alpha_h*(1 - h) - beta_h * h
+
+    // sodium_channel
+    val g_Na = 120
+    val E_Na = E_R + 115
+    // val i_Na = g_Na * pow(m, 3.000001) * h * (V - E_Na)
+    val i_Na = g_Na * pow(m, 3.0) * h * (V - E_Na)
+
+    // potassium_channel_n_gate
+    val alpha_n = -0.01 * (V + 65) / (exp(-(V + 65) / 10) - 1)
+    val beta_n = 0.125 * exp((V + 75) / 80)
+    init n = 0.325        
+    ode {initVal : n, deltaVal: dn } = alpha_n*(1 - n) - beta_n*n
+
+    // potassium_channel
+    val g_K = 36
+    val E_K = E_R - 12
+    // val i_K = g_K * pow(n, 4.000001) * (V - E_K)
+    val i_K = g_K * pow(n, 4.0) * (V - E_K)
+
+    // leakage_current
+    val g_L = 0.3
+    val E_L = E_R + 10.613
+    val i_L = g_L * (V - E_L)
+
+    // MG - hardcoded stimulus train - every 60ms
+    val period = 60
+    val i_Stim = piecewise {
+        time % period >= 10 and time % period <= 10.5 : 20,
+        default: 0
+    }
+
+    ode { initVal : V, deltaVal : dV } = (-1 * (-1 * i_Stim + i_Na + i_K + i_L)) / Cm
+}
+

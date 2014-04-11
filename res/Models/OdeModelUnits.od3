@@ -1,0 +1,102 @@
+module Units {
+    // quantity aliases
+    quantity length = dim L
+    quantity mass = dim M
+    //quantity time = dim T
+    quantity current = dim I
+    quantity temperature = dim O
+    quantity amount_substance = dim N
+    quantity luminous_intensity = dim J
+
+
+    // base units - remember, quantity time, and units us, ms, s, min and hr already exist
+    // units defs - ampere, metre & volt, siemens, farad,
+    // only bsae units supported in defs - no aliasas for dervied units yet
+    unit m { dim : L, SI : true }
+    unit A { dim : I, SI : true }
+    unit g { dim : M, SI : true }    
+    
+    // add cm
+    unit cm { dim : L, SI : false }
+    conversion { from : m, to : cm, factor : x * 100 }
+    conversion { from : cm, to : m, factor : x / 100 }
+
+    derived V { unit : kg.m^2.A^-1.s^-3 }
+    derived mV { unit : g.m^2.A^-1.s^-3 }
+    // derived mV { unit : V.m^1.mm^-1 }
+    derived S { unit : m^-2.kg^-1.s^3.A^2 }
+    derived mS { unit : m^-2.kg^-1.s^3.mA.A }
+    derived F { unit : m^-2.kg^-1.s^4.A^2 }
+    derived uF { unit : m^-2.kg^-1.s^4.mA^2 }
+    derived current { unit : uA.cm^-2 }
+}
+
+
+// MODEL - HH52
+module Model { 
+    import OdeModelUnits.Units as U
+
+    val E_R = -75 { unit : mV }
+    val Cm = 1 { unit : uF.cm^-2 }
+
+    component sodium_channel_m_gate(V) { 
+        val alpha_m = 1 { unit : mV^-1 } * -0.1 * (V + 50 { unit : mV }) / (exp(1 { unit : mV^-1 } * -(V + 50 { unit : mV }) / 10) - 1)
+        val beta_m = 4 * exp(1 { unit : mV^-1} * -(V + 75 { unit : mV }) / 18)
+        init m = 0.05
+        ode {initVal : m, deltaVal : dm } = (alpha_m*(1 - m) - beta_m*m) * 1 { unit : ms^-1 }
+        return (m)
+    }
+
+    component sodium_channel_h_gate(V) {
+        val alpha_h = 0.07 * exp(1 { unit : mV^-1 } * -(V + 75 { unit : mV }) / 20)
+        val beta_h = 1 / (exp(1 { unit : mV^-1 } * -(V + 45 { unit : mV }) / 10) + 1)
+        init h = 0.6
+        ode {initVal : h, deltaVal: dh } = (alpha_h*(1 - h) - beta_h * h) * 1 { unit : ms^-1 }
+        return (h)
+    }
+    component sodium_channel(V, E_R) {
+        val m = sodium_channel_m_gate(V)
+        val h = sodium_channel_h_gate(V)
+        val g_Na = 120 { unit : mS.cm^-2 }
+        val E_Na = E_R + 115 { unit : mV }
+        val i_Na = g_Na * upow(m, 3) * h * (V - E_Na)
+        return (i_Na { unit : current })
+    }
+
+    component potassium_channel_n_gate(V) {
+        val alpha_n = 1 { unit : mV^-1 } * -0.01 * (V + 65 { unit : mV }) / (exp(1 { unit : mV^-1 } * -(V + 65 { unit : mV }) / 10) - 1)
+        val beta_n = 0.125 * exp(1 { unit : mV^-1 } * (V + 75 { unit : mV }) / 80)
+        init n = 0.325        
+        ode {initVal : n, deltaVal: dn } = (alpha_n*(1 - n) - beta_n*n) * 1 { unit : ms^-1 }
+        return (n)
+    }
+
+    component potassium_channel(V, E_R) {
+        val n = potassium_channel_n_gate(V)
+        val g_K = 36 { unit : mS.cm^-2 }
+        val E_K = E_R - 12 { unit : mV }
+        val i_K = g_K * upow(n, 4) * (V - E_K)
+        return (i_K { unit : current })
+    }
+
+    component leakage_current(V, E_R) {
+        val g_L = 0.3 { unit : mS.cm^-2 }
+        val E_L = E_R + 10.613 { unit : mV }
+        val i_L = g_L * (V - E_L)
+        return (i_L { unit : current })
+    }
+
+    init V = -75 { unit : mV }
+    val i_Na = sodium_channel(V, E_R)
+    val i_K = potassium_channel(V, E_R)
+    val i_L = leakage_current(V, E_R)
+    // MG - hardcoded stimulus train - every 60ms
+    val period = 60 { unit : ms }
+    val i_Stim = piecewise {
+        time % period >= 10 { unit : ms } and time % period <= 10.5 { unit : ms } : 20 { unit : current },
+        default: 0 { unit : current }
+    } 
+
+    ode { initVal : V, deltaVal : dV } = ((-1 * (-1 * i_Stim + i_Na + i_K + i_L)) / Cm) { unit : mV.ms^-1 }
+}
+

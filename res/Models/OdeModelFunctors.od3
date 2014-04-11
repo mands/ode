@@ -1,0 +1,80 @@
+module HH52NaChannel {
+    export(get_current)
+
+    component sodium_channel_m_gate(V) { 
+        val alpha_m = -0.1 * (V + 50) / (exp(-(V + 50) / 10) - 1)
+        val beta_m = 4 * exp(-(V + 75) / 18)
+        init m = 0.05
+        ode {initVal : m, deltaVal : dm } = alpha_m*(1 - m) - beta_m*m
+        return (m)
+    }
+
+    component sodium_channel_h_gate(V) {
+        val alpha_h = 0.07 * exp(-(V + 75) / 20)
+        val beta_h = 1 / (exp(-(V + 45) / 10) + 1)
+        init h = 0.6
+        ode {initVal : h, deltaVal: dh } = alpha_h*(1 - h) - beta_h * h
+        return (h)
+    }
+
+    component get_current(V, E_R) {
+        val m = sodium_channel_m_gate(V)
+        val h = sodium_channel_h_gate(V)
+        val g_Na = 120
+        val E_Na = E_R + 115
+        // val i_Na = g_Na * pow(m, 3.000001) * h * (V - E_Na)
+        val i_Na = g_Na * pow(m, 3.0) * h * (V - E_Na)
+        return (i_Na)
+    }
+}
+
+
+module HH52KChannel {
+    export(get_current)
+
+    component potassium_channel_n_gate(V) {
+        val alpha_n = -0.01 * (V + 65) / (exp(-(V + 65) / 10) - 1)
+        val beta_n = 0.125 * exp((V + 75) / 80)
+        init n = 0.325        
+        ode {initVal : n, deltaVal: dn } = alpha_n*(1 - n) - beta_n*n
+        return (n)
+    }
+
+    component get_current(V, E_R) {
+        val n = potassium_channel_n_gate(V)
+        val g_K = 36
+        val E_K = E_R - 12
+        // val i_K = g_K * pow(n, 4.000001) * (V - E_K)
+        val i_K = g_K * pow(n, 4.0) * (V - E_K)
+        return (i_K)
+    }
+}
+
+// MODEL - HH52
+module HH52Factory(NaChannel, KChannel) { 
+    val E_R = -75
+    val Cm = 1
+
+    component leakage_current(V, E_R) {
+        val g_L = 0.3
+        val E_L = E_R + 10.613
+        val i_L = g_L * (V - E_L)
+        return (i_L)
+    }
+
+    init V = -75
+    val i_Na = NaChannel.get_current(V, E_R)
+    val i_K = KChannel.get_current(V, E_R)
+    val i_L = leakage_current(V, E_R)
+    // MG - hardcoded stimulus train - every 60ms
+    val period = 60
+    val i_Stim = piecewise {
+        time % period >= 10 and time % period <= 10.5 : 20,
+        default: 0
+    }
+    ode { initVal : V, deltaVal : dV } = (-1 * (-1 * i_Stim + i_Na + i_K + i_L)) / Cm
+}
+
+
+module Model = HH52Factory(HH52NaChannel, HH52KChannel)
+

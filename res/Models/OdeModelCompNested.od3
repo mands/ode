@@ -1,0 +1,75 @@
+// MODEL - HH52
+module Model { 
+    val E_R = -75
+    val Cm = 1
+    
+    // util function to gen a stimulus protocol
+    component gen_stim_protocol(start_stim, stim_duration, stim_amplitude, is_train, stim_period) {
+        val time_val = piecewise { is_train : time % stim_period, default : time }
+        val stim = piecewise {
+            time_val >= start_stim and time_val % stim_period <= (start_stim + stim_duration) : stim_amplitude,
+            default: 0
+        }
+        return (stim)
+    }
+
+    component sodium_channel(V, E_R) {
+        // nested components
+        component sodium_channel_m_gate(V) { 
+            val alpha_m = -0.1 * (V + 50) / (exp(-(V + 50) / 10) - 1)
+            val beta_m = 4 * exp(-(V + 75) / 18)
+            init m = 0.05
+            ode {initVal : m, deltaVal : dm } = alpha_m*(1 - m) - beta_m*m
+            return (m)
+        }
+
+        component sodium_channel_h_gate(V) {
+            val alpha_h = 0.07 * exp(-(V + 75) / 20)
+            val beta_h = 1 / (exp(-(V + 45) / 10) + 1)
+            init h = 0.6
+            ode {initVal : h, deltaVal: dh } = alpha_h*(1 - h) - beta_h * h
+            return (h)
+        }
+
+        val m = sodium_channel_m_gate(V)
+        val h = sodium_channel_h_gate(V)
+        val g_Na = 120
+        val E_Na = E_R + 115
+        // val i_Na = g_Na * pow(m, 3.000001) * h * (V - E_Na)
+        val i_Na = g_Na * pow(m, 3.0) * h * (V - E_Na)
+        return (i_Na)
+    }
+
+    component potassium_channel(V, E_R) {
+        component potassium_channel_n_gate(V) {
+            val alpha_n = -0.01 * (V + 65) / (exp(-(V + 65) / 10) - 1)
+            val beta_n = 0.125 * exp((V + 75) / 80)
+            init n = 0.325        
+            ode {initVal : n, deltaVal: dn } = alpha_n*(1 - n) - beta_n*n
+            return (n)
+        }
+
+        val n = potassium_channel_n_gate(V)
+        val g_K = 36
+        val E_K = E_R - 12
+        // val i_K = g_K * pow(n, 4.000001) * (V - E_K)
+        val i_K = g_K * pow(n, 4.0) * (V - E_K)
+        return (i_K)
+    }
+
+    component leakage_current(V, E_R) {
+        val g_L = 0.3
+        val E_L = E_R + 10.613
+        val i_L = g_L * (V - E_L)
+        return (i_L)
+    }
+
+    init V = -75
+    val i_Na = sodium_channel(V, E_R)
+    val i_K = potassium_channel(V, E_R)
+    val i_L = leakage_current(V, E_R)
+    // MG - hardcoded stimulus train - every 60ms
+    val i_Stim = gen_stim_protocol(10, 0.5, 20, true, 60)
+    ode { initVal : V, deltaVal : dV } = (-1 * (-1 * i_Stim + i_Na + i_K + i_L)) / Cm
+}
+
