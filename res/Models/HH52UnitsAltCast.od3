@@ -33,7 +33,7 @@ module Units {
 
 
 // MODEL - HH52
-module Model { 
+module HH52Cell { 
     import OdeModelUnitsAltCast.Units as U
 
     val E_R = -75 { unit : mV }

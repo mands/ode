@@ -1,16 +1,5 @@
-// Can't use this model - remove newtypes for now
-module HH52Types {
-    type NaCurrent
-    type KCurrent
-    
-    val _ = 1 { wrap : NaCurrent } // just to constrain it
-    val _ = 1 { wrap : KCurrent } // just to constrain it
-}
-
 module HH52NaChannel {
     export(get_current)
-    import OdeModelFunctorsTypes.HH52Types as T
-
 
     component sodium_channel_m_gate(V) { 
         val alpha_m = -0.1 * (V + 50) / (exp(-(V + 50) / 10) - 1)
@@ -35,14 +24,13 @@ module HH52NaChannel {
         val E_Na = E_R + 115
         // val i_Na = g_Na * pow(m, 3.000001) * h * (V - E_Na)
         val i_Na = g_Na * pow(m, 3.0) * h * (V - E_Na)
-        return (i_Na { wrap : T.NaCurrent })
+        return (i_Na)
     }
 }
 
 
 module HH52KChannel {
     export(get_current)
-    import OdeModelFunctorsTypes.HH52Types as T
 
     component potassium_channel_n_gate(V) {
         val alpha_n = -0.01 * (V + 65) / (exp(-(V + 65) / 10) - 1)
@@ -58,13 +46,16 @@ module HH52KChannel {
         val E_K = E_R - 12
         // val i_K = g_K * pow(n, 4.000001) * (V - E_K)
         val i_K = g_K * pow(n, 4.0) * (V - E_K)
-        return (i_K { wrap : T.KCurrent })
+        return (i_K)
     }
 }
 
+
 // MODEL - HH52
-module HH52Factory(NaChannel, KChannel) { 
-    import OdeModelFunctorsTypes.HH52Types as T
+module HH52Cell { 
+    import OdeModelModules.HH52NaChannel as NaChannel
+    import OdeModelModules.HH52KChannel as KChannel
+
     val E_R = -75
     val Cm = 1
 
@@ -76,8 +67,8 @@ module HH52Factory(NaChannel, KChannel) {
     }
 
     init V = -75
-    val i_Na = NaChannel.get_current(V, E_R) { unwrap : T.NaCurrent }
-    val i_K = KChannel.get_current(V, E_R) { unwrap : T.KCurrent }
+    val i_Na = NaChannel.get_current(V, E_R)
+    val i_K = KChannel.get_current(V, E_R)
     val i_L = leakage_current(V, E_R)
     // MG - hardcoded stimulus train - every 60ms
     val period = 60
@@ -85,8 +76,7 @@ module HH52Factory(NaChannel, KChannel) {
         time % period >= 10 and time % period <= 10.5 : 20,
         default: 0
     }
+
     ode { initVal : V, deltaVal : dV } = (-1 * (-1 * i_Stim + i_Na + i_K + i_L)) / Cm
 }
-
-module Model = HH52Factory(HH52NaChannel, HH52KChannel)
 

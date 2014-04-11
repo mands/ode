@@ -1,5 +1,5 @@
 // MODEL - HH52
-module Model { 
+module HH52Cell { 
     val E_R = -75
     val Cm = 1
     

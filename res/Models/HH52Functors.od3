@@ -1,7 +1,5 @@
-// MODEL - HH52
-module Model { 
-    val E_R = -75
-    val Cm = 1
+module HH52NaChannel {
+    export(get_current)
 
     component sodium_channel_m_gate(V) { 
         val alpha_m = -0.1 * (V + 50) / (exp(-(V + 50) / 10) - 1)
@@ -19,7 +17,7 @@ module Model {
         return (h)
     }
 
-    component sodium_channel(V, E_R) {
+    component get_current(V, E_R) {
         val m = sodium_channel_m_gate(V)
         val h = sodium_channel_h_gate(V)
         val g_Na = 120
@@ -28,6 +26,11 @@ module Model {
         val i_Na = g_Na * pow(m, 3.0) * h * (V - E_Na)
         return (i_Na)
     }
+}
+
+
+module HH52KChannel {
+    export(get_current)
 
     component potassium_channel_n_gate(V) {
         val alpha_n = -0.01 * (V + 65) / (exp(-(V + 65) / 10) - 1)
@@ -37,7 +40,7 @@ module Model {
         return (n)
     }
 
-    component potassium_channel(V, E_R) {
+    component get_current(V, E_R) {
         val n = potassium_channel_n_gate(V)
         val g_K = 36
         val E_K = E_R - 12
@@ -45,6 +48,12 @@ module Model {
         val i_K = g_K * pow(n, 4.0) * (V - E_K)
         return (i_K)
     }
+}
+
+// MODEL - HH52
+module HH52Factory(NaChannel, KChannel) { 
+    val E_R = -75
+    val Cm = 1
 
     component leakage_current(V, E_R) {
         val g_L = 0.3
@@ -54,8 +63,8 @@ module Model {
     }
 
     init V = -75
-    val i_Na = sodium_channel(V, E_R)
-    val i_K = potassium_channel(V, E_R)
+    val i_Na = NaChannel.get_current(V, E_R)
+    val i_K = KChannel.get_current(V, E_R)
     val i_L = leakage_current(V, E_R)
     // MG - hardcoded stimulus train - every 60ms
     val period = 60
@@ -63,7 +72,9 @@ module Model {
         time % period >= 10 and time % period <= 10.5 : 20,
         default: 0
     }
-
     ode { initVal : V, deltaVal : dV } = (-1 * (-1 * i_Stim + i_Na + i_K + i_L)) / Cm
 }
+
+
+module HH52Cell = HH52Factory(HH52NaChannel, HH52KChannel)
 
