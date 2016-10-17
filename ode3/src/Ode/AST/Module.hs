@@ -44,9 +44,9 @@ import Text.Printf (printf)
 
 
 import AST.Common
-import qualified AST.Core as E
-import qualified Subsystem.Units as U
-import qualified Utils.OrdMap as OrdMap
+import qualified Ode.AST.Core as E
+import qualified Ode.Subsystem.Units as U
+import qualified Ode.Utils.OrdMap as OrdMap
 import Ode.Utils.CommonImports
 import qualified System.FilePath as FP
 

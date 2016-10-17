@@ -32,8 +32,8 @@ import Data.Graph.Inductive.Query.DFS(noComponents)
 
 import Ion.AST
 import Ode.Utils.CommonImports
-import qualified Utils.Graph as UG
-import qualified Utils.OrdMap as OrdMap
+import qualified Ode.Utils.Graph as UG
+import qualified Ode.Utils.OrdMap as OrdMap
 import AST.CoreFlat(SimType(..))
 
 -- Process Entry -------------------------------------------------------------------------------------------------------

@@ -24,7 +24,7 @@ import qualified Text.Parsec.Token as T
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import qualified Data.List as List
-import qualified AST.Module as MA
+import qualified Ode.AST.Module as MA
 import AST.Common
 
 -- import {-# SOURCE #-} Lang.Common.Ops (opReservedNames) -- special import to break import cycle

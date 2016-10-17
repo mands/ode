@@ -19,7 +19,7 @@ mapExpr
 
 -- import Data.IntMap as IM
 import qualified Data.Map as Map
-import qualified Utils.OrdMap as OrdMap
+import qualified Ode.Utils.OrdMap as OrdMap
 import qualified Data.Set as Set
 import Ode.AST.Common as AC
 

@@ -29,9 +29,9 @@ import qualified Data.Set as Set
 
 import qualified Data.Graph.Inductive as G
 import Data.Graph.Inductive.Tree
-import qualified Utils.Graph as UG
+import qualified Ode.Utils.Graph as UG
 import qualified Data.Array as A
-import qualified Utils.OrdMap as OrdMap
+import qualified Ode.Utils.OrdMap as OrdMap
 import AST.CoreFlat(SimType)
 import Data.Monoid
 import Ode.Utils.Utils

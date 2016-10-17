@@ -36,11 +36,11 @@ import Control.Applicative
 import Data.Maybe (fromJust)
 import Text.Printf (printf)
 
-import qualified AST.Core as E
-import qualified AST.Module as M
+import qualified Ode.AST.Core as E
+import qualified Ode.AST.Module as M
 import Ode.Utils.CommonImports
 import Ode.Utils.MonadSupply
-import qualified Utils.OrdMap as OrdMap
+import qualified Ode.Utils.OrdMap as OrdMap
 
 -- main types
 type BindMap = Map.Map E.SrcId E.Id

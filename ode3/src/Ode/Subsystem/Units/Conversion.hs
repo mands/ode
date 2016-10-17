@@ -34,7 +34,7 @@ import qualified Data.Foldable as DF
 
 import Ode.Utils.CommonImports
 
-import qualified Utils.Graph as UG
+import qualified Ode.Utils.Graph as UG
 import Ode.Subsystem.Units.UnitsDims
 
 -- Conversion Expressions ----------------------------------------------------------------------------------------------

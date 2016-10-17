@@ -31,11 +31,11 @@ import Ode.Utils.CommonImports
 import Ode.Subsystem.SysState
 import AST.Common
 import AST.Module
-import qualified AST.Core as AC
-import qualified AST.CoreFlat as ACF
-import qualified Subsystem.Units as U
+import qualified Ode.AST.Core as AC
+import qualified Ode.AST.CoreFlat as ACF
+import qualified Ode.Subsystem.Units as U
 
-import qualified Utils.OrdMap as OrdMap
+import qualified Ode.Utils.OrdMap as OrdMap
 
 
 

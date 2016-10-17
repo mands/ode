@@ -22,16 +22,16 @@ import Control.Monad.State
 import qualified Data.Map as Map
 import qualified Data.List as List
 import qualified Data.Set as Set
-import qualified Utils.OrdMap as OrdMap
+import qualified Ode.Utils.OrdMap as OrdMap
 
 
 import Ode.Utils.CommonImports
 import Ode.Utils.MonadSupply
 -- import Subsystem.SysState
-import qualified Subsystem.Units as U
-import qualified Subsystem.Types as T
-import qualified AST.Core as AC
-import qualified AST.CoreFlat as ACF
+import qualified Ode.Subsystem.Units as U
+import qualified Ode.Subsystem.Types as T
+import qualified Ode.AST.Core as AC
+import qualified Ode.AST.CoreFlat as ACF
 import AST.Common
 import AST.Module
 

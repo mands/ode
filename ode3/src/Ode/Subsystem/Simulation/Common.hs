@@ -16,7 +16,7 @@ module Ode.Subsystem.Simulation.Common (
 SimMetadata(..), writeMetadata
 ) where
 
-import qualified Subsystem.SysState as Sys
+import qualified Ode.Subsystem.SysState as Sys
 import Text.Show.Pretty
 import Text.Printf
 -- put file output routines here, both

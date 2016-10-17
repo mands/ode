@@ -47,14 +47,14 @@ import System.Log.Logger
 
 -- Ode
 import Ode.Utils.CommonImports
-import qualified Utils.OrdMap as OrdMap
-import qualified Utils.OrdSet as OrdSet
-import qualified Subsystem.SysState as St
+import qualified Ode.Utils.OrdMap as OrdMap
+import qualified Ode.Utils.OrdSet as OrdSet
+import qualified Ode.Subsystem.SysState as St
 
 import AST.Common
 import AST.Module
 import AST.Core
-import qualified Subsystem.Units as U
+import qualified Ode.Subsystem.Units as U
 import {-# SOURCE #-} Subsystem.ModDriver.ModCmd (evalImport) -- special import to break import cycle
 
 --import Core.Reorderer (reorder)

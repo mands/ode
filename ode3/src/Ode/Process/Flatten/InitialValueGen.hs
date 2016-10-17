@@ -26,14 +26,14 @@ import qualified Data.Map as Map
 import qualified Data.List as List
 import qualified Data.Foldable as DF
 import qualified Data.Traversable as DT
-import qualified Utils.OrdMap as OrdMap
+import qualified Ode.Utils.OrdMap as OrdMap
 import Data.Fixed(mod')
 
 import Ode.Utils.CommonImports
-import qualified Subsystem.Units as U
-import qualified Subsystem.Types as T
-import qualified Subsystem.SysState as Sys
-import qualified AST.Core as AC
+import qualified Ode.Subsystem.Units as U
+import qualified Ode.Subsystem.Types as T
+import qualified Ode.Subsystem.SysState as Sys
+import qualified Ode.AST.Core as AC
 import AST.Common as ACO
 import AST.Module
 import AST.CoreFlat (InitMap, SimType(..))

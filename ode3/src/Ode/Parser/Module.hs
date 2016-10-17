@@ -28,18 +28,18 @@ import qualified Data.Map as Map
 import qualified Data.List as List
 import qualified Data.Set as Set
 import qualified Data.Bimap as Bimap
-import qualified Utils.OrdMap as OrdMap
+import qualified Ode.Utils.OrdMap as OrdMap
 
 import Text.Parsec hiding (many, optional, (<|>))
 import Text.Printf (printf)
 
 import Ode.Utils.Utils
 import Ode.Parser.Common
-import qualified Parser.Ode as OP
+import qualified Ode.Parser.Ode as OP
 import AST.Common
 import AST.Module
-import qualified AST.Ode as O
-import qualified AST.Core as E
+import qualified Ode.AST.Ode as O
+import qualified Ode.AST.Core as E
 import Ode.Process.Desugarer
 
 

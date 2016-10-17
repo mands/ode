@@ -43,9 +43,9 @@ import qualified System.FilePath as FP
 import qualified System.Directory as Dir
 
 import AST.Common
-import qualified AST.Module as MA
-import qualified Utils.OrdSet as OrdSet
-import qualified Subsystem.Units as U
+import qualified Ode.AST.Module as MA
+import qualified Ode.Utils.OrdSet as OrdSet
+import qualified Ode.Subsystem.Units as U
 import Ode.Utils.Utils
 
 -- System State Monad --------------------------------------------------------------------------------------------------

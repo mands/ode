@@ -52,14 +52,14 @@ import Ode.Utils.ShellHandleBackend
 -- Ode Imports
 import Ode.Utils.CommonImports
 import Ode.Subsystem.SysState
-import qualified Utils.OrdSet as OrdSet
-import qualified Parser.Module as MP
-import qualified AST.Module as MA
-import qualified Subsystem.ModDriver as MD
+import qualified Ode.Utils.OrdSet as OrdSet
+import qualified Ode.Parser.Module as MP
+import qualified Ode.AST.Module as MA
+import qualified Ode.Subsystem.ModDriver as MD
 import Ode.Process.Flatten (flatten)
 import Ode.Subsystem.Simulation.Interpreter
 import Ode.Subsystem.Simulation.JITCompiler
-import qualified Subsystem.Units as U
+import qualified Ode.Subsystem.Units as U
 
 
 shellEntry :: IO ()

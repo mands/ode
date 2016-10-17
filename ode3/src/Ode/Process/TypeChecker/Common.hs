@@ -18,9 +18,9 @@ where
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import qualified AST.Core as E
-import qualified Subsystem.Units as U
-import qualified AST.Module as M
+import qualified Ode.AST.Core as E
+import qualified Ode.Subsystem.Units as U
+import qualified Ode.AST.Module as M
 
 
 -- Global Types ---------------------------------------------------------------------------------------------------------------

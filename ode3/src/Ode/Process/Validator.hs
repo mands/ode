@@ -33,10 +33,10 @@ import qualified Data.Foldable as DF
 import qualified Data.Set as Set
 import Text.Printf (printf)
 import Ode.Utils.CommonImports
-import qualified Utils.OrdMap as OrdMap
-import qualified AST.Core as E
-import qualified AST.Module as M
-import qualified AST.Common as AC
+import qualified Ode.Utils.OrdMap as OrdMap
+import qualified Ode.AST.Core as E
+import qualified Ode.AST.Module as M
+import qualified Ode.AST.Common as AC
 
 
 -- Process Entry -------------------------------------------------------------------------------------------------------

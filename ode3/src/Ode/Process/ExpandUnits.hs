@@ -27,12 +27,12 @@ import qualified Data.Foldable as DF
 import qualified Data.Set as Set
 import Text.Printf (printf)
 import Ode.Utils.CommonImports
-import qualified Utils.OrdMap as OrdMap
-import qualified AST.Core as E
-import qualified AST.Module as M
+import qualified Ode.Utils.OrdMap as OrdMap
+import qualified Ode.AST.Core as E
+import qualified Ode.AST.Module as M
 import AST.Common as AC
-import qualified Subsystem.SysState as St
-import qualified Subsystem.Units as U
+import qualified Ode.Subsystem.SysState as St
+import qualified Ode.Subsystem.Units as U
 
 
 -- Process Entry -------------------------------------------------------------------------------------------------------

@@ -38,12 +38,12 @@ import Text.Printf(printf)
 
 import Ode.Utils.CommonImports
 import Ode.Utils.MonadSupply
-import qualified Utils.OrdMap as OrdMap
+import qualified Ode.Utils.OrdMap as OrdMap
 import AST.Common
-import qualified AST.Ode as O
-import qualified AST.Core as C
-import qualified Subsystem.Units as U
-import qualified AST.Module as M
+import qualified Ode.AST.Ode as O
+import qualified Ode.AST.Core as C
+import qualified Ode.Subsystem.Units as U
+import qualified Ode.AST.Module as M
 
 -- We need a supply of unique Ids
 -- supply type, transformed with Error/Except Monad

@@ -36,7 +36,7 @@ import Prelude hiding ((.), id)
 -- containers
 import qualified Data.Foldable as DF
 import qualified Data.Map as Map
-import qualified Utils.OrdSet as OrdSet
+import qualified Ode.Utils.OrdSet as OrdSet
 import qualified Data.Set as Set
 import qualified Data.List.Split as ListSplit
 import Data.Maybe (isJust, fromJust)
@@ -49,7 +49,7 @@ import qualified System.FilePath as FP
 
 -- Ode
 import Ode.Utils.Utils
-import qualified Subsystem.SysState as St
+import qualified Ode.Subsystem.SysState as St
 
 import Ode.Parser.Module
 import AST.Common

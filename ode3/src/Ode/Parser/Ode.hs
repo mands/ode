@@ -27,9 +27,9 @@ import Text.Parsec.Perm
 import qualified Data.Map as Map
 
 import Ode.Parser.Common
-import qualified AST.Common as AC
+import qualified Ode.AST.Common as AC
 import Ode.Utils.Utils
-import qualified AST.Ode as AO
+import qualified Ode.AST.Ode as AO
 
 
 -- Useful Lexical Combinators ------------------------------------------------------------------------------------------

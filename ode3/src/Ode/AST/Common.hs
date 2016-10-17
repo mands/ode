@@ -28,7 +28,7 @@ module Ode.AST.Common (
 ) where
 
 import qualified Data.List as List
-import qualified Subsystem.Units as U
+import qualified Ode.Subsystem.Units as U
 import Ode.Utils.Utils
 
 -- Shared Identifiers --------------------------------------------------------------------------------------------------

@@ -31,11 +31,11 @@ import qualified Data.Traversable as DT
 
 
 import AST.Common as AC
-import qualified AST.Core as ACR
+import qualified Ode.AST.Core as ACR
 import AST.Module
-import qualified Subsystem.Units as U
-import qualified Subsystem.Types as T
-import qualified Subsystem.SysState as Sys
+import qualified Ode.Subsystem.Units as U
+import qualified Ode.Subsystem.Types as T
+import qualified Ode.Subsystem.SysState as Sys
 
 -- Monad and Helper Funcs -----------------------------------------------------------------------------------------------------
 

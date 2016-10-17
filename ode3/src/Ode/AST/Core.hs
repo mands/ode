@@ -44,7 +44,7 @@ import Data.Functor
 
 import Ode.Utils.CommonImports
 import AST.Common as AC
-import qualified Subsystem.Units as U
+import qualified Ode.Subsystem.Units as U
 
 -- | DetailId - holds both a (parameterised) identifier and a string that represetns the (closest) original/source file, variable and line num
 --data DetailId a = DetailId a SrcId Int deriving (Show, Eq, Ord)

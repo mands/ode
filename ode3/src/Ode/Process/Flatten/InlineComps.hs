@@ -31,12 +31,12 @@ import qualified Data.Traversable as DT
 
 import Ode.Utils.CommonImports
 import Ode.Utils.MonadSupply
-import qualified Utils.OrdMap as OrdMap
+import qualified Ode.Utils.OrdMap as OrdMap
 
 import AST.Common as ACO
-import qualified AST.Core as AC
+import qualified Ode.AST.Core as AC
 import AST.Module
-import qualified Subsystem.Units as U
+import qualified Ode.Subsystem.Units as U
 
 import Ode.Subsystem.SysState
 

@@ -34,13 +34,13 @@ import Text.Printf (printf)
 
 import Ode.Utils.CommonImports
 import Ode.Utils.MonadSupply
-import qualified Utils.OrdMap as OrdMap
+import qualified Ode.Utils.OrdMap as OrdMap
 
-import qualified Subsystem.SysState as St
+import qualified Ode.Subsystem.SysState as St
 import AST.Common as AC
-import qualified AST.Core as E
-import qualified AST.Module as M
-import qualified Subsystem.Units as U
+import qualified Ode.AST.Core as E
+import qualified Ode.AST.Module as M
+import qualified Ode.Subsystem.Units as U
 
 import Ode.Process.TypeChecker.Common
 

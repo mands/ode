@@ -24,7 +24,7 @@ import qualified Data.Foldable as DF
 import qualified Data.Map as Map
 import qualified Data.List as List
 import qualified Data.Traversable as DT
-import qualified Utils.OrdMap as OrdMap
+import qualified Ode.Utils.OrdMap as OrdMap
 
 import Ode.Subsystem.SysState
 import Ode.Utils.MonadSupply
@@ -32,8 +32,8 @@ import Ode.Utils.MonadSupply
 import AST.Common
 import AST.CoreFlat
 
-import qualified Subsystem.Units as U
-import qualified Subsystem.Types as T
+import qualified Ode.Subsystem.Units as U
+import qualified Ode.Subsystem.Types as T
 
 -- Types ---------------------------------------------------------------------------------------------------------------
 type UnpackM = SupplyT Id (StateT UnpackState MExcept)

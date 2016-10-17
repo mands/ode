@@ -39,7 +39,7 @@ import qualified Foreign.C as FFI
 import qualified Data.Foldable as DF
 import qualified Data.Traversable as DT
 import qualified Data.Map as Map
-import qualified Utils.OrdMap as OrdMap
+import qualified Ode.Utils.OrdMap as OrdMap
 
 import qualified Shelly as Sh
 
@@ -47,7 +47,7 @@ import Control.Monad.State
 import Ode.Utils.MonadSupply
 
 import Ode.Utils.CommonImports
-import qualified Subsystem.SysState as Sys
+import qualified Ode.Subsystem.SysState as Sys
 
 import AST.Common as AC
 import AST.CoreFlat as CF

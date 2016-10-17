@@ -37,7 +37,7 @@ import Data.Maybe (fromJust)
 import qualified Core.ExprAST as E
 import qualified Core.ModuleAST as M
 import Ode.Utils.Utils
-import qualified Utils.OrdMap as OrdMap
+import qualified Ode.Utils.OrdMap as OrdMap
 
 -- define the types we need for our graphs
 -- need a topgraph and a topmap - place them both in a state monad and done

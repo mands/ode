@@ -46,7 +46,7 @@ import Prelude hiding ((.), id)
 import qualified Data.Foldable as DF
 import qualified Data.Map as Map
 import Data.Map
-import qualified Utils.OrdSet as OrdSet
+import qualified Ode.Utils.OrdSet as OrdSet
 import qualified Data.Set as Set
 import qualified Data.List.Split as ListSplit
 import Data.Maybe (isJust, fromJust)

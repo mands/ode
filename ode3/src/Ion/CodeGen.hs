@@ -30,7 +30,7 @@ import Ion.AST
 import Ion.Process
 
 import Ode.Utils.CommonImports hiding ((<$>))
-import qualified Utils.OrdMap as OrdMap
+import qualified Ode.Utils.OrdMap as OrdMap
 
 ionCodeGen :: [IonChannel] -> MExcept String
 ionCodeGen ionChans = do

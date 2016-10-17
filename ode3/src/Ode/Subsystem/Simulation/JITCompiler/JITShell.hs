@@ -33,7 +33,7 @@ import Ode.Utils.CommonImports
 import Ode.Subsystem.Simulation.Common
 import Ode.Subsystem.Simulation.JITCompiler.JITCommon
 import Ode.Subsystem.Simulation.JITCompiler.JITModel
-import qualified Subsystem.SysState as Sys
+import qualified Ode.Subsystem.SysState as Sys
 
 default (LT.Text)
 
