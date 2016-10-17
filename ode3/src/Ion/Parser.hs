@@ -26,7 +26,7 @@ import qualified Text.Parsec.Token as T
 import Text.Parsec.Language
 import Text.Parsec.Perm
 
-import Utils.Utils
+import Ode.Utils.Utils
 import qualified Ion.AST as I
 import AST.CoreFlat(SimType(..))
 

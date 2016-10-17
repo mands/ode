@@ -34,7 +34,7 @@ import qualified Data.Array as A
 import qualified Utils.OrdMap as OrdMap
 import AST.CoreFlat(SimType)
 import Data.Monoid
-import Utils.Utils
+import Ode.Utils.Utils
 
 -- |identifier - is converted later on
 type Id = String

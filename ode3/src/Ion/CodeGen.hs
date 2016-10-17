@@ -29,7 +29,7 @@ import AST.CoreFlat(SimType(..))
 import Ion.AST
 import Ion.Process
 
-import Utils.CommonImports hiding ((<$>))
+import Ode.Utils.CommonImports hiding ((<$>))
 import qualified Utils.OrdMap as OrdMap
 
 ionCodeGen :: [IonChannel] -> MExcept String

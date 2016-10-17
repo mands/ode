@@ -22,8 +22,8 @@ import System.Log.Logger
 import System.Log.Handler(close)
 import System.Log.Handler.Simple
 
-import Utils.CommonImports
-import Subsystem.ShellUI
+import Ode.Utils.CommonImports
+import Ode.Subsystem.ShellUI
 
 -- | main entry funtion
 main :: IO ()

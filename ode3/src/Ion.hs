@@ -32,7 +32,7 @@ import Ion.CodeGen
 import Ion.AST
 import Ion.Process
 
-import Utils.CommonImports
+import Ode.Utils.CommonImports
 
 -- | main entry funtion
 main :: IO ()
