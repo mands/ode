@@ -33,30 +33,30 @@ executable ode3
                 DisambiguateRecordFields OverloadedStrings GADTs GADTSyntax
                 DeriveFunctor DeriveTraversable DeriveFoldable
     hs-source-dirs: src
-    other-modules: Parser.Ode Parser.Common Parser.Module
-                   Utils.CommonImports Utils.Utils Utils.ShellHandleBackend
-                   Utils.OrdMap Utils.OrdSet Utils.MonadSupply Utils.Graph
-                   Subsystem.ShellUI Subsystem.Types Subsystem.ModDriver
-                   Subsystem.Units Subsystem.SysState Subsystem.Units.UnitsDims
-                   Subsystem.Units.Conversion Subsystem.Units.Builtins
-                   Subsystem.ModDriver.ModCmd Subsystem.ModDriver.ModDef
-                   Subsystem.Simulation.Interpreter Subsystem.Simulation.JITCompiler
-                   Subsystem.Simulation.Common
-                   Subsystem.Simulation.JITCompiler.JITShell
-                   Subsystem.Simulation.JITCompiler.JITSolver
-                   Subsystem.Simulation.JITCompiler.JITHybridSolver
-                   Subsystem.Simulation.JITCompiler.JITModel
-                   Subsystem.Simulation.JITCompiler.JITDiffSolvers
-                   Subsystem.Simulation.JITCompiler.JITCommon Process.ExpandUnits
-                   Process.TypeChecker Process.Desugarer Process.Validator
-                   Process.Flatten Process.Renamer Process.Reorderer
-                   Process.TypeChecker.Unification Process.TypeChecker.ConstraintGen
-                   Process.TypeChecker.Common Process.Flatten.OptimiseAST
-                   Process.Flatten.ConvertAST Process.Flatten.UnpackTuples
-                   Process.Flatten.ConvertTypes Process.Flatten.InlineComps
-                   Process.Flatten.InlineMods Process.Flatten.OptimiseCoreFlatAST
-                   Process.Flatten.InitialValueGen AST.Core AST.Ode AST.Common
-                   AST.Module AST.CoreFlat Ion.CodeGen Ion.AST Ion.Process Ion.Parser
+    other-modules: Ode.Parser.Ode Ode.Parser.Common Ode.Parser.Module
+                   Ode.Utils.CommonImports Ode.Utils.Utils Ode.Utils.ShellHandleBackend
+                   Ode.Utils.OrdMap Ode.Utils.OrdSet Ode.Utils.MonadSupply Ode.Utils.Graph
+                   Ode.Subsystem.ShellUI Ode.Subsystem.Types Ode.Subsystem.ModDriver
+                   Ode.Subsystem.Units Ode.Subsystem.SysState Ode.Subsystem.Units.UnitsDims
+                   Ode.Subsystem.Units.Conversion Ode.Subsystem.Units.Builtins
+                   Ode.Subsystem.ModDriver.ModCmd Ode.Subsystem.ModDriver.ModDef
+                   Ode.Subsystem.Simulation.Interpreter Ode.Subsystem.Simulation.JITCompiler
+                   Ode.Subsystem.Simulation.Common
+                   Ode.Subsystem.Simulation.JITCompiler.JITShell
+                   Ode.Subsystem.Simulation.JITCompiler.JITSolver
+                   Ode.Subsystem.Simulation.JITCompiler.JITHybridSolver
+                   Ode.Subsystem.Simulation.JITCompiler.JITModel
+                   Ode.Subsystem.Simulation.JITCompiler.JITDiffSolvers
+                   Ode.Subsystem.Simulation.JITCompiler.JITCommon Ode.Process.ExpandUnits
+                   Ode.Process.TypeChecker Ode.Process.Desugarer Ode.Process.Validator
+                   Ode.Process.Flatten Ode.Process.Renamer Ode.Process.Reorderer
+                   Ode.Process.TypeChecker.Unification Ode.Process.TypeChecker.ConstraintGen
+                   Ode.Process.TypeChecker.Common Ode.Process.Flatten.OptimiseAST
+                   Ode.Process.Flatten.ConvertAST Ode.Process.Flatten.UnpackTuples
+                   Ode.Process.Flatten.ConvertTypes Ode.Process.Flatten.InlineComps
+                   Ode.Process.Flatten.InlineMods Ode.Process.Flatten.OptimiseCoreFlatAST
+                   Ode.Process.Flatten.InitialValueGen Ode.AST.Core Ode.AST.Ode Ode.AST.Common
+                   Ode.AST.Module Ode.AST.CoreFlat Ion.CodeGen Ion.AST Ion.Process Ion.Parser
     ghc-options: -w
  
 executable ion
@@ -75,23 +75,23 @@ executable ion
                 DisambiguateRecordFields OverloadedStrings GADTs GADTSyntax
                 DeriveFunctor DeriveTraversable DeriveFoldable
     hs-source-dirs: src
-    other-modules: Parser.Ode Parser.Common Parser.Module
-                   Utils.CommonImports Utils.Utils Utils.ShellHandleBackend
-                   Utils.OrdMap Utils.OrdSet Utils.MonadSupply Utils.Graph
-                   Subsystem.ShellUI Subsystem.Types Subsystem.ModDriver
-                   Subsystem.Units Subsystem.SysState Subsystem.Units.UnitsDims
-                   Subsystem.Units.Conversion Subsystem.Units.Builtins
-                   Subsystem.ModDriver.ModCmd Subsystem.ModDriver.ModDef
-                   Subsystem.Simulation.Interpreter Subsystem.Simulation.Common
-                   Subsystem.Simulation.JITCompiler.JITHybridSolver
-                   Process.ExpandUnits Process.TypeChecker Process.Desugarer
-                   Process.Validator Process.Flatten Process.Renamer Process.Reorderer
-                   Process.TypeChecker.Unification Process.TypeChecker.ConstraintGen
-                   Process.TypeChecker.Common Process.Flatten.OptimiseAST
-                   Process.Flatten.ConvertAST Process.Flatten.UnpackTuples
-                   Process.Flatten.ConvertTypes Process.Flatten.InlineComps
-                   Process.Flatten.InlineMods Process.Flatten.OptimiseCoreFlatAST
-                   Process.Flatten.InitialValueGen AST.Core AST.Ode AST.Common
-                   AST.Module AST.CoreFlat Ion.CodeGen Ion.AST Ion.Process Ion.Parser
+    other-modules: Ode.Parser.Ode Ode.Parser.Common Ode.Parser.Module
+                   Ode.Utils.CommonImports Ode.Utils.Utils Ode.Utils.ShellHandleBackend
+                   Ode.Utils.OrdMap Ode.Utils.OrdSet Ode.Utils.MonadSupply Ode.Utils.Graph
+                   Ode.Subsystem.ShellUI Ode.Subsystem.Types Ode.Subsystem.ModDriver
+                   Ode.Subsystem.Units Ode.Subsystem.SysState Ode.Subsystem.Units.UnitsDims
+                   Ode.Subsystem.Units.Conversion Ode.Subsystem.Units.Builtins
+                   Ode.Subsystem.ModDriver.ModCmd Ode.Subsystem.ModDriver.ModDef
+                   Ode.Subsystem.Simulation.Interpreter Ode.Subsystem.Simulation.Common
+                   Ode.Subsystem.Simulation.JITCompiler.JITHybridSolver
+                   Ode.Process.ExpandUnits Ode.Process.TypeChecker Ode.Process.Desugarer
+                   Ode.Process.Validator Ode.Process.Flatten Ode.Process.Renamer Ode.Process.Reorderer
+                   Ode.Process.TypeChecker.Unification Ode.Process.TypeChecker.ConstraintGen
+                   Ode.Process.TypeChecker.Common Ode.Process.Flatten.OptimiseAST
+                   Ode.Process.Flatten.ConvertAST Ode.Process.Flatten.UnpackTuples
+                   Ode.Process.Flatten.ConvertTypes Ode.Process.Flatten.InlineComps
+                   Ode.Process.Flatten.InlineMods Ode.Process.Flatten.OptimiseCoreFlatAST
+                   Ode.Process.Flatten.InitialValueGen Ode.AST.Core Ode.AST.Ode Ode.AST.Common
+                   Ode.AST.Module Ode.AST.CoreFlat Ion.CodeGen Ion.AST Ion.Process Ion.Parser
     ghc-options: -w
  
