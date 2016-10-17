@@ -32,6 +32,7 @@ res/samples/output
 *.lkshs
 *.lkshw
 .idea
+.stack-work
 
 syntax: regexp
 .*\#.*\#$
